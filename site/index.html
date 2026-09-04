@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Mondo — verificação</title>
+<link rel="stylesheet" href="./mondo.css">
+</head>
+<body>
+<main>
+  <h1>Mondo</h1>
+  <p class="sub">
+    Verificação da Fase 0. Ainda não é o jogo — isto só prova que o projeto,
+    o deploy e a autenticação funcionam de ponta a ponta.
+  </p>
+
+  <button id="run" type="button">Entrar com Google e testar</button>
+  <pre id="out" aria-live="polite">Aguardando.</pre>
+</main>
+
+<script type="module">
+import { signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js";
+import { auth, functions, googleProvider } from "./app/firebase.js";
+
+const out = document.getElementById("out");
+const run = document.getElementById("run");
+
+const show = (text, cls = "") => {
+  out.textContent = text;
+  out.className = cls;
+};
+
+// Phase 0 checks the whole chain in one click: sign-in (authorized domains),
+// the callable protocol (CORS allowlist), the region, and the CI deploy.
+async function check() {
+  run.disabled = true;
+  try {
+    if (!auth.currentUser) {
+      show("Abrindo o login do Google…");
+      await signInWithPopup(auth, googleProvider);
+    }
+    show("Chamando ping…");
+    const { data } = await httpsCallable(functions, "ping")();
+    show(JSON.stringify(data, null, 2), data?.ok ? "ok" : "err");
+  } catch (err) {
+    // Show the code as well as the message: "unauthenticated" vs a CORS failure
+    // vs "internal" point at completely different broken things.
+    show(`${err?.code ?? "erro"}\n${err?.message ?? err}`, "err");
+  } finally {
+    run.disabled = false;
+  }
+}
+
+run.addEventListener("click", check);
+onAuthStateChanged(auth, (user) => {
+  run.textContent = user ? "Testar novamente" : "Entrar com Google e testar";
+});
+</script>
+</body>
+</html>

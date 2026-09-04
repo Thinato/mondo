@@ -1,0 +1,54 @@
+# Publishes site/ to GitHub Pages.
+#
+# Served at lisecki.dev/mondo/ because the user site Thinato/thinato.github.io
+# carries the lisecki.dev custom domain, and project Pages sites inherit it (D-3).
+#
+# Only site/ is uploaded. backend/, infra/ and tools/ cannot leak through the
+# published site even by accident — which matters most for tools/out/, the
+# generated schedule that contains every answer.
+
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two Pages deploys at once; never cancel one midway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard — refuse to publish generated answers
+        run: |
+          if compgen -G "site/**/schedule*.json" > /dev/null; then
+            echo "::error::A schedule file is inside site/. That would publish every answer."
+            exit 1
+          fi
+          echo "site/ is clean."
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

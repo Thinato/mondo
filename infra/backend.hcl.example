@@ -1,0 +1,5 @@
+# Copy to backend.hcl, then:  terraform init -backend-config=backend.hcl
+#
+# This bucket is created BY HAND, once, before the first init — Terraform cannot
+# create the bucket that stores its own state. See README §1.
+bucket = "mondo-tfstate-CHANGEME"

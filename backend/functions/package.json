@@ -1,0 +1,27 @@
+{
+  "name": "mondo-functions",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mondo Cloud Functions \u2014 the server side that holds the answer.",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "lint": "tsc --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test \".test-build/test/**/*.test.js\"",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,auth"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

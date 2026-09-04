@@ -1,0 +1,82 @@
+# Deploys Cloud Functions and Firestore rules/indexes.
+#
+# Authenticates by Workload Identity Federation (SEC-10). No service-account
+# JSON key exists anywhere: not in the repo, not in GitHub secrets, not on disk.
+# GitHub mints an OIDC token, GCP trades it for a short-lived access token, and
+# the WIF provider's attribute condition means only this repository can do so.
+
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required to mint the OIDC token for WIF
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Always runs, including on pull requests from forks, which cannot deploy.
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/functions
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/functions/package-lock.json
+
+      - run: npm ci
+      - name: Typecheck
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Unit tests
+        run: npm test
+
+  deploy:
+    needs: test
+    # Never deploy from a pull request, and never from a branch other than main.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/functions/package-lock.json
+
+      - name: Authenticate to Google Cloud (WIF, no keys)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy rules, indexes and functions
+        working-directory: backend
+        run: |
+          npx --yes firebase-tools@latest deploy \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --only firestore:rules,firestore:indexes,functions \
+            --non-interactive \
+            --force

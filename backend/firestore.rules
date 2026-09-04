@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Mondo Firestore rules — Phase 0.
+//
+// Default deny, and in Phase 0 that is the *whole* rule set: no collection
+// exists yet, and nothing should be reachable before the data model does.
+// The narrow allows for users/, attempts/ and groups/ arrive in Phase 1 and
+// Phase 2 alongside their negative tests. See 02-architecture.md §5.
+//
+// SEC-6 — puzzles, attempts, challenges, groups/*/results and groups/*/standings
+// are Admin-SDK-only, forever. There is no client write path to any of them.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

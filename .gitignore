@@ -1,0 +1,43 @@
+# Generated puzzle schedule — committing this leaks every answer (CLAUDE.md invariant 7)
+tools/out/
+
+# Generated geo artifacts are committed on purpose; scratch is not
+tools/.cache/
+tools/preview.html
+
+# Node
+node_modules/
+npm-debug.log*
+*.tsbuildinfo
+backend/functions/lib/
+
+# Terraform — state may contain project metadata, and .tfvars may name the billing account
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+backend.hcl
+crash.log
+
+# Firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+.runtimeconfig.json
+
+# Secrets — belt and braces (SEC-10)
+.env
+.env.*
+*-service-account*.json
+*credentials*.json
+
+# OS / editor
+.DS_Store
+.idea/
+.omc
+
+# Compiled tests (tsconfig.test.json)
+backend/functions/.test-build/

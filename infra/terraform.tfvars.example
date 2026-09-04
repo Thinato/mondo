@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored:
+# the billing account ID is not a secret, but it is not yours to publish either.
+
+# gcloud billing accounts list
+billing_account = "XXXXXX-XXXXXX-XXXXXX"
+
+# Optional overrides — the defaults in variables.tf are already correct for Mondo.
+# project_id          = "mondo-prod"
+# region              = "southamerica-east1"   # PERMANENT for Firestore
+# github_repository   = "Thinato/mondo"
+# budget_amount       = 20
+# budget_alert_emails = ["you@example.com"]
+
+# Personal Google account with no organization: leave both null (the default).
+# org_id    = null
+# folder_id = null

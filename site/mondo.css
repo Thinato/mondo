@@ -1,0 +1,66 @@
+/* Mondo — Phase 0. Enough to read the smoke test on a phone (FR-6.1: 360px). */
+
+:root {
+  color-scheme: light dark;
+  --bg: #fbfbf9;
+  --fg: #16171a;
+  --muted: #6b6f76;
+  --line: #dfdfd9;
+  --ok: #1c7c4a;
+  --err: #b3261e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131417;
+    --fg: #e9e9e6;
+    --muted: #9aa0a6;
+    --line: #2c2e33;
+    --ok: #6ddc9b;
+    --err: #f2a9a2;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 2rem 1rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: grid;
+  place-items: start center;
+  min-height: 100dvh;
+}
+
+main { width: 100%; max-width: 34rem; }
+
+h1 { font-size: 1.5rem; margin: 0 0 .25rem; letter-spacing: -.01em; }
+p.sub { margin: 0 0 2rem; color: var(--muted); }
+
+button {
+  font: inherit;
+  padding: .6rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--fg); }
+button:disabled { opacity: .5; cursor: default; }
+
+pre {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: .875rem;
+}
+
+.ok  { color: var(--ok); }
+.err { color: var(--err); }

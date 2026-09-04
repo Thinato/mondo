@@ -1,0 +1,13 @@
+{
+  // Functions must ship CommonJS, so the test files are compiled the same way
+  // rather than run through type-stripping, which cannot turn ESM syntax into
+  // CommonJS. Output goes to a scratch dir that is never deployed.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": ".test-build",
+    "sourceMap": true,
+    "noEmit": false
+  },
+  "include": ["src", "test"]
+}
