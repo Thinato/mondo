@@ -11,8 +11,9 @@ Rough effort assumes evenings and weekends, one person, with Claude Code doing t
 ## Phase 0 — Foundations
 *Effort: ~1 evening. No game yet.*
 
-Infrastructure is **applied**. What remains is the console toggle for Google
-sign-in and the first push, which triggers the CI deploy of `ping`.
+**Phase 0 complete — 2026-09-06.** `ping` returned `{ ok: true, region:
+"southamerica-east1" }` to a signed-in browser on `lisecki.dev/mondo/`, deployed
+from CI via WIF. The table below is the record of how it got there.
 
 | # | Step | Status |
 |---|------|--------|
@@ -23,7 +24,7 @@ sign-in and the first push, which triggers the CI deploy of `ping`.
 | 4 | `/infra` applied; Firestore **native** in **`southamerica-east1`** | **Done and verified** from state — 46 resources |
 | 5 | Workload Identity Federation for GitHub Actions (SEC-10) | **Done** — pool + provider applied, 3 repo variables set |
 | 6 | `LICENSE` (MIT) and `NOTICE` | **Done** |
-| 7 | Enable the Google sign-in provider | **You** — console only, `infra/README.md` §5 |
+| 7 | Enable the Google sign-in provider | **Done** 2026-09-06 |
 | 8 | Push → CI deploys `ping`; Pages source set to *GitHub Actions* | **Done** — pushed 2026-09-06, Pages enabled at `lisecki.dev/mondo/` |
 | 9 | Artifact Registry cleanup policy | **Done** 2026-09-06 — keep 3, delete >30d. First image was 98.7 MiB against 0.5 GB free. |
 | 10 | Restrict the Firebase web API key to known referrers | **Done** 2026-09-06 — `infra/README.md` §9 |
