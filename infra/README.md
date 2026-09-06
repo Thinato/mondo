@@ -187,6 +187,33 @@ Paste those values into `../site/app/firebase.js`. They are not secret — a
 Firebase web `apiKey` identifies the project and authorizes nothing. All access
 control is Security Rules plus each callable's own auth assertion.
 
+## 9. Restrict the Firebase web API key
+
+Creating the web app makes Firebase auto-generate a browser API key, and that
+key is embedded in `site/app/firebase.js`. **This is by design and not a
+secret** — every visitor's browser must receive it, so hiding or rotating it
+achieves nothing. GitHub's secret scanning will flag it anyway because it
+pattern-matches Google API keys; resolve the alert as a false positive.
+
+What *is* worth doing is restricting it. Firebase already limits the key to its
+own APIs, but leaves referrers open — meaning any site could embed it. In a
+project shared across lisecki.dev that is worth closing:
+
+```sh
+KEY=$(gcloud services api-keys list --project=lisecki-dev \
+  --filter='displayName:"Browser key (auto created by Firebase)"' --format='value(uid)')
+
+gcloud services api-keys update "$KEY" --project=lisecki-dev \
+  --allowed-referrers='https://lisecki.dev/*,https://lisecki-dev.firebaseapp.com/*,http://localhost:8000/*,http://127.0.0.1:8000/*'
+```
+
+`lisecki-dev.firebaseapp.com` must stay in the list: the Google sign-in popup
+runs its handler page from that origin. Drop it and sign-in breaks.
+
+This is deliberately gcloud rather than Terraform: importing the key would
+freeze Firebase's 27 auto-managed API targets into state, and Terraform would
+then fight Firebase every time it adjusts them.
+
 ## What Terraform deliberately does not manage
 
 | Thing | Why |
@@ -195,3 +222,4 @@ control is Security Rules plus each callable's own auth assertion.
 | Google sign-in provider | Needs an OAuth client Terraform cannot cleanly create. Step 5. |
 | Function source, `firestore.rules`, indexes | Firebase CLI's job (D-6). See `../backend/`. |
 | The puzzle schedule | `tools/generate-schedule.mjs`, run by a human. Its output is the answers. |
+| Firebase web API key restrictions | Firebase auto-manages the key's API targets; importing it would make Terraform fight that. One gcloud command, step 9. |

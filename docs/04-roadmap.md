@@ -24,8 +24,9 @@ sign-in and the first push, which triggers the CI deploy of `ping`.
 | 5 | Workload Identity Federation for GitHub Actions (SEC-10) | **Done** — pool + provider applied, 3 repo variables set |
 | 6 | `LICENSE` (MIT) and `NOTICE` | **Done** |
 | 7 | Enable the Google sign-in provider | **You** — console only, `infra/README.md` §5 |
-| 8 | First push → CI deploys `ping`; then set Pages source to *GitHub Actions* | **Pending first commit** |
+| 8 | Push → CI deploys `ping`; Pages source set to *GitHub Actions* | **Done** — pushed 2026-09-06, Pages enabled at `lisecki.dev/mondo/` |
 | 9 | Artifact Registry cleanup policy | **You**, after the first deploy — `05-cost.md` §3.2 |
+| 10 | Restrict the Firebase web API key to known referrers | **Done** 2026-09-06 — `infra/README.md` §9 |
 
 Terraform cannot enable the Google sign-in provider: it needs an OAuth client
 that Firebase provisions on toggle. That is the one irreducible manual step.
