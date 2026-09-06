@@ -25,7 +25,7 @@ sign-in and the first push, which triggers the CI deploy of `ping`.
 | 6 | `LICENSE` (MIT) and `NOTICE` | **Done** |
 | 7 | Enable the Google sign-in provider | **You** — console only, `infra/README.md` §5 |
 | 8 | Push → CI deploys `ping`; Pages source set to *GitHub Actions* | **Done** — pushed 2026-09-06, Pages enabled at `lisecki.dev/mondo/` |
-| 9 | Artifact Registry cleanup policy | **You**, after the first deploy — `05-cost.md` §3.2 |
+| 9 | Artifact Registry cleanup policy | **Done** 2026-09-06 — keep 3, delete >30d. First image was 98.7 MiB against 0.5 GB free. |
 | 10 | Restrict the Firebase web API key to known referrers | **Done** 2026-09-06 — `infra/README.md` §9 |
 
 Terraform cannot enable the Google sign-in provider: it needs an OAuth client
