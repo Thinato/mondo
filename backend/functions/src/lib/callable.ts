@@ -1,5 +1,5 @@
 import { onCall, type CallableRequest, HttpsError } from "firebase-functions/v2/https";
-import { ALLOWED_ORIGINS, REGION } from "./config";
+import { ALLOWED_ORIGINS, REGION, RUNTIME_SERVICE_ACCOUNT } from "./config";
 
 /**
  * Wraps `onCall` so that region and CORS are set identically everywhere (SEC-9),
@@ -16,12 +16,25 @@ export function callable<Req, Res>(
     {
       region: REGION,
       cors: ALLOWED_ORIGINS,
+      serviceAccount: RUNTIME_SERVICE_ACCOUNT,
       // Generous enough for a guess round-trip (NFR-1: p95 < 600ms) without
       // letting a wedged handler burn budget.
       timeoutSeconds: 30,
       memory: "256MiB",
       // Guard against a runaway loop costing real money (SEC-11 is the backstop).
       maxInstances: 10,
+
+      // DO NOT SET minInstances WITHOUT READING docs/05-cost.md.
+      //
+      // NFR-2 suggests `minInstances: 1` to hide cold starts at lunch. It is the
+      // single most expensive line you can add to this codebase. Cloud Run's free
+      // tier is 180,000 vCPU-seconds/month (50 vCPU-hours); one always-warm
+      // instance occupies ~730 instance-hours/month. That is an order of
+      // magnitude outside the free tier, in every region, and it bills whether
+      // anyone plays or not.
+      //
+      // Measure p95 first (NFR-1 is 600ms). Accepting a cold start on the day's
+      // first guess is free; a warm instance is not.
       ...(options.minInstances !== undefined ? { minInstances: options.minInstances } : {}),
     },
     async (request) => {

@@ -9,6 +9,14 @@
 export const REGION = "southamerica-east1";
 
 /**
+ * Least-privilege runtime identity (Firestore + logging + auth admin only),
+ * created by infra/cicd.tf. Without this, functions run as the project's
+ * default compute service account, which is far broader than they need.
+ */
+export const RUNTIME_SERVICE_ACCOUNT =
+  "mondo-functions@lisecki-dev.iam.gserviceaccount.com";
+
+/**
  * SEC-9 — only these origins may invoke a callable. The Firebase callable
  * protocol is CORS-enforced, so this is a real boundary, not decoration.
  * localhost is for the emulator only.

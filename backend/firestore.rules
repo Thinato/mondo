@@ -2,6 +2,24 @@ rules_version = '2';
 
 // Mondo Firestore rules — Phase 0.
 //
+// ############################################################################
+// # SHARED-PROJECT HAZARD — READ BEFORE DEPLOYING
+// #
+// # A ruleset is per DATABASE, and deploying REPLACES the whole thing. There is
+// # no merge. The project lisecki-dev hosts everything on lisecki.dev, and this
+// # file governs its (default) Firestore database in its entirety.
+// #
+// # So: if any other lisecki.dev app stores data in this same database, running
+// # `firebase deploy --only firestore:rules` from this repo will lock that app
+// # out completely — the catch-all below denies everything not explicitly
+// # allowed. And a rules deploy from that other app will silently delete
+// # Mondo's rules in the same way. Last deploy wins.
+// #
+// # If that is the situation, the options are: keep one shared rules file as the
+// # single source of truth for the whole database, or give Mondo its own named
+// # Firestore database (which is NOT free — see docs/05-cost.md §1).
+// ############################################################################
+//
 // Default deny, and in Phase 0 that is the *whole* rule set: no collection
 // exists yet, and nothing should be reachable before the data model does.
 // The narrow allows for users/, attempts/ and groups/ arrive in Phase 1 and
