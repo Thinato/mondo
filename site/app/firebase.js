@@ -18,10 +18,10 @@ import {
 //
 // Fill these in from:  cd infra && terraform output firebase_config
 const firebaseConfig = {
-  apiKey: "TODO_FROM_TERRAFORM_OUTPUT",
-  authDomain: "mondo-prod.firebaseapp.com",
-  projectId: "mondo-prod",
-  appId: "TODO_FROM_TERRAFORM_OUTPUT",
+  apiKey: "AIzaSyB8HUy2M-VJdz1RVnTOJYBfU4u7G7-5TfM",
+  authDomain: "lisecki-dev.firebaseapp.com",
+  projectId: "lisecki-dev",
+  appId: "1:1004509196255:web:065a348a29d848fc6e1e6a",
 };
 
 // Players are in São Paulo, and so is everything else (D-9).
