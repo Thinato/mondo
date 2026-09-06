@@ -11,18 +11,21 @@ Rough effort assumes evenings and weekends, one person, with Claude Code doing t
 ## Phase 0 — Foundations
 *Effort: ~1 evening. No game yet.*
 
-Repo-side work is **done**; the remaining steps need a Google account and a card,
-so they are yours to run. `infra/README.md` is the runbook.
+Infrastructure is **applied**. What remains is the console toggle for Google
+sign-in and the first push, which triggers the CI deploy of `ping`.
 
 | # | Step | Status |
 |---|------|--------|
 | 1 | Resolve OQ-1 … OQ-9 | **Done** — `00-brief.md` §7 |
-| 2 | GCP project, billing, R$20 budget alert (SEC-11) | **Written as Terraform**, needs `apply` |
-| 3 | GCS bucket for Terraform state, by hand | **You** — `infra/README.md` §1 |
-| 4 | `/infra` written and applied; Firestore native in `southamerica-east1` | **Written**, needs `apply` + console check |
-| 5 | Workload Identity Federation for GitHub Actions (SEC-10) | **Written as Terraform**, needs `apply` + `gh variable set` |
-| 6 | `LICENSE` (MIT) and `NOTICE` (Natural Earth, mledoze/countries) | **Done** |
-| 7 | Enable the Google sign-in provider | **You** — console only, `infra/README.md` §4 |
+| 2 | GCP project, billing linked, R$20 budget alert (SEC-11) | **Done** — `lisecki-dev`, imported and applied 2026-09-06 |
+| 3 | GCS bucket for Terraform state | **Done** — `gs://lisecki-dev-tfstate`, versioned |
+| 3b | Cost model verified against current GCP pricing | **Done** — `05-cost.md` |
+| 4 | `/infra` applied; Firestore **native** in **`southamerica-east1`** | **Done and verified** from state — 46 resources |
+| 5 | Workload Identity Federation for GitHub Actions (SEC-10) | **Done** — pool + provider applied, 3 repo variables set |
+| 6 | `LICENSE` (MIT) and `NOTICE` | **Done** |
+| 7 | Enable the Google sign-in provider | **You** — console only, `infra/README.md` §5 |
+| 8 | First push → CI deploys `ping`; then set Pages source to *GitHub Actions* | **Pending first commit** |
+| 9 | Artifact Registry cleanup policy | **You**, after the first deploy — `05-cost.md` §3.2 |
 
 Terraform cannot enable the Google sign-in provider: it needs an OAuth client
 that Firebase provisions on toggle. That is the one irreducible manual step.
@@ -142,3 +145,4 @@ Scope: FR-5.
 | Cold starts make lunchtime feel bad | Measure first. `minInstances: 1` if p95 is bad. |
 | The public repo leaks the schedule | `tools/out/` gitignored; `puzzles` collection unreadable |
 | Nobody plays after week two | Ship Phase 1 fast and find out cheaply. This is the real risk. |
+| A surprise bill | Not the region — the region premium only applies to overage. The real risks are `minInstances`, Artifact Registry accumulation, and per-viewer leaderboard aggregation. `05-cost.md` §3. Budget alert fires at R$1. |

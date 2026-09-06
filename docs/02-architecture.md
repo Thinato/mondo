@@ -13,7 +13,7 @@
                 │ HTTPS, Firebase callable protocol
                 │ ID token attached by SDK
 ┌───────────────▼────────────────────────────┐
-│ Firebase / GCP project  mondo-prod         │
+│ Firebase / GCP project  lisecki-dev        │
 │                                            │
 │  Firebase Auth (Identity Platform)         │
 │    Google provider + email link            │
@@ -42,7 +42,17 @@ history. The Firebase JS SDK ships as ES modules on a CDN, so
 tooling. `git push` is the deploy.
 
 **Why `southamerica-east1`:** the players are in São Paulo. Firestore location is permanent
-once set — pick it deliberately.
+once set — pick it deliberately. It is a Tier 2 (more expensive) region, which does not matter
+because free-tier allowances are the same size everywhere and the plan has no overage — see
+`05-cost.md` §1.
+
+**Why the project is `lisecki-dev` and not `mondo-prod`:** one GCP project holds everything on
+lisecki.dev, so there is a single billing surface and a single place to look (D-12). Mondo is a
+tenant, not the owner. Two things follow, and both can break a neighbouring app:
+`firestore.rules` is per-database and a deploy **replaces** the whole ruleset, and Identity
+Platform's `authorized_domains` is set **authoritatively, not additively**. Free-tier quotas are
+per project too, so the headroom in `05-cost.md` §2 is shared rather than Mondo's alone. Full
+consequences in `05-cost.md` §5.
 
 ## 2. Repository layout
 

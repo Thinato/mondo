@@ -69,6 +69,7 @@ Decisions already made, with reasoning. Revisit deliberately, not accidentally.
 | D-9 | Puzzle day boundary pinned to `America/Sao_Paulo` | Everyone flips at the same instant. Avoids UTC-midnight-at-21:00 confusion. |
 | D-10 | Async challenges only in v1; creator plays blind | A challenge where the creator picks the country is not a contest. |
 | D-11 | The puzzle day runs noon-to-noon, and `rebuildStandings` runs at **12:05** `America/Sao_Paulo`, not 00:05 | Follows from OQ-2. The nightly job must fire just after the day boundary, not in the middle of a live round. |
+| D-12 | One shared GCP project, `lisecki-dev`, holds everything on lisecki.dev. Mondo is a tenant, not the owner. | One billing surface, one budget, one console to check — the right call for a personal domain. Accepted costs: free-tier quotas are per project and therefore shared, only one Firestore database is free, and both `firestore.rules` and Identity Platform's authorized domains are project-wide and authoritative, so a careless deploy from either side can break the other. See `05-cost.md` §5. Decided 2026-09-04, replacing `mondo-prod`. |
 
 ## 7. Resolved questions
 

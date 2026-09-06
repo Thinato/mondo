@@ -154,10 +154,15 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 ## NFR — Non-functional
 
 - **NFR-1** Guess round-trip p95 under 600ms from São Paulo.
-- **NFR-2** Cloud Functions cold starts MUST be mitigated during peak hours. Use `minInstances: 1`
-  on the guess function scheduled around the lunch window, or accept and measure.
-- **NFR-3** Cost MUST stay within Firebase free-tier allowances at 100 daily players.
-  Budget: under R$5/month.
+- **NFR-2** Cloud Functions cold starts SHOULD be measured before they are mitigated.
+  `minInstances: 1` is the obvious fix and costs roughly an order of magnitude more than the
+  entire free tier — see `05-cost.md` §3.1. Measure p95 against NFR-1 first; accepting a cold
+  start on the day's first guess is free. Revisit only with real numbers.
+- **NFR-3** Cost MUST stay within free-tier allowances at 100 daily players. Budget: under
+  R$5/month; expected steady state is R$0.00. The binding constraint is Firestore reads, which
+  is why standings are precomputed rather than aggregated per page-load. Arithmetic, headroom
+  and the four real cost risks are in `05-cost.md`. Note that a GCP budget alert notifies and
+  does not cap spend.
 - **NFR-4** The frontend MUST have no build step. Vanilla ES modules, Firebase SDK via CDN ESM import.
 - **NFR-5** Total frontend payload for a round MUST stay under 150KB gzipped, including geometry.
 - **NFR-6** Puzzle schedule MUST be generated at least 180 days ahead. A cron check SHOULD warn

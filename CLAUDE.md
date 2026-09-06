@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Context for AI coding agents working in this repo. Read `docs/00-brief.md` through
-`docs/04-roadmap.md` before making changes.
+`docs/05-cost.md` before making changes.
 
 ## What this is
 
@@ -21,7 +21,10 @@ competitive group. Vanilla frontend published from `site/` by GitHub Pages, Fire
 5. **No secrets in the repo.** No service-account JSON, no `.env`. CI uses Workload Identity
    Federation.
 6. **Email addresses are never exposed to other users.** Display names only.
-7. **`tools/out/` is gitignored.** It holds the generated puzzle schedule. Committing it leaks
+7. **Never set `minInstances` on a function without reading `docs/05-cost.md` §3.1.** One
+   always-warm instance costs an order of magnitude more than the whole free tier and bills
+   when nobody is playing. Cold starts are free; warm instances are not.
+8. **`tools/out/` is gitignored.** It holds the generated puzzle schedule. Committing it leaks
    every answer.
 
 ## Conventions

@@ -32,7 +32,7 @@ site/       vanilla ES modules — the ONLY directory GitHub Pages publishes
 backend/    Cloud Functions v2 (TypeScript, Node 22) + Firestore rules
 infra/      Terraform: GCP project, Firestore, Auth, budget, CI identity
 tools/      offline geo pipeline and puzzle-schedule generator
-docs/       brief, requirements, architecture, geo pipeline, roadmap
+docs/       brief, requirements, architecture, geo pipeline, roadmap, cost
 ```
 
 Pages uploads `site/` and nothing else, so `tools/out/` — the generated schedule,
@@ -49,8 +49,8 @@ Identity Federation — there is no service-account key anywhere.
 ## Getting started
 
 Read [`docs/00-brief.md`](docs/00-brief.md) through
-[`docs/04-roadmap.md`](docs/04-roadmap.md) first; they are short and they explain
-why things are the way they are.
+[`docs/05-cost.md`](docs/05-cost.md) first; they are short and they explain why
+things are the way they are.
 
 ```sh
 # Infrastructure — see infra/README.md for the full runbook
