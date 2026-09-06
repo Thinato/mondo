@@ -14,9 +14,12 @@ import {
 
 // Not secret. A Firebase web apiKey identifies the project; it authorizes
 // nothing. Every access decision is made by Security Rules and by each
-// callable's own auth assertion (SEC-6, SEC-8).
+// callable's own auth assertion (SEC-6, SEC-8). GitHub secret scanning flags
+// it because it pattern-matches Google API keys — a false positive. The key IS
+// referrer-restricted to lisecki.dev (infra/README.md §9), so it cannot be
+// lifted and used from another site.
 //
-// Fill these in from:  cd infra && terraform output firebase_config
+// Values come from:  cd infra && terraform output firebase_config
 const firebaseConfig = {
   apiKey: "AIzaSyB8HUy2M-VJdz1RVnTOJYBfU4u7G7-5TfM",
   authDomain: "lisecki-dev.firebaseapp.com",
