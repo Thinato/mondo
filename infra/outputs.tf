@@ -1,11 +1,11 @@
 output "project_id" {
   description = "GCP / Firebase project ID."
-  value       = google_project.mondo.project_id
+  value       = google_project.main.project_id
 }
 
 output "project_number" {
   description = "GCP project number."
-  value       = google_project.mondo.number
+  value       = google_project.main.number
 }
 
 output "region" {
@@ -36,7 +36,7 @@ output "firebase_config" {
   value = {
     apiKey            = data.google_firebase_web_app_config.mondo.api_key
     authDomain        = data.google_firebase_web_app_config.mondo.auth_domain
-    projectId         = google_project.mondo.project_id
+    projectId         = google_project.main.project_id
     storageBucket     = try(data.google_firebase_web_app_config.mondo.storage_bucket, null)
     messagingSenderId = try(data.google_firebase_web_app_config.mondo.messaging_sender_id, null)
     appId             = google_firebase_web_app.mondo.app_id
@@ -70,10 +70,10 @@ output "manual_steps" {
   description = "What Terraform cannot do for you."
   value       = <<-EOT
     1. Enable the Google sign-in provider:
-       https://console.firebase.google.com/project/${google_project.mondo.project_id}/authentication/providers
+       https://console.firebase.google.com/project/${google_project.main.project_id}/authentication/providers
        Terraform cannot create the OAuth client; Firebase provisions it on toggle.
     2. Verify Firestore is FIRESTORE_NATIVE in ${var.region}. This is irreversible:
-       https://console.cloud.google.com/firestore/databases?project=${google_project.mondo.project_id}
+       https://console.cloud.google.com/firestore/databases?project=${google_project.main.project_id}
     3. Confirm the budget alert exists:
        https://console.cloud.google.com/billing/budgets
   EOT

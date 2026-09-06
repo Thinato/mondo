@@ -16,6 +16,8 @@ backend/functions/lib/
 .terraform.lock.hcl
 *.tfstate
 *.tfstate.*
+*.tfplan
+tf.plan
 *.tfvars
 !*.tfvars.example
 backend.hcl

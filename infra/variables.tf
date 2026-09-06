@@ -1,7 +1,7 @@
 variable "project_id" {
-  description = "GCP project ID. Globally unique, permanent."
+  description = "GCP project ID. Globally unique, permanent. Shared by everything on lisecki.dev, not Mondo alone."
   type        = string
-  default     = "mondo-prod"
+  default     = "lisecki-dev"
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{5,29}$", var.project_id))
@@ -10,9 +10,14 @@ variable "project_id" {
 }
 
 variable "project_name" {
-  description = "Human-readable project name shown in the GCP console."
+  description = "Human-readable project name shown in the GCP console. No dots allowed."
   type        = string
-  default     = "Mondo"
+  default     = "lisecki-dev"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9 '\"!-]{4,30}$", var.project_name))
+    error_message = "GCP display names are 4-30 chars of letters, digits, space, hyphen, quotes or '!'. No dots."
+  }
 }
 
 variable "billing_account" {
@@ -51,8 +56,13 @@ variable "region" {
 
 # --- Frontend -----------------------------------------------------------------
 
+# WARNING: this list is AUTHORITATIVE for the whole project. Identity Platform
+# replaces the project's authorized domains with exactly what is set here — it
+# does not merge. Because lisecki-dev is shared by everything on lisecki.dev, any
+# domain another app on this project relies on MUST appear in this list, or
+# applying this config will break that app's sign-in.
 variable "authorized_domains" {
-  description = "Domains allowed to complete a Firebase Auth sign-in flow. localhost is for the emulator (SEC-9)."
+  description = "EVERY domain allowed to complete a Firebase Auth sign-in for ANY app in this project. Authoritative, not additive. localhost is for the emulator (SEC-9)."
   type        = list(string)
   default     = ["lisecki.dev", "localhost"]
 }

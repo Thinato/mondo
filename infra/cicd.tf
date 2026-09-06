@@ -7,7 +7,7 @@
 # ==============================================================================
 
 resource "google_service_account" "deployer" {
-  project      = google_project.mondo.project_id
+  project      = google_project.main.project_id
   account_id   = "mondo-deployer"
   display_name = "Mondo CI deployer"
   description  = "Impersonated by GitHub Actions via WIF to deploy functions, rules and indexes. Has no keys."
@@ -16,7 +16,7 @@ resource "google_service_account" "deployer" {
 }
 
 resource "google_iam_workload_identity_pool" "github" {
-  project                   = google_project.mondo.project_id
+  project                   = google_project.main.project_id
   workload_identity_pool_id = "github"
   display_name              = "GitHub Actions"
   description               = "Identity pool for GitHub Actions OIDC tokens."
@@ -25,7 +25,7 @@ resource "google_iam_workload_identity_pool" "github" {
 }
 
 resource "google_iam_workload_identity_pool_provider" "github" {
-  project                            = google_project.mondo.project_id
+  project                            = google_project.main.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
   workload_identity_pool_provider_id = "github-oidc"
   display_name                       = "GitHub OIDC"
@@ -79,7 +79,7 @@ locals {
 resource "google_project_iam_member" "deployer" {
   for_each = toset(local.deployer_roles)
 
-  project = google_project.mondo.project_id
+  project = google_project.main.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.deployer.email}"
 }
@@ -93,7 +93,7 @@ resource "google_project_iam_member" "deployer" {
 # ------------------------------------------------------------------------------
 
 resource "google_service_account" "functions" {
-  project      = google_project.mondo.project_id
+  project      = google_project.main.project_id
   account_id   = "mondo-functions"
   display_name = "Mondo functions runtime"
   description  = "Runtime identity for Cloud Functions. Firestore + logging only."
@@ -108,7 +108,7 @@ resource "google_project_iam_member" "functions_runtime" {
     "roles/firebaseauth.admin", # deleteAccount must delete the auth record (FR-1.5)
   ])
 
-  project = google_project.mondo.project_id
+  project = google_project.main.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.functions.email}"
 }

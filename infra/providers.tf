@@ -28,10 +28,18 @@ terraform {
   }
 }
 
+# user_project_override + billing_project: a handful of APIs (Identity Toolkit,
+# Billing Budgets, Firebase) refuse user credentials unless the request names a
+# quota project. Without these two lines, apply fails with a 403 "requires a
+# quota project" on exactly those resources while everything else succeeds.
 provider "google" {
-  region = var.region
+  region                = var.region
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 provider "google-beta" {
-  region = var.region
+  region                = var.region
+  user_project_override = true
+  billing_project       = var.project_id
 }

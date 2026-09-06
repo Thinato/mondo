@@ -5,7 +5,7 @@
 billing_account = "XXXXXX-XXXXXX-XXXXXX"
 
 # Optional overrides — the defaults in variables.tf are already correct for Mondo.
-# project_id          = "mondo-prod"
+# project_id          = "lisecki-dev"
 # region              = "southamerica-east1"   # PERMANENT for Firestore
 # github_repository   = "Thinato/mondo"
 # budget_amount       = 20

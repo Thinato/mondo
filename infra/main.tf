@@ -2,7 +2,7 @@
 # Project
 # ==============================================================================
 
-resource "google_project" "mondo" {
+resource "google_project" "main" {
   provider = google-beta
 
   name            = var.project_name
@@ -16,7 +16,8 @@ resource "google_project" "mondo" {
     "firebase" = "enabled"
   }
 
-  # Deleting the project would take every score with it.
+  # Deleting the project would take every score with it — and now everything else
+  # hosted on lisecki.dev too.
   deletion_policy = "PREVENT"
 }
 
@@ -51,7 +52,7 @@ locals {
 resource "google_project_service" "services" {
   for_each = toset(local.services)
 
-  project = google_project.mondo.project_id
+  project = google_project.main.project_id
   service = each.value
 
   # Leave APIs enabled on destroy. Disabling them can break other things in the
@@ -73,7 +74,7 @@ resource "time_sleep" "wait_for_services" {
 
 resource "google_firebase_project" "mondo" {
   provider   = google-beta
-  project    = google_project.mondo.project_id
+  project    = google_project.main.project_id
   depends_on = [time_sleep.wait_for_services]
 }
 
@@ -95,7 +96,7 @@ resource "google_firebase_project" "mondo" {
 resource "google_firestore_database" "default" {
   provider = google-beta
 
-  project     = google_project.mondo.project_id
+  project     = google_project.main.project_id
   name        = "(default)"
   location_id = var.region
   type        = "FIRESTORE_NATIVE"
@@ -125,7 +126,7 @@ resource "google_firestore_database" "default" {
 resource "google_firebase_web_app" "mondo" {
   provider = google-beta
 
-  project      = google_project.mondo.project_id
+  project      = google_project.main.project_id
   display_name = "Mondo"
 
   deletion_policy = "DELETE"
@@ -134,7 +135,7 @@ resource "google_firebase_web_app" "mondo" {
 
 data "google_firebase_web_app_config" "mondo" {
   provider   = google-beta
-  project    = google_project.mondo.project_id
+  project    = google_project.main.project_id
   web_app_id = google_firebase_web_app.mondo.app_id
 }
 
@@ -144,12 +145,18 @@ data "google_firebase_web_app_config" "mondo" {
 # This sets the authorized domains (SEC-9) and sign-in policy. It does NOT
 # enable the Google sign-in provider itself: that requires an OAuth 2.0 client,
 # which Firebase auto-provisions when you flip the toggle in the console but
-# Terraform cannot create for you. One manual step, documented in README §4.
+# Terraform cannot create for you. One manual step, documented in README §5.
+#
+# SHARED-PROJECT HAZARD: authorized_domains is authoritative for the entire
+# project, not additive. Applying this replaces whatever is currently there. If
+# another app on lisecki-dev signs users in from a domain not listed in
+# var.authorized_domains, this apply breaks it. Check the console before the
+# first apply.
 # ==============================================================================
 
 resource "google_identity_platform_config" "auth" {
   provider = google-beta
-  project  = google_project.mondo.project_id
+  project  = google_project.main.project_id
 
   # lisecki.dev and localhost only. A sign-in started from anywhere else fails.
   authorized_domains = var.authorized_domains
@@ -172,6 +179,10 @@ resource "google_identity_platform_config" "auth" {
 #
 # Amount is in the billing account's own currency; currency_code is deliberately
 # omitted so it inherits BRL rather than fighting the API over a mismatch.
+#
+# NOTE: the filter is the whole project, which now hosts everything on
+# lisecki.dev. This alert therefore covers more than Mondo, and a breach does not
+# necessarily mean Mondo caused it. See docs/05-cost.md §5.4.
 # ==============================================================================
 
 data "google_billing_account" "account" {
@@ -181,8 +192,8 @@ data "google_billing_account" "account" {
 resource "google_monitoring_notification_channel" "budget_email" {
   for_each = toset(var.budget_alert_emails)
 
-  project      = google_project.mondo.project_id
-  display_name = "Mondo budget alert: ${each.value}"
+  project      = google_project.main.project_id
+  display_name = "lisecki.dev budget alert: ${each.value}"
   type         = "email"
 
   labels = {
@@ -194,10 +205,10 @@ resource "google_monitoring_notification_channel" "budget_email" {
 
 resource "google_billing_budget" "mondo" {
   billing_account = data.google_billing_account.account.id
-  display_name    = "Mondo — ${var.budget_amount}/month"
+  display_name    = "lisecki.dev — ${var.budget_amount}/month"
 
   budget_filter {
-    projects               = ["projects/${google_project.mondo.number}"]
+    projects               = ["projects/${google_project.main.number}"]
     calendar_period        = "MONTH"
     credit_types_treatment = "INCLUDE_ALL_CREDITS"
   }
@@ -208,10 +219,15 @@ resource "google_billing_budget" "mondo" {
     }
   }
 
-  # 50% and 90% are early warnings; 100% actual and 100% forecast are the ones
-  # that mean something is wrong, because the expected steady-state bill is zero.
+  # The expected steady-state bill is EXACTLY ZERO — Mondo is sized to sit inside
+  # the free tier (NFR-3). So the interesting alert is not "you are near R$20",
+  # it is "you are being charged at all". 5% of R$20 is R$1, which fires on
+  # essentially any real spend and gives days of warning rather than hours.
+  #
+  # Read this as a smoke detector, not a spending cap. A budget alert NOTIFIES;
+  # it does not stop charges. Nothing in GCP hard-caps spend by default.
   dynamic "threshold_rules" {
-    for_each = [0.5, 0.9, 1.0]
+    for_each = [0.05, 0.25, 0.5, 0.9, 1.0]
     content {
       threshold_percent = threshold_rules.value
       spend_basis       = "CURRENT_SPEND"
