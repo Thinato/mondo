@@ -10,7 +10,7 @@ build time by tools/build-geo.mjs; none of it is fetched at request time.
 -------------------------------------------------------------------------------
 Natural Earth  —  country geometry
 -------------------------------------------------------------------------------
-Dataset:  ne_50m_admin_0_countries
+Dataset:  ne_10m_admin_0_countries
 Source:   https://www.naturalearthdata.com/
 License:  Public domain.
 

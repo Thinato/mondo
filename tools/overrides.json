@@ -1,0 +1,15 @@
+{
+  "//": "Exceptions to D-8 (largest landmass only). For each country listed, every polygon with area >= minShare x the largest polygon's area is also kept. The default stays largest-only, which is what fixes France-in-the-Atlantic and the USA; list here only the archipelago states whose largest island alone is not recognisable. Each entry needs a reason. Changes by pull request; regenerate tools/preview.html and look at it.",
+  "keep": {
+    "ID": { "minShare": 0.2,  "why": "Kalimantan alone is a blob. Keeps Sumatra, Sulawesi, Java and Indonesian Papua." },
+    "MY": { "minShare": 0.5,  "why": "East Malaysia is larger than the peninsula, but the peninsula is what people recognise. Keeps both." },
+    "NZ": { "minShare": 0.5,  "why": "North Island is 75% of South Island. Both or it is not New Zealand." },
+    "JP": { "minShare": 0.08, "why": "Keeps Hokkaido, Kyushu and Shikoku (8.2%) alongside Honshu." },
+    "PH": { "minShare": 0.08, "why": "Luzon alone is unrecognisable. Keeps Mindanao and the larger Visayas." },
+    "GB": { "minShare": 0.05, "why": "Northern Ireland (6.7%) is part of the UK's outline." },
+    "IT": { "minShare": 0.07, "why": "Italy without Sicily and Sardinia looks wrong to everyone." },
+    "DK": { "minShare": 0.09, "why": "Keeps Zealand and Funen with Jutland." },
+    "GR": { "minShare": 0.05, "why": "Keeps Crete." },
+    "FJ": { "minShare": 0.5,  "why": "Vanua Levu is half of Viti Levu; both or it is one blob." }
+  }
+}

@@ -1,0 +1,793 @@
+{
+  "//": "Recognisability tier per country (FR-2.4). 1 = well known (50% of puzzles), 2 = moderate (35%), 3 = obscure (15%). Rule: famous list → 1; else population > 20M or area > 500k km² → 1; else population < 1M or area < 5k km² → 3; else 2. Population is not in world-countries, so the population sets were applied by hand from ~2024 figures. Every entry says which rule placed it; to move a country, change its tier and rewrite `why`, by pull request (03-geo-data-pipeline.md §5).",
+  "tiers": {
+    "AD": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "AE": {
+      "tier": 2,
+      "why": "default"
+    },
+    "AF": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "AG": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "AL": {
+      "tier": 2,
+      "why": "default"
+    },
+    "AM": {
+      "tier": 2,
+      "why": "default"
+    },
+    "AO": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "AR": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "AT": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "AU": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "AZ": {
+      "tier": 2,
+      "why": "default"
+    },
+    "BA": {
+      "tier": 2,
+      "why": "default"
+    },
+    "BB": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "BD": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "BE": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "BF": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "BG": {
+      "tier": 2,
+      "why": "default"
+    },
+    "BH": {
+      "tier": 3,
+      "why": "area 765 km² < 5k"
+    },
+    "BI": {
+      "tier": 2,
+      "why": "default"
+    },
+    "BJ": {
+      "tier": 2,
+      "why": "default"
+    },
+    "BN": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "BO": {
+      "tier": 1,
+      "why": "area 1,098,581 km² > 500k"
+    },
+    "BR": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "BS": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "BT": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "BW": {
+      "tier": 1,
+      "why": "area 582,000 km² > 500k"
+    },
+    "BY": {
+      "tier": 2,
+      "why": "default"
+    },
+    "BZ": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "CA": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "CD": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "CF": {
+      "tier": 1,
+      "why": "area 622,984 km² > 500k"
+    },
+    "CG": {
+      "tier": 2,
+      "why": "default"
+    },
+    "CH": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "CI": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "CL": {
+      "tier": 1,
+      "why": "area 756,102 km² > 500k"
+    },
+    "CM": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "CN": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "CO": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "CR": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "CU": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "CV": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "CY": {
+      "tier": 2,
+      "why": "default"
+    },
+    "CZ": {
+      "tier": 2,
+      "why": "default"
+    },
+    "DE": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "DJ": {
+      "tier": 2,
+      "why": "default"
+    },
+    "DK": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "DM": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "DO": {
+      "tier": 2,
+      "why": "default"
+    },
+    "DZ": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "EC": {
+      "tier": 2,
+      "why": "default"
+    },
+    "EE": {
+      "tier": 2,
+      "why": "default"
+    },
+    "EG": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "ER": {
+      "tier": 2,
+      "why": "default"
+    },
+    "ES": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "ET": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "FI": {
+      "tier": 2,
+      "why": "default"
+    },
+    "FJ": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "FM": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "FR": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "GA": {
+      "tier": 2,
+      "why": "default"
+    },
+    "GB": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "GD": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "GE": {
+      "tier": 2,
+      "why": "default"
+    },
+    "GH": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "GM": {
+      "tier": 2,
+      "why": "default"
+    },
+    "GN": {
+      "tier": 2,
+      "why": "default"
+    },
+    "GQ": {
+      "tier": 2,
+      "why": "default"
+    },
+    "GR": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "GT": {
+      "tier": 2,
+      "why": "default"
+    },
+    "GW": {
+      "tier": 2,
+      "why": "default"
+    },
+    "GY": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "HN": {
+      "tier": 2,
+      "why": "default"
+    },
+    "HR": {
+      "tier": 2,
+      "why": "default"
+    },
+    "HT": {
+      "tier": 2,
+      "why": "default"
+    },
+    "HU": {
+      "tier": 2,
+      "why": "default"
+    },
+    "ID": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "IE": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "IL": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "IN": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "IQ": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "IR": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "IS": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "IT": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "JM": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "JO": {
+      "tier": 2,
+      "why": "default"
+    },
+    "JP": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "KE": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "KG": {
+      "tier": 2,
+      "why": "default"
+    },
+    "KH": {
+      "tier": 2,
+      "why": "default"
+    },
+    "KI": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "KM": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "KN": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "KP": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "KR": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "KW": {
+      "tier": 2,
+      "why": "default"
+    },
+    "KZ": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "LA": {
+      "tier": 2,
+      "why": "default"
+    },
+    "LB": {
+      "tier": 2,
+      "why": "default"
+    },
+    "LC": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "LI": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "LK": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "LR": {
+      "tier": 2,
+      "why": "default"
+    },
+    "LS": {
+      "tier": 2,
+      "why": "default"
+    },
+    "LT": {
+      "tier": 2,
+      "why": "default"
+    },
+    "LU": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "LV": {
+      "tier": 2,
+      "why": "default"
+    },
+    "LY": {
+      "tier": 1,
+      "why": "area 1,759,540 km² > 500k"
+    },
+    "MA": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "MC": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "MD": {
+      "tier": 2,
+      "why": "default"
+    },
+    "ME": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "MG": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "MH": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "MK": {
+      "tier": 2,
+      "why": "default"
+    },
+    "ML": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "MM": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "MN": {
+      "tier": 1,
+      "why": "area 1,564,110 km² > 500k"
+    },
+    "MR": {
+      "tier": 1,
+      "why": "area 1,030,700 km² > 500k"
+    },
+    "MT": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "MU": {
+      "tier": 3,
+      "why": "area 2,040 km² < 5k"
+    },
+    "MV": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "MW": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "MX": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "MY": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "MZ": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "NA": {
+      "tier": 1,
+      "why": "area 825,615 km² > 500k"
+    },
+    "NE": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "NG": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "NI": {
+      "tier": 2,
+      "why": "default"
+    },
+    "NL": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "NO": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "NP": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "NR": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "NZ": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "OM": {
+      "tier": 2,
+      "why": "default"
+    },
+    "PA": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "PE": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "PG": {
+      "tier": 2,
+      "why": "default"
+    },
+    "PH": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "PK": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "PL": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "PS": {
+      "tier": 2,
+      "why": "default"
+    },
+    "PT": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "PW": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "PY": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "QA": {
+      "tier": 2,
+      "why": "default"
+    },
+    "RO": {
+      "tier": 2,
+      "why": "default"
+    },
+    "RS": {
+      "tier": 2,
+      "why": "default"
+    },
+    "RU": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "RW": {
+      "tier": 2,
+      "why": "default"
+    },
+    "SA": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "SB": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "SC": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "SD": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "SE": {
+      "tier": 2,
+      "why": "default"
+    },
+    "SG": {
+      "tier": 3,
+      "why": "area 710 km² < 5k"
+    },
+    "SI": {
+      "tier": 2,
+      "why": "default"
+    },
+    "SK": {
+      "tier": 2,
+      "why": "default"
+    },
+    "SL": {
+      "tier": 2,
+      "why": "default"
+    },
+    "SM": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "SN": {
+      "tier": 2,
+      "why": "default"
+    },
+    "SO": {
+      "tier": 1,
+      "why": "area 637,657 km² > 500k"
+    },
+    "SR": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "SS": {
+      "tier": 1,
+      "why": "area 619,745 km² > 500k"
+    },
+    "ST": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "SV": {
+      "tier": 2,
+      "why": "default"
+    },
+    "SY": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "SZ": {
+      "tier": 2,
+      "why": "default"
+    },
+    "TD": {
+      "tier": 1,
+      "why": "area 1,284,000 km² > 500k"
+    },
+    "TG": {
+      "tier": 2,
+      "why": "default"
+    },
+    "TH": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "TJ": {
+      "tier": 2,
+      "why": "default"
+    },
+    "TL": {
+      "tier": 2,
+      "why": "default"
+    },
+    "TM": {
+      "tier": 2,
+      "why": "default"
+    },
+    "TN": {
+      "tier": 2,
+      "why": "default"
+    },
+    "TO": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "TR": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "TT": {
+      "tier": 2,
+      "why": "default"
+    },
+    "TV": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "TW": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "TZ": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "UA": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "UG": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "US": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "UY": {
+      "tier": 1,
+      "why": "manual famous list"
+    },
+    "UZ": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "VA": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "VC": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "VE": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "VN": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "VU": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "WS": {
+      "tier": 3,
+      "why": "population < 1M"
+    },
+    "XK": {
+      "tier": 2,
+      "why": "default"
+    },
+    "YE": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "ZA": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "ZM": {
+      "tier": 1,
+      "why": "population > 20M"
+    },
+    "ZW": {
+      "tier": 2,
+      "why": "default"
+    }
+  }
+}
