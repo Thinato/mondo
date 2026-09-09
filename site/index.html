@@ -21,6 +21,8 @@
   <h1><a href="./">Mondo</a></h1>
   <nav aria-label="Principal">
     <a href="./regras.html">Regras</a>
+    <a href="./grupos.html">Grupos</a>
+    <a id="admin-link" href="./admin.html" hidden>Painel</a>
     <button id="profile-btn" type="button" class="link" hidden>Perfil</button>
     <button id="sign-out" type="button" class="link" hidden>Sair</button>
   </nav>
@@ -31,6 +33,12 @@
     <p class="sub">Um país por dia. Adivinhe pela silhueta em até seis tentativas; a cada erro você ganha a distância e a direção.</p>
     <button id="sign-in" type="button" class="primary">Entrar com Google</button>
     <p class="fine">Só o nome de exibição aparece para os outros. <a href="./privacidade.html">Privacidade</a>.</p>
+  </section>
+
+  <section id="not-invited" hidden>
+    <p class="sub">Você precisa de um convite para jogar.</p>
+    <p>O Mondo é jogado em grupos fechados. Peça o link de convite a quem te chamou; ao abrir o link, você entra no grupo e o jogo abre.</p>
+    <p class="fine">Já tem um link? Abra-o neste mesmo navegador, com esta mesma conta.</p>
   </section>
 
   <section id="game" hidden>
@@ -56,7 +64,7 @@
     <section id="result" class="result" hidden>
       <p id="result-text"></p>
       <button id="share" type="button" class="primary">Compartilhar</button>
-      <p class="fine">Novo país todo dia ao meio-dia.</p>
+      <p class="fine">Novo país todo dia ao meio-dia. <a href="./grupos.html">Ver ranking</a>.</p>
     </section>
   </section>
 </main>
@@ -75,8 +83,21 @@
     <p class="fine">3 a 24 caracteres: letras, números, espaço, - ou _. É o que os outros veem.</p>
     <p id="profile-error" class="err" aria-live="polite"></p>
     <div class="actions">
+      <button type="button" id="delete-btn" class="link">Excluir conta</button>
       <button type="submit" value="cancel" class="link">Cancelar</button>
       <button type="submit" value="save" class="primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="delete-dialog">
+  <form id="delete-form" method="dialog">
+    <h2>Excluir conta</h2>
+    <p>Apaga na hora: seu login, seu perfil, todos os seus resultados e sua participação em todos os grupos. Não dá para desfazer.</p>
+    <p id="delete-error" class="err" aria-live="polite"></p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Cancelar</button>
+      <button type="submit" value="ok" class="primary">Excluir tudo</button>
     </div>
   </form>
 </dialog>

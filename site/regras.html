@@ -49,9 +49,35 @@
     <li><strong>Dá pra trapacear?</strong> A resposta nunca sai do servidor antes do fim da rodada. Um
     acerto de primeira em menos de dois segundos fica marcado como <em>suspeito</em>. Não é proibido; é
     assunto de almoço.</li>
+    <li><strong>Quem pode jogar?</strong> Só quem foi convidado. O jogo acontece em grupos fechados: o dono do
+    grupo gera um link de convite, que vale por sete dias e só funciona uma vez. Sem grupo, sem jogo.</li>
   </ul>
-  <p class="fine">Grupos, ranking e desafios chegam em seguida. As regras de ranking vão aparecer aqui quando
-  existirem.</p>
+
+  <h2>Ranking</h2>
+  <p>Cada grupo tem um ranking em três janelas: <strong>30 dias</strong> (a padrão), <strong>7 dias</strong> e
+  <strong>sempre</strong>. Uma janela é uma sequência de dias de puzzle terminando em <em>ontem</em>; hoje ainda
+  está em jogo.</p>
+  <ul>
+    <li><strong>Dia não jogado vale 0</strong>, igual a um dia jogado e errado.</li>
+    <li><strong>Nos 30 dias, os dois piores dias de cada um são descartados.</strong> Exemplo: quem jogou 28 dias e
+    faltou 2 perde nada, porque os dois zeros são os descartados. Quem faltou 3 dias fica com um zero contando.
+    Quem jogou todos os 30 descarta seus dois piores resultados de verdade. Nas janelas de 7 dias e de sempre nada
+    é descartado.</li>
+    <li><strong>Empate em pontos</strong> se resolve pela <strong>soma do tempo</strong> das rodadas jogadas na janela:
+    menos tempo fica na frente. Empate em tudo divide a posição: 1º, 2º, 2º, 4º.</li>
+    <li><strong>Rodadas</strong> é quantos dias da janela a pessoa terminou. <strong>Média</strong> é a média de
+    chutes por rodada terminada (uma rodada perdida conta seis chutes). O descarte dos dois piores dias mexe só
+    nos pontos, não na média nem nas rodadas.</li>
+    <li><strong>Sequência</strong> é quantos dias seguidos a pessoa terminou uma rodada. Um dia sem rodada
+    terminada zera a sequência.</li>
+    <li><strong>O ranking fecha ao meio-dia.</strong> As rodadas de ontem entram às 12:05; o dia de hoje aparece no
+    painel <em>Hoje</em> do grupo, que mostra quem já jogou, quem está jogando e quem falta. Os pontos de hoje dos
+    outros só aparecem para quem já terminou o seu.</li>
+    <li><strong>Nomes iguais</strong> no mesmo grupo ganham um número (<em>Ana</em>, <em>Ana 2</em>) na ordem de
+    entrada no grupo.</li>
+    <li><strong>Nova chance.</strong> O administrador pode reiniciar a rodada de hoje de alguém (um clique errado,
+    uma queda de conexão). A tentativa antiga fica guardada e visível no painel; não é segredo.</li>
+  </ul>
 </main>
 
 <footer><a href="./">Jogar</a> · <a href="./privacidade.html">Privacidade</a> · <a href="https://github.com/Thinato/mondo">Código</a></footer>

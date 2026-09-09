@@ -162,3 +162,35 @@ main.prose h2 { font-size: 1.15rem; margin-top: 1.75rem; }
 main.prose table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 main.prose th, main.prose td { border: 1px solid var(--line); padding: .4rem .6rem; text-align: center; }
 main.prose td:first-child, main.prose th:first-child { text-align: left; }
+
+/* Phase 2 — groups, boards, admin (FR-4.6, FR-4.11, FR-7). */
+.cards { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .5rem; }
+.cards li a { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; padding: .75rem; background: var(--card); border-radius: .5rem; text-decoration: none; }
+.cards li a:hover { outline: 1px solid var(--fg); }
+.cards .meta { color: var(--muted); font-size: .9rem; white-space: nowrap; }
+.badge { font-size: .75rem; padding: .1rem .4rem; border-radius: .3rem; background: var(--line); color: var(--fg); vertical-align: middle; }
+.badge.warn { background: var(--band-1); color: #16171a; }
+.row { display: flex; gap: .5rem; align-items: stretch; margin: .5rem 0; flex-wrap: wrap; }
+.row input[type="text"] { flex: 1; min-width: 8rem; font: inherit; padding: .6rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); color: inherit; }
+.tabs { display: flex; gap: .25rem; margin: 1rem 0 .5rem; }
+.tabs button { font: inherit; padding: .4rem .8rem; border: 1px solid var(--line); border-radius: 2rem; background: transparent; color: var(--muted); cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-color: var(--fg); }
+.table-wrap { overflow-x: auto; margin: 0 -1rem; padding: 0 1rem; }
+table.board { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+table.board th, table.board td { padding: .45rem .5rem; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.board th:nth-child(2), table.board td:nth-child(2) { text-align: left; }
+table.board th { color: var(--muted); font-weight: 500; font-size: .85rem; }
+table.board tr.me td { background: var(--card); font-weight: 600; }
+table.board .name { max-width: 10rem; overflow: hidden; text-overflow: ellipsis; }
+.today h3 { font-size: .95rem; margin: 1rem 0 .25rem; color: var(--muted); }
+.today ul { list-style: none; margin: 0; padding: 0; }
+.today li { padding: .3rem 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: .5rem; }
+.today li .score { color: var(--muted); font-variant-numeric: tabular-nums; }
+.fast { color: var(--err); font-weight: 600; }
+.invite-url { font-family: ui-monospace, monospace; font-size: .85rem; word-break: break-all; padding: .5rem; background: var(--card); border-radius: .5rem; }
+.pending { list-style: none; margin: .5rem 0; padding: 0; font-size: .9rem; }
+.pending li { display: flex; justify-content: space-between; gap: .5rem; padding: .25rem 0; color: var(--muted); }
+select { font: inherit; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: .35rem; background: var(--bg); color: inherit; }
+details.guesses { font-size: .85rem; }
+details.guesses summary { cursor: pointer; color: var(--muted); }
+h2.title { font-size: 1.25rem; margin: 0 0 .25rem; }

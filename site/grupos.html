@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo — grupos</title>
+<link rel="stylesheet" href="./mondo.css">
+<script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+</head>
+<body>
+<header>
+  <h1><a href="./">Mondo</a></h1>
+  <nav aria-label="Principal">
+    <a href="./">Jogar</a>
+    <a href="./regras.html">Regras</a>
+    <button id="sign-out" type="button" class="link" hidden>Sair</button>
+  </nav>
+</header>
+
+<main>
+  <section id="signed-out">
+    <p class="sub">Entre para ver seus grupos e rankings.</p>
+    <button id="sign-in" type="button" class="primary">Entrar com Google</button>
+  </section>
+
+  <p id="status" aria-live="polite"></p>
+
+  <!-- Group list (no ?g=) -->
+  <section id="list" hidden>
+    <h2 class="title">Seus grupos</h2>
+    <ul id="cards" class="cards" aria-label="Grupos"></ul>
+    <p id="no-groups" class="fine" hidden></p>
+    <form id="create-form" class="row" autocomplete="off">
+      <input id="create-name" type="text" minlength="3" maxlength="40" required placeholder="Nome do novo grupo" aria-label="Nome do grupo">
+      <button type="submit" class="primary">Criar grupo</button>
+    </form>
+    <p class="fine">Grupos são fechados: só quem recebe um link de convite do dono entra.</p>
+  </section>
+
+  <!-- One group's board (?g=) -->
+  <section id="board" hidden>
+    <p class="fine"><a href="./grupos.html">← Grupos</a></p>
+    <h2 id="group-name" class="title"></h2>
+    <p id="group-meta" class="fine"></p>
+
+    <div id="owner-tools" hidden>
+      <div class="row">
+        <button id="invite-btn" type="button" class="primary">Convidar</button>
+        <button id="rename-btn" type="button" class="link">Renomear</button>
+      </div>
+      <div id="invite-result" hidden>
+        <p class="fine" id="invite-hint"></p>
+        <p id="invite-url" class="invite-url"></p>
+        <div class="row"><button id="copy-btn" type="button" class="primary">Copiar link</button></div>
+      </div>
+      <form id="rename-form" class="row" autocomplete="off" hidden>
+        <input id="rename-name" type="text" minlength="3" maxlength="40" required aria-label="Novo nome">
+        <button type="submit" class="primary">Salvar</button>
+        <button type="button" id="rename-cancel" class="link">Cancelar</button>
+      </form>
+      <ul id="pending" class="pending" aria-label="Convites pendentes"></ul>
+    </div>
+
+    <div id="tabs" class="tabs" role="tablist" aria-label="Janela">
+      <button type="button" role="tab" data-window="last30" aria-selected="true">30 dias</button>
+      <button type="button" role="tab" data-window="last7" aria-selected="false">7 dias</button>
+      <button type="button" role="tab" data-window="allTime" aria-selected="false">Sempre</button>
+    </div>
+    <div class="table-wrap">
+      <table class="board" aria-label="Ranking">
+        <thead><tr><th>#</th><th>Nome</th><th>Pontos</th><th>Rodadas</th><th>Média</th><th>Seq.</th><th id="actions-head" hidden></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p id="closed-through" class="fine"></p>
+
+    <section id="today" class="today" aria-label="Hoje">
+      <h2 class="title">Hoje</h2>
+      <p id="today-hint" class="fine"></p>
+      <h3>Jogaram</h3><ul id="today-finished"></ul>
+      <h3>Jogando</h3><ul id="today-playing"></ul>
+      <h3>Ainda não</h3><ul id="today-waiting"></ul>
+    </section>
+
+    <p class="fine"><button id="leave-btn" type="button" class="link">Sair do grupo</button></p>
+  </section>
+</main>
+
+<footer>
+  <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> ·
+  <a href="https://github.com/Thinato/mondo">Código</a>
+</footer>
+
+<dialog id="confirm-dialog">
+  <form method="dialog">
+    <p id="confirm-text"></p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Cancelar</button>
+      <button type="submit" value="ok" class="primary">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="./app/groups.js"></script>
+</body>
+</html>

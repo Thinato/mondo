@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo — painel</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="./mondo.css">
+<script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+</head>
+<body>
+<header>
+  <h1><a href="./">Mondo</a></h1>
+  <nav aria-label="Principal">
+    <a href="./">Jogar</a>
+    <a href="./grupos.html">Grupos</a>
+    <button id="sign-out" type="button" class="link" hidden>Sair</button>
+  </nav>
+</header>
+
+<main>
+  <section id="signed-out">
+    <p class="sub">Painel do administrador.</p>
+    <button id="sign-in" type="button" class="primary">Entrar com Google</button>
+  </section>
+
+  <p id="status" aria-live="polite"></p>
+
+  <section id="panel" hidden>
+    <div id="tabs" class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="users" aria-selected="true">Usuários</button>
+      <button type="button" role="tab" data-tab="groups" aria-selected="false">Grupos</button>
+      <button type="button" role="tab" data-tab="day" aria-selected="false">Dia</button>
+      <button type="button" role="tab" data-tab="tournaments" aria-selected="false">Torneios</button>
+    </div>
+
+    <section id="tab-users">
+      <div class="table-wrap">
+        <table class="board" aria-label="Usuários">
+          <thead><tr><th>Nome</th><th>Papel</th><th>Criado</th><th>Jogou</th><th>Acertou</th><th>Seq.</th><th>Grupos</th><th></th></tr></thead>
+          <tbody id="users-rows"></tbody>
+        </table>
+      </div>
+      <p class="row"><button id="users-more" type="button" class="link" hidden>Carregar mais</button></p>
+      <section id="user-attempts" hidden>
+        <h2 id="user-attempts-title" class="title"></h2>
+        <div class="table-wrap"><table class="board" aria-label="Tentativas do jogador"><thead><tr><th>Dia</th><th>Estado</th><th>Chutes</th><th>Pts</th><th>Tempo</th><th>Intervalos (ms)</th><th></th></tr></thead><tbody id="user-attempts-rows"></tbody></table></div>
+      </section>
+    </section>
+
+    <section id="tab-groups" hidden>
+      <div class="table-wrap">
+        <table class="board" aria-label="Todos os grupos">
+          <thead><tr><th>Nome</th><th>Dono</th><th>Jogadores</th><th>Criado</th><th></th></tr></thead>
+          <tbody id="groups-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-day" hidden>
+      <div class="row">
+        <label for="day-input" class="fine">Dia do puzzle</label>
+        <input id="day-input" type="date">
+      </div>
+      <p class="fine">Tempo é do servidor. Intervalos são os milissegundos entre chutes; o menor fica em destaque. Chutes de hoje só aparecem depois que você terminar o seu.</p>
+      <div class="table-wrap">
+        <table class="board" aria-label="Tentativas do dia">
+          <thead><tr><th>Nome</th><th>Estado</th><th>Chutes</th><th>Pts</th><th>Tempo</th><th>Intervalos (ms)</th><th></th><th></th></tr></thead>
+          <tbody id="day-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-tournaments" hidden>
+      <p>Torneios chegam na Fase 3.</p>
+    </section>
+  </section>
+</main>
+
+<footer><a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> · <a href="https://github.com/Thinato/mondo">Código</a></footer>
+
+<dialog id="confirm-dialog">
+  <form method="dialog">
+    <p id="confirm-text"></p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Cancelar</button>
+      <button type="submit" value="ok" class="primary">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="./app/admin.js"></script>
+</body>
+</html>

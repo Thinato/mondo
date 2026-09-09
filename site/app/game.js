@@ -17,6 +17,8 @@ const el = {
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
   shareBtn: $("share"), left: $("left"), profileBtn: $("profile-btn"), profileDialog: $("profile-dialog"),
   profileForm: $("profile-form"), profileName: $("profile-name"), profileError: $("profile-error"),
+  notInvited: $("not-invited"), adminLink: $("admin-link"),
+  deleteBtn: $("delete-btn"), deleteDialog: $("delete-dialog"), deleteForm: $("delete-form"), deleteError: $("delete-error"),
 };
 
 let round = null;
@@ -47,6 +49,8 @@ el.signOut.addEventListener("click", async () => {
 onAuthStateChanged(auth, (user) => {
   el.signedOut.hidden = Boolean(user);
   el.game.hidden = !user;
+  el.notInvited.hidden = true;
+  el.adminLink.hidden = true;
   el.profileBtn.hidden = !user;
   el.signOut.hidden = !user;
   if (user) load();
@@ -69,10 +73,19 @@ async function load() {
       });
     }
     round = await api.getRound({});
-    if (round.me) displayName = round.me.displayName;
+    if (round.me) {
+      displayName = round.me.displayName;
+      el.adminLink.hidden = round.me.role !== "admin";
+    }
     setStatus("");
     render();
   } catch (err) {
+    if (err?.details?.code === "not-invited") {
+      // FR-1.7: signed in, not let in. The game stays hidden; Perfil/Sair remain.
+      el.game.hidden = true;
+      el.notInvited.hidden = false;
+      return;
+    }
     setStatus(errorMessage(err), "err");
   } finally {
     setBusy(false);
@@ -168,6 +181,28 @@ el.profileForm.addEventListener("submit", async (ev) => {
     setStatus(t("saved"), "ok");
   } catch (err) {
     el.profileError.textContent = errorMessage(err);
+  }
+});
+
+// FR-1.5: delete everything, then sign out (which clears client state, FR-1.6).
+el.deleteBtn.addEventListener("click", () => {
+  el.profileDialog.close();
+  el.deleteError.textContent = "";
+  el.deleteDialog.showModal();
+});
+el.deleteForm.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  if (ev.submitter?.value !== "ok") return el.deleteDialog.close();
+  ev.submitter.disabled = true;
+  try {
+    await api.deleteAccount({});
+    el.deleteDialog.close();
+    await signOut(auth);
+    setStatus(t("deleted"), "ok");
+  } catch (err) {
+    el.deleteError.textContent = errorMessage(err);
+  } finally {
+    ev.submitter.disabled = false;
   }
 });
 
