@@ -47,16 +47,16 @@ test("uniqueNames: a suffixed name does not collide with someone actually called
 
 // --- owner succession ----------------------------------------------------------
 
-test("D-23: earliest organizer/admin takes over; else earliest member is promoted; nobody → null", () => {
-  assert.deepEqual(nextOwner([
-    { uid: "p1", joinedAt: at(0), userRole: "player" },
-    { uid: "o1", joinedAt: at(5000), userRole: "organizer" },
-    { uid: "o2", joinedAt: at(1000), userRole: "admin" },
-  ]), { uid: "o2", promote: false });
-  assert.deepEqual(nextOwner([
-    { uid: "p2", joinedAt: at(9000), userRole: "player" },
-    { uid: "p1", joinedAt: at(100), userRole: "player" },
-  ]), { uid: "p1", promote: true });
+test("D-23: the longest-standing member takes over, whatever their role; nobody → null", () => {
+  assert.equal(nextOwner([
+    { uid: "p1", joinedAt: at(5000) },
+    { uid: "p2", joinedAt: at(1000) },
+    { uid: "p3", joinedAt: at(9000) },
+  ]), "p2");
+  assert.equal(nextOwner([
+    { uid: "b", joinedAt: at(100) },
+    { uid: "a", joinedAt: at(100) },
+  ]), "a", "same instant → uid decides, so the pick is deterministic");
   assert.equal(nextOwner([]), null);
 });
 

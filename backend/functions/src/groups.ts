@@ -9,7 +9,7 @@ import { Timestamp, type DocumentSnapshot, type Transaction } from "firebase-adm
 import {
   attemptRef, db, ensureProfile, groupRef, groupsCol, inviteRef, memberRef, membersCol, pendingInvitesOf, puzzleDays, userRef,
 } from "./db";
-import { canCreateGroup, groupsOf, requireOwner, roleOf } from "./lib/authz";
+import { canCreateGroup, groupsOf, requireOwner } from "./lib/authz";
 import { callable } from "./lib/callable";
 import { GAME_URL } from "./lib/config";
 import { mondoError } from "./lib/errors";
@@ -50,10 +50,16 @@ export async function leaveTx(tx: Transaction, gid: string, uid: string): Promis
   const [groupSnap, memberSnap, profileSnap] = await Promise.all([
     tx.get(groupRef(gid)), tx.get(memberRef(gid, uid)), tx.get(userRef(uid)),
   ]);
-  if (!memberSnap.exists) throw mondoError("not-found", "Not a member of this group.");
+  const profile = profileSnap.exists ? (profileSnap.data() as Profile) : null;
+  const indexed = groupsOf(profile).includes(gid);
+  // A membership is the member document; the profile array is an index of it
+  // (D-27). If the document is gone but the index still lists the group, this
+  // heals the index rather than refusing — otherwise a phantom membership would
+  // keep play access open under D-28 forever and could never be left.
+  if (!memberSnap.exists && !indexed) throw mondoError("not-found", "Not a member of this group.");
   const group = groupSnap.exists ? (groupSnap.data() as Group) : null;
 
-  let successor: { uid: string; promote: boolean } | null = null;
+  let successor: string | null = null;
   let dissolve = false;
   let pendingInvites: DocumentSnapshot[] = [];
   if (group && group.ownerUid === uid) {
@@ -62,31 +68,25 @@ export async function leaveTx(tx: Transaction, gid: string, uid: string): Promis
       dissolve = true;
       pendingInvites = (await tx.get(pendingInvitesOf(gid))).docs;
     } else {
-      const profiles = await tx.getAll(...others.map((d) => userRef(d.id)));
-      successor = nextOwner(others.map((d, i) => ({
-        uid: d.id,
-        joinedAt: (d.data() as Member).joinedAt,
-        userRole: roleOf(profiles[i]?.exists ? (profiles[i]!.data() as Profile) : null),
-      })));
+      successor = nextOwner(others.map((d) => ({ uid: d.id, joinedAt: (d.data() as Member).joinedAt })));
     }
   }
 
   // --- writes ---
-  tx.delete(memberRef(gid, uid));
-  if (profileSnap.exists) {
-    tx.update(userRef(uid), { groups: groupsOf(profileSnap.data() as Profile).filter((g) => g !== gid) });
-  }
+  if (memberSnap.exists) tx.delete(memberRef(gid, uid));
+  if (indexed) tx.update(userRef(uid), { groups: groupsOf(profile).filter((g) => g !== gid) });
   if (!group) return;
   if (dissolve) {
     tx.delete(groupRef(gid));
     for (const inv of pendingInvites) tx.delete(inv.ref);
     return;
   }
-  const patch: Partial<Group> = { memberCount: Math.max(0, group.memberCount - 1) };
+  const patch: Partial<Group> = { memberCount: Math.max(0, memberSnap.exists ? group.memberCount - 1 : group.memberCount) };
   if (successor) {
-    patch.ownerUid = successor.uid;
-    tx.update(memberRef(gid, successor.uid), { role: "owner" });
-    if (successor.promote) tx.update(userRef(successor.uid), { role: "organizer" });
+    // The successor owns the group; ownership alone carries the management
+    // rights (FR-7.5), so no role is granted here. See nextOwner.
+    patch.ownerUid = successor;
+    tx.update(memberRef(gid, successor), { role: "owner" });
   }
   tx.update(groupRef(gid), patch);
 }

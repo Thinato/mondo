@@ -272,6 +272,7 @@ test("6. FR-7.2: admin dashboard callables, gates, retry", async () => {
   ok(await admin.call("setRole", { uid: third.uid, role: "player" }), "setRole back");
 
   assert.equal(code(await admin.call("grantRetry", { uid: player.uid, puzzleId: YESTERDAY })), "puzzle-not-open");
+  assert.equal(code(await admin.call("grantRetry", { uid: admin.uid, puzzleId: TODAY })), "invalid-argument", "no self-granted retry");
   assert.equal(code(await admin.call("grantRetry", { uid: third.uid, puzzleId: TODAY })), "not-found");
   ok(await admin.call("grantRetry", { uid: player.uid, puzzleId: TODAY }), "grantRetry");
   const fresh = ok(await player.call("getRound", {}), "getRound after retry");
@@ -330,11 +331,12 @@ test("8. D-23: owner succession and dissolution", async () => {
   assert.equal((await doc(`groups/${g2}`)).memberCount, 1);
   assert.equal((await doc(`groups/${g2}/members/${member.uid}`)).role, "owner");
   assert.equal(await exists(`groups/${g2}/members/${owner.uid}`), false);
-  assert.equal((await doc(`users/${member.uid}`)).role, "organizer", "promoted so they can manage");
+  assert.equal((await doc(`users/${member.uid}`)).role, "player", "no global role is granted: ownership carries the rights (FR-7.5)");
+  assert.equal(code(await member.call("createGroup", { name: "Outro" })), "permission-denied", "owning a group does not unlock creating them (FR-4.1)");
   assert.deepEqual((await doc(`users/${owner.uid}`)).groups, []);
   assert.equal(code(await owner.call("leaveGroup", { groupId: g2 })), "not-found");
 
-  ok(await member.call("renameGroup", { groupId: g2, name: "Família Nova" }), "new owner renames");
+  ok(await member.call("renameGroup", { groupId: g2, name: "Família Nova" }), "new owner renames despite being a player");
   const pending = ok(await member.call("createInvite", { groupId: g2 }), "new owner invites");
   ok(await member.call("leaveGroup", { groupId: g2 }), "last member leaves");
   assert.equal(await exists(`groups/${g2}`), false);

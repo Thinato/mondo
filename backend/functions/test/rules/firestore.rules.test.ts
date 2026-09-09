@@ -96,9 +96,21 @@ test("attempts: own is readable, another player's is not, and listing is not", a
 
 // --- users ------------------------------------------------------------------
 
-test("users: any signed-in player reads any profile; anonymous reads nothing", async () => {
-  await assertSucceeds(alice().doc(`users/${BOB}`).get());
+test("users: a player reads their own profile only; anonymous reads nothing", async () => {
+  await assertSucceeds(alice().doc(`users/${ALICE}`).get());
+  await assertFails(alice().doc(`users/${BOB}`).get());
   await assertFails(anon().doc(`users/${ALICE}`).get());
+});
+
+test("FR-4.10: the profile collection cannot be listed or queried, so membership cannot be enumerated", async () => {
+  // `read: if signedIn()` would have allowed all of these: a condition that
+  // mentions neither `resource` nor {uid} authorizes a list, and `groups` is an
+  // array, so array-contains would have handed out any group's member list.
+  await assertFails(alice().collection("users").get());
+  await assertFails(alice().collection("users").where("groups", "array-contains", GROUP).get());
+  await assertFails(alice().collection("users").where("role", "==", "admin").get());
+  await assertFails(alice().collection("users").limit(1).get());
+  await assertFails(carol().collection("users").where("groups", "array-contains", GROUP).get());
 });
 
 test("FR-1.3: a player may change their own displayName and locale", async () => {

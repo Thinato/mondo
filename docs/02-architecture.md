@@ -329,12 +329,12 @@ document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
 
 ### Admin (FR-7.2; role `admin`, else `permission-denied`)
 - `listUsers({ cursor? })` → 50 per page by `createdAt`; no e-mail, ever
-- `setRole({ uid, role })` — `organizer` | `player`; never `admin`, never yourself
+- `setRole({ uid, role })` — `organizer` | `player`; never `admin` in either direction, never yourself (FR-7.6, D-35)
 - `listAllGroups({})`
 - `listAttempts({ puzzleId } | { uid })` → per attempt: state, counts, `elapsedMs`, `suspicious`,
   `retries`, `intervalsMs` (start→first guess, guess→guess); `guesses` only for closed days or once
   the admin has finished today (D-31)
-- `grantRetry({ uid, puzzleId })` — today only; resets the attempt, keeps `history` (D-30)
+- `grantRetry({ uid, puzzleId })` — today only, never for yourself; resets the attempt, keeps `history` (D-30, D-35)
 
 ### Scheduled (Cloud Scheduler, `America/Sao_Paulo`)
 - `rebuildStandings` — `5 12 * * *` (D-11, D-25)
@@ -372,7 +372,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn();
+      allow read: if isSelf(uid);          // NOT signedIn: that also allows a list (D-34)
       allow update: if isSelf(uid)
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['displayName','locale']);

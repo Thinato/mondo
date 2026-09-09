@@ -44,13 +44,14 @@ export const getRound = callable<{ puzzleId?: unknown } | null | undefined, Roun
   const input = data == null ? {} : requireObject(data);
   const requested = input.puzzleId === undefined ? undefined : requirePuzzleId(input.puzzleId);
   const now = Timestamp.now();
-  const puzzle = await loadOpenPuzzle(requested, now);
 
-  // The profile is created in its own transaction so that an uninvited
-  // sign-in still leaves a profile for the admin to see, while the gate below
-  // keeps them from starting a round (FR-1.7).
+  // The profile is created in its own transaction so that an uninvited sign-in
+  // still leaves a profile for the admin to see, while the gate keeps them from
+  // starting a round (FR-1.7). Both come before the puzzle is read: an outsider
+  // costs one read, not two, and hears the same answer whatever is scheduled.
   const profile = await db().runTransaction((tx) => ensureProfile(tx, uid, now));
   requireCanPlay(profile);
+  const puzzle = await loadOpenPuzzle(requested, now);
 
   const attempt = await db().runTransaction(async (tx) => {
     const snap = await tx.get(attemptRef(uid, puzzle.puzzleId));

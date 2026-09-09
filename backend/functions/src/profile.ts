@@ -29,10 +29,12 @@ export const updateProfile = callable<{ displayName?: unknown; locale?: unknown 
       const snap = await tx.get(userRef(uid));
       const current = snap.exists ? (snap.data() as Profile) : newProfile(Timestamp.now());
       const next = { ...current, ...patch };
+      // Reads first: a group id left in the index with no member document
+      // behind it must not abort the rename (tx.update requires the document).
+      const gids = patch.displayName === undefined ? [] : groupsOf(current);
+      const members = gids.length === 0 ? [] : await tx.getAll(...gids.map((gid) => memberRef(gid, uid)));
       tx.set(userRef(uid), next);
-      if (patch.displayName !== undefined) {
-        for (const gid of groupsOf(current)) tx.update(memberRef(gid, uid), { displayName: patch.displayName });
-      }
+      for (const m of members) if (m.exists) tx.update(m.ref, { displayName: patch.displayName });
       return { displayName: next.displayName, locale: next.locale };
     });
   },

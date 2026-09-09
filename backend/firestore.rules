@@ -45,12 +45,21 @@ service cloud.firestore {
         && n.matches('^[\\p{L}\\p{N} _-]+$');
     }
 
-    // Profiles are readable by any signed-in player (leaderboards need names;
-    // email is never stored here, FR-1.4). A player may change only their own
-    // displayName and locale; counters, streaks, `role` and `groups` are
-    // functions-only (FR-7.1, D-27) — hasOnly() below is what enforces that.
+    // A player may read their OWN profile and change only their own displayName
+    // and locale; counters, streaks, `role` and `groups` are functions-only
+    // (FR-7.1, D-27) — hasOnly() below is what enforces that.
+    //
+    // Read is deliberately `isSelf`, not `signedIn`. A condition that mentions
+    // neither `resource` nor the {uid} wildcard also authorizes a LIST of the
+    // whole collection, and `groups` is an array: any signed-in account —
+    // including one FR-1.7 bars from playing — could have run
+    // `where('groups','array-contains', gid)` and read out a group's entire
+    // membership with display names, plus everyone's role. That is exactly what
+    // FR-4.10 forbids. Other players' names reach the client only through
+    // getLeaderboard, which checks membership first; the client never loads the
+    // Firestore SDK at all (site/app/firebase.js takes Auth and Functions only).
     match /users/{uid} {
-      allow read: if signedIn();
+      allow read: if isSelf(uid);
       allow update: if isSelf(uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'locale'])
         && validDisplayName(request.resource.data.displayName)

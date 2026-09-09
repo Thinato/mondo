@@ -17,6 +17,8 @@ let cursor = null;
 let currentDay = null;
 const TODAY = puzzleToday();
 
+el.usersMore.textContent = t("loadMore"); // the markup label is a fallback
+
 watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, setStatus,
   onUser: (u) => {

@@ -73,4 +73,6 @@ competitive group. Vanilla frontend published from `site/` by GitHub Pages, Fire
   the single source of truth and the nightly job writes windows onto `groups/*/members/*`.
   Window arithmetic is D-24; do not change it without changing `regras.html` and the fixture
   in `test/standings.test.ts`.
-- Group management rights come from **owning** the group, not from the role (FR-7.5).
+- Group management rights come from **owning** the group, not from the role (FR-7.5). Succession
+  therefore grants no role (D-23), and `users/{uid}` is readable only by its owner, because a
+  `signedIn()` read allow would also permit listing the collection (D-34).

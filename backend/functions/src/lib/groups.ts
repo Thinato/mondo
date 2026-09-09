@@ -7,7 +7,7 @@
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
-import { statusOf, type Attempt, type Role } from "./round";
+import { statusOf, type Attempt } from "./round";
 import {
   advanceAllTime, EMPTY_STATS, rankBy, statsFor, windowDays,
   type AllTime, type FinishedResult, type WindowStats,
@@ -92,17 +92,21 @@ export function uniqueNames(members: readonly { uid: string; displayName: string
 }
 
 /**
- * D-23: who takes over when the owner goes. Earliest-joined admin/organizer if
- * any; otherwise the earliest-joined member, who must then be promoted so they
- * can actually manage. Null when nobody is left (the group is deleted).
+ * D-23: who takes over when the owner goes — the longest-standing remaining
+ * member. Null when nobody is left, and then the group is deleted.
+ *
+ * The successor is NOT given a role. Management rights come from owning the
+ * group (FR-7.5): `requireOwner` is what gates renaming, inviting and removing,
+ * and the new owner passes it. Granting `organizer` instead would quietly
+ * unlock the whole invite-only system — an organizer could create a group,
+ * invite one player, leave, and that player would be free to create groups and
+ * invite strangers (FR-4.1, FR-1.7). Creating NEW groups stays with admins and
+ * organizers; owning this one does not.
  */
-export function nextOwner(
-  others: readonly { uid: string; joinedAt: Timestamp; userRole: Role }[],
-): { uid: string; promote: boolean } | null {
+export function nextOwner(others: readonly { uid: string; joinedAt: Timestamp }[]): string | null {
   if (others.length === 0) return null;
   const byJoin = [...others].sort((a, b) => a.joinedAt.toMillis() - b.joinedAt.toMillis() || a.uid.localeCompare(b.uid));
-  const manager = byJoin.find((m) => m.userRole !== "player");
-  return manager ? { uid: manager.uid, promote: false } : { uid: byJoin[0]!.uid, promote: true };
+  return byJoin[0]!.uid;
 }
 
 // ---------------------------------------------------------------------------

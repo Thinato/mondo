@@ -95,7 +95,9 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-4.8** *(amended 2026-09-09)* The owner MUST be able to rename the group, create and revoke
   invites, and remove a member. Management rights follow **ownership**, not role (FR-7.5).
 - **FR-4.9** A member MUST be able to leave a group. Their historical results stay but they
-  disappear from the board.
+  disappear from the board. When the owner leaves, ownership MUST pass to the longest-standing
+  remaining member without granting them any role (D-23); the last member leaving deletes the
+  group and its pending invites.
 - **FR-4.10** Group membership and the leaderboard MUST only be readable by members.
 - **FR-4.11** A group MUST show a "today" panel: who has already played today (without revealing
   their score until they finish, to preserve drama), and who has not.

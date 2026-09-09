@@ -8,7 +8,7 @@
  * D-31: today's guesses are hidden until the admin has finished their own round.
  */
 
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldPath, Timestamp } from "firebase-admin/firestore";
 import { attemptRef, db, groupsCol, puzzleDays, userRef } from "./db";
 import { groupsOf, requireAdmin, roleOf } from "./lib/authz";
 import { callable } from "./lib/callable";
@@ -48,11 +48,14 @@ export interface UserRow {
 export const listUsers = callable<{ cursor?: unknown } | null | undefined, { users: UserRow[]; nextCursor: string | null }>(async (uid, data) => {
   await requireAdminCaller(uid);
   const input = data == null ? {} : requireObject(data);
-  let q = db().collection("users").orderBy("createdAt", "asc").limit(PAGE);
+  // Ordered by createdAt AND document id: millisecond ties are common enough
+  // (two sign-ins in the same batch) that a createdAt-only cursor can skip a row.
+  let q = db().collection("users").orderBy("createdAt", "asc").orderBy(FieldPath.documentId(), "asc").limit(PAGE);
   if (input.cursor !== undefined) {
-    const t = typeof input.cursor === "string" ? Date.parse(input.cursor) : NaN;
-    if (Number.isNaN(t)) throw mondoError("invalid-argument", "cursor must be an ISO timestamp.");
-    q = q.startAfter(Timestamp.fromDate(new Date(t)));
+    const [iso, lastUid] = typeof input.cursor === "string" ? input.cursor.split("|") : [];
+    const t = iso === undefined ? NaN : Date.parse(iso);
+    if (Number.isNaN(t) || !lastUid) throw mondoError("invalid-argument", "cursor is not one this API issued.");
+    q = q.startAfter(Timestamp.fromDate(new Date(t)), lastUid);
   }
   const snaps = (await q.get()).docs;
   const users = snaps.map((s) => {
@@ -62,7 +65,8 @@ export const listUsers = callable<{ cursor?: unknown } | null | undefined, { use
       totalPlayed: p.totalPlayed, totalSolved: p.totalSolved, currentStreak: p.currentStreak, groupCount: groupsOf(p).length,
     };
   });
-  return { users, nextCursor: users.length === PAGE ? users[users.length - 1]!.createdAt : null };
+  const last = users[users.length - 1];
+  return { users, nextCursor: users.length === PAGE && last ? `${last.createdAt}|${last.uid}` : null };
 });
 
 /** setRole({ uid, role }) — organizer or player, never an admin in either direction (FR-7.6, D-29), never yourself. */
@@ -161,13 +165,21 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
   };
 });
 
-/** grantRetry({ uid, puzzleId }) — today only; the old try stays in history (D-30). */
+/**
+ * grantRetry({ uid, puzzleId }) — today only; the old try stays in history (D-30).
+ *
+ * Never for yourself: by the time your own round is over you have seen the
+ * answer (roundView reveals it), so a self-granted retry is a free 6 points.
+ * Same reasoning as D-31 and the same guard as setRole. If the admin genuinely
+ * needs one, another admin or the console can do it, and it stays on the record.
+ */
 export const grantRetry = callable<{ uid: unknown; puzzleId: unknown }, { ok: true }>(async (uid, data) => {
   await requireAdminCaller(uid);
   const input = requireObject(data);
   const target = requireUid(input.uid);
   const puzzleId = requirePuzzleId(input.puzzleId);
   const now = Timestamp.now();
+  if (target === uid) throw mondoError("invalid-argument", "You cannot grant yourself a retry.");
   if (puzzleId !== puzzleDays(now).today) throw mondoError("puzzle-not-open", "Retries apply to today's puzzle only.");
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(attemptRef(target, puzzleId));
