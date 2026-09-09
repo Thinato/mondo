@@ -2,16 +2,21 @@
   "name": "mondo-tools",
   "version": "0.1.0",
   "private": true,
-  "description": "Offline build tooling: geo pipeline and puzzle-schedule generator. Nothing here runs at request time.",
+  "description": "Offline build tooling: geo pipeline, puzzle-schedule generator and Firestore seeder. Nothing here runs at request time.",
   "license": "MIT",
   "type": "module",
-  "engines": { "node": "22" },
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
     "build-geo": "node build-geo.mjs",
+    "schedule": "node generate-schedule.mjs",
+    "seed": "node seed-schedule.mjs",
     "test": "node --test 'lib/*.test.mjs'"
   },
   "dependencies": {
     "d3-geo": "^3.1.1",
+    "firebase-admin": "^13.10.0",
     "simplify-js": "^1.2.4",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2",
