@@ -8,6 +8,8 @@
  * `getRound` and `submitGuess` are the daily game (Phase 1); see round.ts.
  * `updateProfile` lets a player rename themselves (FR-1.3); see profile.ts.
  * Groups, invites and the play gate are Phase 2 (FR-4, FR-7, FR-1.7); see groups.ts.
+ * Boards: leaderboard.ts. Admin dashboard: admin.ts. Account deletion: account.ts.
+ * Scheduled jobs (D-11, NFR-6): standings.ts, health.ts.
  */
 
 import { initializeApp } from "firebase-admin/app";
@@ -21,6 +23,11 @@ export { updateProfile } from "./profile";
 export {
   createGroup, createInvite, listInvites, revokeInvite, acceptInvite, leaveGroup, removeMember, renameGroup, listGroups,
 } from "./groups";
+export { getLeaderboard } from "./leaderboard";
+export { listUsers, setRole, listAllGroups, listAttempts, grantRetry } from "./admin";
+export { deleteAccount } from "./account";
+export { rebuildStandings } from "./standings";
+export { scheduleHealthCheck } from "./health";
 
 /**
  * Phase 0 smoke test (roadmap "Done when").
