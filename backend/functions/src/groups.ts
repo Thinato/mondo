@@ -247,13 +247,19 @@ export const renameGroup = callable<{ groupId: unknown; name: unknown }, { ok: t
   return { ok: true };
 });
 
-/** listGroups({}) → the caller's groups. */
-export const listGroups = callable<unknown, { groups: { groupId: string; name: string; memberCount: number; isOwner: boolean }[] }>(async (uid) => {
+/**
+ * listGroups({}) → the caller's groups, plus whether they may create one, so
+ * `grupos.html` can hide a form the server would refuse anyway (FR-4.1).
+ */
+export const listGroups = callable<unknown, { groups: { groupId: string; name: string; memberCount: number; isOwner: boolean }[]; canCreate: boolean }>(async (uid) => {
   const profileSnap = await userRef(uid).get();
-  const gids = groupsOf(profileSnap.exists ? (profileSnap.data() as Profile) : null);
-  if (gids.length === 0) return { groups: [] };
+  const profile = profileSnap.exists ? (profileSnap.data() as Profile) : null;
+  const canCreate = canCreateGroup(profile);
+  const gids = groupsOf(profile);
+  if (gids.length === 0) return { groups: [], canCreate };
   const snaps = await db().getAll(...gids.map(groupRef));
   return {
+    canCreate,
     groups: snaps.flatMap((s) => {
       if (!s.exists) return []; // index and group out of step; the nightly job does not fix this, leaveTx does
       const g = s.data() as Group;

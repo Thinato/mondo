@@ -65,7 +65,8 @@ async function loadList() {
   el.board.hidden = true;
   el.list.hidden = false;
   try {
-    const { groups } = await api.listGroups({});
+    const { groups, canCreate } = await api.listGroups({});
+    el.createForm.hidden = !canCreate;
     el.cards.replaceChildren(...groups.map((g) => {
       const li = document.createElement("li");
       const a = document.createElement("a");

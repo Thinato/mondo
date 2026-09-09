@@ -240,11 +240,15 @@ test("6. FR-7.2: admin dashboard callables, gates, retry", async () => {
   assert.ok(today.attempts.length >= 2);
   for (const a of today.attempts) {
     assert.equal("guesses" in a, false, "D-31: today's guesses hidden until the admin plays");
+    assert.equal(a.points, null, "D-31: today's outcome hidden until the admin plays");
+    assert.equal(a.solved, null);
     assert.ok(Array.isArray(a.intervalsMs));
     assert.equal(typeof a.displayName, "string");
   }
   const yesterday = ok(await admin.call("listAttempts", { puzzleId: YESTERDAY }), "listAttempts yesterday");
   const seeded = yesterday.attempts.find((a: Any) => a.uid === player.uid);
+  assert.equal(seeded.points, 5, "a closed day carries its outcome");
+  assert.equal(seeded.solved, true);
   assert.deepEqual(seeded.guesses.map((x: Any) => x.code), ["BR", "AR"]);
   assert.equal(seeded.guesses[1].name, "Argentina");
   assert.deepEqual(seeded.intervalsMs, [5000, 5000]);
@@ -258,6 +262,10 @@ test("6. FR-7.2: admin dashboard callables, gates, retry", async () => {
   assert.equal(code(await player.call("grantRetry", { uid: player.uid, puzzleId: TODAY })), "permission-denied");
   assert.equal(code(await admin.call("setRole", { uid: player.uid, role: "admin" })), "invalid-argument");
   assert.equal(code(await admin.call("setRole", { uid: admin.uid, role: "player" })), "invalid-argument");
+  // FR-7.6: an admin is not demotable through the API either, only by tools/set-role.mjs.
+  await db.doc(`users/${third.uid}`).update({ role: "admin" });
+  assert.equal(code(await admin.call("setRole", { uid: third.uid, role: "player" })), "invalid-argument", "admin cannot demote an admin");
+  await db.doc(`users/${third.uid}`).update({ role: "player" });
   assert.equal(code(await admin.call("setRole", { uid: "nobodyHere000000000000000001", role: "player" })), "not-found");
   ok(await admin.call("setRole", { uid: third.uid, role: "organizer" }), "setRole");
   assert.equal((await doc(`users/${third.uid}`)).role, "organizer");

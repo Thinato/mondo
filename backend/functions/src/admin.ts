@@ -65,7 +65,7 @@ export const listUsers = callable<{ cursor?: unknown } | null | undefined, { use
   return { users, nextCursor: users.length === PAGE ? users[users.length - 1]!.createdAt : null };
 });
 
-/** setRole({ uid, role }) — organizer or player; never admin (D-29), never yourself. */
+/** setRole({ uid, role }) — organizer or player, never an admin in either direction (FR-7.6, D-29), never yourself. */
 export const setRole = callable<{ uid: unknown; role: unknown }, { ok: true }>(async (uid, data) => {
   await requireAdminCaller(uid);
   const input = requireObject(data);
@@ -75,6 +75,11 @@ export const setRole = callable<{ uid: unknown; role: unknown }, { ok: true }>(a
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(userRef(target));
     if (!snap.exists) throw mondoError("not-found", "No such user.");
+    // FR-7.6: admin is granted and revoked out of band only (tools/set-role.mjs).
+    // One admin must not be able to demote another through the dashboard.
+    if (roleOf(snap.data() as Profile) === "admin") {
+      throw mondoError("invalid-argument", "An admin's role can only be changed with tools/set-role.mjs.");
+    }
     tx.update(userRef(target), { role });
   });
   return { ok: true };
@@ -98,8 +103,10 @@ export const listAllGroups = callable<unknown, { groups: { groupId: string; name
 
 export interface AttemptRow {
   uid: string; displayName: string; puzzleId: string; state: TodayState;
-  guessCount: number; solved: boolean; points: number; elapsedMs: number | null; suspicious: boolean; retries: number;
+  guessCount: number; elapsedMs: number | null; suspicious: boolean; retries: number;
   intervalsMs: number[]; startedAt: string; finishedAt: string | null;
+  /** Null for today until the admin has finished their own round (D-31), like FR-4.11 on the board. */
+  solved: boolean | null; points: number | null;
   guesses?: { code: string; name: string; distanceKm: number; proximity: number }[];
 }
 
@@ -135,12 +142,16 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
 
   return {
     attempts: attempts.map((a) => {
+      // D-31: while the admin's own round is open, today's rows carry state and
+      // timings but no outcome — the same line getLeaderboard draws (FR-4.11).
+      const reveal = a.puzzleId !== today || revealToday;
       const row: AttemptRow = {
         uid: a.uid, displayName: names.get(a.uid) ?? REMOVED, puzzleId: a.puzzleId, state: todayState(a),
-        guessCount: a.guessCount, solved: a.solved, points: a.points, elapsedMs: a.elapsedMs, suspicious: a.suspicious,
+        guessCount: a.guessCount, elapsedMs: a.elapsedMs, suspicious: a.suspicious,
         retries: a.retries ?? 0, intervalsMs: intervalsMs(a), startedAt: a.startedAt.toDate().toISOString(), finishedAt: iso(a.finishedAt),
+        solved: reveal ? a.solved : null, points: reveal ? a.points : null,
       };
-      if (a.puzzleId !== today || revealToday) {
+      if (reveal) {
         row.guesses = a.guesses.map((g) => ({
           code: g.code, name: countryByCode(g.code)?.names["pt-BR"] ?? g.code, distanceKm: g.distanceKm, proximity: g.proximity,
         }));

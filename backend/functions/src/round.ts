@@ -79,9 +79,11 @@ export const submitGuess = callable<{ puzzleId: unknown; code: unknown }, RoundV
   const attempt = await db().runTransaction(async (tx) => {
     // Every read before the first write (Firestore transaction rule).
     const [snap, profileSnap] = await Promise.all([tx.get(attemptRef(uid, puzzleId)), tx.get(userRef(uid))]);
-    if (!snap.exists) throw mondoError("not-found", "Call getRound before guessing.");
+    // The invitation is checked before the attempt lookup, so an uninvited
+    // caller hears `not-invited` rather than `not-found` (FR-1.7, D-28).
     const profile = profileSnap.exists ? (profileSnap.data() as Profile) : null;
-    requireCanPlay(profile); // D-28: losing your last group closes the round too
+    requireCanPlay(profile); // losing your last group closes the round too
+    if (!snap.exists) throw mondoError("not-found", "Call getRound before guessing.");
     const before = snap.data() as Attempt;
     const after = applyGuess(before, puzzle, code, now);
     tx.set(attemptRef(uid, puzzleId), after);

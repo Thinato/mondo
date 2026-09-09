@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  advanceAllTime, effectiveStreak, rankBy, statsFor, windowDays, EMPTY_STATS, type FinishedResult,
+  advanceAllTime, effectiveStreak, nextDay, rankBy, statsFor, windowDays, EMPTY_STATS, type FinishedResult,
 } from "../src/lib/standings";
 
 // ---------------------------------------------------------------------------
@@ -52,6 +52,13 @@ test("windowDays: 30 consecutive days ending at the closed day, ascending", () =
   assert.equal(DAYS[0], "2026-10-01");
   assert.equal(DAYS[29], "2026-10-30");
   assert.deepEqual(windowDays("2026-03-01", 2), ["2026-02-28", "2026-03-01"]);
+});
+
+test("nextDay crosses month and year boundaries", () => {
+  assert.equal(nextDay("2026-02-28"), "2026-03-01");
+  assert.equal(nextDay("2028-02-28"), "2028-02-29");
+  assert.equal(nextDay("2026-12-31"), "2027-01-01");
+  assert.equal(nextDay(CLOSED), "2026-10-31");
 });
 
 test("fixture A: 30 played days, drop the 0 and one 1", () => {

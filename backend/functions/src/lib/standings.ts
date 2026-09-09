@@ -30,6 +30,11 @@ export interface WindowStats {
 
 export const EMPTY_STATS: WindowStats = { points: 0, played: 0, totalGuesses: 0, avgGuesses: null, totalElapsedMs: 0 };
 
+/** The day after `puzzleId`. */
+export function nextDay(puzzleId: string): string {
+  return new Date(Date.parse(`${puzzleId}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+}
+
 /** The `n` puzzle days ending at `closedDay`, ascending. */
 export function windowDays(closedDay: string, n: number): string[] {
   const days: string[] = [];
