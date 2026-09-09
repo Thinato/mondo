@@ -32,3 +32,21 @@ export function requireCountryCode(v: unknown): string {
   }
   return v;
 }
+
+/** FR-1.3: 3–24 chars, Unicode letters/digits/space/hyphen/underscore, no edge whitespace. Mirrors firestore.rules. */
+export const DISPLAY_NAME = /^[\p{L}\p{N} _-]{3,24}$/u;
+export function requireDisplayName(v: unknown): string {
+  if (typeof v !== "string" || v.trim() !== v || !DISPLAY_NAME.test(v)) {
+    throw mondoError("invalid-argument", "Display name must be 3–24 letters, digits, spaces, - or _.");
+  }
+  return v;
+}
+
+export const LOCALES = ["pt-BR", "en"] as const;
+export type Locale = (typeof LOCALES)[number];
+export function requireLocale(v: unknown): Locale {
+  if (typeof v !== "string" || !(LOCALES as readonly string[]).includes(v)) {
+    throw mondoError("invalid-argument", "Unsupported locale.");
+  }
+  return v as Locale;
+}

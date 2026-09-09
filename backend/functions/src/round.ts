@@ -54,7 +54,8 @@ export const getRound = callable<{ puzzleId?: unknown } | undefined, RoundView>(
   const puzzle = await loadOpenPuzzle(requested, now);
 
   const attempt = await db().runTransaction(async (tx) => {
-    const [snap] = await Promise.all([tx.get(attemptRef(uid, puzzle.puzzleId)), ensureProfile(tx, uid, now)]);
+    const snap = await tx.get(attemptRef(uid, puzzle.puzzleId));
+    await ensureProfile(tx, uid, now); // reads, then maybe creates — after every read above
     if (snap.exists) return snap.data() as Attempt;
     const fresh = newAttempt(uid, puzzle.puzzleId, now);
     tx.create(attemptRef(uid, puzzle.puzzleId), fresh);
@@ -82,11 +83,11 @@ export const submitGuess = callable<{ puzzleId: unknown; code: unknown }, RoundV
     if (!snap.exists) throw mondoError("not-found", "Call getRound before guessing.");
     const before = snap.data() as Attempt;
     const after = applyGuess(before, puzzle, code, now);
+    // Firestore transactions demand every read before the first write, so the
+    // profile is read (when needed) before the attempt is written.
+    const profile = after.finishedAt !== null ? await ensureProfile(tx, uid, now) : null;
     tx.set(attemptRef(uid, puzzleId), after);
-    if (after.finishedAt !== null) {
-      const profile = await ensureProfile(tx, uid, now);
-      tx.set(profileRef(uid), recordCompletion(profile, after));
-    }
+    if (profile !== null) tx.set(profileRef(uid), recordCompletion(profile, after));
     return after;
   });
 
