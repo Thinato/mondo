@@ -194,3 +194,26 @@ select { font: inherit; padding: .2rem .3rem; border: 1px solid var(--line); bor
 details.guesses { font-size: .85rem; }
 details.guesses summary { cursor: pointer; color: var(--muted); }
 h2.title { font-size: 1.25rem; margin: 0 0 .25rem; }
+
+/* --- tournaments (Phase 3) ------------------------------------------------ */
+.stack { display: grid; gap: .5rem; margin: 1rem 0; }
+.stack input[type="text"] { font: inherit; padding: .6rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); color: inherit; }
+.presets { border: 0; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.preset { display: grid; grid-template-columns: auto 1fr; gap: .1rem .5rem; align-items: baseline; padding: .6rem .75rem; background: var(--card); border-radius: .5rem; cursor: pointer; }
+.preset input { grid-row: span 2; }
+.preset .fine { grid-column: 2; margin: 0; }
+.preset:has(input:checked) { outline: 1px solid var(--fg); }
+.capital-prompt { font-size: 1.4rem; text-align: center; padding: 2rem 1rem; background: var(--card); border-radius: .75rem; margin: 0 0 1rem; }
+.card-items { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .25rem; font-size: .9rem; }
+.card-item { display: grid; grid-template-columns: 1.5rem 1fr auto; gap: .5rem; padding: .3rem 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+.card-item.current { color: var(--fg); font-weight: 600; }
+.card-item.solved .score { color: var(--ok); }
+.card-item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#card-form { display: flex; gap: .5rem; align-items: stretch; }
+#card-input { width: 100%; font: inherit; padding: .7rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); color: inherit; }
+#card-input:focus { outline: 2px solid var(--fg); outline-offset: 1px; }
+#card-datalist { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + .25rem); list-style: none; margin: 0; padding: .25rem; background: var(--bg); border: 1px solid var(--line); border-radius: .5rem; max-height: 14rem; overflow-y: auto; }
+#card-datalist li { padding: .5rem .6rem; border-radius: .35rem; cursor: pointer; }
+#card-datalist li small { color: var(--muted); }
+#card-datalist li[aria-selected="true"], #card-datalist li:hover { background: var(--card); }
+.today h4 { font-size: .95rem; margin: 1rem 0 .25rem; color: var(--muted); font-weight: 600; }

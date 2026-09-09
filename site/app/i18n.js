@@ -29,7 +29,8 @@ const PT_BR = {
   cancel: "Cancelar",
   saved: "Nome atualizado.",
   // groups (FR-4)
-  players: "{n} jogadores",
+  // "1 jogador" / "2 jogadores": a "|" splits singular from plural and `n` picks.
+  players: "{n} jogador|{n} jogadores",
   owner: "dono",
   invited: "Você entrou em {name}.",
   inviteCreated: "Link criado. Vale por 7 dias e só funciona uma vez.",
@@ -44,6 +45,10 @@ const PT_BR = {
   notOrganizer: "Só organizadores criam grupos. Peça ao Paulo.",
   confirmJoin: "Você recebeu um convite para um grupo. Entrar?",
   confirmLeave: "Sair de {name}? Seus resultados ficam, mas você some do ranking.",
+  // FR-4.9 / D-23: the last member out dissolves the group. Say so before it
+  // happens — the old text only mentioned the ranking, and the group vanishing
+  // with every invite link in it came as a surprise.
+  confirmLeaveLast: "Você é o último membro de {name}. Sair APAGA o grupo, seus torneios e todos os links de convite que você já enviou. Isso não pode ser desfeito.",
   confirmRemove: "Remover {name} do grupo?",
   confirmRetry: "Dar uma nova chance a {name} hoje? A tentativa atual fica guardada no histórico.",
   playFirst: "Jogue primeiro para ver os resultados de hoje.",
@@ -58,6 +63,39 @@ const PT_BR = {
   loadMore: "Carregar mais",
   state: { not_started: "não jogou", in_progress: "jogando", finished: "terminou" },
   role: { admin: "admin", organizer: "organizador", player: "jogador" },
+  // tournaments (FR-5 as rewritten, FR-8)
+  tournaments: "Torneios",
+  noTournaments: "Nenhum torneio por aqui ainda.",
+  tournamentCreated: "Torneio criado. Chame o pessoal e comece quando quiser.",
+  presetLabel: "Formato",
+  join: "Entrar",
+  leaveTournament: "Sair do torneio",
+  joined: "Você entrou no torneio.",
+  droppedOut: "Você saiu do torneio.",
+  start: "Começar",
+  started: "Torneio começado. Boa sorte.",
+  closeRound: "Fechar rodada agora",
+  roundClosed: "Rodada fechada.",
+  tournamentOver: "Torneio encerrado.",
+  cancelTournament: "Cancelar torneio",
+  tournamentCancelled: "Torneio cancelado.",
+  confirmStart: "Começar {name} com {n} jogadores? Depois disso ninguém mais entra.",
+  confirmCloseRound: "Fechar a rodada agora? Quem não terminou fica com zero.",
+  confirmCancelTournament: "Cancelar {name}? Não dá para voltar atrás.",
+  confirmLeaveTournament: "Sair de {name}?",
+  playCard: "Jogar a rodada",
+  continueCard: "Continuar a rodada",
+  cardDone: "Rodada terminada: {points} pontos.",
+  roundOf: "Rodada {n} de {max}",
+  challengeOf: "Desafio {n} de {max}",
+  closesAt: "Fecha {when}.",
+  waitingForOthers: "Resultados aparecem quando a rodada fechar.",
+  capitalPrompt: "A capital é {city}.",
+  standingsPending: "A classificação aparece quando a primeira rodada fechar.",
+  statusOf: { draft: "montando", running: "em andamento", finished: "encerrado", cancelled: "cancelado" },
+  itemState: { solved: "acertou", failed: "errou", current: "agora", pending: "a seguir" },
+  drafting: "{n} inscritos. O organizador começa quando quiser.",
+  notPlaying: "Você não está neste torneio.",
   // account (FR-1.5)
   deleted: "Conta apagada.",
   compass: { N: "norte", NE: "nordeste", E: "leste", SE: "sudeste", S: "sul", SW: "sudoeste", W: "oeste", NW: "noroeste" },
@@ -74,6 +112,8 @@ const PT_BR = {
     "too-many-groups": "Você já está em 10 grupos, o máximo.",
     "invalid-invite": "Esse convite não existe, já foi usado, foi revogado ou venceu.",
     "group-full": "Esse grupo está cheio.",
+    "tournament-not-open": "Este torneio não tem rodada aberta agora.",
+    "not-a-participant": "Você não está neste torneio.",
     "unavailable": "Sem conexão com o servidor. Sua tentativa não foi gasta; tente de novo.",
     "internal": "Deu ruim no servidor. Sua tentativa não foi gasta; tente de novo.",
     "default": "Algo deu errado ({code}). Sua tentativa não foi gasta; tente de novo.",
@@ -85,7 +125,10 @@ const strings = PT_BR;
 export function t(key, vars = {}) {
   const s = key.split(".").reduce((o, k) => (o == null ? undefined : o[k]), strings);
   if (typeof s !== "string") return key;
-  return s.replace(/\{(\w+)\}/g, (_, k) => (vars[k] === undefined ? `{${k}}` : String(vars[k])));
+  // A "singular|plural" string picks by `n`. Portuguese only needs the two.
+  const forms = s.split("|");
+  const picked = forms.length > 1 && Number(vars.n) === 1 ? forms[0] : forms[forms.length - 1];
+  return picked.replace(/\{(\w+)\}/g, (_, k) => (vars[k] === undefined ? `{${k}}` : String(vars[k])));
 }
 
 /** Human message for a callable error: typed Mondo code first, then the SDK's own code. */

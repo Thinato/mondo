@@ -13,7 +13,7 @@ const el = {
   ownerTools: $("owner-tools"), inviteBtn: $("invite-btn"), inviteResult: $("invite-result"), inviteHint: $("invite-hint"),
   inviteUrl: $("invite-url"), copyBtn: $("copy-btn"), renameBtn: $("rename-btn"), renameForm: $("rename-form"),
   renameName: $("rename-name"), renameCancel: $("rename-cancel"), pending: $("pending"),
-  tabs: $("tabs"), rows: $("rows"), actionsHead: $("actions-head"), closedThrough: $("closed-through"),
+  tournamentsLink: $("tournaments-link"), tabs: $("tabs"), rows: $("rows"), actionsHead: $("actions-head"), closedThrough: $("closed-through"),
   todayHint: $("today-hint"), todayFinished: $("today-finished"), todayPlaying: $("today-playing"), todayWaiting: $("today-waiting"),
   leaveBtn: $("leave-btn"), confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
@@ -122,6 +122,7 @@ function render() {
   el.groupMeta.textContent = `${t("players", { n: group.memberCount })} · ${t("owner")}: ${group.ownerDisplayName}`;
   el.ownerTools.hidden = !group.isOwner;
   el.actionsHead.hidden = !group.isOwner;
+  el.tournamentsLink.href = `./torneios.html?g=${gid}`;
 
   const sorted = [...rows].sort((a, b) => a[window_].rank - b[window_].rank || a.displayName.localeCompare(b.displayName));
   el.rows.replaceChildren(...sorted.map((r) => {
@@ -237,7 +238,12 @@ async function remove(row) {
 }
 
 el.leaveBtn.addEventListener("click", async () => {
-  if (!(await ask(el.confirmDialog, el.confirmText, t("confirmLeave", { name: view?.group.name ?? "" })))) return;
+  // FR-4.9 / D-23: the last member leaving dissolves the group and deletes its
+  // pending invites, and now cancels its tournaments too. That is a much bigger
+  // action than "you disappear from the ranking", so it gets its own warning.
+  const name = view?.group.name ?? "";
+  const lastOne = view?.group.isOwner && view?.group.memberCount === 1;
+  if (!(await ask(el.confirmDialog, el.confirmText, t(lastOne ? "confirmLeaveLast" : "confirmLeave", { name })))) return;
   try {
     await api.leaveGroup({ groupId: gid });
     gid = null;

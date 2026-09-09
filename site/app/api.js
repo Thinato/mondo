@@ -30,3 +30,15 @@ export const listAllGroups = call("listAllGroups");
 export const listAttempts = call("listAttempts");
 export const grantRetry = call("grantRetry");
 export const deleteAccount = call("deleteAccount");
+
+// Phase 3 — tournaments (FR-5 as rewritten, FR-8; docs/06-tournaments.md §9).
+// getCard/submitCardGuess are the getRound/submitGuess pair, one card up.
+export const createTournament = call("createTournament");
+export const setParticipation = call("setParticipation");
+export const startTournament = call("startTournament");
+export const advanceTournament = call("advanceTournament");
+export const cancelTournament = call("cancelTournament");
+export const listTournaments = call("listTournaments");
+export const getTournament = call("getTournament");
+export const getCard = call("getCard");
+export const submitCardGuess = call("submitCardGuess");

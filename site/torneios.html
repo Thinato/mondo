@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo — torneios</title>
+<link rel="stylesheet" href="./mondo.css">
+<script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+<!-- D-37: no referrer policy on any page. The Firebase web API key is referrer-restricted
+     (SEC-9), so no-referrer would have the key rejected and break sign-in. -->
+</head>
+<body>
+<header>
+  <h1><a href="./">Mondo</a></h1>
+  <nav aria-label="Principal">
+    <a href="./">Jogar</a>
+    <a href="./grupos.html">Grupos</a>
+    <a href="./regras.html">Regras</a>
+    <button id="sign-out" type="button" class="link" hidden>Sair</button>
+  </nav>
+</header>
+
+<main>
+  <section id="signed-out">
+    <p class="sub">Entre para ver os torneios dos seus grupos.</p>
+    <button id="sign-in" type="button" class="primary">Entrar com Google</button>
+  </section>
+
+  <p id="status" aria-live="polite"></p>
+
+  <!-- Pick a group (no ?g=): the nav links land here -->
+  <section id="pick" hidden>
+    <h2 class="title">Torneios</h2>
+    <p class="fine">Torneios acontecem dentro de um grupo. Escolha o grupo:</p>
+    <ul id="pick-cards" class="cards" aria-label="Grupos"></ul>
+    <p id="pick-empty" class="fine" hidden></p>
+  </section>
+
+  <!-- A group's tournaments (?g=) -->
+  <section id="list" hidden>
+    <p class="fine"><a id="back-to-group" href="./grupos.html">← Ranking do grupo</a></p>
+    <h2 id="list-title" class="title">Torneios</h2>
+    <ul id="cards" class="cards" aria-label="Torneios"></ul>
+    <p id="no-tournaments" class="fine" hidden></p>
+
+    <form id="create-form" class="stack" autocomplete="off" hidden>
+      <h3 class="title">Novo torneio</h3>
+      <input id="create-name" type="text" minlength="3" maxlength="40" required
+             placeholder="Nome do torneio" aria-label="Nome do torneio">
+      <fieldset id="presets" class="presets">
+        <legend class="fine">Formato</legend>
+      </fieldset>
+      <button type="submit" class="primary">Criar torneio</button>
+    </form>
+  </section>
+
+  <!-- One tournament (?t=) -->
+  <section id="detail" hidden>
+    <p class="fine"><a id="back-to-list" href="./torneios.html">← Torneios</a></p>
+    <h2 id="t-name" class="title"></h2>
+    <p id="t-meta" class="fine"></p>
+
+    <div id="t-actions" class="row"></div>
+
+    <section id="round" class="today" hidden aria-label="Rodada">
+      <h3 id="round-title" class="title"></h3>
+      <p id="round-closes" class="fine"></p>
+      <div class="row"><button id="play-btn" type="button" class="primary"></button></div>
+      <p id="round-hint" class="fine"></p>
+      <h4>Terminaram</h4><ul id="round-finished"></ul>
+      <h4>Jogando</h4><ul id="round-playing"></ul>
+      <h4>Ainda não</h4><ul id="round-waiting"></ul>
+    </section>
+
+    <section aria-label="Classificação">
+      <h3 class="title">Classificação</h3>
+      <div class="table-wrap">
+        <table class="board">
+          <thead><tr><th>#</th><th>Nome</th><th>Pontos</th><th>Rodadas</th><th>Chutes</th><th>Tempo</th></tr></thead>
+          <tbody id="t-rows"></tbody>
+        </table>
+      </div>
+      <p id="standings-note" class="fine"></p>
+    </section>
+  </section>
+
+  <!-- Playing a card -->
+  <section id="card" hidden>
+    <p class="fine"><a id="back-from-card" href="./torneios.html">← Torneio</a></p>
+    <p id="card-progress" class="fine" aria-live="polite"></p>
+
+    <figure class="silhouette" id="card-shape-wrap" hidden>
+      <svg id="card-shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
+    </figure>
+    <p id="card-capital" class="capital-prompt" hidden></p>
+
+    <ol id="card-guesses" class="guesses" aria-label="Tentativas"></ol>
+
+    <form id="card-form" autocomplete="off">
+      <div class="combo">
+        <input id="card-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+               aria-controls="card-datalist" aria-label="País" placeholder="Digite um país…"
+               autocapitalize="off" spellcheck="false" enterkeyhint="go">
+        <ul id="card-datalist" role="listbox" aria-label="Países" hidden></ul>
+      </div>
+      <button id="card-submit" type="submit" class="primary">Chutar</button>
+    </form>
+
+    <p id="card-left" class="fine" aria-live="polite"></p>
+    <ol id="card-items" class="card-items" aria-label="Desafios da rodada"></ol>
+    <p id="card-done" class="result" hidden></p>
+  </section>
+</main>
+
+<footer>
+  <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> ·
+  <a href="https://github.com/Thinato/mondo">Código</a>
+</footer>
+
+<dialog id="confirm-dialog">
+  <form method="dialog">
+    <p id="confirm-text"></p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Cancelar</button>
+      <button type="submit" value="ok" class="primary">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="./app/tournaments.js"></script>
+</body>
+</html>
