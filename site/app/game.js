@@ -1,0 +1,185 @@
+// The round on screen: sign-in → load → guess loop → result (FR-2, FR-6).
+// State comes from the server on every step; this file only renders it and
+// never computes anything about the answer.
+
+import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+import { auth, googleProvider } from "./firebase.js";
+import * as api from "./api.js";
+import { attach, createIndex, loadCountries } from "./autocomplete.js";
+import { arrow, band, formatKm, formatPercent, renderShape } from "./geo.js";
+import { errorMessage, t } from "./i18n.js";
+import { share } from "./share.js";
+
+const $ = (id) => document.getElementById(id);
+const el = {
+  signedOut: $("signed-out"), game: $("game"), signIn: $("sign-in"), signOut: $("sign-out"),
+  shape: $("shape"), guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
+  submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
+  shareBtn: $("share"), left: $("left"), profileBtn: $("profile-btn"), profileDialog: $("profile-dialog"),
+  profileForm: $("profile-form"), profileName: $("profile-name"), profileError: $("profile-error"),
+};
+
+let round = null;
+let displayName = null;
+let picked = null;
+let ac = null;
+let busy = false;
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+el.signIn.addEventListener("click", async () => {
+  el.signIn.disabled = true;
+  setStatus(t("openingLogin"));
+  try { await signInWithPopup(auth, googleProvider); }
+  catch (err) { setStatus(errorMessage(err), "err"); }
+  finally { el.signIn.disabled = false; }
+});
+
+el.signOut.addEventListener("click", async () => {
+  await signOut(auth);
+  round = null; picked = null; // FR-1.6: nothing survives sign-out
+  el.input.value = "";
+  el.guesses.replaceChildren();
+});
+
+onAuthStateChanged(auth, (user) => {
+  el.signedOut.hidden = Boolean(user);
+  el.game.hidden = !user;
+  el.profileBtn.hidden = !user;
+  el.signOut.hidden = !user;
+  if (user) load();
+});
+
+// ---------------------------------------------------------------------------
+// Round
+// ---------------------------------------------------------------------------
+
+async function load() {
+  setStatus(t("loading"));
+  setBusy(true);
+  try {
+    if (!ac) {
+      const index = createIndex(await loadCountries());
+      ac = attach({
+        input: el.input, list: el.list, index,
+        onPick: (entry) => { picked = entry; submit(); },
+        onMiss: (text) => { picked = null; if (text.trim()) setStatus(t("noMatch"), "warn"); console.debug("[mondo] autocomplete miss:", text); },
+      });
+    }
+    round = await api.getRound({});
+    if (round.me) displayName = round.me.displayName;
+    setStatus("");
+    render();
+  } catch (err) {
+    setStatus(errorMessage(err), "err");
+  } finally {
+    setBusy(false);
+    focusInput();
+  }
+}
+
+/** Focus only works once the input is enabled again, so call this after setBusy(false). */
+function focusInput() {
+  if (round?.status === "in_progress" && !el.input.disabled) el.input.focus();
+}
+
+el.form.addEventListener("submit", (ev) => { ev.preventDefault(); if (!picked) ac.commit(); else submit(); });
+el.input.addEventListener("input", () => { picked = null; });
+
+async function submit() {
+  if (busy || !round || !picked || round.status !== "in_progress") return;
+  const code = picked.code;
+  picked = null;
+  setBusy(true);
+  setStatus("");
+  try {
+    round = await api.submitGuess({ puzzleId: round.puzzleId, code });
+    el.input.value = "";
+    render();
+  } catch (err) {
+    // FR-6.5: a failed submission consumes nothing; the text stays so they can retry.
+    const code = err?.details?.code;
+    if (code === "already-completed") { round = await api.getRound({}).catch(() => round); render(); }
+    setStatus(errorMessage(err), "err");
+  } finally {
+    setBusy(false);
+    focusInput();
+  }
+}
+
+function render() {
+  renderShape(el.shape, round.shape);
+  el.guesses.replaceChildren(...round.guesses.map(guessRow));
+  const inProgress = round.status === "in_progress";
+  el.form.hidden = !inProgress;
+  el.left.textContent = t("guessesLeft", { n: round.guessesUsed, max: round.guessesMax });
+  el.result.hidden = inProgress;
+  if (!inProgress) {
+    const n = round.guessesUsed;
+    el.resultText.textContent =
+      round.status === "solved"
+        ? (n === 1 ? t("solvedOne", { points: round.points }) : t("solved", { n, points: round.points })) + " " + t("answerWas", { answer: round.answer.name })
+        : t("failed", { answer: round.answer.name });
+    el.shareBtn.textContent = t("share");
+  }
+}
+
+function guessRow(g) {
+  const li = document.createElement("li");
+  li.className = `guess band-${band(g.proximity)}`;
+  const name = document.createElement("span"); name.className = "name"; name.textContent = g.name;
+  const dist = document.createElement("span"); dist.className = "dist"; dist.textContent = g.distanceKm === 0 ? "🎉" : formatKm(g.distanceKm);
+  const dir = document.createElement("span"); dir.className = "dir";
+  if (g.distanceKm > 0) {
+    dir.textContent = arrow(g.compass);
+    dir.setAttribute("aria-label", t(`compass.${g.compass}`));
+    dir.title = t(`compass.${g.compass}`);
+  }
+  const pct = document.createElement("span"); pct.className = "pct"; pct.textContent = formatPercent(g.proximity);
+  li.append(name, dist, dir, pct);
+  return li;
+}
+
+el.shareBtn.addEventListener("click", async () => {
+  const outcome = await share(round.shareGrid);
+  el.shareBtn.textContent = outcome === "failed" ? t("share") : t("copied");
+  if (outcome === "failed") setStatus(round.shareGrid, "");
+});
+
+// ---------------------------------------------------------------------------
+// Profile (FR-1.3)
+// ---------------------------------------------------------------------------
+
+el.profileBtn.addEventListener("click", () => {
+  el.profileError.textContent = "";
+  el.profileName.value = displayName ?? "";
+  el.profileDialog.showModal();
+  el.profileName.select();
+});
+el.profileForm.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  if (ev.submitter?.value === "cancel") return el.profileDialog.close();
+  try {
+    const saved = await api.updateProfile({ displayName: el.profileName.value });
+    displayName = saved.displayName;
+    el.profileDialog.close();
+    setStatus(t("saved"), "ok");
+  } catch (err) {
+    el.profileError.textContent = errorMessage(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+
+function setBusy(b) {
+  busy = b;
+  el.input.disabled = b;
+  el.submit.disabled = b;
+}
+
+function setStatus(text, cls = "") {
+  el.status.textContent = text;
+  el.status.className = cls;
+}

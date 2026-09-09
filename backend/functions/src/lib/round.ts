@@ -157,13 +157,15 @@ export interface RoundView {
   elapsedMs: number | null;
   shareGrid: string | null;
   serverTime: string;
+  /** The caller's own profile bits the UI needs (FR-1.2, FR-1.3). Never anyone else's. */
+  me: { displayName: string } | null;
 }
 
 export function statusOf(attempt: Attempt): RoundStatus {
   return attempt.finishedAt === null ? "in_progress" : attempt.solved ? "solved" : "failed";
 }
 
-export function roundView(attempt: Attempt, puzzle: Puzzle, now: Timestamp): RoundView {
+export function roundView(attempt: Attempt, puzzle: Puzzle, now: Timestamp, profile: Profile | null = null): RoundView {
   const status = statusOf(attempt);
   const finished = status !== "in_progress";
   const shape = shapeFor(puzzle.countryCode);
@@ -189,6 +191,7 @@ export function roundView(attempt: Attempt, puzzle: Puzzle, now: Timestamp): Rou
         )
       : null,
     serverTime: now.toDate().toISOString(),
+    me: profile ? { displayName: profile.displayName } : null,
   };
 }
 

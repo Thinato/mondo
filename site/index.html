@@ -3,60 +3,84 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Mondo — verificação</title>
+<title>Mondo — que país é este?</title>
+<meta name="description" content="Um país por dia. Adivinhe pela silhueta em até seis tentativas.">
 <link rel="stylesheet" href="./mondo.css">
+<script>
+  // D-18: follow the parent site's theme choice (lisecki.dev/theme.js writes
+  // this key) before first paint. Without a choice, prefers-color-scheme rules.
+  try {
+    var th = localStorage.getItem("lisecki-theme");
+    if (th === "light") document.documentElement.classList.add("light-mode");
+    if (th === "dark") document.documentElement.classList.add("dark-mode");
+  } catch (e) {}
+</script>
 </head>
 <body>
-<main>
-  <h1>Mondo</h1>
-  <p class="sub">
-    Verificação da Fase 0. Ainda não é o jogo — isto só prova que o projeto,
-    o deploy e a autenticação funcionam de ponta a ponta.
-  </p>
+<header>
+  <h1><a href="./">Mondo</a></h1>
+  <nav aria-label="Principal">
+    <a href="./regras.html">Regras</a>
+    <button id="profile-btn" type="button" class="link" hidden>Perfil</button>
+    <button id="sign-out" type="button" class="link" hidden>Sair</button>
+  </nav>
+</header>
 
-  <button id="run" type="button">Entrar com Google e testar</button>
-  <pre id="out" aria-live="polite">Aguardando.</pre>
+<main>
+  <section id="signed-out">
+    <p class="sub">Um país por dia. Adivinhe pela silhueta em até seis tentativas; a cada erro você ganha a distância e a direção.</p>
+    <button id="sign-in" type="button" class="primary">Entrar com Google</button>
+    <p class="fine">Só o nome de exibição aparece para os outros. <a href="./privacidade.html">Privacidade</a>.</p>
+  </section>
+
+  <section id="game" hidden>
+    <figure class="silhouette">
+      <svg id="shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país de hoje"></svg>
+    </figure>
+
+    <ol id="guesses" class="guesses" aria-label="Tentativas"></ol>
+
+    <form id="guess-form" autocomplete="off">
+      <div class="combo">
+        <input id="guess-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+               aria-controls="guess-list" aria-label="País" placeholder="Digite um país…"
+               autocapitalize="off" spellcheck="false" enterkeyhint="go">
+        <ul id="guess-list" role="listbox" aria-label="Países" hidden></ul>
+      </div>
+      <button id="guess-submit" type="submit" class="primary">Chutar</button>
+    </form>
+
+    <p id="left" class="fine" aria-live="polite"></p>
+    <p id="status" aria-live="polite"></p>
+
+    <section id="result" class="result" hidden>
+      <p id="result-text"></p>
+      <button id="share" type="button" class="primary">Compartilhar</button>
+      <p class="fine">Novo país todo dia ao meio-dia.</p>
+    </section>
+  </section>
 </main>
 
-<script type="module">
-import { signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js";
-import { auth, functions, googleProvider } from "./app/firebase.js";
+<footer>
+  <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> ·
+  <a href="https://github.com/Thinato/mondo">Código</a>
+</footer>
 
-const out = document.getElementById("out");
-const run = document.getElementById("run");
+<dialog id="profile-dialog">
+  <form id="profile-form" method="dialog">
+    <h2>Perfil</h2>
+    <label for="profile-name">Nome de exibição</label>
+    <input id="profile-name" type="text" minlength="3" maxlength="24" required
+           pattern="[\p{L}\p{N} _\-]{3,24}" autocomplete="nickname">
+    <p class="fine">3 a 24 caracteres: letras, números, espaço, - ou _. É o que os outros veem.</p>
+    <p id="profile-error" class="err" aria-live="polite"></p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Cancelar</button>
+      <button type="submit" value="save" class="primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
 
-const show = (text, cls = "") => {
-  out.textContent = text;
-  out.className = cls;
-};
-
-// Phase 0 checks the whole chain in one click: sign-in (authorized domains),
-// the callable protocol (CORS allowlist), the region, and the CI deploy.
-async function check() {
-  run.disabled = true;
-  try {
-    if (!auth.currentUser) {
-      show("Abrindo o login do Google…");
-      await signInWithPopup(auth, googleProvider);
-    }
-    show("Chamando ping…");
-    const { data } = await httpsCallable(functions, "ping")();
-    show(JSON.stringify(data, null, 2), data?.ok ? "ok" : "err");
-  } catch (err) {
-    // Show the code as well as the message: "unauthenticated" vs a CORS failure
-    // vs "internal" point at completely different broken things.
-    show(`${err?.code ?? "erro"}\n${err?.message ?? err}`, "err");
-  } finally {
-    run.disabled = false;
-  }
-}
-
-run.addEventListener("click", check);
-onAuthStateChanged(auth, (user) => {
-  run.textContent = user ? "Testar novamente" : "Entrar com Google e testar";
-});
-</script>
+<script type="module" src="./app/game.js"></script>
 </body>
 </html>

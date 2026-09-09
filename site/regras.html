@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo — regras</title>
+<link rel="stylesheet" href="./mondo.css">
+<script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+</head>
+<body>
+<header>
+  <h1><a href="./">Mondo</a></h1>
+  <nav aria-label="Principal"><a href="./">Jogar</a></nav>
+</header>
+
+<main class="prose">
+  <h2>O jogo</h2>
+  <p>Todo dia, ao <strong>meio-dia (horário de Brasília)</strong>, aparece a silhueta de um país. Você tem
+  <strong>seis tentativas</strong> para acertar qual é. Só valem países da lista: digite e escolha na
+  busca, em português, em inglês ou pela sigla.</p>
+  <p>A cada erro você recebe três pistas sobre o país certo em relação ao seu chute:</p>
+  <ul>
+    <li>a <strong>distância</strong> em quilômetros, medida entre os centros dos dois países;</li>
+    <li>a <strong>direção</strong>, como uma seta em oito pontos (norte, nordeste, leste…);</li>
+    <li>a <strong>proximidade</strong> em porcentagem: 100% é o próprio país, 0% é o outro lado do mundo (20.000 km).</li>
+  </ul>
+
+  <h2>Pontuação</h2>
+  <table>
+    <thead><tr><th>Acertou na tentativa</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>Não acertou</th></tr></thead>
+    <tbody><tr><td>Pontos</td><td>6</td><td>5</td><td>4</td><td>3</td><td>2</td><td>1</td><td>0</td></tr></tbody>
+  </table>
+  <p>Empate em pontos se resolve pelo <strong>tempo</strong>: do momento em que a silhueta aparece até o
+  último chute, medido no servidor. Menor tempo ganha. Fechar a aba não para o relógio.</p>
+  <p>Uma rodada não pode ser jogada de novo. Se você abrir o jogo em outro aparelho, suas tentativas
+  estão lá do mesmo jeito.</p>
+
+  <h2>Detalhes que alguém vai perguntar</h2>
+  <ul>
+    <li><strong>Que silhueta é essa?</strong> Só o maior pedaço de terra contínuo de cada país. A França é a
+    França europeia; os Estados Unidos são os 48 contíguos. Arquipélagos que ficariam irreconhecíveis
+    (Indonésia, Japão, Filipinas, Nova Zelândia e alguns outros) mantêm as ilhas principais.</li>
+    <li><strong>Todo país tem o mesmo tamanho na tela.</strong> A área real não é pista.</li>
+    <li><strong>Quais países entram?</strong> Os 193 membros da ONU mais Palestina, Taiwan e Kosovo. Territórios e
+    dependências (Groenlândia, Porto Rico, Hong Kong…) não entram. O Vaticano não tem geometria
+    utilizável nos dados que usamos, então também não entra.</li>
+    <li><strong>Um país repete?</strong> Não dentro de 180 dias. A escolha é sorteada com antecedência,
+    pesando países mais conhecidos (50%), médios (35%) e obscuros (15%).</li>
+    <li><strong>Dá pra trapacear?</strong> A resposta nunca sai do servidor antes do fim da rodada. Um
+    acerto de primeira em menos de dois segundos fica marcado como <em>suspeito</em>. Não é proibido; é
+    assunto de almoço.</li>
+  </ul>
+  <p class="fine">Grupos, ranking e desafios chegam em seguida. As regras de ranking vão aparecer aqui quando
+  existirem.</p>
+</main>
+
+<footer><a href="./">Jogar</a> · <a href="./privacidade.html">Privacidade</a> · <a href="https://github.com/Thinato/mondo">Código</a></footer>
+</body>
+</html>

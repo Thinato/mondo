@@ -33,7 +33,9 @@ const REGION = "southamerica-east1";
 const isLocal =
   location.hostname === "localhost" || location.hostname === "127.0.0.1";
 
-export const app = initializeApp(firebaseConfig);
+// Locally, everything runs against the emulators under a demo project id, so a
+// misconfigured call can never reach the real project by accident.
+export const app = initializeApp(isLocal ? { ...firebaseConfig, projectId: "demo-mondo" } : firebaseConfig);
 export const auth = getAuth(app);
 export const functions = getFunctions(app, REGION);
 export const googleProvider = new GoogleAuthProvider();

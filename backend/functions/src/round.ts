@@ -47,22 +47,23 @@ async function ensureProfile(tx: Transaction, uid: string, now: Timestamp): Prom
  * getRound({ puzzleId? }) — the round the caller should see; creates the
  * attempt with a server `startedAt` on first call, which starts the clock.
  */
-export const getRound = callable<{ puzzleId?: unknown } | undefined, RoundView>(async (uid, data) => {
-  const input = data === undefined ? {} : requireObject(data);
+export const getRound = callable<{ puzzleId?: unknown } | null | undefined, RoundView>(async (uid, data) => {
+  // The web SDK sends `null` when the caller passes no argument.
+  const input = data == null ? {} : requireObject(data);
   const requested = input.puzzleId === undefined ? undefined : requirePuzzleId(input.puzzleId);
   const now = Timestamp.now();
   const puzzle = await loadOpenPuzzle(requested, now);
 
-  const attempt = await db().runTransaction(async (tx) => {
+  const { attempt, profile } = await db().runTransaction(async (tx) => {
     const snap = await tx.get(attemptRef(uid, puzzle.puzzleId));
-    await ensureProfile(tx, uid, now); // reads, then maybe creates — after every read above
-    if (snap.exists) return snap.data() as Attempt;
+    const profile = await ensureProfile(tx, uid, now); // reads, then maybe creates — after every read above
+    if (snap.exists) return { attempt: snap.data() as Attempt, profile };
     const fresh = newAttempt(uid, puzzle.puzzleId, now);
     tx.create(attemptRef(uid, puzzle.puzzleId), fresh);
-    return fresh;
+    return { attempt: fresh, profile };
   });
 
-  return roundView(attempt, puzzle, now);
+  return roundView(attempt, puzzle, now, profile);
 });
 
 /**

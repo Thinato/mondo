@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo — privacidade</title>
+<link rel="stylesheet" href="./mondo.css">
+<script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+</head>
+<body>
+<header>
+  <h1><a href="./">Mondo</a></h1>
+  <nav aria-label="Principal"><a href="./">Jogar</a></nav>
+</header>
+
+<main class="prose">
+  <h2>O que fica guardado</h2>
+  <ul>
+    <li><strong>Sua conta Google</strong>: o identificador da conta e o e-mail, guardados pelo Firebase
+    Authentication para você conseguir entrar. <strong>O e-mail nunca aparece para outros jogadores</strong> e
+    não fica em nenhum lugar além do registro de login.</li>
+    <li><strong>Nome de exibição</strong>: sorteado (algo como <em>capivara-veloz-4821</em>) e editável por você. É a
+    única coisa que os outros veem. Não use seu nome completo se não quiser.</li>
+    <li><strong>Resultados</strong>: cada chute, a distância e a direção, se acertou, em quantas tentativas, e o
+    tempo. Isso é o jogo.</li>
+  </ul>
+  <p>Não há anúncios, não há rastreamento, não há analytics além do log de erros do servidor. O código
+  é aberto: <a href="https://github.com/Thinato/mondo">github.com/Thinato/mondo</a>.</p>
+
+  <h2>Onde fica</h2>
+  <p>No Google Cloud (Firebase), na região de São Paulo. Use uma conta Google <strong>pessoal</strong>; o
+  jogo não pede nem precisa de e-mail corporativo.</p>
+
+  <h2>Como apagar</h2>
+  <p>O botão de apagar a conta chega junto com os grupos. Enquanto ele não existe, mande uma mensagem
+  para o Paulo e a conta e todos os resultados são apagados na hora. Nos rankings futuros, um jogador
+  apagado aparece como <em>[removido]</em>, sem nome.</p>
+
+  <h2>Quem responde</h2>
+  <p>Paulo Lisecki, que mantém o jogo. Dúvidas sobre este texto: abra uma issue no repositório ou fale
+  direto.</p>
+</main>
+
+<footer><a href="./">Jogar</a> · <a href="./regras.html">Regras</a> · <a href="https://github.com/Thinato/mondo">Código</a></footer>
+</body>
+</html>
