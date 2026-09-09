@@ -5,6 +5,10 @@ tools/out/
 tools/.cache/
 tools/preview.html
 
+# Crawled reference SVGs of unknown license (D-15, D-16). Local-only; the preview shows them
+# beside the Natural Earth output, nothing else may read them.
+assets/
+
 # Node
 node_modules/
 npm-debug.log*

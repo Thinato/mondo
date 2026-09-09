@@ -6,13 +6,16 @@
 //   site/data/countries.min.json           client: codes, names, aliases. NOTHING ELSE.
 //   backend/functions/src/data/countries.json   server: + centroids, tiers, stats
 //   backend/functions/src/data/shapes.json      server: SVG path per country
-//   tools/preview.html                     human review grid (gitignored)
+//   tools/preview.html                     human review grid (gitignored). Shows the crawled
+//                                          reference SVG from assets/ beside each shape when
+//                                          that file exists locally (D-15, D-17). assets/ is
+//                                          gitignored and is never a build input.
 //
 // The client never receives shapes or centroids. The server inlines one shape
 // per round (SEC-1, SEC-2, D-13), so there is no public shape file to match a
 // silhouette against.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { feature } from "topojson-client";
@@ -242,7 +245,7 @@ function isLatin(s) {
 function renderPreview(list, shapeByCode) {
   const card = (c) => `
     <figure class="${c.discardedAreaShare >= REVIEW_DISCARDED_SHARE ? "review" : ""}">
-      <svg viewBox="${VIEW_BOX}"><path d="${shapeByCode[c.code]}" fill-rule="evenodd"/></svg>
+      <svg viewBox="${VIEW_BOX}"><path d="${shapeByCode[c.code]}" fill-rule="evenodd"/></svg>${reference(c.code)}
       <figcaption>
         <b>${esc(c.names.en)}</b> <span class="code">${c.code}</span><br>
         <small>${esc(c.names["pt-BR"])} · tier ${c.tier} · ${c.points} pts · ${c.bytes} B${c.tolerance > TOLERANCE_PX ? ` · tol ${c.tolerance}` : ""}${c.keptPolygons > 1 ? ` · kept ${c.keptPolygons}` : ""}${c.discardedPolygons ? ` · dropped ${c.discardedPolygons} (${(c.discardedAreaShare * 100).toFixed(1)}%)` : ""}</small>
@@ -250,14 +253,14 @@ function renderPreview(list, shapeByCode) {
     </figure>`;
   const review = list.filter((c) => c.discardedAreaShare >= REVIEW_DISCARDED_SHARE).sort((a, b) => b.discardedAreaShare - a.discardedAreaShare);
   const rest = list.filter((c) => c.discardedAreaShare < REVIEW_DISCARDED_SHARE).sort((a, b) => a.names.en.localeCompare(b.names.en));
-  return `<!doctype html><meta charset="utf-8"><title>Mondo — silhouette preview (${list.length})</title>
+  return `<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light only"><meta name="darkreader-lock"><title>Mondo — silhouette preview (${list.length})</title>
 <style>
   body{font:14px system-ui;margin:1.5rem;background:#fafaf8;color:#222}
   h1,h2{font-weight:600} h2{margin-top:2.5rem;border-top:1px solid #ddd;padding-top:1rem}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem}
   figure{margin:0;padding:.5rem;background:#fff;border:1px solid #e5e5e0;border-radius:6px}
   figure.review{border-color:#d33;background:#fff7f7}
-  svg{width:100%;aspect-ratio:1;display:block;background:#f2f2ee;border-radius:4px}
+  svg,img{width:100%;aspect-ratio:1;display:block;background:#f2f2ee;border-radius:4px} img{margin-top:.25rem;opacity:.8}
   path{fill:#222} .code{color:#888;font-family:ui-monospace,monospace} small{color:#666}
 </style>
 <h1>Mondo — ${list.length} silhouettes</h1>
@@ -267,6 +270,12 @@ function renderPreview(list, shapeByCode) {
 <h2>Everything else (${rest.length})</h2>
 <div class="grid">${rest.map(card).join("")}</div>
 `;
+}
+
+// D-17: a second opinion for the eye, never an input. Relative path from tools/.
+function reference(code) {
+  const rel = `../assets/countries/shapes/${code.toLowerCase()}.svg`;
+  return existsSync(join(TOOLS, rel)) ? `<img src="${rel}" alt="" title="referência (local)">` : "";
 }
 
 function esc(s) {
