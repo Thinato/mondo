@@ -9,14 +9,16 @@
  */
 
 import { FieldPath, Timestamp } from "firebase-admin/firestore";
-import { attemptRef, db, groupsCol, puzzleDays, userRef } from "./db";
+import { attemptRef, db, groupsCol, playRef, puzzleDays, roundRef, userRef } from "./db";
 import { groupsOf, requireAdmin, roleOf } from "./lib/authz";
 import { callable } from "./lib/callable";
+import { cardIntervalsMs, totalGuesses, type CardPlay } from "./lib/card";
 import { countryByCode } from "./lib/countries";
 import { mondoError } from "./lib/errors";
 import { todayState, type Group, type TodayState } from "./lib/groups";
 import { intervalsMs, resetAttempt, type Attempt, type Profile, type Role } from "./lib/round";
 import { windowDays } from "./lib/standings";
+import { playId, type TournamentRound } from "./lib/tournament";
 import { requireObject, requirePuzzleId, requireRole, requireUid } from "./lib/validate";
 
 const PAGE = 50;
@@ -121,12 +123,65 @@ export interface AttemptRow {
   guesses?: { code: string; name: string; distanceKm: number; proximity: number }[];
 }
 
+export interface MatchRow {
+  uid: string; displayName: string; tournamentId: string; roundId: string;
+  state: "in_progress" | "finished";
+  itemCount: number; guessCount: number;
+  /** Null while the round is open and the admin has not finished it (D-31). */
+  points: number | null; elapsedMs: number | null; suspicious: boolean | null;
+  startedAt: string; finishedAt: string | null;
+  /** Per item: served→first guess, then guess→guess. */
+  intervalsMs: number[][];
+}
+
+/**
+ * Which of these rounds the caller may see outcomes for: the closed ones, plus
+ * any still-open round whose card the caller has already finished themselves.
+ * Fails closed — a round document that is missing is not revealed.
+ */
+async function revealableRounds(uid: string, roundIds: readonly string[]): Promise<Set<string>> {
+  const distinct = [...new Set(roundIds)];
+  if (distinct.length === 0) return new Set();
+  const parsed = distinct.flatMap((rid) => {
+    const at = rid.lastIndexOf("_r");
+    const n = Number(rid.slice(at + 2));
+    return at > 0 && Number.isInteger(n) ? [{ rid, tid: rid.slice(0, at), n }] : [];
+  });
+  if (parsed.length === 0) return new Set();
+  const [rounds, own] = await Promise.all([
+    db().getAll(...parsed.map((x) => roundRef(x.tid, x.n))),
+    db().getAll(...parsed.map((x) => playRef(playId(uid, x.tid, x.n)))),
+  ]);
+  const out = new Set<string>();
+  parsed.forEach((x, i) => {
+    const closed = rounds[i]?.exists === true && (rounds[i]!.data() as TournamentRound).closedAt !== null;
+    const ownFinished = own[i]?.exists === true && (own[i]!.data() as { finishedAt: unknown }).finishedAt !== null;
+    if (closed || ownFinished) out.add(x.rid);
+  });
+  return out;
+}
+
 /**
  * listAttempts({ puzzleId } | { uid }) — one day for everyone, or one player's
  * last 31 days. Guesses are included for closed days, and for today only once
  * the admin's own round is over (D-31).
+ *
+ * The `uid` path also returns that player's tournament cards (`matches`).
+ * Neither of the daily paths can see them and neither should: the `puzzleId`
+ * path filters on a field a card play does not have, and this path `getAll`s 31
+ * deterministic daily ids (D-40 — that absence is what keeps tournaments out of
+ * the daily boards). They are fetched with a third, equality-only query, which
+ * Firestore serves by merging single-field indexes, so `firestore.indexes.json`
+ * stays empty. Without this the admin timing surface would be blind to
+ * tournaments — and SEC-13/SEC-14 name it as the *whole* mitigation there.
+ *
+ * That third query is capped at PAGE and **unordered**: two equality filters
+ * plus an `orderBy` would need a composite index, and firestore.indexes.json is
+ * deliberately empty. So a player with more than 50 card plays shows an
+ * arbitrary 50, sorted by start time only after the cap. Fine while a
+ * tournament is a handful of rounds; revisit with an index if it ever matters.
  */
-export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { attempts: AttemptRow[] }>(async (uid, data) => {
+export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { attempts: AttemptRow[]; matches: MatchRow[] }>(async (uid, data) => {
   await requireAdminCaller(uid);
   const input = requireObject(data);
   if ((input.puzzleId === undefined) === (input.uid === undefined)) {
@@ -135,13 +190,18 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
   const { today } = puzzleDays(Timestamp.now());
 
   let attempts: Attempt[];
+  let plays: CardPlay[] = [];
   if (input.puzzleId !== undefined) {
     const puzzleId = requirePuzzleId(input.puzzleId);
     attempts = (await db().collection("attempts").where("puzzleId", "==", puzzleId).get()).docs.map((d) => d.data() as Attempt);
   } else {
     const target = requireUid(input.uid);
-    const snaps = await db().getAll(...windowDays(today, 31).map((d) => attemptRef(target, d)));
+    const [snaps, matchSnap] = await Promise.all([
+      db().getAll(...windowDays(today, 31).map((d) => attemptRef(target, d))),
+      db().collection("attempts").where("uid", "==", target).where("mode", "==", "match").limit(PAGE).get(),
+    ]);
     attempts = snaps.flatMap((s) => (s.exists ? [s.data() as Attempt] : []));
+    plays = matchSnap.docs.map((d) => d.data() as CardPlay);
   }
 
   let revealToday = false;
@@ -149,9 +209,33 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
     const mine = await attemptRef(uid, today).get();
     revealToday = mine.exists && todayState(mine.data() as Attempt) === "finished";
   }
-  const names = await namesFor(attempts.map((a) => a.uid));
+  const names = await namesFor([...attempts.map((a) => a.uid), ...plays.map((p) => p.uid)]);
+  const revealRound = await revealableRounds(uid, plays.map((p) => p.roundId));
+
+  const matches: MatchRow[] = plays
+    .sort((a, b) => b.startedAt.toMillis() - a.startedAt.toMillis())
+    .map((p) => {
+      // D-31, carried over to tournaments: an admin who is in the same round
+      // must finish their own card before they can see anyone else's outcome.
+      // FR-5.6 is absolute about an open round, and this path would otherwise
+      // route straight around getTournament's careful states-only panel.
+      const reveal = p.uid === uid || revealRound.has(p.roundId);
+      return {
+        uid: p.uid, displayName: names.get(p.uid) ?? REMOVED,
+        tournamentId: p.tournamentId, roundId: p.roundId,
+        state: p.finishedAt === null ? "in_progress" : "finished",
+        itemCount: p.items.length, guessCount: totalGuesses(p),
+        // Guess count and timings stay live — they are the cheating material
+        // the panel exists for, and the daily draws the same line (D-31).
+        points: reveal ? p.points : null, elapsedMs: reveal ? p.elapsedMs : null,
+        suspicious: reveal ? p.suspicious : null,
+        startedAt: p.startedAt.toDate().toISOString(), finishedAt: iso(p.finishedAt),
+        intervalsMs: cardIntervalsMs(p),
+      };
+    });
 
   return {
+    matches,
     attempts: attempts.map((a) => {
       // D-31: while the admin's own round is open, today's rows carry state and
       // timings but no outcome — the same line getLeaderboard draws (FR-4.11).

@@ -16,7 +16,7 @@
     "test": "tsc -p tsconfig.test.json && node --test \".test-build/test/*.test.js\"",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
     "test:rules": "tsc -p tsconfig.test.json && npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-mondo --config ../firebase.json \"node --test .test-build/test/rules/*.test.js\"",
-    "test:e2e": "npm run build && tsc -p tsconfig.test.json && npx --yes firebase-tools@latest emulators:exec --only functions,firestore,auth,pubsub --project demo-mondo --config ../firebase.json \"node --test .test-build/test/e2e/phase2.e2e.js\""
+    "test:e2e": "npm run build && tsc -p tsconfig.test.json && npx --yes firebase-tools@latest emulators:exec --only functions,firestore,auth,pubsub --project demo-mondo --config ../firebase.json \"node --test .test-build/test/e2e/phase2.e2e.js .test-build/test/e2e/phase3.e2e.js\""
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",

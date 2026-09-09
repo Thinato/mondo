@@ -19,7 +19,10 @@ export type MondoErrorCode =
   | "group-full"
   | "too-many-groups"
   | "invalid-invite"
-  | "challenge-expired";
+  | "challenge-expired"
+  // Phase 3 — tournaments (docs/06-tournaments.md §9)
+  | "tournament-not-open"
+  | "not-a-participant";
 
 const HTTPS_CODE: Record<MondoErrorCode, FunctionsErrorCode> = {
   unauthenticated: "unauthenticated",
@@ -35,6 +38,10 @@ const HTTPS_CODE: Record<MondoErrorCode, FunctionsErrorCode> = {
   "too-many-groups": "failed-precondition",
   "invalid-invite": "not-found",
   "challenge-expired": "failed-precondition",
+  // Reused for a round whose deadline has passed, too: the caller can no longer
+  // act, and there is nothing they can retry (FR-5.7).
+  "tournament-not-open": "failed-precondition",
+  "not-a-participant": "permission-denied",
 };
 
 export function mondoError(code: MondoErrorCode, message: string): HttpsError {

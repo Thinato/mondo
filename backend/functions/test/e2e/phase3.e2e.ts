@@ -1,0 +1,493 @@
+/**
+ * Phase 3 slices 1–2 end-to-end against the emulators (D-33): create a
+ * tournament from a preset, join it, start it, play a mixed card, close the
+ * round, read the standings.
+ *
+ * `npm run test:e2e` starts Functions + Firestore + Auth under demo-mondo and
+ * runs the Phase 2 file and this one. Every check asserts both the callable
+ * response and the Firestore state — the read-after-write bug in Phase 2 was
+ * only visible from here, not from the unit tests.
+ *
+ * Tests share state and run in order.
+ */
+
+import { before, test } from "node:test";
+import assert from "node:assert/strict";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { puzzleIdAt } from "../../src/lib/puzzle-day";
+import { advanceOpenRoundsNow } from "../../src/tournaments";
+
+process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
+if (getApps().length === 0) initializeApp({ projectId: "demo-mondo" });
+const db = getFirestore();
+
+const FUNCTIONS = "http://127.0.0.1:5001/demo-mondo/southamerica-east1";
+const AUTH = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
+const TODAY = puzzleIdAt(new Date());
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type Any = any;
+interface Res { status: number; result?: Any; error?: Any }
+interface Account { uid: string; token: string; call: (fn: string, data?: unknown) => Promise<Res> }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function post(fn: string, data: unknown, token?: string): Promise<Res> {
+  const r = await fetch(`${FUNCTIONS}/${fn}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ data }),
+  });
+  const text = await r.text();
+  let body: Any = {};
+  try { body = text ? JSON.parse(text) : {}; } catch { body = { raw: text }; }
+  return { status: r.status, result: body.result, error: body.error };
+}
+
+async function newAccount(label: string): Promise<Account> {
+  const r = await fetch(`${AUTH}/accounts:signUp?key=fake`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`, password: "secret123", returnSecureToken: true }),
+  }).then((x) => x.json() as Promise<Any>);
+  return { uid: r.localId, token: r.idToken, call: (fn, data = {}) => post(fn, data, r.idToken) };
+}
+
+const code = (r: Res) => r.error?.details?.code ?? r.error?.status ?? null;
+const ok = (r: Res, what: string) => { assert.equal(r.status, 200, `${what}: ${JSON.stringify(r.error)}`); return r.result; };
+const doc = async (path: string) => (await db.doc(path).get()).data() as Any;
+
+let owner: Account;   // organizer, owns the group
+let ana: Account;     // member and participant
+let bruno: Account;   // member who joins but never plays — the forfeit (FR-5.7)
+let carla: Account;   // in NO group: the outsider
+let gid: string;
+let tid: string;
+
+/** A fresh account with the organizer role, so it can own a group. */
+async function withOrganizer(label: string): Promise<Account> {
+  const a = await newAccount(label);
+  await a.call("getRound", {});
+  await db.doc(`users/${a.uid}`).update({ role: "organizer" });
+  return a;
+}
+
+before(async () => {
+  // A puzzle must exist for the daily-schedule exclusion query (FR-5.2) and so
+  // getRound works for the profile-creating first call.
+  await db.doc(`puzzles/${TODAY}`).set({ puzzleId: TODAY, countryCode: "PY", tier: 1, opensAt: Timestamp.now() });
+
+  owner = await newAccount("t3-owner");
+  await owner.call("getRound", {});
+  await db.doc(`users/${owner.uid}`).update({ role: "organizer" });
+  gid = ok(await owner.call("createGroup", { name: "Torneios e2e" }), "createGroup").groupId;
+
+  for (const label of ["t3-ana", "t3-bruno"]) {
+    const a = await newAccount(label);
+    const { token } = ok(await owner.call("createInvite", { groupId: gid }), "createInvite");
+    ok(await a.call("acceptInvite", { token }), "acceptInvite");
+    if (label === "t3-ana") ana = a; else bruno = a;
+  }
+  carla = await newAccount("t3-carla");
+  await carla.call("getRound", {});
+});
+
+// ---------------------------------------------------------------------------
+
+test("only the group owner may create a tournament, and only from a shipped preset", async () => {
+  assert.equal(code(await ana.call("createTournament", { groupId: gid, name: "Meu torneio", preset: "quintal" })), "permission-denied");
+  assert.equal(code(await carla.call("createTournament", { groupId: gid, name: "Meu torneio", preset: "quintal" })), "permission-denied");
+  assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "Nope", preset: "mata-mata" })), "invalid-argument");
+  assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "ab", preset: "quintal" })), "invalid-argument");
+});
+
+test("D-48: creating from `mistura` copies the resolved settings onto the document", async () => {
+  tid = ok(await owner.call("createTournament", { groupId: gid, name: "Mistura de sexta", preset: "mistura" }), "createTournament").tournamentId;
+  const t = await doc(`tournaments/${tid}`);
+  assert.equal(t.status, "draft");
+  assert.equal(t.preset, "mistura");
+  assert.equal(t.format, "free_for_all");
+  assert.equal(t.regime, "aggregate");
+  assert.equal(t.config.cardSpec.order, "shuffled");
+  assert.deepEqual(t.config.cardSpec.items, [{ kind: "shape", count: 3 }, { kind: "capital", count: 2 }]);
+  assert.deepEqual(t.participantUids, [owner.uid], "the creator is in by default");
+  assert.ok(t.participants[owner.uid].displayName, "the name is snapshotted at draft time");
+  assert.equal(t.currentRound, null);
+});
+
+test("FR-5.3: a non-member cannot see the tournament, and a member can", async () => {
+  assert.equal(code(await carla.call("getTournament", { tournamentId: tid })), "permission-denied");
+  assert.equal(code(await carla.call("listTournaments", { groupId: gid })), "permission-denied");
+  const v = ok(await ana.call("getTournament", { tournamentId: tid }), "getTournament");
+  assert.equal(v.name, "Mistura de sexta");
+  assert.equal(v.canJoin, true);
+  assert.equal(v.canManage, false);
+  assert.equal(v.itemCount, 5);
+});
+
+test("members join while it is a draft; an outsider cannot", async () => {
+  ok(await ana.call("setParticipation", { tournamentId: tid, join: true }), "ana joins");
+  ok(await bruno.call("setParticipation", { tournamentId: tid, join: true }), "bruno joins");
+  assert.equal(code(await carla.call("setParticipation", { tournamentId: tid, join: true })), "permission-denied");
+  const t = await doc(`tournaments/${tid}`);
+  assert.deepEqual([...t.participantUids].sort(), [owner.uid, ana.uid, bruno.uid].sort());
+  // Joining twice is a no-op rather than an error.
+  ok(await ana.call("setParticipation", { tournamentId: tid, join: true }), "idempotent join");
+  assert.equal((await doc(`tournaments/${tid}`)).participantUids.length, 3);
+});
+
+test("leaving a draft removes the participant entirely", async () => {
+  ok(await bruno.call("setParticipation", { tournamentId: tid, join: false }), "bruno leaves");
+  let t = await doc(`tournaments/${tid}`);
+  assert.ok(!t.participantUids.includes(bruno.uid));
+  assert.equal(t.participants[bruno.uid], undefined);
+  ok(await bruno.call("setParticipation", { tournamentId: tid, join: true }), "and comes back");
+  t = await doc(`tournaments/${tid}`);
+  assert.ok(t.participantUids.includes(bruno.uid));
+});
+
+test("nobody can play a draft, and only the owner may start it", async () => {
+  assert.equal(code(await ana.call("getCard", { tournamentId: tid })), "tournament-not-open");
+  assert.equal(code(await ana.call("startTournament", { tournamentId: tid })), "permission-denied");
+  const res = ok(await owner.call("startTournament", { tournamentId: tid }), "startTournament");
+  assert.equal(res.round, 1);
+  assert.ok(Date.parse(res.closesAt) > Date.now(), "the round closes in the future");
+
+  const t = await doc(`tournaments/${tid}`);
+  assert.equal(t.status, "running");
+  assert.equal(t.currentRound, 1);
+  assert.equal(t.roundCount, 1);
+  assert.deepEqual(Object.values(t.participants).map((p: Any) => p.seed).sort(), [1, 2, 3]);
+  assert.equal(code(await owner.call("startTournament", { tournamentId: tid })), "tournament-not-open", "starting twice is refused");
+});
+
+test("D-38 / D-42: one stored card per round, five distinct subjects, shuffled kinds", async () => {
+  const card = await doc(`cards/${tid}_r1`);
+  assert.equal(card.items.length, 5);
+  assert.equal(new Set(card.items.map((i: Any) => i.subject)).size, 5);
+  const kinds = card.items.map((i: Any) => i.kind);
+  assert.equal(kinds.filter((k: string) => k === "shape").length, 3);
+  assert.equal(kinds.filter((k: string) => k === "capital").length, 2);
+  // FR-5.2: the card must not ask what the daily schedule is about to ask.
+  assert.ok(!card.items.some((i: Any) => i.subject === "PY"), "today's daily country must be excluded");
+
+  const round = await doc(`tournaments/${tid}/rounds/1`);
+  assert.equal(round.cardId, `${tid}_r1`);
+  assert.equal(round.closedAt, null);
+  assert.deepEqual(round.results, {}, "an open round holds no results to leak (FR-5.6)");
+});
+
+test("getCard serves the first prompt only, starts the server clock, and reveals nothing", async () => {
+  const v = ok(await ana.call("getCard", { tournamentId: tid }), "getCard");
+  assert.equal(v.cursor, 0);
+  assert.equal(v.itemCount, 5);
+  assert.equal(v.status, "in_progress");
+  assert.ok(v.prompt.kind === "shape" || v.prompt.kind === "capital");
+  assert.equal(v.points, null);
+  assert.deepEqual(v.items.map((i: Any) => i.answer), [null, null, null, null, null]);
+
+  const card = await doc(`cards/${tid}_r1`);
+  const body = JSON.stringify(v);
+  for (const item of card.items) assert.ok(!body.includes(`"${item.subject}"`), `SEC-1: the view leaks ${item.subject}`);
+
+  const play = await doc(`attempts/${ana.uid}_${tid}_r1`);
+  assert.equal(play.mode, "match");
+  assert.ok(play.startedAt, "SEC-3: the clock is a server timestamp");
+  assert.equal(play.items.length, 5);
+  assert.ok(!("puzzleId" in play), "D-40: a puzzleId here would put this on the daily board");
+});
+
+test("leaving the group closes the card too, even with the slot still in the bracket", async () => {
+  const quitter = await newAccount("t3-quitter");
+  const { token } = ok(await owner.call("createInvite", { groupId: gid }), "createInvite");
+  ok(await quitter.call("acceptInvite", { token }), "acceptInvite");
+  const t5 = ok(await owner.call("createTournament", { groupId: gid, name: "Saida", preset: "quintal" }), "createTournament").tournamentId;
+  ok(await quitter.call("setParticipation", { tournamentId: t5, join: true }), "joins");
+  ok(await owner.call("startTournament", { tournamentId: t5 }), "startTournament");
+  ok(await quitter.call("getCard", { tournamentId: t5 }), "can play while a member");
+
+  ok(await quitter.call("leaveGroup", { groupId: gid }), "leaveGroup");
+  // The slot stays so the standings fold keeps its shape (D-46) ...
+  assert.ok((await doc(`tournaments/${t5}`)).participantUids.includes(quitter.uid));
+  // ... but the slot is not a licence to keep playing inside a group they left.
+  assert.equal(code(await quitter.call("getCard", { tournamentId: t5 })), "permission-denied");
+  assert.equal(code(await quitter.call("submitCardGuess", { tournamentId: t5, guess: "BR" })), "permission-denied");
+  assert.equal(code(await quitter.call("getTournament", { tournamentId: t5 })), "permission-denied");
+  ok(await owner.call("cancelTournament", { tournamentId: t5 }), "cleanup");
+});
+
+test("T-9: dissolving a group cancels its tournaments instead of orphaning them", async () => {
+  const solo = await withOrganizer("t3-solo");
+  const g2 = ok(await solo.call("createGroup", { name: "Grupo efemero" }), "createGroup").groupId;
+  const t6 = ok(await solo.call("createTournament", { groupId: g2, name: "Orfao", preset: "quintal" }), "createTournament").tournamentId;
+  const mate = await newAccount("t3-mate");
+  const { token } = ok(await solo.call("createInvite", { groupId: g2 }), "createInvite");
+  ok(await mate.call("acceptInvite", { token }), "acceptInvite");
+  ok(await mate.call("setParticipation", { tournamentId: t6, join: true }), "joins");
+  ok(await solo.call("startTournament", { tournamentId: t6 }), "startTournament");
+
+  // Both leave; the last one out dissolves the group (D-23).
+  ok(await mate.call("leaveGroup", { groupId: g2 }), "mate leaves");
+  ok(await solo.call("leaveGroup", { groupId: g2 }), "owner leaves last");
+  assert.equal((await db.doc(`groups/${g2}`).get()).exists, false, "the group is gone");
+  const t = await doc(`tournaments/${t6}`);
+  assert.equal(t.status, "cancelled", "a running tournament must not outlive its group");
+  assert.equal(t.currentRound, null);
+  // And the nightly sweep must not pick it back up.
+  const swept = await advanceOpenRoundsNow(Timestamp.now());
+  assert.equal(swept.failed, 0);
+});
+
+test("a non-participant is refused the card even inside the group", async () => {
+  const outsider = await newAccount("t3-outsider");
+  const { token } = ok(await owner.call("createInvite", { groupId: gid }), "createInvite");
+  ok(await outsider.call("acceptInvite", { token }), "acceptInvite");
+  assert.equal(code(await outsider.call("getCard", { tournamentId: tid })), "not-a-participant");
+  assert.equal(code(await outsider.call("submitCardGuess", { tournamentId: tid, guess: "BR" })), "not-a-participant");
+});
+
+test("SEC-8 / SEC-5: a bad guess is rejected by the kind, and two guesses inside 400 ms are throttled", async () => {
+  assert.equal(code(await ana.call("submitCardGuess", { tournamentId: tid, guess: "ZZ" })), "invalid-argument");
+  assert.equal(code(await ana.call("submitCardGuess", { tournamentId: tid, guess: 7 })), "invalid-argument");
+  ok(await ana.call("submitCardGuess", { tournamentId: tid, guess: "IS" }), "first guess");
+  assert.equal(code(await ana.call("submitCardGuess", { tournamentId: tid, guess: "NO" })), "rate-limited");
+});
+
+/** Walk the whole card: solve each item on its first guess by reading the stored card. */
+async function playWholeCard(a: Account): Promise<Any> {
+  const card = await doc(`cards/${tid}_r1`);
+  let v = ok(await a.call("getCard", { tournamentId: tid }), "getCard");
+  while (v.status === "in_progress") {
+    await sleep(450);
+    v = ok(await a.call("submitCardGuess", { tournamentId: tid, guess: card.items[v.cursor].subject }), "submitCardGuess");
+  }
+  return v;
+}
+
+test("playing every item finishes the card and sums the points (FR-8.3, D-44)", async () => {
+  const v = await playWholeCard(owner);
+  assert.equal(v.status, "finished");
+  assert.equal(v.cursor, 5);
+  assert.equal(v.prompt, null);
+  // Every item solved first guess = 6 points each, whatever the kind (D-44).
+  assert.equal(v.points, 30);
+  assert.ok(v.elapsedMs > 0);
+  assert.deepEqual(v.items.map((i: Any) => i.points), [6, 6, 6, 6, 6]);
+  for (const item of v.items) assert.ok(item.answer.name, "a finished item reveals its own answer");
+  assert.equal(code(await owner.call("submitCardGuess", { tournamentId: tid, guess: "BR" })), "already-completed");
+});
+
+test("FR-5.6: while the round is open, nobody sees anybody else's score", async () => {
+  const seen = ok(await ana.call("getTournament", { tournamentId: tid }), "getTournament");
+  assert.equal(seen.current.n, 1);
+  assert.deepEqual(seen.standings.map((r: Any) => r.points), [0, 0, 0], "nothing counts until the round closes");
+  assert.equal(seen.closedRounds, 0);
+  const ownerRow = seen.current.players.find((p: Any) => p.uid === owner.uid);
+  assert.equal(ownerRow.state, "finished");
+  assert.ok(!("points" in ownerRow), "another player's card score must not be in the payload");
+  assert.equal(seen.current.myState, "in_progress");
+  assert.equal(seen.current.myPoints, null);
+
+  // The viewer's own finished score IS theirs to see.
+  const mine = ok(await owner.call("getTournament", { tournamentId: tid }), "getTournament");
+  assert.equal(mine.current.myState, "finished");
+  assert.equal(mine.current.myPoints, 30);
+});
+
+test("closing the round scores it, forfeits whoever did not finish, and ends a one-round tournament", async () => {
+  // ana has one guess in and never finishes; bruno never even started.
+  assert.equal(code(await ana.call("advanceTournament", { tournamentId: tid })), "permission-denied");
+  const res = ok(await owner.call("advanceTournament", { tournamentId: tid }), "advanceTournament");
+  assert.equal(res.closed, true);
+  assert.equal(res.status, "finished");
+  assert.equal(res.round, null);
+
+  const round = await doc(`tournaments/${tid}/rounds/1`);
+  assert.ok(round.closedAt);
+  assert.equal(round.results[owner.uid].points, 30);
+  assert.equal(round.results[owner.uid].played, true);
+  assert.equal(round.results[ana.uid].points, 0);
+  assert.equal(round.results[ana.uid].played, false, "FR-5.7: started but unfinished is a forfeit");
+  assert.equal(round.results[bruno.uid].played, false);
+
+  const t = await doc(`tournaments/${tid}`);
+  assert.equal(t.status, "finished");
+  assert.ok(t.endedAt);
+  assert.equal(t.currentRound, null);
+});
+
+test("closing again changes nothing (D-41, D-43: idempotent)", async () => {
+  const before = await doc(`tournaments/${tid}/rounds/1`);
+  assert.equal(code(await owner.call("advanceTournament", { tournamentId: tid })), "tournament-not-open");
+  const after = await advanceOpenRoundsNow(Timestamp.now());
+  assert.equal(after.closed, 0, "the nightly sweep must not reopen or rescore a closed round");
+  assert.equal(after.failed, 0);
+  const round = await doc(`tournaments/${tid}/rounds/1`);
+  assert.equal(round.closedAt.toMillis(), before.closedAt.toMillis());
+});
+
+test("the standings now rank the closed round", async () => {
+  const v = ok(await ana.call("getTournament", { tournamentId: tid }), "getTournament");
+  assert.equal(v.status, "finished");
+  assert.equal(v.closedRounds, 1);
+  assert.equal(v.current, null);
+  const rows = v.standings;
+  assert.equal(rows[0].uid, owner.uid);
+  assert.equal(rows[0].rank, 1);
+  assert.equal(rows[0].points, 30);
+  // ana and bruno both have 0 points and 0 time: a genuine tie, competition-ranked.
+  assert.deepEqual(rows.slice(1).map((r: Any) => r.rank), [2, 2]);
+  assert.equal(rows.find((r: Any) => r.isMe).uid, ana.uid);
+});
+
+test("a finished tournament refuses play and further starts", async () => {
+  assert.equal(code(await owner.call("getCard", { tournamentId: tid })), "tournament-not-open");
+  assert.equal(code(await owner.call("startTournament", { tournamentId: tid })), "tournament-not-open");
+  assert.equal(code(await ana.call("setParticipation", { tournamentId: tid, join: false })), "tournament-not-open");
+});
+
+test("FR-5.9 / D-40: none of this reached the daily board", async () => {
+  const board = ok(await owner.call("getLeaderboard", { groupId: gid }), "getLeaderboard");
+  const mine = board.rows.find((r: Any) => r.uid === owner.uid);
+  assert.equal(mine.allTime.points, 0, "30 tournament points must not appear on the daily board");
+  assert.equal(mine.last30.points, 0);
+  // And the daily standings range query cannot even see the card plays.
+  const inRange = await db.collection("attempts").where("puzzleId", ">=", "2000-01-01").get();
+  assert.ok(!inRange.docs.some((d) => d.id.includes(`_${tid}_r`)), "a card play was returned by a puzzleId range query");
+});
+
+test("listTournaments shows the group's tournaments and the presets the form needs", async () => {
+  const v = ok(await owner.call("listTournaments", { groupId: gid }), "listTournaments");
+  assert.equal(v.canManage, true);
+  const row = v.tournaments.find((x: Any) => x.tournamentId === tid);
+  assert.equal(row.status, "finished");
+  assert.equal(row.participantCount, 3);
+  assert.equal(row.isParticipant, true);
+  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura"]);
+  for (const p of v.presets) assert.ok(p.label && p.description, "the create form needs pt-BR copy");
+  assert.equal(ok(await ana.call("listTournaments", { groupId: gid }), "as member").canManage, false);
+});
+
+test("the nightly sweep closes a round whose deadline has passed, and opens the next", async () => {
+  const t2 = ok(await owner.call("createTournament", { groupId: gid, name: "Duas rodadas", preset: "quintal" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: t2, join: true }), "ana joins");
+  // Two rounds, so closing round 1 must open round 2 rather than finish.
+  await db.doc(`tournaments/${t2}`).update({ "config.rounds": 2 });
+  ok(await owner.call("startTournament", { tournamentId: t2 }), "startTournament");
+  await db.doc(`tournaments/${t2}`).update({ roundCount: 2 });
+
+  // Nothing is due yet.
+  assert.equal((await advanceOpenRoundsNow(Timestamp.now())).closed, 0);
+
+  // Pull the deadline into the past and sweep again.
+  await db.doc(`tournaments/${t2}/rounds/1`).update({ closesAt: Timestamp.fromMillis(Date.now() - 1000) });
+  assert.equal(code(await ana.call("getCard", { tournamentId: t2 })), "tournament-not-open", "FR-5.7: past the deadline the card is closed");
+  const swept = await advanceOpenRoundsNow(Timestamp.now());
+  assert.equal(swept.closed, 1);
+
+  const t = await doc(`tournaments/${t2}`);
+  assert.equal(t.status, "running");
+  assert.equal(t.currentRound, 2);
+  assert.ok((await doc(`tournaments/${t2}/rounds/1`)).closedAt);
+
+  // FR-5.2: round 2's card repeats nothing from round 1.
+  const [c1, c2] = [await doc(`cards/${t2}_r1`), await doc(`cards/${t2}_r2`)];
+  const first = new Set(c1.items.map((i: Any) => i.subject));
+  assert.ok(!c2.items.some((i: Any) => first.has(i.subject)), "a subject was reused across rounds");
+  ok(await ana.call("getCard", { tournamentId: t2 }), "round 2 is playable");
+});
+
+test("cancelling keeps the record and stops play", async () => {
+  const t3 = ok(await owner.call("createTournament", { groupId: gid, name: "Cancelado", preset: "capitais" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: t3, join: true }), "ana joins");
+  ok(await owner.call("startTournament", { tournamentId: t3 }), "startTournament");
+  assert.equal(code(await ana.call("cancelTournament", { tournamentId: t3 })), "permission-denied");
+  ok(await owner.call("cancelTournament", { tournamentId: t3 }), "cancelTournament");
+  const t = await doc(`tournaments/${t3}`);
+  assert.equal(t.status, "cancelled");
+  assert.equal(t.currentRound, null);
+  assert.equal(code(await ana.call("getCard", { tournamentId: t3 })), "tournament-not-open");
+  ok(await owner.call("cancelTournament", { tournamentId: t3 }), "cancelling twice is idempotent");
+});
+
+test("the capitais preset asks with a city name and never sends the country", async () => {
+  const t4 = ok(await owner.call("createTournament", { groupId: gid, name: "Só capitais", preset: "capitais" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: t4, join: true }), "ana joins");
+  ok(await owner.call("startTournament", { tournamentId: t4 }), "startTournament");
+  const v = ok(await ana.call("getCard", { tournamentId: t4 }), "getCard");
+  assert.equal(v.prompt.kind, "capital");
+  assert.ok(v.prompt.capital.length > 1);
+  assert.equal(v.guessesMax, 3, "a capital item allows three guesses");
+  const card = await doc(`cards/${t4}_r1`);
+  const answer = card.items[0].subject;
+  assert.ok(!JSON.stringify(v).includes(`"${answer}"`), "SEC-1");
+
+  // Three wrong guesses close the item on zero without ending the card. Picked
+  // from four so that the answer being one of them still leaves three.
+  const wrong = ["BR", "FR", "JP", "KE"].filter((c) => c !== answer).slice(0, 3);
+  assert.equal(wrong.length, 3);
+  let out = v;
+  for (const g of wrong) { await sleep(450); out = ok(await ana.call("submitCardGuess", { tournamentId: t4, guess: g }), "guess"); }
+  assert.equal(out.items[0].status, "failed");
+  assert.equal(out.items[0].guessCount, 3);
+  assert.equal(out.items[0].points, 0);
+  assert.equal(out.cursor, 1);
+  assert.equal(out.status, "in_progress");
+});
+
+test("D-31: an admin in the same open round sees a rival's timings but not their score", async () => {
+  const admin = await newAccount("t3-admin");
+  await admin.call("getRound", {});
+  await db.doc(`users/${admin.uid}`).update({ role: "admin" });
+  const t7 = ok(await owner.call("createTournament", { groupId: gid, name: "Sigilo", preset: "quintal" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: t7, join: true }), "ana joins");
+  ok(await owner.call("startTournament", { tournamentId: t7 }), "startTournament");
+
+  // Ana finishes her card while the round is still open.
+  const card = await doc(`cards/${t7}_r1`);
+  let v = ok(await ana.call("getCard", { tournamentId: t7 }), "getCard");
+  while (v.status === "in_progress") {
+    await sleep(450);
+    v = ok(await ana.call("submitCardGuess", { tournamentId: t7, guess: card.items[v.cursor].subject }), "guess");
+  }
+  assert.equal(v.points, 30);
+
+  // The admin has not played this round: timings yes, outcome no.
+  const hidden = ok(await admin.call("listAttempts", { uid: ana.uid }), "listAttempts").matches
+    .find((m: Any) => m.roundId === `${t7}_r1`);
+  assert.equal(hidden.state, "finished");
+  assert.ok(hidden.intervalsMs.length > 0, "timings are the point of the panel and stay live");
+  assert.equal(hidden.points, null, "FR-5.6: an open round's score is nobody else's business");
+  assert.equal(hidden.elapsedMs, null);
+  assert.equal(hidden.suspicious, null);
+
+  // Once the round closes, everything is visible.
+  ok(await owner.call("advanceTournament", { tournamentId: t7 }), "advanceTournament");
+  const shown = ok(await admin.call("listAttempts", { uid: ana.uid }), "listAttempts").matches
+    .find((m: Any) => m.roundId === `${t7}_r1`);
+  assert.equal(shown.points, 30);
+  assert.ok(shown.elapsedMs > 0);
+});
+
+test("FR-1.5 / D-46: deleting an account scrubs the name but keeps the bracket slot", async () => {
+  const before = await doc(`tournaments/${tid}`);
+  assert.notEqual(before.participants[bruno.uid].displayName, "[removido]");
+  ok(await bruno.call("deleteAccount", {}), "deleteAccount");
+  const after = await doc(`tournaments/${tid}`);
+  assert.equal(after.participants[bruno.uid].displayName, "[removido]");
+  assert.ok(after.participantUids.includes(bruno.uid), "the slot stays or the standings fold loses its shape");
+  assert.equal((await db.collection("attempts").where("uid", "==", bruno.uid).get()).size, 0, "their card plays went with them");
+  const v = ok(await owner.call("getTournament", { tournamentId: tid }), "getTournament");
+  assert.equal(v.standings.find((r: Any) => r.uid === bruno.uid).displayName, "[removido]");
+});
+
+test("a group cannot be drowned in open tournaments", async () => {
+  // Four already exist in this group (one finished, one running, one cancelled,
+  // one running) — only draft and running count toward the cap.
+  const active = (await db.collection("tournaments").where("groupId", "==", gid).get()).docs
+    .filter((d) => ["draft", "running"].includes((d.data() as Any).status)).length;
+  for (let i = active; i < 5; i++) {
+    ok(await owner.call("createTournament", { groupId: gid, name: `Enchendo ${i}`, preset: "quintal" }), "createTournament");
+  }
+  assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "Um a mais", preset: "quintal" })), "invalid-argument");
+});

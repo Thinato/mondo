@@ -6,11 +6,13 @@
 
 import { getAuth } from "firebase-admin/auth";
 import { type Query } from "firebase-admin/firestore";
-import { db, invitesCol, userRef } from "./db";
+import { db, invitesCol, tournamentsCol, userRef } from "./db";
 import { leaveTx } from "./groups";
 import { groupsOf } from "./lib/authz";
 import { callable } from "./lib/callable";
 import type { Profile } from "./lib/round";
+import { NAME_REMOVED } from "./lib/tournament";
+import { requireUid } from "./lib/validate";
 
 const BATCH = 400;
 
@@ -50,13 +52,29 @@ export const deleteAccount = callable<unknown, { ok: true }>(async (uid) => {
   await deleteAll(invitesCol().where("createdBy", "==", uid));
   await deleteAll(invitesCol().where("usedBy", "==", uid));
 
-  // c. every round they ever played
+  // c. every round they ever played — dailies and tournament cards alike. The
+  //    tournament plays are caught by the same query because a card play still
+  //    carries `uid`; only `puzzleId` is absent (D-40).
   await deleteAll(db().collection("attempts").where("uid", "==", uid));
 
-  // d. the profile
+  // d. the name snapshot in every tournament they entered (D-46).
+  //
+  //    This is the one place D-21's "a deleted account just leaves the board"
+  //    cannot apply. A daily board simply drops a leaver, but a bracket slot is
+  //    structural: removing the participant would leave a hole where a match
+  //    used to be, and the standings fold (D-41) reads participantUids. So the
+  //    uid stays and the personal data goes. One equality query on an array
+  //    field, no composite index needed.
+  requireUid(uid); // uid is interpolated into a dotted field path below
+  const entered = await tournamentsCol().where("participantUids", "array-contains", uid).get();
+  for (const doc of entered.docs) {
+    await doc.ref.update({ [`participants.${uid}.displayName`]: NAME_REMOVED });
+  }
+
+  // e. the profile
   await userRef(uid).delete();
 
-  // e. the Auth record, last
+  // f. the Auth record, last
   try {
     await getAuth().deleteUser(uid);
   } catch (e) {

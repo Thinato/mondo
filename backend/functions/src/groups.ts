@@ -7,7 +7,7 @@
 
 import { Timestamp, type DocumentSnapshot, type Transaction } from "firebase-admin/firestore";
 import {
-  attemptRef, db, ensureProfile, groupRef, groupsCol, inviteRef, memberRef, membersCol, pendingInvitesOf, puzzleDays, userRef,
+  attemptRef, db, ensureProfile, groupRef, groupsCol, inviteRef, memberRef, membersCol, pendingInvitesOf, puzzleDays, tournamentsOf, userRef,
 } from "./db";
 import { canCreateGroup, groupsOf, requireOwner } from "./lib/authz";
 import { callable } from "./lib/callable";
@@ -62,11 +62,20 @@ export async function leaveTx(tx: Transaction, gid: string, uid: string): Promis
   let successor: string | null = null;
   let dissolve = false;
   let pendingInvites: DocumentSnapshot[] = [];
+  let liveTournaments: DocumentSnapshot[] = [];
   if (group && group.ownerUid === uid) {
     const others = (await tx.get(membersCol(gid))).docs.filter((d) => d.id !== uid);
     if (others.length === 0) {
       dissolve = true;
       pendingInvites = (await tx.get(pendingInvitesOf(gid))).docs;
+      // Tournaments outlive the group document unless something cancels them
+      // (docs/06-tournaments.md T-9): they are a top-level collection (D-39),
+      // so Firestore would not cascade even if they were nested. Left alone,
+      // the 12:05 job would keep closing rounds and generating cards for a
+      // group that no longer exists, and nobody could stop it — every
+      // management callable checks ownership of a group that is gone.
+      liveTournaments = (await tx.get(tournamentsOf(gid))).docs
+        .filter((d) => ["draft", "running"].includes((d.data() as { status: string }).status));
     } else {
       successor = nextOwner(others.map((d) => ({ uid: d.id, joinedAt: (d.data() as Member).joinedAt })));
     }
@@ -79,6 +88,8 @@ export async function leaveTx(tx: Transaction, gid: string, uid: string): Promis
   if (dissolve) {
     tx.delete(groupRef(gid));
     for (const inv of pendingInvites) tx.delete(inv.ref);
+    const now = Timestamp.now();
+    for (const t of liveTournaments) tx.update(t.ref, { status: "cancelled", currentRound: null, endedAt: now });
     return;
   }
   const patch: Partial<Group> = { memberCount: Math.max(0, memberSnap.exists ? group.memberCount - 1 : group.memberCount) };

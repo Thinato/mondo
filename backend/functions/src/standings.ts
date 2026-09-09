@@ -14,6 +14,7 @@ import { scheduled } from "./lib/callable";
 import { memberStats, resultOf, WINDOW_30, type Member } from "./lib/groups";
 import type { Attempt, Profile } from "./lib/round";
 import { effectiveStreak, nextDay, windowDays, type FinishedResult } from "./lib/standings";
+import { advanceOpenRoundsNow } from "./tournaments";
 
 const BATCH = 400; // Firestore caps a batch at 500 writes
 
@@ -96,6 +97,32 @@ export async function rebuildStandingsNow(now: Timestamp): Promise<{ groups: num
 const min = (a: string, b: string) => (a < b ? a : b);
 const max = (a: string, b: string) => (a > b ? a : b);
 
+/**
+ * The 12:05 job does two independent things (D-43): it rebuilds the daily
+ * boards and it closes any tournament round whose deadline has passed. There is
+ * no third Cloud Scheduler job because the free tier is three per *billing
+ * account*, not per project (docs/05-cost.md §3.4), and Mondo already owns two.
+ *
+ * Each half is wrapped separately: the daily boards are the game's core and
+ * must not be skipped because a tournament threw, and vice versa. Both are
+ * idempotent, so the retry (retryCount 1) can only help.
+ */
 export const rebuildStandings = scheduled("5 12 * * *", async () => {
-  await rebuildStandingsNow(Timestamp.now());
+  const now = Timestamp.now();
+  const errors: unknown[] = [];
+  try {
+    await rebuildStandingsNow(now);
+  } catch (e) {
+    logger.error("REBUILD_STANDINGS_FAILED", { error: String(e) });
+    errors.push(e);
+  }
+  try {
+    const { tournaments, closed } = await advanceOpenRoundsNow(now);
+    if (tournaments > 0) logger.info("advanceOpenRounds", { tournaments, closed });
+  } catch (e) {
+    logger.error("ADVANCE_TOURNAMENTS_FAILED", { error: String(e) });
+    errors.push(e);
+  }
+  // Rethrow so the failure is visible to Cloud Scheduler and gets its retry.
+  if (errors.length > 0) throw errors[0];
 });

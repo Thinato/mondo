@@ -10,6 +10,8 @@
  * Groups, invites and the play gate are Phase 2 (FR-4, FR-7, FR-1.7); see groups.ts.
  * Boards: leaderboard.ts. Admin dashboard: admin.ts. Account deletion: account.ts.
  * Scheduled jobs (D-11, NFR-6): standings.ts, health.ts.
+ * Tournaments are Phase 3 (FR-5 as rewritten, FR-8); see tournaments.ts and
+ * docs/06-tournaments.md. Slices 1-2: free-for-all, shape and capital kinds.
  */
 
 import { initializeApp } from "firebase-admin/app";
@@ -26,6 +28,10 @@ export {
 export { getLeaderboard } from "./leaderboard";
 export { listUsers, setRole, listAllGroups, listAttempts, grantRetry } from "./admin";
 export { deleteAccount } from "./account";
+export {
+  createTournament, setParticipation, startTournament, advanceTournament, cancelTournament,
+  listTournaments, getTournament, getCard, submitCardGuess,
+} from "./tournaments";
 export { rebuildStandings } from "./standings";
 export { scheduleHealthCheck } from "./health";
 

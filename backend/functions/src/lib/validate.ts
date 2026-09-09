@@ -83,6 +83,32 @@ export function requireUid(v: unknown): string {
   return v;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 3 — tournaments (FR-5 as rewritten, FR-8)
+// ---------------------------------------------------------------------------
+
+/** Same shape as a group id: a Firestore auto-id. */
+export function requireTournamentId(v: unknown): string {
+  if (typeof v !== "string" || !/^[A-Za-z0-9]{20}$/.test(v)) throw mondoError("invalid-argument", "Invalid tournament id.");
+  return v;
+}
+
+/**
+ * FR-5.1 / D-48 — the only thing the client may say about a tournament's
+ * settings is which built-in preset it wants. Membership of the shipped set is
+ * checked by `presetById`, which owns the list; this only screens the shape so
+ * a hostile string never reaches a lookup.
+ */
+export function requirePresetId(v: unknown): string {
+  if (typeof v !== "string" || !/^[a-z][a-z0-9-]{1,23}$/.test(v)) throw mondoError("invalid-argument", "Invalid preset id.");
+  return v;
+}
+
+export function requireBoolean(v: unknown, field: string): boolean {
+  if (typeof v !== "boolean") throw mondoError("invalid-argument", `${field} must be true or false.`);
+  return v;
+}
+
 /** FR-7.2: the API grants organizer or player. Admin comes only from tools/set-role.mjs (D-29). */
 export const GRANTABLE_ROLES = ["organizer", "player"] as const;
 export function requireRole(v: unknown): (typeof GRANTABLE_ROLES)[number] {
