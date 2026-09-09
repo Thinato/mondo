@@ -49,6 +49,8 @@ jobs:
         run: npm run build
       - name: Unit tests
         run: npm test
+      - name: Security rules tests (Firestore emulator; Java is preinstalled on ubuntu-latest)
+        run: npm run test:rules
 
   deploy:
     needs: test
