@@ -49,7 +49,13 @@ jobs:
         run: npm run build
       - name: Unit tests
         run: npm test
-      - name: Security rules tests (Firestore emulator; Java is preinstalled on ubuntu-latest)
+      # firebase-tools refuses to start the Firestore emulator on a JDK older than 21,
+      # and the runner's default is older. Pin it rather than trust the image.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Security rules tests (Firestore emulator)
         run: npm run test:rules
 
   deploy:
