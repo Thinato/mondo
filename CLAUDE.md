@@ -59,4 +59,8 @@ competitive group. Vanilla frontend published from `site/` by GitHub Pages, Fire
   with a reason each (D-14). Do not add distance heuristics to the pipeline instead.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
-  `tools/include.json` via pull request.
+  `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).
+- `assets/` is gitignored reference material of unknown license (D-15, D-16). Nothing under
+  `site/`, `backend/` or the build may read it; only `tools/preview.html` shows it, locally.
+- Local runs use the `demo-mondo` project id and `npx firebase-tools`, not the Homebrew
+  `firebase` binary. See `docs/02-architecture.md` §8.

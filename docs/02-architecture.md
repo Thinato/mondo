@@ -391,7 +391,27 @@ Everything in `/infra` is safe to open-source: project IDs and region names are 
 
 ## 8. Local development
 
-`firebase emulators:start` gives Auth + Firestore + Functions locally. Serve the frontend with
-`python3 -m http.server` and point `app/firebase.js` at the emulator when
-`location.hostname === "localhost"`. Seed the emulator with a fixture schedule so tests are
-deterministic.
+Three terminals. Everything runs under the demo project id `demo-mondo`, which the emulators
+accept without a real project and which `site/app/firebase.js` substitutes whenever the page is
+served from `localhost`, so a stray call can never reach production.
+
+```sh
+# 1. emulators (Auth + Firestore + Functions). Needs Java; on this Mac it is Homebrew's:
+export PATH=/opt/homebrew/opt/openjdk/bin:$PATH
+cd backend && npx --yes firebase-tools@latest emulators:start --only functions,firestore,auth --project demo-mondo
+# functions reload on `npm run build` in backend/functions
+
+# 2. a schedule for the emulator (generate once, seed whenever the emulator restarts)
+cd tools && npm run schedule -- --seed 1 --start $(date +%F)
+npm run seed -- --file out/schedule-1.json --emulator
+
+# 3. the site
+cd site && python3 -m http.server 8000
+```
+
+Then open `http://localhost:8000/`. Google sign-in goes to the Auth emulator's fake account
+picker. Tests: `npm test` in `tools/` and `backend/functions/` need nothing running;
+`npm run test:rules` in `backend/functions/` starts its own Firestore emulator.
+
+Use `npx firebase-tools`, not the Homebrew `firebase` binary: on macOS the latter is killed with
+exit 137 on its first network call.

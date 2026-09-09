@@ -50,13 +50,12 @@ Scope: FR-1 (except deletion), FR-2, FR-6, SEC-1 … SEC-9. Plus the whole geo p
 
 1. ~~`tools/build-geo.mjs` end to end.~~ **Built 2026-09-06.** 196 countries (VA dropped 2026-09-08: no usable geometry), 10 D-8 exceptions,
    client file leak-checked. `tools/preview.html` is rendered — **look at every silhouette**.
-2. `tools/generate-schedule.mjs`, seeded into Firestore.
-3. `backend/functions`: `getRound`, `submitGuess`. Pure `geo.ts` and `scoring.ts` with tests.
-4. `firestore.rules` with **negative** rules tests — prove a client cannot read `puzzles`,
-   cannot write `attempts`, cannot read another user's attempt.
-5. `site/index.html` + `site/app/`: auth, silhouette render, autocomplete, guess loop, results,
-   share text.
-6. `regras.html` and `privacidade.html`.
+2. ~~`tools/generate-schedule.mjs`, seeded into Firestore.~~ **Built 2026-09-08**, verified against the emulator; production seeding is the maintainer's step (D-20).
+3. ~~`backend/functions`: `getRound`, `submitGuess`. Pure `geo.ts` and `scoring.ts` with tests.~~ **Built 2026-09-08.** 46 unit tests plus an emulator smoke run; `updateProfile` added for FR-1.3.
+4. ~~`firestore.rules` with **negative** rules tests.~~ **Built 2026-09-08.** Ten emulator tests, most negative, run in CI.
+5. ~~`site/index.html` + `site/app/`: auth, silhouette render, autocomplete, guess loop, results,
+   share text.~~ **Built 2026-09-08**, played end to end against the emulators.
+6. ~~`regras.html` and `privacidade.html`.~~ **Built 2026-09-08.**
 
 **Do not build groups yet.** You will be tempted. Don't.
 
