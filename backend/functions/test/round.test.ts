@@ -119,7 +119,7 @@ test("the view after the round reveals the answer, points and share grid", () =>
   assert.equal(view.guesses[0]!.compass, "NE");
   assert.equal(view.serverTime, "2026-09-15T15:30:02.000Z");
   assert.equal(view.me, null, "no profile passed → no me");
-  assert.deepEqual(roundView(play(["AR"]), puzzle, at(1000), newProfile(T0, "tatu-alegre-0001")).me, { displayName: "tatu-alegre-0001" });
+  assert.deepEqual(roundView(play(["AR"]), puzzle, at(1000), newProfile(T0, "tatu-alegre-0001")).me, { displayName: "tatu-alegre-0001", role: "player", groupCount: 0 });
 });
 
 test("FR-3.6: streaks continue on consecutive puzzle days and reset after a gap", () => {

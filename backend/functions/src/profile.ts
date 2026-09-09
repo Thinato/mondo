@@ -4,9 +4,14 @@
  * A callable rather than a direct Firestore write so the client never needs the
  * Firestore SDK (NFR-5: the game payload stays small). The rules allow the same
  * two fields for the same player, so either path is equally safe.
+ *
+ * D-26: the new name is copied to the caller's member documents so boards show
+ * it at once; per-group uniqueness is resolved when the board is read.
  */
 
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
+import { db, memberRef, userRef } from "./db";
+import { groupsOf } from "./lib/authz";
 import { callable } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { newProfile, type Profile } from "./lib/round";
@@ -20,12 +25,14 @@ export const updateProfile = callable<{ displayName?: unknown; locale?: unknown 
     if (input.locale !== undefined) patch.locale = requireLocale(input.locale);
     if (Object.keys(patch).length === 0) throw mondoError("invalid-argument", "Nothing to update.");
 
-    const ref = getFirestore().doc(`users/${uid}`);
-    return getFirestore().runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
+    return db().runTransaction(async (tx) => {
+      const snap = await tx.get(userRef(uid));
       const current = snap.exists ? (snap.data() as Profile) : newProfile(Timestamp.now());
       const next = { ...current, ...patch };
-      tx.set(ref, next);
+      tx.set(userRef(uid), next);
+      if (patch.displayName !== undefined) {
+        for (const gid of groupsOf(current)) tx.update(memberRef(gid, uid), { displayName: patch.displayName });
+      }
       return { displayName: next.displayName, locale: next.locale };
     });
   },

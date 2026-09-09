@@ -4,21 +4,22 @@
  * All state changes happen inside Firestore transactions on the deterministic
  * attempt document `attempts/{uid}_{puzzleId}` (SEC-4), with server timestamps
  * only (SEC-3). The pure rules live in lib/round.ts; this file is I/O.
+ *
+ * Phase 2: playing needs an invitation (FR-1.7, D-28). The gate runs before the
+ * attempt is created, so an outsider never starts a clock.
  */
 
-import { getFirestore, Timestamp, type Transaction } from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
+import { attemptRef, db, ensureProfile, userRef } from "./db";
+import { requireCanPlay } from "./lib/authz";
 import { callable } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { puzzleIdAt } from "./lib/puzzle-day";
 import {
-  applyGuess, newAttempt, newProfile, recordCompletion, roundView,
+  applyGuess, newAttempt, recordCompletion, roundView,
   type Attempt, type Profile, type Puzzle, type RoundView,
 } from "./lib/round";
 import { requireCountryCode, requireObject, requirePuzzleId } from "./lib/validate";
-
-const db = () => getFirestore();
-const attemptRef = (uid: string, puzzleId: string) => db().doc(`attempts/${uid}_${puzzleId}`);
-const profileRef = (uid: string) => db().doc(`users/${uid}`);
 
 /**
  * Phase 1 serves only today's puzzle (FR-2.12 archive play is Phase 4).
@@ -34,15 +35,6 @@ async function loadOpenPuzzle(requested: string | undefined, now: Timestamp): Pr
   return snap.data() as Puzzle;
 }
 
-/** FR-1.2 — first contact creates the profile with a random handle. */
-async function ensureProfile(tx: Transaction, uid: string, now: Timestamp): Promise<Profile> {
-  const snap = await tx.get(profileRef(uid));
-  if (snap.exists) return snap.data() as Profile;
-  const profile = newProfile(now);
-  tx.create(profileRef(uid), profile);
-  return profile;
-}
-
 /**
  * getRound({ puzzleId? }) — the round the caller should see; creates the
  * attempt with a server `startedAt` on first call, which starts the clock.
@@ -54,13 +46,18 @@ export const getRound = callable<{ puzzleId?: unknown } | null | undefined, Roun
   const now = Timestamp.now();
   const puzzle = await loadOpenPuzzle(requested, now);
 
-  const { attempt, profile } = await db().runTransaction(async (tx) => {
+  // The profile is created in its own transaction so that an uninvited
+  // sign-in still leaves a profile for the admin to see, while the gate below
+  // keeps them from starting a round (FR-1.7).
+  const profile = await db().runTransaction((tx) => ensureProfile(tx, uid, now));
+  requireCanPlay(profile);
+
+  const attempt = await db().runTransaction(async (tx) => {
     const snap = await tx.get(attemptRef(uid, puzzle.puzzleId));
-    const profile = await ensureProfile(tx, uid, now); // reads, then maybe creates — after every read above
-    if (snap.exists) return { attempt: snap.data() as Attempt, profile };
+    if (snap.exists) return snap.data() as Attempt;
     const fresh = newAttempt(uid, puzzle.puzzleId, now);
     tx.create(attemptRef(uid, puzzle.puzzleId), fresh);
-    return { attempt: fresh, profile };
+    return fresh;
   });
 
   return roundView(attempt, puzzle, now, profile);
@@ -80,15 +77,15 @@ export const submitGuess = callable<{ puzzleId: unknown; code: unknown }, RoundV
   const puzzle = await loadOpenPuzzle(puzzleId, now);
 
   const attempt = await db().runTransaction(async (tx) => {
-    const snap = await tx.get(attemptRef(uid, puzzleId));
+    // Every read before the first write (Firestore transaction rule).
+    const [snap, profileSnap] = await Promise.all([tx.get(attemptRef(uid, puzzleId)), tx.get(userRef(uid))]);
     if (!snap.exists) throw mondoError("not-found", "Call getRound before guessing.");
+    const profile = profileSnap.exists ? (profileSnap.data() as Profile) : null;
+    requireCanPlay(profile); // D-28: losing your last group closes the round too
     const before = snap.data() as Attempt;
     const after = applyGuess(before, puzzle, code, now);
-    // Firestore transactions demand every read before the first write, so the
-    // profile is read (when needed) before the attempt is written.
-    const profile = after.finishedAt !== null ? await ensureProfile(tx, uid, now) : null;
     tx.set(attemptRef(uid, puzzleId), after);
-    if (profile !== null) tx.set(profileRef(uid), recordCompletion(profile, after));
+    if (after.finishedAt !== null && profile !== null) tx.set(userRef(uid), recordCompletion(profile, after));
     return after;
   });
 

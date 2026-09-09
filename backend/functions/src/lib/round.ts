@@ -200,8 +200,8 @@ export interface RoundView {
   elapsedMs: number | null;
   shareGrid: string | null;
   serverTime: string;
-  /** The caller's own profile bits the UI needs (FR-1.2, FR-1.3). Never anyone else's. */
-  me: { displayName: string } | null;
+  /** The caller's own profile bits the UI needs (FR-1.2, FR-1.3, FR-7). Never anyone else's. */
+  me: { displayName: string; role: Role; groupCount: number } | null;
 }
 
 export function statusOf(attempt: Attempt): RoundStatus {
@@ -234,7 +234,7 @@ export function roundView(attempt: Attempt, puzzle: Puzzle, now: Timestamp, prof
         )
       : null,
     serverTime: now.toDate().toISOString(),
-    me: profile ? { displayName: profile.displayName } : null,
+    me: profile ? { displayName: profile.displayName, role: profile.role ?? "player", groupCount: profile.groups?.length ?? 0 } : null,
   };
 }
 

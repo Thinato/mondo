@@ -42,3 +42,6 @@ export const GUESS_MIN_INTERVAL_MS = 400;
 
 /** A first-guess solve faster than this is flagged, not blocked (02-architecture.md §3.3). */
 export const SUSPICIOUS_SOLVE_MS = 2000;
+
+/** Where invite links point (FR-4.3 as amended). The site lives under the parent domain. */
+export const GAME_URL = "https://lisecki.dev/mondo/";
