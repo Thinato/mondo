@@ -12,6 +12,7 @@
     "build-geo": "node build-geo.mjs",
     "schedule": "node generate-schedule.mjs",
     "seed": "node seed-schedule.mjs",
+    "set-role": "node set-role.mjs",
     "test": "node --test 'lib/*.test.mjs'"
   },
   "dependencies": {
