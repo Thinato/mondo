@@ -12,6 +12,14 @@ export interface Country {
   code: string;
   code3: string;
   names: { en: string; "pt-BR": string };
+  /**
+   * The capital city, the `capital` challenge kind's prompt (FR-8).
+   * Server-only for the same reason as the centroid: a capital→country map on
+   * the client would name the answer in one lookup (SEC-2), which is why
+   * tools/build-geo.mjs writes this field here and not into
+   * site/data/countries.min.json.
+   */
+  capital: { en: string; "pt-BR": string };
   /** [lon, lat] of the retained landmass (03-geo-data-pipeline.md §3.2) */
   centroid: LonLat;
   tier: 1 | 2 | 3;
