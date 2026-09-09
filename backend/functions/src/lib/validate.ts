@@ -50,3 +50,44 @@ export function requireLocale(v: unknown): Locale {
   }
   return v as Locale;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2 — groups, invites, roles (FR-4, FR-7)
+// ---------------------------------------------------------------------------
+
+/** FR-4.1: 3–40 chars, no edge whitespace, no control characters. */
+export function requireGroupName(v: unknown): string {
+  if (typeof v !== "string" || v.trim() !== v || v.length < 3 || v.length > 40 || /[\p{C}]/u.test(v)) {
+    throw mondoError("invalid-argument", "Group name must be 3–40 characters.");
+  }
+  return v;
+}
+
+/** D-32: 16 chars from the ambiguity-free alphabet. Lower case is accepted and normalised. */
+export const INVITE_TOKEN = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$/;
+export function requireInviteToken(v: unknown): string {
+  const s = typeof v === "string" ? v.trim().toUpperCase() : "";
+  if (!INVITE_TOKEN.test(s)) throw mondoError("invalid-argument", "Invalid invite token.");
+  return s;
+}
+
+/** Firestore auto-ids are 20 URL-safe alphanumerics. */
+export function requireGroupId(v: unknown): string {
+  if (typeof v !== "string" || !/^[A-Za-z0-9]{20}$/.test(v)) throw mondoError("invalid-argument", "Invalid group id.");
+  return v;
+}
+
+/** Firebase Auth uids: 1–128 alphanumerics (emulator ids included). */
+export function requireUid(v: unknown): string {
+  if (typeof v !== "string" || !/^[A-Za-z0-9]{1,128}$/.test(v)) throw mondoError("invalid-argument", "Invalid uid.");
+  return v;
+}
+
+/** FR-7.2: the API grants organizer or player. Admin comes only from tools/set-role.mjs (D-29). */
+export const GRANTABLE_ROLES = ["organizer", "player"] as const;
+export function requireRole(v: unknown): (typeof GRANTABLE_ROLES)[number] {
+  if (typeof v !== "string" || !(GRANTABLE_ROLES as readonly string[]).includes(v)) {
+    throw mondoError("invalid-argument", "Role must be organizer or player.");
+  }
+  return v as (typeof GRANTABLE_ROLES)[number];
+}

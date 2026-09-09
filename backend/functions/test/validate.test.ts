@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
-import { requireCountryCode, requireDisplayName, requireLocale, requireObject, requirePuzzleId } from "../src/lib/validate";
+import {
+  requireCountryCode, requireDisplayName, requireGroupId, requireGroupName, requireLocale, requireObject, requirePuzzleId, requireRole, requireUid,
+} from "../src/lib/validate";
 
 const invalidArgument = (fn: () => unknown) =>
   assert.throws(fn, (e: unknown) => {
@@ -43,4 +45,26 @@ test("requireLocale accepts pt-BR and en only", () => {
   assert.equal(requireLocale("pt-BR"), "pt-BR");
   assert.equal(requireLocale("en"), "en");
   for (const bad of ["fr", "PT-BR", "", null, 1]) invalidArgument(() => requireLocale(bad));
+});
+
+test("FR-4.1: requireGroupName 3–40, trimmed, no control characters", () => {
+  for (const ok of ["Almoço", "abc", "a".repeat(40), "Família & Amigos 2026", "日本語"]) assert.equal(requireGroupName(ok), ok);
+  for (const bad of ["ab", "a".repeat(41), " Almoço", "Almoço ", "Al\u0007moço", "Al\nmoço", "", 3, null, {}]) invalidArgument(() => requireGroupName(bad));
+});
+
+test("requireGroupId accepts 20 alphanumerics", () => {
+  assert.equal(requireGroupId("aB3".padEnd(20, "x")), "aB3".padEnd(20, "x"));
+  for (const bad of ["short", "a".repeat(21), "a".repeat(19) + "-", "", null]) invalidArgument(() => requireGroupId(bad));
+});
+
+test("requireUid accepts 1–128 alphanumerics", () => {
+  assert.equal(requireUid("u1"), "u1");
+  assert.equal(requireUid("a".repeat(128)), "a".repeat(128));
+  for (const bad of ["", "a".repeat(129), "a b", "a/b", "a@b", 1, null]) invalidArgument(() => requireUid(bad));
+});
+
+test("FR-7.2 / D-29: the API grants organizer or player, never admin", () => {
+  assert.equal(requireRole("organizer"), "organizer");
+  assert.equal(requireRole("player"), "player");
+  for (const bad of ["admin", "owner", "", "ADMIN", null, 1]) invalidArgument(() => requireRole(bad));
 });

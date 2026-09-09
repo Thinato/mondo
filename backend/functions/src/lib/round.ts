@@ -42,7 +42,16 @@ export interface Attempt {
   elapsedMs: number | null;
   mode: "daily";
   suspicious: boolean;
+  /** D-30: set only on attempts an admin has reset. Earlier tries, oldest first. */
+  history?: AttemptSnapshot[];
+  retries?: number;
 }
+
+/** An attempt as it was when an admin granted a retry (D-30). */
+export type AttemptSnapshot = Omit<Attempt, "history"> & { retryGrantedBy: string; retryGrantedAt: Timestamp };
+
+/** FR-7.1 — stored on the profile, written only by functions (D-27, D-29). */
+export type Role = "admin" | "organizer" | "player";
 
 export interface Profile {
   displayName: string;
@@ -53,6 +62,10 @@ export interface Profile {
   totalPlayed: number;
   totalSolved: number;
   locale: "pt-BR" | "en";
+  /** Absent on Phase 1 profiles → "player" (see lib/authz.ts). */
+  role?: Role;
+  /** Membership index, ≤ 10 (FR-4.4, D-27). Absent on Phase 1 profiles → []. */
+  groups?: string[];
 }
 
 export type RoundStatus = "in_progress" | "solved" | "failed";
@@ -72,7 +85,31 @@ export function newProfile(now: Timestamp, displayName = randomHandle()): Profil
   return {
     displayName, createdAt: now, lastPlayedOn: null,
     currentStreak: 0, longestStreak: 0, totalPlayed: 0, totalSolved: 0, locale: "pt-BR",
+    role: "player", groups: [],
   };
+}
+
+/**
+ * D-30 — an admin's "extra chance": the round starts over now, and the old try
+ * is kept in `history` so the dashboard can still show what happened.
+ */
+export function resetAttempt(attempt: Attempt, now: Timestamp, byUid: string): Attempt {
+  const { history = [], ...current } = attempt;
+  return {
+    ...newAttempt(attempt.uid, attempt.puzzleId, now),
+    retries: (attempt.retries ?? 0) + 1,
+    history: [...history, { ...current, retryGrantedBy: byUid, retryGrantedAt: now }],
+  };
+}
+
+/** Gaps between consecutive server timestamps: start→first guess, then guess→guess. */
+export function intervalsMs(attempt: Pick<Attempt, "startedAt" | "guesses">): number[] {
+  let prev = attempt.startedAt.toMillis();
+  return attempt.guesses.map((g) => {
+    const d = g.at.toMillis() - prev;
+    prev = g.at.toMillis();
+    return d;
+  });
 }
 
 /**
@@ -118,6 +155,12 @@ export function applyGuess(attempt: Attempt, puzzle: Puzzle, code: string, now: 
 /** Profile after a round completes (FR-3.6, §3.1 counters). */
 export function recordCompletion(profile: Profile, attempt: Attempt): Profile {
   if (attempt.finishedAt === null) throw new Error("recordCompletion on an unfinished attempt");
+  if (profile.lastPlayedOn === attempt.puzzleId) {
+    // D-30: this day was already counted by the try an admin reset. Streak and
+    // totalPlayed stand; only "solved" may have changed.
+    const before = attempt.history?.at(-1)?.solved ? 1 : 0;
+    return { ...profile, totalSolved: profile.totalSolved - before + (attempt.solved ? 1 : 0) };
+  }
   const consecutive = profile.lastPlayedOn === previousDay(attempt.puzzleId);
   const currentStreak = consecutive ? profile.currentStreak + 1 : 1;
   return {

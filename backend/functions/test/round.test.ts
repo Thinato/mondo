@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
-  applyGuess, newAttempt, newProfile, previousDay, randomHandle, recordCompletion, roundView, statusOf,
+  applyGuess, intervalsMs, newAttempt, newProfile, previousDay, randomHandle, recordCompletion, resetAttempt, roundView, statusOf,
   type Attempt, type Puzzle,
 } from "../src/lib/round";
 import { COUNTRIES } from "../src/lib/countries";
@@ -148,4 +148,56 @@ test("FR-1.2 / FR-1.3: random handles are animal-adjective-digits, 3–24 chars,
   }
   assert.equal(randomHandle(() => 0), "pinguim-veloz-0000");
   assert.equal(randomHandle(() => 0.9999), "ema-esperto-9999");
+});
+
+test("FR-7.1 / D-27: a new profile is a player with no groups", () => {
+  const p = newProfile(T0);
+  assert.equal(p.role, "player");
+  assert.deepEqual(p.groups, []);
+});
+
+test("D-30: resetAttempt starts over now and keeps the old try in history", () => {
+  const old = play(["AR", "BO", "PY"]);
+  const reset = resetAttempt(old, at(60_000), "admin1");
+  assert.equal(reset.guessCount, 0);
+  assert.equal(reset.finishedAt, null);
+  assert.equal(reset.startedAt.toMillis(), at(60_000).toMillis());
+  assert.equal(reset.retries, 1);
+  assert.equal(reset.history?.length, 1);
+  assert.equal(reset.history?.[0]?.points, 4);
+  assert.equal(reset.history?.[0]?.retryGrantedBy, "admin1");
+  assert.ok(!("history" in (reset.history?.[0] ?? {})), "snapshots do not nest");
+
+  const twice = resetAttempt(play(["PY"], reset), at(120_000), "admin1");
+  assert.equal(twice.retries, 2);
+  assert.equal(twice.history?.length, 2);
+  assert.equal(twice.history?.[1]?.points, 6);
+  assert.equal(statusOf(twice), "in_progress");
+});
+
+test("D-30: completing a retried day adjusts totalSolved only, never the streak or totalPlayed", () => {
+  const p0 = { ...newProfile(T0), lastPlayedOn: "2026-09-14", currentStreak: 3, longestStreak: 3, totalPlayed: 10, totalSolved: 7 };
+  const failed = play(["AR", "BO", "BR", "CL", "UY", "PE"]);
+  const p1 = recordCompletion(p0, failed);
+  assert.deepEqual([p1.lastPlayedOn, p1.currentStreak, p1.totalPlayed, p1.totalSolved], ["2026-09-15", 4, 11, 7]);
+
+  const retried = play(["PY"], resetAttempt(failed, at(10_000), "admin1"));
+  const p2 = recordCompletion(p1, retried);
+  assert.deepEqual([p2.lastPlayedOn, p2.currentStreak, p2.totalPlayed, p2.totalSolved], ["2026-09-15", 4, 11, 8]);
+
+  // Solved → retried → failed again: back down, not below.
+  const solvedFirst = play(["PY"]);
+  const q1 = recordCompletion(p0, solvedFirst);
+  const q2 = recordCompletion(q1, play(["AR", "BO", "BR", "CL", "UY", "PE"], resetAttempt(solvedFirst, at(10_000), "admin1")));
+  assert.equal(q1.totalSolved, 8);
+  assert.equal(q2.totalSolved, 7);
+  assert.equal(q2.totalPlayed, 11);
+});
+
+test("intervalsMs: start→first guess, then guess→guess", () => {
+  assert.deepEqual(intervalsMs(start()), []);
+  assert.deepEqual(intervalsMs(play(["AR"])), [1000]);
+  assert.deepEqual(intervalsMs(play(["AR", "BO", "BR", "CL", "UY", "PE"])), [1000, 1000, 1000, 1000, 1000, 1000]);
+  const a = applyGuess(applyGuess(start(), puzzle, "AR", at(500)), puzzle, "BO", at(2500));
+  assert.deepEqual(intervalsMs(a), [500, 2000]);
 });
