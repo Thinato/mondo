@@ -19,6 +19,7 @@ const PUZZLE = "2026-09-15";
 const GROUP = "g1group0000000000001";
 const GROUP2 = "g2group0000000000002"; // carol's group; alice and bob are not in it
 const TOKEN = "ABCDEFGHJKLMNPQR";
+const TOURNAMENT = "t1tournament0000001";
 
 let env: RulesTestEnvironment;
 before(async () => {
@@ -48,6 +49,13 @@ before(async () => {
     await db.doc(`groups/${GROUP2}`).set({ name: "Família", ownerUid: CAROL, memberCount: 1, maxMembers: 200, createdAt: new Date() });
     await db.doc(`groups/${GROUP2}/members/${CAROL}`).set({ uid: CAROL, displayName: "carol-tres", role: "owner", joinedAt: new Date() });
     await db.doc(`invites/${TOKEN}`).set({ groupId: GROUP, groupName: "Almoço", createdBy: ALICE, createdAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000), usedBy: null, usedAt: null, revokedAt: null });
+    // Phase 3: a tournament in alice's group, its round, and the card that
+    // holds the answers (D-39). Alice and bob are participants.
+    await db.doc(`tournaments/${TOURNAMENT}`).set({ groupId: GROUP, name: "Quintal", preset: "quintal", format: "free_for_all", regime: "aggregate", status: "running", createdBy: ALICE, participantUids: [ALICE, BOB], currentRound: 1 });
+    await db.doc(`tournaments/${TOURNAMENT}/rounds/1`).set({ n: 1, cardId: `${TOURNAMENT}_r1`, closedAt: null, results: {} });
+    await db.doc(`cards/${TOURNAMENT}_r1`).set({ tournamentId: TOURNAMENT, round: 1, items: [{ kind: "shape", subject: "PY" }] });
+    await db.doc(`attempts/${ALICE}_${TOURNAMENT}_r1`).set({ uid: ALICE, tournamentId: TOURNAMENT, roundId: `${TOURNAMENT}_r1`, mode: "match", items: [], cursor: 0 });
+    await db.doc(`attempts/${BOB}_${TOURNAMENT}_r1`).set({ uid: BOB, tournamentId: TOURNAMENT, roundId: `${TOURNAMENT}_r1`, mode: "match", items: [], cursor: 0 });
   });
 });
 after(async () => {
@@ -87,8 +95,13 @@ test("SEC-6: attempts cannot be created, updated or deleted by a client, even th
   await assertFails(alice().doc(`attempts/${ALICE}_${PUZZLE}`).delete());
 });
 
-test("attempts: own is readable, another player's is not, and listing is not", async () => {
-  await assertSucceeds(alice().doc(`attempts/${ALICE}_${PUZZLE}`).get());
+test("D-51: no attempt is client-readable — not another player's, not the collection, not even your own", async () => {
+  // Own attempts used to be readable, on the reasoning that the player already
+  // knows their own guesses. They do not know `bearingDeg`, which the document
+  // stores beside `distanceKm`; together those two solve for the answer's
+  // centroid in closed form, which is exactly what D-36 forbids sending. The
+  // Firestore REST API needs no SDK, so the rule is the only control.
+  await assertFails(alice().doc(`attempts/${ALICE}_${PUZZLE}`).get());
   await assertFails(alice().doc(`attempts/${BOB}_${PUZZLE}`).get());
   await assertFails(alice().collection("attempts").get());
   await assertFails(anon().doc(`attempts/${ALICE}_${PUZZLE}`).get());
@@ -197,6 +210,46 @@ test("D-21 / D-22: no results or standings subcollections exist; the catch-all d
   await assertFails(bob().doc(`groups/${GROUP}/standings/${BOB}`).get());
   await assertFails(alice().doc(`groups/${GROUP}/standings/${ALICE}`).set({ points: 1 }));
   await assertFails(bob().collection(`groups/${GROUP}/results`).get());
+});
+
+// --- Phase 3: tournaments (D-39, D-40) -------------------------------------
+
+test("D-39: a tournament and its rounds are closed to the client, members included", async () => {
+  await assertFails(alice().doc(`tournaments/${TOURNAMENT}`).get());
+  await assertFails(bob().doc(`tournaments/${TOURNAMENT}`).get());
+  await assertFails(carol().doc(`tournaments/${TOURNAMENT}`).get());
+  await assertFails(alice().doc(`tournaments/${TOURNAMENT}/rounds/1`).get());
+  await assertFails(bob().collection(`tournaments/${TOURNAMENT}/rounds`).get());
+  await assertFails(alice().collection("tournaments").get());
+  await assertFails(alice().collection("tournaments").where("groupId", "==", GROUP).get());
+});
+
+test("D-39: nobody may write a tournament, its rounds, or its participant list", async () => {
+  await assertFails(alice().doc(`tournaments/${TOURNAMENT}`).update({ status: "finished" }));
+  await assertFails(bob().doc(`tournaments/${TOURNAMENT}`).update({ participantUids: [BOB] }));
+  await assertFails(alice().doc(`tournaments/${TOURNAMENT}/rounds/1`).update({ results: { [ALICE]: { points: 30 } } }));
+  await assertFails(alice().doc(`tournaments/new0000000000000002`).set({ groupId: GROUP, name: "meu" }));
+  await assertFails(bob().doc(`tournaments/${TOURNAMENT}/rounds/2`).set({ n: 2 }));
+});
+
+test("SEC-1: the card holds the answers and is unreadable, exactly like puzzles", async () => {
+  await assertFails(alice().doc(`cards/${TOURNAMENT}_r1`).get());
+  await assertFails(bob().doc(`cards/${TOURNAMENT}_r1`).get());
+  await assertFails(alice().collection("cards").get());
+  await assertFails(alice().doc(`cards/${TOURNAMENT}_r1`).set({ items: [] }));
+});
+
+test("D-51: a tournament card play is closed to everyone, its own player included", async () => {
+  // The player must NOT be able to read this: the stored guess carries
+  // bearingDeg beside distanceKm, and the two together solve for the answer's
+  // centroid in closed form (D-36). One REST call with their own ID token would
+  // have named all five answers on the card.
+  await assertFails(alice().doc(`attempts/${ALICE}_${TOURNAMENT}_r1`).get());
+  await assertFails(alice().doc(`attempts/${BOB}_${TOURNAMENT}_r1`).get());
+  await assertFails(carol().doc(`attempts/${ALICE}_${TOURNAMENT}_r1`).get());
+  await assertFails(anon().doc(`attempts/${ALICE}_${TOURNAMENT}_r1`).get());
+  await assertFails(alice().doc(`attempts/${ALICE}_${TOURNAMENT}_r1`).update({ points: 30 }));
+  await assertFails(alice().doc(`attempts/${ALICE}_${TOURNAMENT}_r1`).set({ uid: ALICE, mode: "match", points: 30 }));
 });
 
 test("users: clients cannot create or delete profiles", async () => {

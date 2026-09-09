@@ -71,6 +71,23 @@ service cloud.firestore {
     match /challenges/{id}        { allow read, write: if false; }
     match /invites/{token}        { allow read, write: if false; }   // resolved only by acceptInvite (D-32)
 
+    // Tournaments (Phase 3, docs/06-tournaments.md §4). `cards` holds the
+    // answers and is a sibling of `puzzles` for exactly that reason; the
+    // tournament and its rounds are served through callables that check group
+    // membership, like getLeaderboard.
+    //
+    // The catch-all below would already deny all three. They are spelled out
+    // because this is where someone will one day want to put brackets on the
+    // client, and the next line they would write is
+    // `match /groups/{gid}/{document=**} { allow read: if inGroup(gid); }` —
+    // which is precisely why none of this lives under `groups` (D-39). Keeping
+    // the denials explicit keeps the rules tests honest about them too.
+    match /tournaments/{tid} {
+      allow read, write: if false;
+      match /rounds/{n}           { allow read, write: if false; }
+    }
+    match /cards/{cardId}         { allow read, write: if false; }   // the answers (SEC-1, D-39)
+
     // FR-4.10: a group and its members are visible to members only. Writes go
     // through the group callables (SEC-6). No other subcollection exists; the
     // catch-all below denies anything else under a group.
@@ -83,12 +100,24 @@ service cloud.firestore {
       }
     }
 
-    // A player may read their own attempts — by then they already know every
-    // guess in it — and nobody else's. Writes only through submitGuess (SEC-6).
-    match /attempts/{attemptId} {
-      allow read: if signedIn() && attemptId.split('_')[0] == request.auth.uid;
-      allow write: if false;
-    }
+    // Attempts are CLOSED, including to the player they belong to (D-51).
+    //
+    // This used to allow a player to read their own attempt, on the reasoning
+    // that "by then they already know every guess in it". That reasoning was
+    // wrong, and it defeated D-36 outright: the stored guess carries
+    // `bearingDeg` beside `distanceKm`, and an exact distance plus an exact
+    // bearing from a guess whose centroid is public solves for the answer's
+    // centroid in closed form. A player could submit one guess, fetch
+    // `attempts/{uid}_{puzzleId}` over the Firestore REST API with their own ID
+    // token — the project id is public in site/app/firebase.js — and name the
+    // country. The same held for a tournament card, five answers at a time.
+    //
+    // "The client never loads the Firestore SDK" is a convention of our own
+    // bundle, not a control on anyone else's HTTP client. The rule is the
+    // control. Nothing is lost by closing it: every read the game performs goes
+    // through a callable that projects through guessView/cardView, which send
+    // the 8-point compass and never the degrees.
+    match /attempts/{attemptId} { allow read, write: if false; }
 
     match /{document=**} { allow read, write: if false; }
   }
