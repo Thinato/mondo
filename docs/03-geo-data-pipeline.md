@@ -4,18 +4,33 @@ Everything here runs **offline at build time** via `tools/build-geo.mjs`. Output
 to the repo. Nothing in this pipeline runs at request time, and no map service is called from
 the browser.
 
+> **Status:** built 2026-09-06. `cd tools && npm install && npm run build-geo` regenerates
+> everything in under two seconds and fails loudly on any validation below. Then open
+> `tools/preview.html` and look.
+
 ## 1. Sources
 
 | Source | What it gives | License |
 |---|---|---|
-| Natural Earth `ne_50m_admin_0_countries` | Country polygons | Public domain |
-| `world-countries` (npm) | ISO alpha-2/alpha-3, English + Portuguese names, region, lat/lng | ODbL-ish, permissive; attribute in `NOTICE` |
-| `world-atlas` (npm) | Same Natural Earth data pre-converted to TopoJSON | Public domain |
-| `mapshaper` (npm, dev only) | Simplification and format conversion | MPL-2.0 |
-| `d3-geo` (npm, dev only) | Projection and path generation | ISC |
+| Natural Earth `ne_10m_admin_0_countries`, via `world-atlas` (npm) | Country polygons as TopoJSON | Public domain |
+| `world-countries` (npm) | ISO alpha-2/alpha-3/numeric, English + Portuguese names, alt spellings, area | ODbL; attributed in `NOTICE` |
+| `topojson-client` (npm, dev only) | TopoJSON → GeoJSON | ISC |
+| `d3-geo` (npm, dev only) | Spherical area/centroid, azimuthal projection, fit-to-extent | ISC |
+| `simplify-js` (npm, dev only) | Douglas-Peucker simplification in pixel space | BSD-2 |
 
-Downloading `world-atlas` avoids scraping and gives you a versioned artifact — prefer it over
-crawling Natural Earth's site.
+`world-atlas` is a versioned npm artifact of Natural Earth — prefer it over crawling the site.
+**10m, not 50m:** the 50m set is missing Tuvalu entirely, and every microstate is better at 10m.
+Since we simplify to a pixel tolerance anyway, the extra source detail costs nothing.
+
+Two quirks of the source, both handled in the build:
+
+- `world-atlas` features carry only the ISO numeric id. Kosovo has none, so it is matched by
+  name (`BY_NAME` in `build-geo.mjs`).
+- Natural Earth gives some dependencies their sovereign's id: at 10m *Ashmore and Cartier
+  Islands* shares `036` with Australia. Same-id features are merged into one MultiPolygon before
+  anything else happens; a naive lookup would have made Australia a reef.
+- `world-countries`' Portuguese is **European** Portuguese (Irão, Estónia, Vietname). ~35 names
+  are overridden to pt-BR in `tools/aliases.json`; the pt-PT form is kept as an alias.
 
 ## 2. Which entities count as "countries"
 
@@ -40,29 +55,60 @@ This single rule solves most of the classic problems automatically:
 - The USA becomes the contiguous 48, not a shape spanning 180° of longitude
 - The Netherlands, Denmark, Norway, Portugal, Spain, Chile, Ecuador, and New Zealand all behave
 
-Record `discardedPolygons` and `discardedAreaShare` in the output so you can eyeball the ~15
-countries where the rule is contentious. Anything over ~25% discarded area deserves a manual look.
-Known ones to inspect by hand: `NZ` (North vs South Island), `JP`, `PH`, `ID`, `FJ`.
+Record `discardedPolygons` and `discardedAreaShare` in the output so you can eyeball the
+countries where the rule is contentious. Anything over 25% discarded area is pulled to the top
+of `preview.html` in red.
+
+**Exceptions (D-14).** Largest-only made Indonesia a blob of Kalimantan and Malaysia a slice of
+Borneo — unrecognisable, not merely imperfect. Rather than a distance heuristic (which would
+reintroduce France-in-the-Atlantic), `tools/overrides.json` lists explicit exceptions: for each
+country there, every polygon with area ≥ `minShare` × the largest is kept too. Ten at launch:
+
+| Code | minShare | Keeps |
+|---|---|---|
+| ID | 0.20 | Sumatra, Sulawesi, Java, Indonesian Papua |
+| MY | 0.50 | the peninsula alongside East Malaysia |
+| NZ | 0.50 | North Island |
+| JP | 0.08 | Hokkaido, Kyushu, Shikoku |
+| PH | 0.08 | Mindanao and the larger Visayas |
+| GB | 0.05 | Northern Ireland |
+| IT | 0.07 | Sicily, Sardinia |
+| DK | 0.09 | Zealand, Funen |
+| GR | 0.05 | Crete |
+| FJ | 0.50 | Vanua Levu |
+
+Everything else is largest-only. Australia loses Tasmania, Chile its Tierra del Fuego share,
+Canada its Arctic archipelago; all still read as themselves. Known artefact: Natural Earth
+splits Russia at the antimeridian, so Chukotka east of 180° is a separate polygon and is dropped
+(2.6% of area). Russia is still Russia. Want a change? Edit `overrides.json`, rebuild, look at
+the preview, open a PR.
 
 ### 3.2 Centroid
 
-Compute the centroid of the retained polygon (`d3.geoCentroid`), not of the full multipolygon.
-Because of §3.1 this is automatically the mainland centroid — which is what makes distances
-feel honest.
+Compute the spherical centroid of the **retained** polygons (`d3.geoCentroid`), not of the full
+multipolygon. For largest-only countries this is the mainland centroid — which is what makes
+distances feel honest. For the D-14 exceptions it is the centroid of the kept islands together
+(New Zealand's sits in Cook Strait), which is the honest answer for those too.
 
 Two known-awkward cases where the centroid falls outside the country (`HR`, `CL` is fine but
 long, `VN`, `SO`): acceptable. If you want to be nicer, use `polylabel` to get the pole of
 inaccessibility instead. **Pick one and use it for every country** — mixing methods makes
 distances incomparable.
 
-Store centroids in `countries.min.json` with 4 decimal places. Both the client (for nothing)
-and the server (for scoring) need them; the **server copy must come from its own bundled file**,
-never from the client payload.
+Store centroids with 4 decimal places in the **server-only** `backend/functions/src/data/countries.json`.
+The client never receives a centroid: it has no use for one, and a centroid is a strong hint.
 
 ### 3.3 Simplification
 
-`mapshaper -simplify visvalingam 4% keep-shapes`. Target: every country under 4KB of path data,
-whole `shapes/` directory under 400KB. Tune the percentage until both hold.
+Simplify **after** projecting, in pixel space, to a fixed tolerance of **1px** on the 500px
+box (Douglas-Peucker via `simplify-js`). A percentage-of-vertices rule would give Russia and
+Nauru wildly different visual fidelity; a pixel tolerance gives every silhouette the same.
+
+Budget: every country's path ≤ **8 KB**. If a coastline does not fit at 1px, the tolerance is
+escalated in 0.25px steps *for that country alone*, so a fjord-heavy Norway never forces a
+coarser Italy. At launch only three escalate: Canada and Iceland to 1.25px, Norway to 1.75px.
+Total for all 197 is ~490 KB, held server-side; one path (≤ 8 KB) travels per round, which is
+noise against NFR-5.
 
 Verify visually. Over-simplified Italy stops looking like a boot, and that ruins the game.
 
@@ -83,34 +129,37 @@ time means it cannot leak through a runtime parameter.
 
 Default off in v1. Consider it for a "difícil" mode later.
 
-### 3.6 Opaque keys (SEC-2)
+### 3.6 Shapes never leave the server (SEC-2, D-13)
 
-Each country gets `shapeKey = "s_" + 8 random hex chars`, generated once and **persisted** in
-`tools/shapekeys.json` so rebuilds are stable. It must not be derived from the country code or
-name — a derived key is a rainbow table and defeats the whole point.
+The original design here shipped opaque-keyed shape shards to the client. It had a hole: the
+client also had `countries.min.json` with each country's key, so silhouette → key → country
+was a JSON lookup. Opaque keys only protect anything if the key→country map is private, and
+if it is private the client cannot use the keys either.
 
-Shard the output: `data/shapes/{first-2-chars-of-key}.json`, each holding many countries. The
-client fetches one shard and picks the key out of it, so network traffic doesn't reveal which
-country was requested.
+So there are **no shape keys and no public shape files**. `shapes.json` lives in
+`backend/functions/src/data/`, keyed by country code, and `getRound` inlines exactly one path
+per round. The only thing a determined player can match the path against is Natural Earth
+itself, after reproducing this pipeline — which is SEC-12, the documented residual risk.
+
+Path format: one `d` string per country, exterior rings and holes as separate subpaths, one
+decimal place, rendered with `fill-rule="evenodd"`.
 
 ## 4. Names, aliases, autocomplete
 
-`countries.min.json` per entry:
+`site/data/countries.min.json` per entry — codes, names, aliases, **nothing else**:
 
 ```jsonc
-{
-  "code": "NL",
-  "code3": "NLD",
-  "names": { "en": "Netherlands", "pt-BR": "Países Baixos" },
-  "aliases": ["Holanda", "Holland", "Nederland", "Paises Baixos"],
-  "centroid": [5.2913, 52.1326],
-  "tier": 1,
-  "shapeKey": "s_4b19ce07"
-}
+{ "code": "NL", "code3": "NLD", "en": "Netherlands", "pt": "Holanda",
+  "aliases": ["Holland", "Nederland", "Países Baixos", "Netherlands", …] }
 ```
 
+Whole file ≈ 24 KB. Centroids, tiers and shapes live only in the server copy.
+
 Autocomplete index rules (FR-6.3):
-- Normalise with `NFD` + strip combining marks, then lowercase. `são` matches `sao`.
+- Normalise with `site/app/normalize.js` — `NFD`, strip combining marks, lowercase, collapse
+  punctuation and whitespace. `são` matches `sao`; `Timor-Leste` matches `timor leste`. The
+  build imports the **same file** for its duplicate check, so what the build calls unique is
+  what the player experiences as unique.
 - Match on prefix first, then substring, then fuzzy (Levenshtein ≤ 2) as a last tier.
 - Both alpha-2 and alpha-3 codes are searchable.
 
@@ -145,7 +194,7 @@ Tiers live in `tools/tiers.json` with the same PR-to-argue convention as `includ
 1. Seeded PRNG (store the seed; the schedule must be reproducible).
 2. Walk forward from a start date, day by day, in `America/Sao_Paulo`.
 3. Weighted pick by tier, rejecting any country used in the previous 180 days (FR-2.3).
-4. Emit `{ puzzleId, countryCode, tier, shapeKey, opensAt }` for 365 days.
+4. Emit `{ puzzleId, countryCode, tier, opensAt }` for 365 days.
 5. Upload to the `puzzles` collection with the Admin SDK.
 
 Run it once at launch, then annually. The weekly `scheduleHealthCheck` function warns when
@@ -169,14 +218,17 @@ Pure functions in `backend/functions/src/lib/geo.ts`, unit tested (NFR-8).
 
 ## 8. Build validation
 
-`tools/build-geo.mjs` must fail the build if any of these are violated:
+`tools/build-geo.mjs` fails the build if any of these are violated:
 
-- Any country in `include.json` has no geometry
+- Any country in `include.json` has no geometry, or no entry in `world-countries`
+- Any country lacks a tier in `tiers.json`
 - Any centroid falls outside [-90, 90] × [-180, 180]
-- Any shape file exceeds 4KB
-- Any `shapeKey` collides or changed since the last run
-- Any two countries share a name or alias
-- Total `data/` payload exceeds 400KB
+- Any path exceeds 8 KB even after tolerance escalation
+- Any two countries share a name, alias or code once normalised
+- Total shape bytes exceed the sanity cap (640 KB)
+
+Pure helpers in `tools/lib/shape.mjs` have their own tests (`npm test` in `tools/`): polygon
+selection with and without `minShare`, winding normalisation, fit-to-box, byte-cap escalation.
 
 Add a `tools/preview.html` that renders all ~197 silhouettes in a grid. Look at it. Human eyes
 catch a broken simplification in five seconds and no assertion will.

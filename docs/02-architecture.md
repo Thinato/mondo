@@ -77,8 +77,7 @@ never reach the published site — the Pages workflow uploads the `site/` direct
     share.js              emoji share text
     i18n.js               pt-BR / en strings
   data/
-    countries.min.json    generated; names, aliases, tiers, codes
-    shapes/               generated; opaque-keyed SVG path chunks
+    countries.min.json    generated; codes, names, aliases — and nothing else (D-13)
   mondo.css
   .nojekyll               skip Jekyll processing
 
@@ -88,6 +87,9 @@ never reach the published site — the Pages workflow uploads the `site/` direct
       index.ts
       round.ts groups.ts challenges.ts account.ts scheduled.ts
       lib/ geo.ts scoring.ts validate.ts errors.ts
+      data/
+        countries.json    generated; + centroids, tiers, discard stats (server-only)
+        shapes.json       generated; one SVG path per country (server-only, D-13)
     test/
   firestore.rules
   firestore.indexes.json
@@ -98,7 +100,13 @@ never reach the published site — the Pages workflow uploads the `site/` direct
   README.md
 
 /tools/
-  build-geo.mjs           Natural Earth -> countries.min.json + shapes/
+  build-geo.mjs           Natural Earth -> the three generated data files above
+  lib/shape.mjs           pure geometry helpers, unit-tested
+  include.json            which entities are countries (PR to change)
+  tiers.json              recognisability tier per country (PR to change)
+  aliases.json            autocomplete aliases + pt-BR name overrides
+  overrides.json          D-8 exceptions: archipelagos that keep more than one island (D-14)
+  preview.html            GITIGNORED — every silhouette in a grid; look at it after a rebuild
   generate-schedule.mjs   deterministic puzzle schedule -> seeded into Firestore
   out/                    GITIGNORED — generated schedule, i.e. every answer
 
@@ -140,11 +148,11 @@ puzzleId       "2026-09-14"
 countryCode    "PY"
 opensAt        timestamp     computed from OQ-2 in America/Sao_Paulo
 tier           1 | 2 | 3
-shapeKey       "s_7f3a91c2"  opaque pointer into /mondo/data/shapes/
 ```
 
-`shapeKey` is a random opaque token generated at build time, not a hash of the country code —
-otherwise a rainbow table breaks SEC-2 immediately.
+There is no shape key. The server looks the path up by `countryCode` in its bundled
+`shapes.json` and inlines it into the `getRound` response (D-13). Nothing about the shape is
+ever addressable from the client.
 
 ### 3.3 `attempts/{uid}_{puzzleId}` — Admin SDK writes only
 
@@ -215,7 +223,7 @@ enumerate groups.
 ### 3.9 `challenges/{challengeId}` — **no client read access**
 
 ```
-createdBy, countryCode, shapeKey, createdAt, expiresAt, status
+createdBy, countryCode, createdAt, expiresAt, status
 participants   map<uid, { displayName, status, points, guessCount, elapsedMs }>
 ```
 
@@ -240,7 +248,7 @@ Returns the round the caller should see. Omitting `puzzleId` means today.
 {
   "puzzleId": "2026-09-14",
   "mode": "daily",
-  "shape": { "viewBox": "0 0 500 500", "paths": ["M12.3 44.1 L..."] },
+  "shape": { "viewBox": "0 0 500 500", "d": "M12.3 44.1L...Z", "fillRule": "evenodd" },
   "guessesUsed": 2,
   "guessesMax": 6,
   "guesses": [ { "code": "AR", "name": "Argentina", "distanceKm": 1043,
@@ -347,7 +355,7 @@ positive ones.
 | Vector | Mitigation |
 |---|---|
 | Read answer from network tab | Answer never sent while in progress (SEC-1) |
-| Infer from asset URL `/shapes/brazil.svg` | Opaque `shapeKey`, path data inlined (SEC-2) |
+| Infer from an asset URL or match the path against a public shape file | No public shape files exist; the only copy is server-side and one path is inlined per round (SEC-2, D-13) |
 | Fake a fast solve time | Server timestamps only (SEC-3) |
 | Brute-force all ~200 countries | Hard cap of 6 server-side, plus 400ms floor (SEC-5) |
 | Replay a solved day | Deterministic attempt ID, `already-completed` (FR-2.10, SEC-4) |

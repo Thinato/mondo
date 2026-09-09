@@ -44,16 +44,19 @@ competitive group. Vanilla frontend published from `site/` by GitHub Pages, Fire
 - If you touched `firestore.rules`, add or update rules tests — including **negative** cases.
 - If you touched scoring, run the unit tests and state what changed in plain language, because
   humans will argue about it.
-- If you touched the geo pipeline, regenerate `tools/preview.html` and say so, so a human can
-  eyeball the silhouettes.
+- If you touched the geo pipeline, run `cd tools && npm test && npm run build-geo`, then say so
+  — the preview at `tools/preview.html` is for a human to eyeball.
 - Never commit anything under `tools/out/`.
 
 ## Things that are deliberate, not oversights
 
 - Only the largest landmass of each country is rendered. France is metropolitan France. This is
   decision D-8; see `docs/03-geo-data-pipeline.md` §3.1.
-- `shapeKey` values are random, not derived from country codes. Deriving them would create a
-  rainbow table and defeat invariant 1.
+- There are **no shape keys and no public shape files**. Shapes and centroids exist only in
+  `backend/functions/src/data/`; `getRound` inlines one path per round (D-13). If a change puts
+  a shape or centroid into `site/`, stop.
+- D-8 exceptions (archipelagos that keep more than one island) live in `tools/overrides.json`
+  with a reason each (D-14). Do not add distance heuristics to the pipeline instead.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request.

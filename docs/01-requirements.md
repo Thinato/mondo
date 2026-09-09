@@ -128,8 +128,9 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   sent to the client — not in the response body, not in a hidden field, not inferable from an
   asset path or filename. Every guess is evaluated server-side.
 - **SEC-2** Silhouette geometry MUST be delivered as raw SVG path data with no country name,
-  ISO code, or identifying attribute anywhere in the payload or DOM. Geometry keys in the
-  payload MUST be opaque.
+  ISO code, or identifying attribute anywhere in the payload or DOM. No client-reachable
+  mapping from geometry to country may exist: no public shape files, no shape keys, no
+  centroids in client data. The server inlines exactly one path per round (D-13).
 - **SEC-3** `startedAt` and `finishedAt` MUST be server timestamps. Client-supplied timing MUST
   be ignored entirely.
 - **SEC-4** Guess submission MUST be idempotent and transactional. Concurrent submissions for the
