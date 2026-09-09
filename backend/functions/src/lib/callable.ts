@@ -1,5 +1,6 @@
 import { onCall, type CallableRequest, HttpsError } from "firebase-functions/v2/https";
-import { ALLOWED_ORIGINS, REGION, RUNTIME_SERVICE_ACCOUNT } from "./config";
+import { onSchedule, type ScheduledEvent } from "firebase-functions/v2/scheduler";
+import { ALLOWED_ORIGINS, PUZZLE_TIMEZONE, REGION, RUNTIME_SERVICE_ACCOUNT } from "./config";
 
 /**
  * Wraps `onCall` so that region and CORS are set identically everywhere (SEC-9),
@@ -44,5 +45,29 @@ export function callable<Req, Res>(
       }
       return handler(request.auth.uid, request.data, request);
     },
+  );
+}
+
+/**
+ * Wraps `onSchedule` the same way: region, runtime SA and the puzzle time zone
+ * (D-11) set once. Cloud Scheduler bills nothing for the first three jobs
+ * (docs/05-cost.md §3.4); Mondo has two.
+ *
+ * In the emulator a job runs on POST to
+ * http://127.0.0.1:5001/demo-mondo/southamerica-east1/<name>.
+ */
+export function scheduled(schedule: string, handler: (event: ScheduledEvent) => Promise<void>) {
+  return onSchedule(
+    {
+      schedule,
+      timeZone: PUZZLE_TIMEZONE,
+      region: REGION,
+      serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+      memory: "256MiB",
+      timeoutSeconds: 540,
+      retryCount: 1,
+      maxInstances: 1,
+    },
+    handler,
   );
 }
