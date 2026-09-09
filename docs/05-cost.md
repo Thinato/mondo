@@ -54,20 +54,26 @@ if that stops being true, revisit §5.
 
 | Resource | Daily use at 100 players | Free allowance | Headroom |
 |---|---|---|---|
-| Firestore reads | ~5,000 (rounds, profiles, leaderboards) | 50,000/day | ~10× |
-| Firestore writes | ~1,500 (attempt doc per guess + fan-out) | 20,000/day | ~13× |
+| Firestore reads | ~5,000 (rounds, profiles, boards) + ~3,000 once a night (players × 30 attempts, D-21) | 50,000/day | ~6× |
+| Firestore writes | ~1,000 (attempt doc per guess) + memberships once a night | 20,000/day | ~19× |
 | Firestore storage | a few MB/year | 1 GiB | enormous |
 | Function invocations | ~1,000/day → ~30,000/month | 2,000,000/month | ~65× |
 | Cloud Logging | well under 1 GiB/month | 50 GiB/month | large |
 
 The tightest of these is Firestore reads, and the thing that drives it is the
-leaderboard. This is exactly why `groups/*/standings` is precomputed nightly
-(architecture §3.7) instead of aggregated per page-load: a client-side
-aggregation over 30 days × 100 members would be 3,000 reads *per viewer*, which
-would blow the daily quota with roughly 16 people looking at the board. The
-precomputed design makes it one indexed query of ≤200 documents.
+leaderboard. This is exactly why the windows are precomputed nightly onto the
+member documents (architecture §3.5, D-22, D-25) instead of aggregated per
+page-load: a client-side aggregation over 30 days × 100 members would be 3,000
+reads *per viewer*, which would blow the daily quota with roughly 16 people
+looking at the board. The precomputed design makes a board read ≤ 200 member
+documents plus ≤ 200 today-attempts for the live panel (FR-4.11).
 
-Keep that in mind before "just querying results directly" anywhere.
+The nightly job itself reads every attempt of the last 30 closed days once
+(players × 30, D-21) — about 3,000 at 100 players, regardless of how many groups
+they are in. Past ~1,000 players switch to per-member `getAll` of group members
+only; the ceiling is marked in `backend/functions/src/standings.ts`.
+
+Keep that in mind before "just querying attempts directly" from a per-viewer path.
 
 ## 3. The four things that would actually charge you
 

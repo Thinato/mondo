@@ -19,11 +19,11 @@
 │    Google provider + email link            │
 │                                            │
 │  Cloud Functions v2 (Node 22, southamerica-east1)
-│    getRound        startChallenge          │
-│    submitGuess     joinChallenge           │
-│    createGroup     getChallengeResults     │
-│    joinGroup       deleteAccount           │
-│    getLeaderboard                          │
+│    getRound        createGroup  acceptInvite│
+│    submitGuess     createInvite listGroups │
+│    updateProfile   getLeaderboard …        │
+│    deleteAccount   admin: listUsers …      │
+│    (Phase 3: tournaments)                  │
 │    [scheduled] rebuildStandings 12:05 BRT  │
 │    [scheduled] scheduleHealthCheck weekly  │
 │                                            │
@@ -63,15 +63,18 @@ never reach the published site — the Pages workflow uploads the `site/` direct
 ```
 /site/                    <- the only directory GitHub Pages publishes
   index.html              daily game
-  grupos.html             group list + leaderboards
-  desafio.html            challenge lobby + results
-  arquivo.html            past puzzles
+  grupos.html             group list + leaderboards + invite acceptance
+  admin.html              admin dashboard (FR-7.2)
+  desafio.html            challenge lobby + results (Phase 3)
+  arquivo.html            past puzzles (Phase 4)
   regras.html             scoring rules (FR-3.7)
   privacidade.html        LGPD note
   app/
     firebase.js           SDK init, exported app/auth/functions handles
     api.js                thin typed wrapper over callable functions
     game.js               round state machine
+    groups.js             grupos.html
+    admin.js              admin.html
     geo.js                render silhouette, format distance/arrow
     autocomplete.js       country search (FR-6.3)
     share.js              emoji share text
@@ -84,9 +87,10 @@ never reach the published site — the Pages workflow uploads the `site/` direct
 /backend/                 never published by Pages
   functions/
     src/
-      index.ts
-      round.ts groups.ts challenges.ts account.ts scheduled.ts
-      lib/ geo.ts scoring.ts validate.ts errors.ts
+      index.ts            exports every function
+      db.ts               document refs, puzzleDays, ensureProfile
+      round.ts groups.ts leaderboard.ts admin.ts account.ts standings.ts health.ts
+      lib/                pure, unit-tested: geo scoring puzzle-day round standings groups invite authz validate errors
       data/
         countries.json    generated; + centroids, tiers, discard stats (server-only)
         shapes.json       generated; one SVG path per country (server-only, D-13)
@@ -136,7 +140,11 @@ longestStreak  number
 totalPlayed    number
 totalSolved    number
 locale         "pt-BR" | "en"
+role           "admin" | "organizer" | "player"   FR-7; functions-only (D-27, D-29); absent → player
+groups         string[]                          membership index, ≤ 10 (FR-4.4, D-27); absent → []
 ```
+
+Play is allowed when `role !== "player" || groups.length > 0` (FR-1.7, D-28).
 
 Note: **email is deliberately not stored here.** It lives only in the Auth record, which
 clients cannot enumerate. This is the mechanism behind FR-1.4.
@@ -167,58 +175,71 @@ points         number      FR-3.1
 elapsedMs      number
 mode           "daily" | "archive"
 suspicious     boolean     set when elapsedMs < 2000 on a first-guess solve
+history        Attempt[]   only after an admin retry (D-30): the earlier tries, oldest first
+retries        number      only after an admin retry
 ```
 
 Client may read its **own** attempt documents only. That is safe because by the time an attempt
 doc exists with guesses in it, the client already knows those guesses.
 
-### 3.4 `groups/{groupId}`
+### 3.4 `groups/{groupId}` — Admin SDK writes only
 
 ```
 name           string
 ownerUid       string
-inviteCode     string     also indexed in /inviteCodes
 memberCount    number
 maxMembers     number     default 200
 createdAt      timestamp
 ```
 
-### 3.5 `groups/{groupId}/members/{uid}`
+There is no invite code on the group (FR-4.2 as amended); invitations are separate documents (§3.8).
+
+### 3.5 `groups/{groupId}/members/{uid}` — Admin SDK writes only (D-22)
+
+One document per membership carries the role in the group **and** the precomputed windows the
+nightly `rebuildStandings` writes (D-25), so the client never aggregates.
 
 ```
-displayName    string     denormalised for cheap leaderboard reads
+uid            string
+displayName    string     copied from the profile (D-26); uniqueness within the group is resolved at read time
 role           "owner" | "member"
 joinedAt       timestamp
+allTime        { points, played, totalGuesses, avgGuesses, totalElapsedMs }
+allTimeThrough string|null   last puzzle day folded into allTime — makes the job idempotent
+last7          { ... }
+last30         { ... }   worst 2 of the 30 days already dropped (FR-3.5, D-24)
+currentStreak  number    effective streak as of the closed day (0 if the last play is older)
+updatedAt      timestamp
 ```
 
-### 3.6 `groups/{groupId}/results/{puzzleId}_{uid}` — Admin SDK writes only
+Board read = the group document plus its ≤ 200 member documents, ranked in memory for all three
+windows, plus `getAll` of today's attempt per member for the live panel (FR-4.11).
 
-Fan-out target. Written by `submitGuess` when a round completes, once per group the player
-belongs to. Source of truth for windowed leaderboards.
+### 3.6 Results — none (D-21)
+
+There is **no** `groups/*/results` fan-out. `attempts` is the single source of truth; the nightly
+job reads the last 30 closed days of attempts once (one range query on `puzzleId`) and buckets
+them by uid. A new member's stats are backfilled from their own attempts at join time.
+
+### 3.7 Standings — see §3.5
+
+Folded into the member document (D-22).
+
+### 3.8 `invites/{token}` — no client access (D-32)
 
 ```
-uid, puzzleId, points, guessCount, solved, elapsedMs, completedAt
+groupId        string
+groupName      string     denormalised for the confirm dialog
+createdBy      uid
+createdAt      timestamp
+expiresAt      timestamp  createdAt + 7 days
+usedBy         uid|null   set by acceptInvite, which consumes the token
+usedAt         timestamp|null
+revokedAt      timestamp|null
 ```
 
-### 3.7 `groups/{groupId}/standings/{uid}` — Admin SDK writes only
-
-Precomputed by the nightly `rebuildStandings` job so the client never aggregates.
-
-```
-displayName
-allTime    { points, played, solved, avgGuesses, totalElapsedMs }
-last7      { ... }
-last30     { ... }   worst-2 already dropped (FR-3.5)
-currentStreak
-updatedAt
-```
-
-Leaderboard read = one indexed query: `standings` ordered by `last30.points desc,
-last30.totalElapsedMs asc`, limit 200. Cheap and predictable.
-
-### 3.8 `inviteCodes/{code}`
-`{ groupId }`. Lets `joinGroup` resolve a code without granting the client any ability to
-enumerate groups.
+A token is pending while `usedBy` and `revokedAt` are null and `expiresAt` is in the future.
+Resolvable only through `acceptInvite`; the owner lists and revokes their group's pending invites.
 
 ### 3.9 `challenges/{challengeId}` — **no client read access**
 
@@ -231,9 +252,11 @@ Client never reads this directly. `getChallengeResults` returns a filtered proje
 honours FR-5.6 by stripping other participants' results until the caller has finished.
 
 ### 3.10 Required composite indexes
-- `groups/{gid}/standings`: `last7.points desc, last7.totalElapsedMs asc`
-- `groups/{gid}/standings`: `last30.points desc, last30.totalElapsedMs asc`
-- `groups/{gid}/results`: `uid asc, completedAt desc`
+
+None. Every query is a single-field range or equality (`attempts.puzzleId`, `attempts.uid`,
+`invites.groupId` + `usedBy` + `revokedAt` equalities, `users.createdAt`, `members.joinedAt`) or a
+`getAll` by deterministic id; ranking sorts ≤ 200 member documents in memory.
+`firestore.indexes.json` is deliberately empty.
 
 ## 4. API contract (callable functions)
 
@@ -276,15 +299,46 @@ what makes the timer un-spoofable (SEC-3).
 }
 ```
 
-Transactional read-modify-write on the attempt doc (SEC-4). On completion, fans out
-`groups/*/results` writes and updates streaks.
+Transactional read-modify-write on the attempt doc (SEC-4). On completion, updates the
+profile's streak and counters. Nothing is fanned out (D-21); the nightly job reads attempts.
 
-### Groups
-- `createGroup({ name })` → `{ groupId, inviteCode }`
-- `joinGroup({ inviteCode })` → `{ groupId, name }`; backfills the joiner's last 30 days of
-  results into the group so they aren't starting from an empty board
-- `getLeaderboard({ groupId, window })` → ranked standings
-- `leaveGroup({ groupId })`, `removeMember({ groupId, uid })`, `rotateInviteCode({ groupId })`
+### Play gate (FR-1.7)
+`getRound` and `submitGuess` throw `not-invited` for a `player` with no groups, before any attempt
+document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
+
+### Groups (FR-4 as amended)
+- `createGroup({ name })` → `{ groupId }` — admin/organizer only
+- `createInvite({ groupId })` → `{ token, url, expiresAt }` — owner only; `url` is `…/grupos.html?convite=<token>`
+- `listInvites({ groupId })` → pending invites — owner only
+- `revokeInvite({ token })` — owner only, idempotent
+- `acceptInvite({ token })` → `{ groupId, name }` — transactional, consumes the token, backfills the
+  joiner's last 30 closed days from their attempts; errors `invalid-invite`, `group-full`, `too-many-groups`
+- `leaveGroup({ groupId })`, `removeMember({ groupId, uid })` (owner), `renameGroup({ groupId, name })` (owner)
+- `listGroups({})` → `[{ groupId, name, memberCount, isOwner }]`
+- `getLeaderboard({ groupId })` → members or admin only:
+  ```jsonc
+  { "group": { "groupId", "name", "memberCount", "maxMembers", "isOwner", "ownerDisplayName" },
+    "closedThrough": "2026-09-08",
+    "rows": [ { "uid", "displayName", "isMe", "currentStreak",
+                "allTime": { "points", "played", "totalGuesses", "avgGuesses", "totalElapsedMs", "rank" },
+                "last7": { … }, "last30": { … } } ],
+    "today": { "puzzleId", "viewerFinished",
+               "players": [ { "uid", "displayName", "state": "finished|in_progress|not_started",
+                              "points": null, "guessCount": null } ] } }   // numbers only when viewerFinished (FR-4.11)
+  ```
+
+### Admin (FR-7.2; role `admin`, else `permission-denied`)
+- `listUsers({ cursor? })` → 50 per page by `createdAt`; no e-mail, ever
+- `setRole({ uid, role })` — `organizer` | `player`; never `admin`, never yourself
+- `listAllGroups({})`
+- `listAttempts({ puzzleId } | { uid })` → per attempt: state, counts, `elapsedMs`, `suspicious`,
+  `retries`, `intervalsMs` (start→first guess, guess→guess); `guesses` only for closed days or once
+  the admin has finished today (D-31)
+- `grantRetry({ uid, puzzleId })` — today only; resets the attempt, keeps `history` (D-30)
+
+### Scheduled (Cloud Scheduler, `America/Sao_Paulo`)
+- `rebuildStandings` — `5 12 * * *` (D-11, D-25)
+- `scheduleHealthCheck` — `0 9 * * 1`; logs `SCHEDULE_LOW` under 30 days of puzzles left (NFR-6)
 
 ### Challenges
 - `startChallenge({ groupId?, maxParticipants })` → `{ challengeId, joinCode }`
@@ -292,12 +346,14 @@ Transactional read-modify-write on the attempt doc (SEC-4). On completion, fans 
 - `getChallengeResults({ challengeId })` → filtered per FR-5.6
 
 ### Account
-- `updateProfile({ displayName, locale })`
-- `deleteAccount({})` → FR-1.5; deletes auth user last, after data cleanup
+- `updateProfile({ displayName, locale })` — also copies the name to the caller's member docs (D-26)
+- `deleteAccount({})` → FR-1.5; leaves every group (D-23), revokes pending invites, deletes
+  attempts and profile, then the auth user last; every step idempotent
 
 ### Error codes
-`unauthenticated`, `invalid-argument`, `not-found`, `already-completed`,
-`no-guesses-remaining`, `rate-limited`, `puzzle-not-open`, `group-full`, `challenge-expired`.
+`unauthenticated`, `invalid-argument`, `not-found`, `permission-denied`, `not-invited`,
+`already-completed`, `no-guesses-remaining`, `rate-limited`, `puzzle-not-open`, `group-full`,
+`too-many-groups`, `invalid-invite`, `challenge-expired`.
 
 ## 5. Security rules sketch
 
@@ -325,7 +381,7 @@ service cloud.firestore {
 
     match /puzzles/{id}      { allow read, write: if false; }   // SEC-7
     match /challenges/{id}   { allow read, write: if false; }
-    match /inviteCodes/{c}   { allow read, write: if false; }
+    match /invites/{token}   { allow read, write: if false; }   // D-32
 
     match /attempts/{attemptId} {
       allow read:  if signedIn() && attemptId.split('_')[0] == request.auth.uid;
@@ -337,8 +393,7 @@ service cloud.firestore {
       allow write: if false;
 
       match /members/{uid}    { allow read: if inGroup(gid); allow write: if false; }
-      match /standings/{uid}  { allow read: if inGroup(gid); allow write: if false; }
-      match /results/{rid}    { allow read: if inGroup(gid); allow write: if false; }
+      // no standings/results subcollections exist (D-21, D-22); the catch-all denies them
     }
 
     match /{document=**} { allow read, write: if false; }
@@ -410,8 +465,15 @@ cd site && python3 -m http.server 8000
 ```
 
 Then open `http://localhost:8000/`. Google sign-in goes to the Auth emulator's fake account
-picker. Tests: `npm test` in `tools/` and `backend/functions/` need nothing running;
-`npm run test:rules` in `backend/functions/` starts its own Firestore emulator.
+picker. Playing needs an invitation (FR-1.7): make your emulator account an admin once with
+`cd tools && npm run set-role -- --uid <uid> --role admin --emulator` (the uid is in the Auth
+emulator UI at `http://127.0.0.1:4000/auth`), then create a group and invite the other test
+accounts from `grupos.html`. The scheduled jobs run on `POST
+http://127.0.0.1:5001/demo-mondo/southamerica-east1/rebuildStandings` (and `scheduleHealthCheck`).
+
+Tests: `npm test` in `tools/` and `backend/functions/` need nothing running; `npm run test:rules`
+in `backend/functions/` starts its own Firestore emulator; `npm run test:e2e` (D-33) starts
+Functions + Firestore + Auth emulators and drives every Phase 2 callable with several accounts.
 
 Use `npx firebase-tools`, not the Homebrew `firebase` binary: on macOS the latter is killed with
 exit 137 on its first network call.

@@ -70,47 +70,62 @@ Scope: FR-1 (except deletion), FR-2, FR-6, SEC-1 … SEC-9. Plus the whole geo p
 
 ---
 
-## Phase 2 — Groups and leaderboards
-*Effort: ~1 weekend.*
+## Phase 2 — Invite-only groups, roles, leaderboards, admin dashboard
+*Effort: ~2 weekends.* Rescoped 2026-09-09 after Phase 1: **nobody uninvited plays** (FR-1.7),
+three roles (FR-7), single-use invite links (FR-4.2/4.3 as amended), an admin dashboard.
+Plan: `.omc/plans/phase-2-groups-leaderboards.md`.
 
-Scope: FR-3, FR-4, FR-1.5 (account deletion), NFR-6.
+Scope: FR-1.5, FR-1.7, FR-3, FR-4 as amended, FR-7, NFR-6.
 
-1. `createGroup`, `joinGroup`, `leaveGroup`, `removeMember`, `rotateInviteCode`.
-2. Results fan-out on round completion.
-3. `rebuildStandings` scheduled at 12:05 America/Sao_Paulo (D-11), incl. worst-2-dropped logic.
-4. `getLeaderboard` + composite indexes.
-5. `grupos.html`: group list, leaderboard with window filter, "who has played today" panel (FR-4.11).
-6. `deleteAccount` (FR-1.5) — **this must exist before you share the link with colleagues.**
-7. `scheduleHealthCheck` weekly warning.
+1. ~~Pure libs: standings (D-24), groups, invites, authz; play gate.~~ **Built 2026-09-09**, 91 unit tests incl. a hand-checkable 30-day fixture.
+2. ~~`createGroup`, `createInvite`, `listInvites`, `revokeInvite`, `acceptInvite`, `leaveGroup`, `removeMember`, `renameGroup`, `listGroups`.~~ **Built 2026-09-09.** No results fan-out (D-21).
+3. ~~`getLeaderboard` with the live today panel.~~ **Built 2026-09-09.** No composite indexes needed.
+4. ~~Admin: `listUsers`, `setRole`, `listAllGroups`, `listAttempts`, `grantRetry`; `tools/set-role.mjs`.~~ **Built 2026-09-09.**
+5. ~~`rebuildStandings` 12:05 (D-11, D-25) and `scheduleHealthCheck` weekly.~~ **Built 2026-09-09.**
+6. ~~`deleteAccount` (FR-1.5).~~ **Built 2026-09-09.**
+7. ~~Rules for `groups/**` and `invites` with negative tests.~~ **Built 2026-09-09**, 19 emulator tests.
+8. `grupos.html`, `admin.html`, invitation screen, account deletion in the profile dialog, `regras.html` ranking section.
+9. Committed emulator e2e (`npm run test:e2e`, D-33); docs.
 
 **Acceptance:**
-- Create a group, invite two people by link, all three play, the board ranks correctly.
-- A non-member gets `permission-denied` on every group document. Verify in rules tests.
-- `deleteAccount` removes the user everywhere and leaves past leaderboards coherent
-  (`[removido]` entries, scores intact).
-- Standings after the nightly job match a hand calculation on a spreadsheet. Do this once by
-  hand — the rolling-window drop-worst-2 logic is the easiest thing here to get subtly wrong.
+- A brand-new Google account sees the invitation screen and no attempt document is created.
+- Create a group, invite two people by link, all three play; after 12:05 the board ranks correctly
+  and **matches a spreadsheet** built from the D-24 rules — do this once by hand.
+- A used, revoked or expired link is refused. A non-member gets `permission-denied` on every group
+  document (rules tests) and on `getLeaderboard`.
+- Organizer cannot reach any admin callable. `listUsers` never shows an e-mail.
+- `deleteAccount` removes the user everywhere; the group they owned has a new owner.
+- Phase 1 players have no group yet: **invite them before deploying**, or they are locked out (D-28).
 
-**This is the point where you share the link.** Talk to whoever owns security policy first.
+**Shipping (Paulo):** push; confirm the two Cloud Scheduler jobs exist in `southamerica-east1`;
+`cd tools && npm run set-role -- --project lisecki-dev --uid <your uid> --role admin`; check
+Artifact Registry size once (18 Cloud Run services, docs/05-cost.md §3.2). **This is the point where
+you share the link.** Talk to whoever owns security policy first.
 
 ---
 
-## Phase 3 — Challenges
-*Effort: ~1 weekend.*
+## Phase 3 — Tournaments
+*Effort: unknown until designed. Write the design doc first.*
 
-Scope: FR-5.
+Rescoped 2026-09-09. Paulo wants a tournament engine, not a single one-off challenge:
 
-1. `startChallenge` — server picks the country, excludes recent-for-all-participants and the
-   upcoming daily schedule (FR-5.2). The creator plays blind (D-10).
-2. `joinChallenge`, `getChallengeResults` with the hidden-until-finished projection (FR-5.6).
-3. `desafio.html`: create, share link, play, results screen.
-4. 48-hour expiry cleanup.
+- **Formats:** single elimination, double elimination, round robin, Swiss, free-for-all. All must
+  accommodate odd player counts (byes; the bye player may get an edge). Most settings configurable.
+- **Rounds** are made of N challenges; the manager picks the order or randomises it. A round may be
+  five challenges of one kind (e.g. flags only).
+- **Challenge kinds:** today only "guess the country by its shape". Planned: by flag, by capital
+  city, guess the GDP, and more. Each kind is its own pure evaluator; `attempts.mode`/a `kind`
+  field distinguish them from the daily (`mode: "daily"` today).
+- **Who:** admin and organizers create tournaments in groups they own (FR-7.3); players in the
+  group take part (FR-7.4). Tournaments live under `groups/{gid}/tournaments/{tid}` behind the same
+  `inGroup` rule. Tournament results do not move the daily boards (FR-5.9 survives).
+- FR-5's one-off challenge (server-picked country, creator plays blind, D-10, hidden-until-finished
+  FR-5.6) is the simplest "free-for-all of one round with one challenge" and is the natural first
+  slice.
 
-**Acceptance:**
-- The creator's own `getRound` response for a challenge contains no answer. Check it directly.
-- Participant A cannot see participant B's score until A has finished. Check the raw response,
-  not just the UI.
-- Challenge results do not move any group leaderboard (FR-5.9).
+Steps: (1) `docs/06-tournaments.md` — formats, bracket generation with byes, scoring per format,
+challenge-kind interface, data model, rules; (2) the shape kind as a match, one format end to end;
+(3) the rest. Nothing in Phase 2 blocks this; see the plan's §4.10.
 
 ---
 

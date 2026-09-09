@@ -13,8 +13,10 @@ competitive group. Vanilla frontend published from `site/` by GitHub Pages, Fire
 1. **The server holds the answer.** The country for an in-progress round must never appear in
    any response body, DOM node, asset path, filename, or console log. Every guess is evaluated
    in a Cloud Function. If a change would put the answer on the client early, stop and flag it.
-2. **No client writes to score-bearing data.** `puzzles`, `attempts`, `challenges`,
-   `groups/*/results`, `groups/*/standings` are Admin-SDK-only. Firestore rules default-deny.
+2. **No client writes to score-bearing or membership-bearing data.** `puzzles`, `attempts`,
+   `challenges`, `groups/**`, `invites`, and the `role`/`groups` fields on `users` are
+   Admin-SDK-only. Firestore rules default-deny. The client never loads the Firestore SDK;
+   every read goes through a callable.
 3. **Server timestamps only.** Never trust client-supplied time for anything scored.
 4. **No build step on the frontend.** Vanilla ES modules, Firebase SDK via CDN ESM import.
    Do not introduce a bundler, framework, or transpiler into `site/`.
@@ -64,3 +66,11 @@ competitive group. Vanilla frontend published from `site/` by GitHub Pages, Fire
   `site/`, `backend/` or the build may read it; only `tools/preview.html` shows it, locally.
 - Local runs use the `demo-mondo` project id and `npx firebase-tools`, not the Homebrew
   `firebase` binary. See `docs/02-architecture.md` §8.
+- **Playing is invite-only** (FR-1.7, D-28): a `player` with no group gets `not-invited`. Groups
+  have no public code; invitations are single-use 7-day tokens (D-32). Roles `admin > organizer
+  > player` (FR-7) live on the profile; admin is granted only by `tools/set-role.mjs` (D-29).
+- There is **no results fan-out and no standings subcollection** (D-21, D-22): `attempts` is
+  the single source of truth and the nightly job writes windows onto `groups/*/members/*`.
+  Window arithmetic is D-24; do not change it without changing `regras.html` and the fixture
+  in `test/standings.test.ts`.
+- Group management rights come from **owning** the group, not from the role (FR-7.5).

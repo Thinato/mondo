@@ -22,10 +22,15 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-1.4** A user's email address MUST NOT be exposed to any other user through any surface —
   API response, leaderboard, challenge result, or share text.
 - **FR-1.5** A user MUST be able to delete their account. Deletion MUST remove the auth record
-  and the `users/{uid}` document, MUST remove group memberships, and MUST anonymise historical
-  results (replace `displayName` with `[removido]`, retain scores so past leaderboards stay
-  coherent). Deletion MUST complete within 30 days and SHOULD be immediate.
+  and the `users/{uid}` document, MUST remove group memberships and the user's attempts, and
+  MUST leave other players' boards coherent. *(Amended 2026-09-09, D-21: there is no per-group
+  result history that names people, so a deleted account simply leaves every board, like a
+  leaver — nothing renders `[removido]`.)* Deletion MUST complete within 30 days and SHOULD be
+  immediate.
 - **FR-1.6** Sign-out MUST clear all client state.
+- **FR-1.7** *(added 2026-09-09)* A signed-in user with role `player` and no group membership
+  MUST NOT be able to start or continue a round. They see an "you need an invitation" screen.
+  Playing is unlocked by accepting an invite (FR-4.3) or by holding a higher role (FR-7).
 
 ## FR-2 — Daily puzzle
 
@@ -73,16 +78,22 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 
 ## FR-4 — Groups
 
-- **FR-4.1** Any signed-in user MUST be able to create a group with a name (3–40 chars).
-- **FR-4.2** Group creation MUST generate a human-readable invite code (8 chars, uppercase,
-  ambiguity-free alphabet `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`).
-- **FR-4.3** A user MUST be able to join a group by entering the code or following an invite link.
+- **FR-4.1** *(amended 2026-09-09)* Only users with role `admin` or `organizer` (FR-7) MAY
+  create a group, with a name (3–40 chars).
+- **FR-4.2** *(amended 2026-09-09)* Groups have **no public invite code**. An invitation is a
+  **single-use token** of 16 chars from the ambiguity-free alphabet
+  `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, valid for 7 days, created by the group owner and revocable
+  by them (D-32).
+- **FR-4.3** *(amended 2026-09-09)* A user joins a group by following an invite link. The first
+  signed-in account to accept consumes the token; a used, revoked, expired or unknown token
+  MUST be rejected with a typed error.
 - **FR-4.4** A user MAY belong to up to 10 groups.
 - **FR-4.5** A group MUST have a maximum size (default 200).
 - **FR-4.6** The group leaderboard MUST show, per member: rank, display name, points in the
   selected window, rounds played, average guesses, current streak.
 - **FR-4.7** The leaderboard MUST be filterable by window (all-time / 7d / 30d).
-- **FR-4.8** The owner MUST be able to rename the group, rotate the invite code, and remove a member.
+- **FR-4.8** *(amended 2026-09-09)* The owner MUST be able to rename the group, create and revoke
+  invites, and remove a member. Management rights follow **ownership**, not role (FR-7.5).
 - **FR-4.9** A member MUST be able to leave a group. Their historical results stay but they
   disappear from the board.
 - **FR-4.10** Group membership and the leaderboard MUST only be readable by members.
@@ -121,6 +132,25 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   number and the arrow.
 
 ---
+
+## FR-7 — Roles *(added 2026-09-09)*
+
+- **FR-7.1** Every user has exactly one role: `admin` > `organizer` > `player`. Roles are stored
+  server-side and MUST NOT be client-writable. New users are `player`.
+- **FR-7.2** `admin` MAY do everything below plus: list all users and all groups, view any
+  group's board, grant or remove `organizer`, grant a player an extra chance on today's puzzle
+  (the previous try is kept, D-30), and inspect attempts — guess timings for cheating checks;
+  today's guesses only after the admin has finished their own round (D-31). No admin surface
+  MUST ever expose an e-mail address (FR-1.4 applies to the admin too).
+- **FR-7.3** `organizer` MAY create groups and manage the groups they own; in Phase 3, create
+  tournaments in them.
+- **FR-7.4** `player` MAY play the daily once invited, view the boards of their groups, and take
+  part in tournaments of their groups.
+- **FR-7.5** Group **management** rights come from owning the group, not from the role: an admin
+  sees every group but manages only the ones they own.
+- **FR-7.6** `admin` is granted only out of band (a maintainer script with ADC, D-29). The API
+  MUST refuse to grant or revoke `admin`, and MUST refuse a role change on the caller's own
+  account.
 
 ## SEC — Security and anti-cheat
 
