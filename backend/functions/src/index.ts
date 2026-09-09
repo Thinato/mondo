@@ -4,10 +4,8 @@
  * Every export here is a *callable* function (D-4), never a raw HTTP endpoint,
  * so the SDK verifies the caller's ID token and we never hand-roll JWT checks.
  *
- * Phase 0 ships exactly one function: `ping`. Its only job is to prove the whole
- * chain works end to end — Terraform-built project, WIF-authenticated CI deploy,
- * correct region, CORS allowlist, and Firebase Auth — before any game logic
- * exists to confuse the diagnosis.
+ * `ping` is the Phase 0 smoke test and stays as a cheap end-to-end probe.
+ * `getRound` and `submitGuess` are the daily game (Phase 1); see round.ts.
  */
 
 import { initializeApp } from "firebase-admin/app";
@@ -15,6 +13,8 @@ import { callable } from "./lib/callable";
 import { REGION } from "./lib/config";
 
 initializeApp();
+
+export { getRound, submitGuess } from "./round";
 
 /**
  * Phase 0 smoke test (roadmap "Done when").

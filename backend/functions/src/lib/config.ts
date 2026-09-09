@@ -36,3 +36,9 @@ export const PUZZLE_ROLLOVER_HOUR = 12;
 
 /** FR-2.5 */
 export const MAX_GUESSES = 6;
+
+/** SEC-5 — floor between two guesses from the same player. */
+export const GUESS_MIN_INTERVAL_MS = 400;
+
+/** A first-guess solve faster than this is flagged, not blocked (02-architecture.md §3.3). */
+export const SUSPICIOUS_SOLVE_MS = 2000;
