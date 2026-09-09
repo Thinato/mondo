@@ -14,7 +14,11 @@ import {
 
 const ALICE = "aliceUid00000000000000000001";
 const BOB = "bobUid0000000000000000000002";
+const CAROL = "carolUid0000000000000000003"; // in no group
 const PUZZLE = "2026-09-15";
+const GROUP = "g1group0000000000001";
+const GROUP2 = "g2group0000000000002"; // carol's group; alice and bob are not in it
+const TOKEN = "ABCDEFGHJKLMNPQR";
 
 let env: RulesTestEnvironment;
 before(async () => {
@@ -36,7 +40,14 @@ before(async () => {
     await db.doc(`attempts/${ALICE}_${PUZZLE}`).set({ uid: ALICE, puzzleId: PUZZLE, guesses: [], guessCount: 0 });
     await db.doc(`attempts/${BOB}_${PUZZLE}`).set({ uid: BOB, puzzleId: PUZZLE, guesses: [], guessCount: 0 });
     await db.doc("challenges/c1").set({ countryCode: "PY" });
-    await db.doc("inviteCodes/ABCD2345").set({ groupId: "g1" });
+    await db.doc(`users/${CAROL}`).set({ ...profile, displayName: "carol-tres", role: "player", groups: [] });
+    // Phase 2: alice owns GROUP, bob is a member, carol is not (FR-4.10).
+    await db.doc(`groups/${GROUP}`).set({ name: "Almoço", ownerUid: ALICE, memberCount: 2, maxMembers: 200, createdAt: new Date() });
+    await db.doc(`groups/${GROUP}/members/${ALICE}`).set({ uid: ALICE, displayName: "alice-um", role: "owner", joinedAt: new Date() });
+    await db.doc(`groups/${GROUP}/members/${BOB}`).set({ uid: BOB, displayName: "bob-dois", role: "member", joinedAt: new Date() });
+    await db.doc(`groups/${GROUP2}`).set({ name: "Família", ownerUid: CAROL, memberCount: 1, maxMembers: 200, createdAt: new Date() });
+    await db.doc(`groups/${GROUP2}/members/${CAROL}`).set({ uid: CAROL, displayName: "carol-tres", role: "owner", joinedAt: new Date() });
+    await db.doc(`invites/${TOKEN}`).set({ groupId: GROUP, groupName: "Almoço", createdBy: ALICE, createdAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000), usedBy: null, usedAt: null, revokedAt: null });
   });
 });
 after(async () => {
@@ -44,6 +55,8 @@ after(async () => {
 });
 
 const alice = () => env.authenticatedContext(ALICE).firestore();
+const bob = () => env.authenticatedContext(BOB).firestore();
+const carol = () => env.authenticatedContext(CAROL).firestore();
 const anon = () => env.unauthenticatedContext().firestore();
 
 // --- SEC-7 / SEC-6: the answer-bearing collections are unreachable ----------
@@ -54,10 +67,18 @@ test("SEC-7: a signed-in player cannot read a puzzle, list puzzles, or write one
   await assertFails(alice().doc("puzzles/2026-09-16").set({ countryCode: "BR" }));
 });
 
-test("challenges and inviteCodes are closed to clients", async () => {
+test("challenges are closed to clients", async () => {
   await assertFails(alice().doc("challenges/c1").get());
-  await assertFails(alice().doc("inviteCodes/ABCD2345").get());
-  await assertFails(alice().doc("inviteCodes/NEWCODE1").set({ groupId: "g1" }));
+  await assertFails(alice().doc("challenges/c2").set({ countryCode: "BR" }));
+});
+
+test("D-32: invites are unreadable and unwritable, even by their creator or the invitee", async () => {
+  await assertFails(alice().doc(`invites/${TOKEN}`).get());          // creator
+  await assertFails(carol().doc(`invites/${TOKEN}`).get());          // someone holding the link
+  await assertFails(carol().collection("invites").get());
+  await assertFails(carol().doc(`invites/${TOKEN}`).update({ usedBy: CAROL }));
+  await assertFails(alice().doc("invites/ZZZZZZZZZZZZZZZZ").set({ groupId: GROUP }));
+  await assertFails(alice().doc(`invites/${TOKEN}`).delete());
 });
 
 test("SEC-6: attempts cannot be created, updated or deleted by a client, even their own", async () => {
@@ -105,6 +126,67 @@ test("users: nobody edits another player's profile, and counters are functions-o
   await assertFails(alice().doc(`users/${ALICE}`).update({ email: "a@b.com" }));   // FR-1.4
 });
 
+test("FR-7.1 / D-27: a player cannot grant themselves a role or a group", async () => {
+  await assertFails(carol().doc(`users/${CAROL}`).update({ role: "admin" }));
+  await assertFails(carol().doc(`users/${CAROL}`).update({ role: "organizer" }));
+  await assertFails(carol().doc(`users/${CAROL}`).update({ groups: [GROUP] }));
+  await assertFails(carol().doc(`users/${CAROL}`).update({ displayName: "carol-tres", groups: [GROUP] }));
+});
+
+// --- groups (FR-4.10) --------------------------------------------------------
+
+test("FR-4.10: members read the group and its member list; a non-member reads neither", async () => {
+  await assertSucceeds(alice().doc(`groups/${GROUP}`).get());
+  await assertSucceeds(bob().doc(`groups/${GROUP}`).get());
+  await assertSucceeds(bob().collection(`groups/${GROUP}/members`).get());
+  await assertSucceeds(bob().doc(`groups/${GROUP}/members/${ALICE}`).get());
+  await assertFails(carol().doc(`groups/${GROUP}`).get());
+  await assertFails(carol().collection(`groups/${GROUP}/members`).get());
+  await assertFails(carol().doc(`groups/${GROUP}/members/${ALICE}`).get());
+});
+
+test("FR-4.10: membership is per group — being in one group opens nothing about another", async () => {
+  await assertSucceeds(carol().doc(`groups/${GROUP2}`).get());
+  await assertFails(bob().doc(`groups/${GROUP2}`).get());
+  await assertFails(alice().doc(`groups/${GROUP2}/members/${CAROL}`).get());
+  await assertFails(alice().collection(`groups/${GROUP2}/members`).get());
+});
+
+test("FR-4.10: anonymous visitors see no group data at all", async () => {
+  await assertFails(anon().doc(`groups/${GROUP}`).get());
+  await assertFails(anon().collection(`groups/${GROUP}/members`).get());
+  await assertFails(anon().collection("groups").get());
+  await assertFails(anon().doc(`invites/${TOKEN}`).get());
+});
+
+test("no client can enumerate groups or invites", async () => {
+  await assertFails(alice().collection("groups").get());
+  await assertFails(alice().collection("groups").where("ownerUid", "==", ALICE).get());
+  await assertFails(alice().collection("invites").where("createdBy", "==", ALICE).get());
+});
+
+test("SEC-6: not even the owner writes a group document from the client", async () => {
+  await assertFails(alice().doc(`groups/${GROUP}`).update({ name: "Renamed" }));
+  await assertFails(alice().doc(`groups/${GROUP}`).update({ memberCount: 1 }));
+  await assertFails(alice().doc(`groups/${GROUP}`).delete());
+  await assertFails(alice().doc("groups/newGroup000000000002").set({ name: "Novo", ownerUid: ALICE, memberCount: 1, maxMembers: 200 }));
+});
+
+test("SEC-6: member documents are functions-only — own, another's, or a new one", async () => {
+  await assertFails(bob().doc(`groups/${GROUP}/members/${BOB}`).update({ last30: { points: 9999 } }));
+  await assertFails(bob().doc(`groups/${GROUP}/members/${BOB}`).update({ role: "owner" }));
+  await assertFails(alice().doc(`groups/${GROUP}/members/${BOB}`).delete());
+  await assertFails(alice().doc(`groups/${GROUP}/members/${CAROL}`).set({ uid: CAROL, displayName: "carol-tres", role: "member" }));
+  await assertFails(carol().doc(`groups/${GROUP}/members/${CAROL}`).set({ uid: CAROL, displayName: "carol-tres", role: "member" }));
+});
+
+test("D-21 / D-22: no results or standings subcollections exist; the catch-all denies them even to members", async () => {
+  await assertFails(bob().doc(`groups/${GROUP}/results/x`).get());
+  await assertFails(bob().doc(`groups/${GROUP}/standings/${BOB}`).get());
+  await assertFails(alice().doc(`groups/${GROUP}/standings/${ALICE}`).set({ points: 1 }));
+  await assertFails(bob().collection(`groups/${GROUP}/results`).get());
+});
+
 test("users: clients cannot create or delete profiles", async () => {
   await assertFails(alice().doc("users/newUid000000000000000000003").set({ displayName: "novo-um", locale: "pt-BR" }));
   await assertFails(alice().doc(`users/${ALICE}`).delete());
@@ -113,8 +195,8 @@ test("users: clients cannot create or delete profiles", async () => {
 // --- default deny -----------------------------------------------------------
 
 test("anything not listed is denied", async () => {
-  await assertFails(alice().doc("groups/g1").get());
-  await assertFails(alice().doc("groups/g1/standings/x").get());
+  await assertFails(alice().doc("groups/unknownGroup000000001").get());
+  await assertFails(alice().doc("inviteCodes/ABCD2345").get()); // §3.8 collection was never created
   await assertFails(alice().doc("anything/at-all").set({ a: 1 }));
   assert.ok(true);
 });
