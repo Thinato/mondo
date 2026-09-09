@@ -53,8 +53,10 @@ export function callable<Req, Res>(
  * (D-11) set once. Cloud Scheduler bills nothing for the first three jobs
  * (docs/05-cost.md §3.4); Mondo has two.
  *
- * In the emulator a job runs on POST to
- * http://127.0.0.1:5001/demo-mondo/southamerica-east1/<name>.
+ * The emulator registers these as Pub/Sub triggers (it needs the pubsub
+ * emulator running), not as HTTP routes. To exercise a job locally call its
+ * exported body (rebuildStandingsNow, healthCheckNow) in-process, as
+ * test/e2e/phase2.e2e.ts does, or use the Emulator UI's trigger button.
  */
 export function scheduled(schedule: string, handler: (event: ScheduledEvent) => Promise<void>) {
   return onSchedule(

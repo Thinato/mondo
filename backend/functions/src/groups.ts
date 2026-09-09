@@ -103,11 +103,12 @@ export const createGroup = callable<{ name: unknown }, { groupId: string }>(asyn
   const gid = groupsCol().doc().id;
 
   await db().runTransaction(async (tx) => {
+    // ensureProfile may write, so every read — the backfill included — comes first.
+    const results = await backfillResults(tx, uid, closedDay);
     const profile = await ensureProfile(tx, uid, now);
     if (!canCreateGroup(profile)) throw mondoError("permission-denied", "Only organizers and admins create groups.");
     const groups = groupsOf(profile);
     if (groups.length >= MAX_GROUPS_PER_USER) throw mondoError("too-many-groups", `At most ${MAX_GROUPS_PER_USER} groups per player.`);
-    const results = await backfillResults(tx, uid, closedDay);
 
     const group: Group = { name, ownerUid: uid, memberCount: 1, maxMembers: DEFAULT_MAX_MEMBERS, createdAt: now };
     tx.create(groupRef(gid), group);
@@ -194,6 +195,8 @@ export const acceptInvite = callable<{ token: unknown }, { groupId: string; name
     const groupSnap = await tx.get(groupRef(invite.groupId));
     if (!groupSnap.exists) throw mondoError("invalid-invite", "The group no longer exists.");
     const group = groupSnap.data() as Group;
+    // ensureProfile may write (first sign-in through a link), so the backfill reads come before it.
+    const results = await backfillResults(tx, uid, closedDay);
     const profile = await ensureProfile(tx, uid, now);
     const groups = groupsOf(profile);
 
@@ -203,7 +206,6 @@ export const acceptInvite = callable<{ token: unknown }, { groupId: string; name
     }
     if (groups.length >= MAX_GROUPS_PER_USER) throw mondoError("too-many-groups", `At most ${MAX_GROUPS_PER_USER} groups per player.`);
     if (group.memberCount >= group.maxMembers) throw mondoError("group-full", "This group is full.");
-    const results = await backfillResults(tx, uid, closedDay);
 
     tx.create(memberRef(invite.groupId, uid), newMember(uid, profile.displayName, "member", now, backfillStats(results, closedDay), effectiveStreak(profile, closedDay, today)));
     tx.update(groupRef(invite.groupId), { memberCount: group.memberCount + 1 });

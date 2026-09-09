@@ -468,8 +468,9 @@ Then open `http://localhost:8000/`. Google sign-in goes to the Auth emulator's f
 picker. Playing needs an invitation (FR-1.7): make your emulator account an admin once with
 `cd tools && npm run set-role -- --uid <uid> --role admin --emulator` (the uid is in the Auth
 emulator UI at `http://127.0.0.1:4000/auth`), then create a group and invite the other test
-accounts from `grupos.html`. The scheduled jobs run on `POST
-http://127.0.0.1:5001/demo-mondo/southamerica-east1/rebuildStandings` (and `scheduleHealthCheck`).
+accounts from `grupos.html`. The emulator registers the scheduled jobs as Pub/Sub triggers (so the
+`pubsub` emulator is in `firebase.json`); run one locally from the Emulator UI's trigger button or
+call `rebuildStandingsNow` / `healthCheckNow` in-process, as the e2e does.
 
 Tests: `npm test` in `tools/` and `backend/functions/` need nothing running; `npm run test:rules`
 in `backend/functions/` starts its own Firestore emulator; `npm run test:e2e` (D-33) starts
