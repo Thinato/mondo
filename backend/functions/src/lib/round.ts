@@ -182,7 +182,13 @@ export interface GuessView {
   code: string;
   name: string;
   distanceKm: number;
-  bearingDeg: number;
+  /**
+   * Deliberately no `bearingDeg` (SEC-1, SEC-2). An exact distance AND an exact
+   * bearing from a guess whose centroid is public is a closed-form solve for the
+   * answer's centroid, so one guess plus an offline Natural Earth table named the
+   * country. The UI only ever drew the 8-point arrow from `compass`, so nothing
+   * is lost; a determined player must now trilaterate over several guesses.
+   */
   compass: Compass;
   proximity: number;
 }
@@ -243,7 +249,6 @@ export function guessView(g: StoredGuess): GuessView {
     code: g.code,
     name: mustCountry(g.code).names["pt-BR"],
     distanceKm: g.distanceKm,
-    bearingDeg: g.bearingDeg,
     compass: compass8(g.bearingDeg),
     proximity: g.proximity,
   };

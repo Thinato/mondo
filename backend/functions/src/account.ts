@@ -5,12 +5,11 @@
  */
 
 import { getAuth } from "firebase-admin/auth";
-import { Timestamp, type Query } from "firebase-admin/firestore";
+import { type Query } from "firebase-admin/firestore";
 import { db, invitesCol, userRef } from "./db";
 import { leaveTx } from "./groups";
 import { groupsOf } from "./lib/authz";
 import { callable } from "./lib/callable";
-import type { Invite } from "./lib/invite";
 import type { Profile } from "./lib/round";
 
 const BATCH = 400;
@@ -26,8 +25,6 @@ async function deleteAll(query: Query): Promise<void> {
 }
 
 export const deleteAccount = callable<unknown, { ok: true }>(async (uid) => {
-  const now = Timestamp.now();
-
   // a. memberships, with D-23 succession per group
   const profileSnap = await userRef(uid).get();
   for (const gid of groupsOf(profileSnap.exists ? (profileSnap.data() as Profile) : null)) {
@@ -38,14 +35,11 @@ export const deleteAccount = callable<unknown, { ok: true }>(async (uid) => {
     }
   }
 
-  // b. invites this user created and nobody used yet
-  const invites = await invitesCol().where("createdBy", "==", uid).get();
-  const pending = invites.docs.filter((d) => { const i = d.data() as Invite; return i.usedBy === null && i.revokedAt === null; });
-  for (let i = 0; i < pending.length; i += BATCH) {
-    const batch = db().batch();
-    pending.slice(i, i + BATCH).forEach((d) => batch.update(d.ref, { revokedAt: now }));
-    await batch.commit();
-  }
+  // b. every invite that names them, in either field: pending ones stop working
+  //    and spent ones stop carrying the uid (FR-1.5). A token whose document is
+  //    gone is `invalid-invite` just like a consumed one.
+  await deleteAll(invitesCol().where("createdBy", "==", uid));
+  await deleteAll(invitesCol().where("usedBy", "==", uid));
 
   // c. every round they ever played
   await deleteAll(db().collection("attempts").where("uid", "==", uid));

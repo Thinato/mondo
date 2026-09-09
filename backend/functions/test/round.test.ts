@@ -122,6 +122,16 @@ test("the view after the round reveals the answer, points and share grid", () =>
   assert.deepEqual(roundView(play(["AR"]), puzzle, at(1000), newProfile(T0, "tatu-alegre-0001")).me, { displayName: "tatu-alegre-0001", role: "player", groupCount: 0 });
 });
 
+test("SEC-1: the view gives the 8-point arrow, never the exact bearing", () => {
+  // Exact distance AND exact bearing from a public centroid solve for the
+  // answer's centroid in closed form, so one guess would have named it.
+  const view = roundView(play(["AR"]), puzzle, at(1000));
+  const g = view.guesses[0]!;
+  assert.equal(g.compass, "NE");
+  assert.equal("bearingDeg" in g, false);
+  assert.equal(JSON.stringify(view).includes("bearing"), false);
+});
+
 test("FR-3.6: streaks continue on consecutive puzzle days and reset after a gap", () => {
   const p0 = newProfile(T0, "x");
   const day = (id: string, solved: boolean) => ({ ...play(solved ? ["PY"] : ["AR", "BO", "BR", "CL", "UY", "PE"]), puzzleId: id });

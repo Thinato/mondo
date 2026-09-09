@@ -33,10 +33,12 @@ export const getLeaderboard = callable<{ groupId: unknown }, LeaderboardView>(as
   const [groupSnap, profileSnap, memberSnap] = await Promise.all([
     groupRef(gid).get(), userRef(uid).get(), memberRef(gid, uid).get(),
   ]);
-  if (!groupSnap.exists) throw mondoError("not-found", "No such group.");
+  // FR-4.10: nobody else's data is read until the caller is known to be allowed,
+  // and this check comes before the existence check so a non-member cannot tell
+  // a group that does not exist from one they are simply not in.
   const profile = profileSnap.exists ? (profileSnap.data() as Profile) : null;
-  // FR-4.10: nobody else's data is read until the caller is known to be allowed.
   if (!memberSnap.exists && !isAdmin(profile)) throw mondoError("permission-denied", "Members only.");
+  if (!groupSnap.exists) throw mondoError("not-found", "No such group.");
   const group = groupSnap.data() as Group;
 
   const members = (await membersCol(gid).get()).docs.map((d) => d.data() as Member);

@@ -37,6 +37,15 @@ async function namesFor(uids: readonly string[]): Promise<Map<string, string>> {
 
 const iso = (t: Timestamp | null) => (t ? t.toDate().toISOString() : null);
 
+/** `<seconds>.<nanoseconds>|<uid>` — exact, and only what this API issues parses. */
+const cursorOf = (t: Timestamp, uid: string) => `${t.seconds}.${t.nanoseconds}|${uid}`;
+
+function parseCursor(v: unknown): [Timestamp, string] {
+  const m = typeof v === "string" ? /^(\d{1,12})\.(\d{1,9})\|([A-Za-z0-9]{1,128})$/.exec(v) : null;
+  if (!m) throw mondoError("invalid-argument", "cursor is not one this API issued.");
+  return [new Timestamp(Number(m[1]), Number(m[2])), m[3]!];
+}
+
 // ---------------------------------------------------------------------------
 
 export interface UserRow {
@@ -48,14 +57,12 @@ export interface UserRow {
 export const listUsers = callable<{ cursor?: unknown } | null | undefined, { users: UserRow[]; nextCursor: string | null }>(async (uid, data) => {
   await requireAdminCaller(uid);
   const input = data == null ? {} : requireObject(data);
-  // Ordered by createdAt AND document id: millisecond ties are common enough
-  // (two sign-ins in the same batch) that a createdAt-only cursor can skip a row.
+  // Ordered by createdAt AND document id, and the cursor carries the timestamp
+  // to the nanosecond: millisecond ties are common (two sign-ins in one batch),
+  // and an ISO round-trip would truncate and so repeat or skip a row.
   let q = db().collection("users").orderBy("createdAt", "asc").orderBy(FieldPath.documentId(), "asc").limit(PAGE);
   if (input.cursor !== undefined) {
-    const [iso, lastUid] = typeof input.cursor === "string" ? input.cursor.split("|") : [];
-    const t = iso === undefined ? NaN : Date.parse(iso);
-    if (Number.isNaN(t) || !lastUid) throw mondoError("invalid-argument", "cursor is not one this API issued.");
-    q = q.startAfter(Timestamp.fromDate(new Date(t)), lastUid);
+    q = q.startAfter(...parseCursor(input.cursor));
   }
   const snaps = (await q.get()).docs;
   const users = snaps.map((s) => {
@@ -65,8 +72,8 @@ export const listUsers = callable<{ cursor?: unknown } | null | undefined, { use
       totalPlayed: p.totalPlayed, totalSolved: p.totalSolved, currentStreak: p.currentStreak, groupCount: groupsOf(p).length,
     };
   });
-  const last = users[users.length - 1];
-  return { users, nextCursor: users.length === PAGE && last ? `${last.createdAt}|${last.uid}` : null };
+  const last = snaps[snaps.length - 1];
+  return { users, nextCursor: users.length === PAGE && last ? cursorOf(last.get("createdAt") as Timestamp, last.id) : null };
 });
 
 /** setRole({ uid, role }) — organizer or player, never an admin in either direction (FR-7.6, D-29), never yourself. */
@@ -107,10 +114,10 @@ export const listAllGroups = callable<unknown, { groups: { groupId: string; name
 
 export interface AttemptRow {
   uid: string; displayName: string; puzzleId: string; state: TodayState;
-  guessCount: number; elapsedMs: number | null; suspicious: boolean; retries: number;
+  guessCount: number; elapsedMs: number | null; retries: number;
   intervalsMs: number[]; startedAt: string; finishedAt: string | null;
   /** Null for today until the admin has finished their own round (D-31), like FR-4.11 on the board. */
-  solved: boolean | null; points: number | null;
+  solved: boolean | null; points: number | null; suspicious: boolean | null;
   guesses?: { code: string; name: string; distanceKm: number; proximity: number }[];
 }
 
@@ -151,9 +158,12 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
       const reveal = a.puzzleId !== today || revealToday;
       const row: AttemptRow = {
         uid: a.uid, displayName: names.get(a.uid) ?? REMOVED, puzzleId: a.puzzleId, state: todayState(a),
-        guessCount: a.guessCount, elapsedMs: a.elapsedMs, suspicious: a.suspicious,
+        guessCount: a.guessCount, elapsedMs: a.elapsedMs,
         retries: a.retries ?? 0, intervalsMs: intervalsMs(a), startedAt: a.startedAt.toDate().toISOString(), finishedAt: iso(a.finishedAt),
-        solved: reveal ? a.solved : null, points: reveal ? a.points : null,
+        // `suspicious` is only ever set on a solve, so it would announce an
+        // unrevealed outcome by itself (D-31). Guess count and timings are the
+        // cheating material the panel is for and stay live.
+        solved: reveal ? a.solved : null, points: reveal ? a.points : null, suspicious: reveal ? a.suspicious : null,
       };
       if (reveal) {
         row.guesses = a.guesses.map((g) => ({

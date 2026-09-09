@@ -11,7 +11,7 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
-import { healthCheckNow } from "../../src/health";
+import { healthCheckNow, sweepExpiredInvites } from "../../src/health";
 import { opensAt, puzzleIdAt } from "../../src/lib/puzzle-day";
 import { previousDay } from "../../src/lib/round";
 import { rebuildStandingsNow } from "../../src/standings";
@@ -169,6 +169,15 @@ test("4. D-32: tokens are single-use, revocable, expiring, and race-safe", async
   assert.equal(code(await third.call("acceptInvite", { token: rev.token })), "invalid-invite");
   assert.equal(ok(await organizer.call("listInvites", { groupId: gid }), "listInvites").invites.some((i: Any) => i.token === rev.token), false);
 
+  // finding 8: a group cannot hold unlimited pending invites
+  const g3 = ok(await organizer.call("createGroup", { name: "Cap" }), "createGroup").groupId;
+  const minted = [];
+  for (let i = 0; i < 20; i++) minted.push(ok(await organizer.call("createInvite", { groupId: g3 }), `mint ${i}`).token);
+  assert.equal(code(await organizer.call("createInvite", { groupId: g3 })), "invalid-argument", "21st invite refused");
+  ok(await organizer.call("revokeInvite", { token: minted[0]! }), "revoke one");
+  ok(await organizer.call("createInvite", { groupId: g3 }), "and now one fits");
+  ok(await organizer.call("leaveGroup", { groupId: g3 }), "dissolve the cap group");
+
   const expired = "EXPRED2EXPRED2XX"; // alphabet has no I
   await db.doc(`invites/${expired}`).set({
     groupId: gid, groupName: "Almoço", createdBy: organizer.uid, createdAt: Timestamp.fromMillis(Date.now() - 8 * 86_400_000),
@@ -177,6 +186,15 @@ test("4. D-32: tokens are single-use, revocable, expiring, and race-safe", async
   assert.equal(code(await third.call("acceptInvite", { token: expired })), "invalid-invite");
   assert.equal(code(await third.call("acceptInvite", { token: "ZZZZZZZZZZZZZZZZ" })), "invalid-invite");
   assert.equal(code(await third.call("acceptInvite", { token: "short" })), "invalid-argument");
+
+  // A member who opens a forwarded link is sent to the board, and the token
+  // survives for whoever it was meant for (finding 5).
+  const spare = ok(await organizer.call("createInvite", { groupId: gid }), "createInvite");
+  ok(await player.call("acceptInvite", { token: spare.token }), "member re-accepts");
+  assert.equal((await doc(`invites/${spare.token}`)).usedBy, null, "an existing member does not consume the token");
+  const meant = await newAccount("meant");
+  ok(await meant.call("acceptInvite", { token: spare.token }), "the token still works for its intended holder");
+  ok(await meant.call("leaveGroup", { groupId: gid }), "tidy up");
 
   const race = ok(await organizer.call("createInvite", { groupId: gid }), "createInvite");
   const [a, b] = await Promise.all([newAccount("raceA"), newAccount("raceB")]);
@@ -242,6 +260,7 @@ test("6. FR-7.2: admin dashboard callables, gates, retry", async () => {
     assert.equal("guesses" in a, false, "D-31: today's guesses hidden until the admin plays");
     assert.equal(a.points, null, "D-31: today's outcome hidden until the admin plays");
     assert.equal(a.solved, null);
+    assert.equal(a.suspicious, null, "suspicious is only set on a solve, so it would leak the outcome");
     assert.ok(Array.isArray(a.intervalsMs));
     assert.equal(typeof a.displayName, "string");
   }
@@ -344,6 +363,17 @@ test("8. D-23: owner succession and dissolution", async () => {
   assert.deepEqual((await doc(`users/${member.uid}`)).groups, []);
 });
 
+test("8b. finding 6: expired invites are swept and deletion takes the uid with it", async () => {
+  const stale = "SWEEPME2SWEEPME2";
+  await db.doc(`invites/${stale}`).set({
+    groupId: gid, groupName: "Almoço", createdBy: organizer.uid, createdAt: Timestamp.fromMillis(Date.now() - 9 * 86_400_000),
+    expiresAt: Timestamp.fromMillis(Date.now() - 2 * 86_400_000), usedBy: null, usedAt: null, revokedAt: null,
+  });
+  assert.ok(await sweepExpiredInvites(Timestamp.now()) >= 1);
+  assert.equal(await exists(`invites/${stale}`), false);
+  assert.equal((await db.collection("invites").where("expiresAt", "<", Timestamp.now()).get()).empty, true);
+});
+
 test("9. FR-1.5: deleteAccount removes the user everywhere and hands the group over", async () => {
   const owner = await withRole("owner3", "organizer");
   const other = await newAccount("member3");
@@ -359,7 +389,10 @@ test("9. FR-1.5: deleteAccount removes the user everywhere and hands the group o
   assert.equal(await exists(`groups/${g3}/members/${owner.uid}`), false);
   assert.equal((await doc(`groups/${g3}`)).ownerUid, other.uid);
   assert.equal((await doc(`groups/${g3}`)).memberCount, 1);
-  assert.notEqual((await doc(`invites/${pending.token}`)).revokedAt, null);
+  // finding 6: invites naming the deleted user go with them, in either field.
+  assert.equal(await exists(`invites/${pending.token}`), false, "their pending invite is gone, not just revoked");
+  assert.equal((await db.collection("invites").where("createdBy", "==", owner.uid).get()).size, 0);
+  assert.equal((await db.collection("invites").where("usedBy", "==", owner.uid).get()).size, 0);
   const lookup = await fetch(`${AUTH}/accounts:lookup?key=fake`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken: owner.token }),
   });

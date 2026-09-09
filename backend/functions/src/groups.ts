@@ -118,6 +118,9 @@ export const createGroup = callable<{ name: unknown }, { groupId: string }>(asyn
   return { groupId: gid };
 });
 
+/** How many invites one group may have outstanding at once (finding 8). */
+export const MAX_PENDING_INVITES = 20;
+
 /** createInvite({ groupId }) → { token, url, expiresAt }. Owner only. */
 export const createInvite = callable<{ groupId: unknown }, { token: string; url: string; expiresAt: string }>(async (uid, data) => {
   const gid = requireGroupId(requireObject(data).groupId);
@@ -126,6 +129,12 @@ export const createInvite = callable<{ groupId: unknown }, { token: string; url:
   if (!snap.exists) throw mondoError("not-found", "No such group.");
   const group = snap.data() as Group;
   requireOwner(group, uid);
+
+  const pending = (await pendingInvitesOf(gid).limit(MAX_PENDING_INVITES + 1).get()).docs
+    .filter((d) => inviteState(d.data() as Invite, now) === "pending");
+  if (pending.length >= MAX_PENDING_INVITES) {
+    throw mondoError("invalid-argument", `This group already has ${MAX_PENDING_INVITES} invites waiting. Revoke one first.`);
+  }
 
   // 32^16 tokens: a collision is not expected in the lifetime of the project,
   // but create() refuses to overwrite one if it ever happens, so try again once.
@@ -149,7 +158,7 @@ export const listInvites = callable<{ groupId: unknown }, { invites: { token: st
   if (!snap.exists) throw mondoError("not-found", "No such group.");
   requireOwner(snap.data() as Group, uid);
 
-  const docs = (await pendingInvitesOf(gid).get()).docs;
+  const docs = (await pendingInvitesOf(gid).limit(MAX_PENDING_INVITES).get()).docs;
   const invites = docs
     .map((d) => ({ token: d.id, ...(d.data() as Invite) }))
     .filter((i) => inviteState(i, now) === "pending")
@@ -201,7 +210,8 @@ export const acceptInvite = callable<{ token: unknown }, { groupId: string; name
     const groups = groupsOf(profile);
 
     if (groups.includes(invite.groupId)) {
-      tx.update(inviteRef(token), { usedBy: uid, usedAt: now });
+      // Already in: send them to the board without consuming the token, so a
+      // forwarded link is not burned on someone who did not need it.
       return { groupId: invite.groupId, name: group.name };
     }
     if (groups.length >= MAX_GROUPS_PER_USER) throw mondoError("too-many-groups", `At most ${MAX_GROUPS_PER_USER} groups per player.`);

@@ -168,7 +168,7 @@ ever addressable from the client.
 uid, puzzleId
 startedAt      timestamp   server
 finishedAt     timestamp   server, null while in progress
-guesses        array<{ code, distanceKm, bearingDeg, proximity, at }>
+guesses        array<{ code, distanceKm, bearingDeg, proximity, at }>   bearing is stored, never sent (D-36)
 guessCount     number
 solved         boolean
 points         number      FR-3.1
@@ -275,7 +275,7 @@ Returns the round the caller should see. Omitting `puzzleId` means today.
   "guessesUsed": 2,
   "guessesMax": 6,
   "guesses": [ { "code": "AR", "name": "Argentina", "distanceKm": 1043,
-                 "bearingDeg": 315, "proximity": 0.95 } ],
+                 "compass": "NW", "proximity": 0.95 } ],   // 8-point arrow, never the exact bearing (D-36)
   "status": "in_progress",          // in_progress | solved | failed
   "answer": null,                   // populated ONLY when status != in_progress
   "serverTime": "2026-09-14T15:02:11.482Z"
@@ -290,7 +290,7 @@ what makes the timer un-spoofable (SEC-3).
 ```jsonc
 {
   "correct": false,
-  "distanceKm": 1043, "bearingDeg": 315, "proximity": 0.95,
+  "distanceKm": 1043, "compass": "NW", "proximity": 0.95,
   "guessesUsed": 3,
   "status": "in_progress",
   "answer": null,                   // revealed on solved | failed
@@ -308,11 +308,14 @@ document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
 
 ### Groups (FR-4 as amended)
 - `createGroup({ name })` → `{ groupId }` — admin/organizer only
-- `createInvite({ groupId })` → `{ token, url, expiresAt }` — owner only; `url` is `…/grupos.html?convite=<token>`
+- `createInvite({ groupId })` → `{ token, url, expiresAt }` — owner only; `url` is `…/grupos.html?convite=<token>`;
+  at most 20 may be pending per group
 - `listInvites({ groupId })` → pending invites — owner only
 - `revokeInvite({ token })` — owner only, idempotent
 - `acceptInvite({ token })` → `{ groupId, name }` — transactional, consumes the token, backfills the
-  joiner's last 30 closed days from their attempts; errors `invalid-invite`, `group-full`, `too-many-groups`
+  joiner's last 30 closed days from their attempts; errors `invalid-invite`, `group-full`, `too-many-groups`.
+  A caller who is already a member is sent to the board **without** consuming the token, so a forwarded
+  link is not burned on someone who did not need it
 - `leaveGroup({ groupId })`, `removeMember({ groupId, uid })` (owner), `renameGroup({ groupId, name })` (owner)
 - `listGroups({})` → `[{ groupId, name, memberCount, isOwner }]`
 - `getLeaderboard({ groupId })` → members or admin only:
@@ -332,13 +335,16 @@ document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
 - `setRole({ uid, role })` — `organizer` | `player`; never `admin` in either direction, never yourself (FR-7.6, D-35)
 - `listAllGroups({})`
 - `listAttempts({ puzzleId } | { uid })` → per attempt: state, counts, `elapsedMs`, `suspicious`,
-  `retries`, `intervalsMs` (start→first guess, guess→guess); `guesses` only for closed days or once
-  the admin has finished today (D-31)
+  `retries`, `intervalsMs` (start→first guess, guess→guess); `guesses`, `points`, `solved` and
+  `suspicious` only for closed days or once the admin has finished today (D-31) — `suspicious` is only
+  ever set on a solve, so it would announce an outcome by itself
 - `grantRetry({ uid, puzzleId })` — today only, never for yourself; resets the attempt, keeps `history` (D-30, D-35)
 
 ### Scheduled (Cloud Scheduler, `America/Sao_Paulo`)
 - `rebuildStandings` — `5 12 * * *` (D-11, D-25)
-- `scheduleHealthCheck` — `0 9 * * 1`; logs `SCHEDULE_LOW` under 30 days of puzzles left (NFR-6)
+- `scheduleHealthCheck` — `0 9 * * 1`; logs `SCHEDULE_LOW` under 30 days of puzzles left (NFR-6), and
+  deletes invites past their expiry so `invites` stays bounded (a TTL policy would carry no free
+  allowance at all, `05-cost.md` §3.3)
 
 ### Challenges
 - `startChallenge({ groupId?, maxParticipants })` → `{ challengeId, joinCode }`
@@ -347,8 +353,8 @@ document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
 
 ### Account
 - `updateProfile({ displayName, locale })` — also copies the name to the caller's member docs (D-26)
-- `deleteAccount({})` → FR-1.5; leaves every group (D-23), revokes pending invites, deletes
-  attempts and profile, then the auth user last; every step idempotent
+- `deleteAccount({})` → FR-1.5; leaves every group (D-23), **deletes** every invite naming the user in
+  either `createdBy` or `usedBy`, deletes attempts and profile, then the auth user last; every step idempotent
 
 ### Error codes
 `unauthenticated`, `invalid-argument`, `not-found`, `permission-denied`, `not-invited`,

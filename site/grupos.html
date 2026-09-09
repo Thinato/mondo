@@ -6,6 +6,9 @@
 <title>Mondo — grupos</title>
 <link rel="stylesheet" href="./mondo.css">
 <script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+<!-- D-37: no referrer policy here even though ?convite= carries a token. The Firebase web API
+     key is referrer-restricted, so no-referrer would break sign-in; the browser default sends
+     only the origin off-site, and groups.js clears the token from the URL on arrival. -->
 </head>
 <body>
 <header>
