@@ -105,29 +105,45 @@ you share the link.** Talk to whoever owns security policy first.
 ---
 
 ## Phase 3 — Tournaments
-*Effort: unknown until designed. Write the design doc first.*
+*Slices 1–2 built 2026-09-09. Slices 3–7 designed, not built.*
 
-Rescoped 2026-09-09. Paulo wants a tournament engine, not a single one-off challenge:
+Design: **`docs/06-tournaments.md`**, written before any code and confirmed with Paulo. The
+spine is **D-38**: any two scores that are ever compared come from the same card, which normally
+means one card per round played by everyone still in. That makes byes trivial, collapses all five
+formats into arithmetic over one table, and lets eliminated players keep playing for a side
+ranking at no cost. Two regimes (D-49) carry Paulo's "points optional": `aggregate` totals decide
+and nobody is eliminated; `match` makes a round a win or a loss and never carries the score.
+Ties resolve by sudden death or a replay (D-50). Tournaments are created from built-in presets,
+never from client-supplied settings (D-48).
 
-- **Formats:** single elimination, double elimination, round robin, Swiss, free-for-all. All must
-  accommodate odd player counts (byes; the bye player may get an edge). Most settings configurable.
-- **Rounds** are made of N challenges; the manager picks the order or randomises it. A round may be
-  five challenges of one kind (e.g. flags only).
-- **Challenge kinds:** today only "guess the country by its shape". Planned: by flag, by capital
-  city, guess the GDP, and more. Each kind is its own pure evaluator; `attempts.mode`/a `kind`
-  field distinguish them from the daily (`mode: "daily"` today).
-- **Who:** admin and organizers create tournaments in groups they own (FR-7.3); players in the
-  group take part (FR-7.4). Tournaments live under `groups/{gid}/tournaments/{tid}` behind the same
-  `inGroup` rule. Tournament results do not move the daily boards (FR-5.9 survives).
-- FR-5's one-off challenge (server-picked country, creator plays blind, D-10, hidden-until-finished
-  FR-5.6) is the simplest "free-for-all of one round with one challenge" and is the natural first
-  slice.
+1. ~~Free-for-all, `aggregate`, one round, one shape challenge — create, card, play, close,
+   standing.~~ **Built 2026-09-09.** This retires FR-5's old one-off challenge rather than adding
+   to it.
+2. ~~N challenges per round, the `capital` kind, shuffled order; the `quintal`, `capitais` and
+   `mistura` presets; `torneios.html` and the card player.~~ **Built 2026-09-09.**
+3. **Round robin** — the circle method (byes fall out for free), match points, draws. The first
+   `match` regime and the first pairings, so `core.ts`'s shared primitives get written here.
+4. **Single elimination** — seeding, bracket order, first-round byes, `consolation`, and the tie
+   policies (§6.4), which is the first place a tie cannot be waved away by the clock.
+5. **Swiss** — the pairing engine; the only genuinely fiddly pure algorithm in the phase.
+6. **Double elimination** — losers-bracket mapping and the grand final. Last, deliberately: it is
+   more work than the other four together.
+7. **`flag` and `gdp` kinds** — `flag` from a vendored public-domain SVG set with a `NOTICE` entry
+   (OQ-11, answered); `gdp` still blocked on OQ-12 (source and vintage).
 
-Steps: (1) `docs/06-tournaments.md` — formats, bracket generation with byes, scoring per format,
-challenge-kind interface, data model, rules; (2) the shape kind as a match, one format end to end;
-(3) the rest. Nothing in Phase 2 blocks this; see the plan's §4.10.
+**Acceptance for what is built:**
+- Create a `mistura` from `torneios.html`, have two accounts play it, close the round early, and
+  the standings rank by points then time with the open round contributing nothing.
+- Nothing from a tournament appears on any daily board (FR-5.9 — enforced by D-40, not by a
+  filter).
+- A non-member gets `permission-denied` on every tournament callable; a member who leaves the
+  group stops being served cards but keeps their standings slot.
+- 154 unit, 24 rules and 36 e2e tests pass.
 
----
+**Before slice 3:** read `06-tournaments.md` §16. Slices 1–2 went through an independent code
+review and security review that found a live production hole older than this phase (D-51), a
+round-window bug in the exact hour the lunch preset is for, and a `capital` prompt that named its
+own answer. Assume slice 3 has its own.
 
 ## Phase 4 — Polish
 *Effort: ongoing.*
@@ -159,6 +175,7 @@ challenge-kind interface, data model, rules; (2) the shape kind as a match, one 
 | Firestore created in the wrong location or Datastore mode | Verify in the console at end of Phase 0. It is irreversible. |
 | Answer leaks through some surface nobody thought of | Adversarial review at the end of Phase 1, by someone other than you |
 | Rolling-window scoring is subtly wrong | Hand-verify once against a spreadsheet; pure functions with unit tests |
+| A tournament format's bracket arithmetic is subtly wrong | Every format is a pure fold with a hand-checkable fixture, **including an odd-count fixture** — that is where these engines break |
 | Cold starts make lunchtime feel bad | Measure first. `minInstances: 1` if p95 is bad. |
 | The public repo leaks the schedule | `tools/out/` gitignored; `puzzles` collection unreadable |
 | Nobody plays after week two | Ship Phase 1 fast and find out cheaply. This is the real risk. |

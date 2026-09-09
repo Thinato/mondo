@@ -107,6 +107,13 @@ and pushes it, and old images are not removed automatically. A dozen deploys of 
 handful of functions will quietly cross 0.5 GB, and then you are paying for
 storage forever for images you will never run.
 
+**Phase 3 made this worse and it is worth re-measuring.** Nine more callables is nine more Cloud
+Run services and nine more images: 22 functions became 31. At keep-3 that is roughly 90 image
+versions against a 0.5 GB free allowance, so this is now the most likely line to actually bill —
+a few reais a month, not a catastrophe, but the one to check. Measure with
+`gcloud artifacts repositories describe gcf-artifacts --location=southamerica-east1` and tighten
+to keep 1 / delete older than 7 days if it has crossed.
+
 Set a cleanup policy once, after the first deploy:
 
 ```sh
@@ -140,7 +147,8 @@ puzzle schedule can be regenerated deterministically from its seed.
 ### 3.4 Cloud Scheduler beyond three jobs
 
 Three jobs per month are free **per billing account, not per project**. Mondo
-plans two (`rebuildStandings`, `scheduleHealthCheck`), so we fit — but the limit
+still has exactly two (`rebuildStandings`, `scheduleHealthCheck`) — Phase 3's tournament
+advancing was folded into the 12:05 job rather than taking a third (D-43) — so we fit — but the limit
 is shared with every other project on the same billing account. Beyond it the
 charge is about $0.10 per job per month, which is noise, but it is the one line
 item where an unrelated project can push Mondo over.

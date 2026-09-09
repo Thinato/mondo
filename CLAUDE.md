@@ -78,6 +78,17 @@ competitive group. Vanilla frontend published from `site/` by GitHub Pages, Fire
   in `test/standings.test.ts`.
 - Do **not** add a `referrer` policy to any page: the Firebase web API key is referrer-restricted,
   so `no-referrer` would break sign-in (D-37).
+- **Tournaments** (Phase 3, `docs/06-tournaments.md`) live in top-level `tournaments`, `rounds`
+  and `cards`, never under `groups/**` — the cards hold answers and a group is member-readable
+  (D-39). Card plays live in `attempts` with `mode: "match"` and **no `puzzleId` field**: that
+  absence is what keeps tournament scores off the daily boards (FR-5.9, D-40), because the
+  nightly job selects on a `puzzleId` range. Do not add the field "for consistency".
+- A tournament is created from a **built-in preset** resolved server-side (D-48); the client never
+  supplies settings. Every challenge kind scores one challenge 0–6 (D-44), and a kind's prompt
+  must never name its own answer — which is why the `capital` pool excludes Brasília, Singapura,
+  Cidade do México and the rest (FR-8.4).
+- Tournament rounds close on a noon boundary with a 12-hour floor (D-43). Without the floor a
+  round opened at 11:50 closed at noon, because `puzzleIdAt` names the day a puzzle *opens*.
 - Group management rights come from **owning** the group, not from the role (FR-7.5). Succession
   therefore grants no role (D-23), and `users/{uid}` is readable only by its owner, because a
   `signedIn()` read allow would also permit listing the collection (D-34).

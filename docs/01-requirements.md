@@ -25,7 +25,10 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   and the `users/{uid}` document, MUST remove group memberships and the user's attempts, and
   MUST leave other players' boards coherent. *(Amended 2026-09-09, D-21: there is no per-group
   result history that names people, so a deleted account simply leaves every board, like a
-  leaver — nothing renders `[removido]`.)* Deletion MUST complete within 30 days and SHOULD be
+  leaver — nothing renders `[removido]`.)* *(Amended again 2026-09-09, D-46: deletion MUST also
+  scrub the display-name snapshot from every tournament the user entered. A bracket slot is
+  structural — removing the participant would leave a hole and break the standings fold — so the
+  uid stays and the personal data goes.)* Deletion MUST complete within 30 days and SHOULD be
   immediate.
 - **FR-1.6** Sign-out MUST clear all client state.
 - **FR-1.7** *(added 2026-09-09)* A signed-in user with role `player` and no group membership
@@ -102,20 +105,67 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-4.11** A group MUST show a "today" panel: who has already played today (without revealing
   their score until they finish, to preserve drama), and who has not.
 
-## FR-5 — Challenges
+## FR-5 — Tournaments *(rewritten 2026-09-09; design in `docs/06-tournaments.md`)*
 
-- **FR-5.1** A user MUST be able to create a challenge. The **server** selects the country;
-  the creator does not choose and does not see it.
-- **FR-5.2** The selected country MUST NOT be one either participant has seen in the last 60 days,
-  and MUST NOT be the current or an upcoming daily.
-- **FR-5.3** A challenge MUST produce a shareable link/code.
-- **FR-5.4** A challenge MUST support 2–8 participants.
-- **FR-5.5** All participants play the same country under daily rules (6 guesses).
-- **FR-5.6** A participant's result MUST be hidden from other participants until they have
-  finished their own attempt or the challenge expires.
-- **FR-5.7** Challenges MUST expire 48 hours after creation.
-- **FR-5.8** A challenge results screen MUST rank participants by points then time.
-- **FR-5.9** Challenge results MUST NOT contribute to group or global leaderboards.
+The old FR-5 described a one-off 2–8 player challenge. That is the degenerate tournament —
+free-for-all, one round, one shape challenge — so it is subsumed rather than kept alongside.
+
+- **FR-5.1** An `admin` or `organizer` MUST be able to create a tournament in a group they own
+  (FR-7.3, FR-7.5) by choosing one of the **built-in presets**. The preset is resolved
+  server-side into the tournament's settings, which are then immutable. Client-supplied settings
+  are not accepted in Phase 3; user-defined presets are a later phase (D-48).
+- **FR-5.2** The **server** selects every challenge subject. The creator does not choose it and
+  does not see it (D-10 unchanged). A subject MUST NOT be one already used in the same
+  tournament, and MUST NOT appear in the daily schedule within ±60 days of today.
+- **FR-5.3** A tournament MUST be visible only to members of its group (FR-4.10 applies). There
+  is no join link and no public tournament: the group's invitation is the only door (FR-1.7).
+- **FR-5.4** A tournament MUST support 2–200 participants in free-for-all and 2–32 in the
+  pairing formats. Every format MUST handle an odd count, with byes.
+- **FR-5.5** In a round, every participant still in the tournament MUST be served the identical
+  card (D-38), and MUST play it under each kind's rules.
+- **FR-5.6** No participant's result for an open round — score, guesses or outcome — MUST be
+  visible to any other participant until the round closes. Their own result is visible
+  immediately. This binds the admin surface too, on the same terms as D-31.
+- **FR-5.7** A round MUST have a server-set deadline. A participant who has not finished the
+  card by it scores 0 and loses their pairing: a forfeit, not a bye.
+- **FR-5.8** A tournament MUST show a standing appropriate to its format and regime, and a
+  bracket where the format has one, ranked by its own tiebreak chain.
+- **FR-5.9** Tournament results MUST NOT contribute to any group or global daily leaderboard.
+  *(Structurally enforced by D-40: a card play carries no `puzzleId`, and the daily standings
+  query is a range on that field.)*
+- **FR-5.10** The tournament manager MUST be able to close the open round early and to cancel
+  the tournament. Both MUST be safe to repeat.
+- **FR-5.11** A tournament MUST run under one of two regimes (D-49). Under `aggregate` card
+  scores accumulate, the highest total wins, a player MAY become uncatchable before the final
+  round, and nobody is eliminated. Under `match` a card score decides only which player won that
+  round; it MUST be displayed and MUST NOT be carried into the final result, and the winner is
+  whoever kept winning. `aggregate` MUST be offered only for free-for-all.
+- **FR-5.12** A tie the comparator chain cannot separate MUST be resolved by the configured
+  policy: sudden-death challenges until the scores differ, a replay of the round for the tied
+  players, the better seed, or a recorded draw where the standing allows one. Both tied players
+  MUST receive the identical sudden-death or replay card (D-38, D-50).
+- **FR-5.13** Playing a tournament round MUST require current membership of its group, re-checked
+  on every call — the same rule FR-1.7 applies to the daily. A participant who leaves or is
+  removed keeps their slot in the standings (D-46) but MUST NOT be served further cards.
+
+## FR-8 — Challenge kinds *(added 2026-09-09)*
+
+- **FR-8.1** A challenge kind MUST define: the pool it can ask about, what prompt the client may
+  see, how many guesses it allows, how a guess is validated and graded, what feedback it returns
+  while unsolved, and how a finished challenge scores.
+- **FR-8.2** Every kind MUST score a single challenge on the same 0–6 scale, so a card of mixed
+  kinds is summable. Six for a first-guess solve matches FR-3.1.
+- **FR-8.3** A card score is the sum of its challenges' points. Total elapsed server time over
+  the card MUST be recorded and is the **default** next comparator, lower first — but whether it
+  is in a given tournament's chain is a preset choice, because a knockout resolving ties by
+  sudden death must be able to leave it out (D-44).
+- **FR-8.4** A kind's prompt and feedback MUST NOT name or otherwise identify the answer while
+  the challenge is unsolved. A country whose capital city names the country itself MUST therefore
+  be excluded from the `capital` kind's pool.
+- **FR-8.5** The manager MUST be able to specify a card as a multiset of kinds and choose whether
+  the order is as listed or shuffled. A card MAY be several challenges of one kind.
+- **FR-8.6** Shipped kinds: `shape` (the daily's question) and `capital`. Planned: `flag` (from a
+  vendored public-domain SVG set, OQ-11) and `gdp`, pending OQ-12.
 
 ## FR-6 — Client experience
 
@@ -181,6 +231,23 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **SEC-11** A GCP budget alert MUST be configured before the first public link is shared.
 - **SEC-12** Accepted residual risk: a determined player can geometry-match the silhouette
   against public map data. This is documented, not defended against. Social deterrence only.
+- **SEC-13** *(added 2026-09-09)* Challenge kinds differ in how easily their answer can be
+  looked up elsewhere, and **no kind's difficulty is treated as a security control**. SEC-1 is
+  unchanged and absolute: the server never sends an unsolved answer. But a silhouette needs
+  geometry matching (SEC-12) while a capital city is one search away, so tournament scoring rests
+  on time as much as correctness (FR-8.3) and the admin timing surface is the detection story
+  (OQ-8's posture). A prompt that *states* its own answer is not covered by this and is a bug
+  (FR-8.4).
+- **SEC-14** *(added 2026-09-09)* Accepted residual risk: within an open tournament round every
+  participant plays the same card (D-38), so whoever plays early can simply tell whoever plays
+  later. Mitigations: no result is visible to anyone else until the round closes (FR-5.6), so
+  there is no live scoreboard feeding the temptation; the card is strictly sequential; and
+  timings are recorded. The real fix is a synchronous round with a countdown, which is Phase 5.
+- **SEC-15** *(added 2026-09-09, D-51)* No `attempts` document MUST be client-readable, including
+  by the player it belongs to. The stored guess carries `bearingDeg` beside `distanceKm`, and the
+  two together solve for the answer's centroid in closed form (D-36) — so a readable attempt
+  defeated SEC-1 in one guess over the Firestore REST API, with no SDK involved. Every read the
+  game performs goes through a callable that projects the 8-point compass instead.
 
 ---
 

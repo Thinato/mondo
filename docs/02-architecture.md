@@ -23,7 +23,8 @@
 │    submitGuess     createInvite listGroups │
 │    updateProfile   getLeaderboard …        │
 │    deleteAccount   admin: listUsers …      │
-│    (Phase 3: tournaments)                  │
+│    createTournament startTournament getCard│
+│    submitCardGuess  advanceTournament …    │
 │    [scheduled] rebuildStandings 12:05 BRT  │
 │    [scheduled] scheduleHealthCheck weekly  │
 │                                            │
@@ -65,7 +66,7 @@ never reach the published site — the Pages workflow uploads the `site/` direct
   index.html              daily game
   grupos.html             group list + leaderboards + invite acceptance
   admin.html              admin dashboard (FR-7.2)
-  desafio.html            challenge lobby + results (Phase 3)
+  torneios.html           tournaments: list, create, bracket, card player
   arquivo.html            past puzzles (Phase 4)
   regras.html             scoring rules (FR-3.7)
   privacidade.html        LGPD note
@@ -75,6 +76,7 @@ never reach the published site — the Pages workflow uploads the `site/` direct
     game.js               round state machine
     groups.js             grupos.html
     admin.js              admin.html
+    tournaments.js        torneios.html
     geo.js                render silhouette, format distance/arrow
     autocomplete.js       country search (FR-6.3)
     share.js              emoji share text
@@ -90,7 +92,9 @@ never reach the published site — the Pages workflow uploads the `site/` direct
       index.ts            exports every function
       db.ts               document refs, puzzleDays, ensureProfile
       round.ts groups.ts leaderboard.ts admin.ts account.ts standings.ts health.ts
+      tournaments.ts      tournaments: lifecycle, reads, the card play path (Phase 3)
       lib/                pure, unit-tested: geo scoring puzzle-day round standings groups invite authz validate errors
+                          kinds card tournament (Phase 3)
       data/
         countries.json    generated; + centroids, tiers, discard stats (server-only)
         shapes.json       generated; one SVG path per country (server-only, D-13)
@@ -108,6 +112,7 @@ never reach the published site — the Pages workflow uploads the `site/` direct
   lib/shape.mjs           pure geometry helpers, unit-tested
   include.json            which entities are countries (PR to change)
   tiers.json              recognisability tier per country (PR to change)
+  capitals.json           pt-BR capital-city names for the `capital` kind (PR to change)
   aliases.json            autocomplete aliases + pt-BR name overrides
   overrides.json          D-8 exceptions: archipelagos that keep more than one island (D-14)
   preview.html            GITIGNORED — every silhouette in a grid; look at it after a rebuild
@@ -128,8 +133,8 @@ Naming: collections plural, document IDs deterministic wherever possible so writ
 idempotent.
 
 ### 3.1 `users/{uid}`
-Client-readable by any signed-in user (needed for leaderboards). Client-writable only for
-`displayName`, via rules.
+Client-readable **only by its owner** (D-34: a `signedIn()` read allow would also authorize a
+`list` of the whole collection). Client-writable only for `displayName` and `locale`, via rules.
 
 ```
 displayName    string      FR-1.2 / FR-1.3
@@ -179,8 +184,11 @@ history        Attempt[]   only after an admin retry (D-30): the earlier tries, 
 retries        number      only after an admin retry
 ```
 
-Client may read its **own** attempt documents only. That is safe because by the time an attempt
-doc exists with guesses in it, the client already knows those guesses.
+**No client read at all** (D-51, SEC-15). The earlier rule allowed a player to read their own
+attempt, on the reasoning that they already knew their own guesses — but they do not know
+`bearingDeg`, and distance plus bearing solves for the answer's centroid in closed form (D-36).
+Tournament card plays live in this same collection with `mode: "match"` and no `puzzleId`; see
+§3.14.
 
 ### 3.4 `groups/{groupId}` — Admin SDK writes only
 
@@ -241,22 +249,73 @@ revokedAt      timestamp|null
 A token is pending while `usedBy` and `revokedAt` are null and `expiresAt` is in the future.
 Resolvable only through `acceptInvite`; the owner lists and revokes their group's pending invites.
 
-### 3.9 `challenges/{challengeId}` — **no client read access**
+### 3.10 `challenges/{challengeId}` — never created (superseded)
+
+The one-off challenge FR-5 originally described is now the degenerate tournament: free-for-all,
+one round, one shape challenge (`06-tournaments.md` §12 slice 1). Nothing writes this collection;
+the rules still deny it explicitly so a stale client cannot reach it.
+
+### 3.11 `tournaments/{tid}` — **no client access** (D-39)
+
+Top level, not under `groups/{gid}`: the cards hold answers and a group is member-readable, and
+Firestore does not delete subcollections with their parent, so D-23's dissolution would orphan
+them. Membership is checked in the callable, as `getLeaderboard` does.
 
 ```
-createdBy, countryCode, createdAt, expiresAt, status
-participants   map<uid, { displayName, status, points, guessCount, elapsedMs }>
+groupId, name, preset
+format          "free_for_all" | "single_elim" | "double_elim" | "round_robin" | "swiss"
+regime          "aggregate" | "match"     D-49
+config          map        the preset resolved and frozen (D-48)
+status          "draft" | "running" | "finished" | "cancelled"
+createdBy, createdAt, startedAt, endedAt
+participantUids string[]   for the array-contains sweep in deleteAccount
+participants    map<uid, { seed, displayName, joinedAt }>   name snapshotted at start (D-46)
+currentRound, roundCount
 ```
 
-Client never reads this directly. `getChallengeResults` returns a filtered projection that
-honours FR-5.6 by stripping other participants' results until the caller has finished.
+### 3.12 `tournaments/{tid}/rounds/{n}` — **no client access**
 
-### 3.10 Required composite indexes
+The round log is the source of truth and standings are a pure fold over it, recomputed on every
+advance (D-41). Pairing and bracket fields arrive with the pairing formats.
+
+```
+n, opensAt, closesAt, closedAt
+cardId       "{tid}_r{n}"
+results      map<uid, { points, elapsedMs, guessCount, played }>   written at close
+```
+
+### 3.13 `cards/{tid}_r{n}` — **no client access, ever**, a sibling of `puzzles` (SEC-7)
+
+```
+tournamentId, round, createdAt
+items        [{ kind: "shape"|"capital", subject: "PY" }]   subject IS the answer
+```
+
+Stored, not regenerated from a seed (D-42).
+
+### 3.14 Tournament play lives in `attempts` (D-40)
+
+`attempts/{uid}_{tid}_r{n}`, `mode: "match"`, and **no `puzzleId` field** — that absence is what
+keeps tournament results off the daily boards (FR-5.9), because the nightly job selects on a
+`puzzleId` range and a Firestore inequality filter never returns a document lacking the field.
+`deleteAccount`'s existing `where uid ==` sweep collects them for free.
+
+```
+uid, tournamentId, roundId, mode "match"
+startedAt, finishedAt, cursor
+items        [{ kind, guesses[], solved, points, startedAt, finishedAt, elapsedMs }]
+points, elapsedMs, suspicious
+```
+
+### 3.15 Required composite indexes
 
 None. Every query is a single-field range or equality (`attempts.puzzleId`, `attempts.uid`,
-`invites.groupId` + `usedBy` + `revokedAt` equalities, `users.createdAt`, `members.joinedAt`) or a
+`invites.groupId` + `usedBy` + `revokedAt` equalities, `users.createdAt`, `members.joinedAt`,
+`tournaments.groupId`, `tournaments.status`, `tournaments.participantUids` array-contains) or a
 `getAll` by deterministic id; ranking sorts ≤ 200 member documents in memory.
-`firestore.indexes.json` is deliberately empty.
+`firestore.indexes.json` is deliberately empty. The admin's match query pairs two equality
+filters (`uid`, `mode`), which Firestore serves by merging single-field indexes — the cost is
+that it cannot also be ordered, so it is capped and unordered.
 
 ## 4. API contract (callable functions)
 
@@ -337,19 +396,37 @@ document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
 - `listAttempts({ puzzleId } | { uid })` → per attempt: state, counts, `elapsedMs`, `suspicious`,
   `retries`, `intervalsMs` (start→first guess, guess→guess); `guesses`, `points`, `solved` and
   `suspicious` only for closed days or once the admin has finished today (D-31) — `suspicious` is only
-  ever set on a solve, so it would announce an outcome by itself
+  ever set on a solve, so it would announce an outcome by itself. The `uid` path also returns
+  `matches`: that player's tournament cards with per-item timings, under the same D-31 gate —
+  outcomes only for a closed round, or one the admin has already played
 - `grantRetry({ uid, puzzleId })` — today only, never for yourself; resets the attempt, keeps `history` (D-30, D-35)
 
 ### Scheduled (Cloud Scheduler, `America/Sao_Paulo`)
-- `rebuildStandings` — `5 12 * * *` (D-11, D-25)
+- `rebuildStandings` — `5 12 * * *` (D-11, D-25). Also advances any tournament round past its
+  deadline (D-43), each half in its own try/catch so one cannot silence the other. No third
+  scheduler job: the free tier is three per *billing account* (`05-cost.md` §3.4)
 - `scheduleHealthCheck` — `0 9 * * 1`; logs `SCHEDULE_LOW` under 30 days of puzzles left (NFR-6), and
   deletes invites past their expiry so `invites` stays bounded (a TTL policy would carry no free
   allowance at all, `05-cost.md` §3.3)
 
-### Challenges
-- `startChallenge({ groupId?, maxParticipants })` → `{ challengeId, joinCode }`
-- `joinChallenge({ joinCode })` → `{ challengeId }`
-- `getChallengeResults({ challengeId })` → filtered per FR-5.6
+### Tournaments (FR-5 as rewritten, FR-8; `06-tournaments.md` §9)
+- `createTournament({ groupId, name, preset })` → `{ tournamentId }` — group owner only; the
+  preset is resolved server-side and frozen onto the document (D-48)
+- `setParticipation({ tournamentId, join })` — join or drop out while still a draft
+- `startTournament({ tournamentId })` → `{ round, closesAt }` — freezes the field, seeds it,
+  opens round 1
+- `listTournaments({ groupId })` → the group's tournaments plus the preset list for the form
+- `getTournament({ tournamentId })` → config, standings, bracket, the open round's *states*
+  only; another player's open-round score is never in the payload (FR-5.6)
+- `getCard({ tournamentId })` → the current challenge's prompt; creates the play document with a
+  server `startedAt` on first call. The `getRound` analogue
+- `submitCardGuess({ tournamentId, guess })` → the `submitGuess` analogue. `guess` is untyped
+  here because each kind validates its own shape (SEC-8)
+- `advanceTournament({ tournamentId })` — owner; closes the open round early. Safe to repeat
+- `cancelTournament({ tournamentId })` — owner; keeps the record
+
+`getCard` and `submitCardGuess` re-check group membership and the play gate on every call
+(FR-5.13), so a removed member keeps their standings slot but stops being served cards.
 
 ### Account
 - `updateProfile({ displayName, locale })` — also copies the name to the caller's member docs (D-26)
@@ -389,10 +466,16 @@ service cloud.firestore {
     match /challenges/{id}   { allow read, write: if false; }
     match /invites/{token}   { allow read, write: if false; }   // D-32
 
-    match /attempts/{attemptId} {
-      allow read:  if signedIn() && attemptId.split('_')[0] == request.auth.uid;
-      allow write: if false;                    // SEC-6
+    // D-51 / SEC-15 — closed even to their own player: the stored guess carries
+    // bearingDeg beside distanceKm, and the two solve for the answer's centroid
+    // in closed form (D-36). Every read the game does goes through a callable.
+    match /attempts/{attemptId} { allow read, write: if false; }
+
+    match /tournaments/{tid} {                  // D-39
+      allow read, write: if false;
+      match /rounds/{n}      { allow read, write: if false; }
     }
+    match /cards/{cardId}    { allow read, write: if false; }   // the answers
 
     match /groups/{gid} {
       allow read:  if inGroup(gid);
@@ -421,6 +504,9 @@ positive ones.
 | Brute-force all ~200 countries | Hard cap of 6 server-side, plus 400ms floor (SEC-5) |
 | Replay a solved day | Deterministic attempt ID, `already-completed` (FR-2.10, SEC-4) |
 | Write directly to Firestore standings | Rules deny all client writes (SEC-6) |
+| Read your own attempt over the REST API and solve from distance + bearing | No attempt is client-readable at all (SEC-15, D-51) |
+| Read a tournament card to get five answers at once | `cards` is closed like `puzzles` (D-39) |
+| Tell a later player the answers inside an open round | Not defended. Results hidden until the round closes; accepted as SEC-14 |
 | Read tomorrow's puzzle | `puzzles` collection unreadable (SEC-7) |
 | Geometry-match the SVG against Natural Earth | Not defended. Documented residual risk (SEC-12) |
 
