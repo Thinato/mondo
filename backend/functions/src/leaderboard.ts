@@ -13,6 +13,18 @@ import { leaderboardView, type Group, type LeaderboardView, type Member } from "
 import type { Attempt, Profile } from "./lib/round";
 import { requireGroupId, requireObject } from "./lib/validate";
 
+/**
+ * Cost ceiling, deliberate and accepted (plan R-4, docs/05-cost.md §2): a board
+ * read is 3 + 2N documents, N being the member count. That is ~23 for a group
+ * of ten and 403 for the 200-member maximum (FR-4.5), and no callable is rate
+ * limited, so a signed-in member looping this in devtools can spend the daily
+ * free read tier. The budget alert (SEC-11) is the backstop.
+ *
+ * ponytail: the fix is to stamp today's state onto the member documents as
+ * rounds start and finish, which halves the reads — but that is the per-group
+ * fan-out D-21 removed on purpose, trading writes and a consistency surface for
+ * reads. Do not switch without re-deciding D-21, and measure first (NFR-2).
+ */
 export const getLeaderboard = callable<{ groupId: unknown }, LeaderboardView>(async (uid, data) => {
   const gid = requireGroupId(requireObject(data).groupId);
   const now = Timestamp.now();

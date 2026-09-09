@@ -68,6 +68,13 @@ reads *per viewer*, which would blow the daily quota with roughly 16 people
 looking at the board. The precomputed design makes a board read ≤ 200 member
 documents plus ≤ 200 today-attempts for the live panel (FR-4.11).
 
+A board read is 3 + 2N documents for a group of N (the member documents, plus
+today's attempt each for the live panel, FR-4.11). That is ~23 reads for a group
+of ten. Nothing rate-limits it, so a signed-in member looping `getLeaderboard`
+can spend the daily allowance; the budget alert is the backstop, and the upgrade
+path is written at the top of `backend/functions/src/leaderboard.ts`. Accepted
+because the real groups are 5-20 people and the caller must already be a member.
+
 The nightly job itself reads every attempt of the last 30 closed days once
 (players × 30, D-21) — about 3,000 at 100 players, regardless of how many groups
 they are in. Past ~1,000 players switch to per-member `getAll` of group members
