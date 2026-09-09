@@ -38,7 +38,7 @@ This is a fight waiting to happen, so make it explicit and reviewable.
 
 Maintain `tools/include.json`: an explicit array of ISO alpha-2 codes that are in play, with a
 one-line justification per entry. Baseline: 193 UN member states + `VA`, `PS`, `TW`, `XK`.
-Roughly 197 entries.
+Roughly 196 entries: `VA` is on the baseline but excluded, because world-atlas 10m carries no usable polygon for it (two points on a line) and the build refuses degenerate geometry.
 
 Dependencies and territories (`GL`, `PR`, `HK`, `NC`, …) are **excluded in v1**. If someone
 wants Greenland in the pool, they open a pull request. This turns a lunch argument into a
@@ -107,7 +107,7 @@ Nauru wildly different visual fidelity; a pixel tolerance gives every silhouette
 Budget: every country's path ≤ **8 KB**. If a coastline does not fit at 1px, the tolerance is
 escalated in 0.25px steps *for that country alone*, so a fjord-heavy Norway never forces a
 coarser Italy. At launch only three escalate: Canada and Iceland to 1.25px, Norway to 1.75px.
-Total for all 197 is ~490 KB, held server-side; one path (≤ 8 KB) travels per round, which is
+Total for all 196 is ~490 KB, held server-side; one path (≤ 8 KB) travels per round, which is
 noise against NFR-5.
 
 Verify visually. Over-simplified Italy stops looking like a boot, and that ruins the game.
@@ -230,5 +230,5 @@ Pure functions in `backend/functions/src/lib/geo.ts`, unit tested (NFR-8).
 Pure helpers in `tools/lib/shape.mjs` have their own tests (`npm test` in `tools/`): polygon
 selection with and without `minShare`, winding normalisation, fit-to-box, byte-cap escalation.
 
-Add a `tools/preview.html` that renders all ~197 silhouettes in a grid. Look at it. Human eyes
+Add a `tools/preview.html` that renders all ~196 silhouettes in a grid. Look at it. Human eyes
 catch a broken simplification in five seconds and no assertion will.

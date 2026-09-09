@@ -111,6 +111,11 @@ export function toPathData(rings, decimals = 1) {
  */
 export function buildShape(geometry, { tolerance = 1, maxBytes = 4096, step = 0.25, minShare = null, projection = "mercator" } = {}) {
   const { polygons, keptPolygons, discardedPolygons, discardedAreaShare } = selectPolygons(geometry, { minShare });
+  // world-atlas quantisation can collapse a microstate to a line (the Vatican at
+  // 10m is two distinct points). Nothing downstream can rescue that; refuse it
+  // rather than emit an empty path the game would render as nothing.
+  const distinct = new Set(polygons[0][0].map((p) => p.join(","))).size;
+  if (distinct < 3) throw new Error(`degenerate geometry: largest polygon has ${distinct} distinct points`);
   const centroid = centroidOf(polygons);
   const projected = projectRings(polygons, centroid, projection);
 
@@ -121,6 +126,7 @@ export function buildShape(geometry, { tolerance = 1, maxBytes = 4096, step = 0.
     const simplified = simplifyRings(projected, t);
     path = toPathData(simplified);
     points = simplified.reduce((n, r) => n + r.length, 0);
+    if (simplified.length === 0) throw new Error("geometry vanished under simplification");
     if (Buffer.byteLength(path) <= maxBytes) break;
     t = round(t + step, 4);
     if (t > 20) throw new Error("could not fit shape under maxBytes");

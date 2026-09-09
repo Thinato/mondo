@@ -48,7 +48,7 @@ the budget alert exists.
 
 Scope: FR-1 (except deletion), FR-2, FR-6, SEC-1 … SEC-9. Plus the whole geo pipeline.
 
-1. ~~`tools/build-geo.mjs` end to end.~~ **Built 2026-09-06.** 197 countries, 10 D-8 exceptions,
+1. ~~`tools/build-geo.mjs` end to end.~~ **Built 2026-09-06.** 196 countries (VA dropped 2026-09-08: no usable geometry), 10 D-8 exceptions,
    client file leak-checked. `tools/preview.html` is rendered — **look at every silhouette**.
 2. `tools/generate-schedule.mjs`, seeded into Firestore.
 3. `backend/functions`: `getRound`, `submitGuess`. Pure `geo.ts` and `scoring.ts` with tests.

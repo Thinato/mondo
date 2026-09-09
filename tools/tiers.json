@@ -745,10 +745,6 @@
       "tier": 1,
       "why": "population > 20M"
     },
-    "VA": {
-      "tier": 3,
-      "why": "population < 1M"
-    },
     "VC": {
       "tier": 3,
       "why": "population < 1M"

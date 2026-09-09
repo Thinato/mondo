@@ -74,3 +74,10 @@ test("buildShape enforces the byte cap by escalating tolerance", () => {
   assert.ok(Buffer.byteLength(s.path) <= 200);
   assert.ok(s.tolerance > 1, "tolerance was escalated");
 });
+
+test("degenerate geometry (a line, as world-atlas gives the Vatican) is refused, not emitted empty", () => {
+  const line = [[[12.4543, 41.9026], [12.4543, 41.9043], [12.4543, 41.9026], [12.4543, 41.9026]]];
+  assert.throws(() => buildShape({ type: "Polygon", coordinates: line }), /degenerate/);
+  const triangle = [[[10, 10], [11, 10], [10, 11], [10, 10]]];
+  assert.ok(buildShape({ type: "Polygon", coordinates: triangle }).path.startsWith("M"));
+});

@@ -1,5 +1,5 @@
 {
-  "//": "Which entities are countries for Mondo. Keyed by ISO alpha-2, value is the one-line justification. Baseline is the 193 UN members plus VA, PS, TW, XK (03-geo-data-pipeline.md §2). Territories and dependencies are excluded in v1; to add one, open a PR.",
+  "//": "Which entities are countries for Mondo. Keyed by ISO alpha-2, value is the one-line justification. Baseline is the 193 UN members plus VA, PS, TW, XK (03-geo-data-pipeline.md §2). Territories and dependencies are excluded in v1; to add one, open a PR. Excluded 2026-09-08: VA (Holy See) — world-atlas 10m has no usable polygon for it (two distinct points, a line); the build now refuses degenerate geometry. Re-add only with a real polygon source.",
   "countries": {
     "AD": "UN member state",
     "AE": "UN member state",
@@ -187,7 +187,6 @@
     "US": "UN member state",
     "UY": "UN member state",
     "UZ": "UN member state",
-    "VA": "UN observer state (Holy See); included with PS for consistency",
     "VC": "UN member state",
     "VE": "UN member state",
     "VN": "UN member state",

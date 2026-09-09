@@ -104,11 +104,17 @@ for (const code of codes) {
     continue;
   }
 
-  const shape = buildShape(feat.geometry, {
-    tolerance: TOLERANCE_PX,
-    maxBytes: MAX_SHAPE_BYTES,
-    minShare: keepOverrides[code]?.minShare ?? null,
-  });
+  let shape;
+  try {
+    shape = buildShape(feat.geometry, {
+      tolerance: TOLERANCE_PX,
+      maxBytes: MAX_SHAPE_BYTES,
+      minShare: keepOverrides[code]?.minShare ?? null,
+    });
+  } catch (e) {
+    errors.push(`${code}: ${e.message}`);
+    continue;
+  }
   const [lon, lat] = shape.centroid;
   if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
     errors.push(`${code}: centroid out of range [${lon}, ${lat}]`);

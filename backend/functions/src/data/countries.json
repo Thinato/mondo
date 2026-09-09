@@ -3169,23 +3169,6 @@
    "discardedAreaShare": 0.001
   },
   {
-   "code": "VA",
-   "code3": "VAT",
-   "names": {
-    "en": "Vatican City",
-    "pt-BR": "Cidade do Vaticano"
-   },
-   "centroid": [
-    12.4543,
-    41.9034
-   ],
-   "tier": 3,
-   "areaKm2": 0,
-   "keptPolygons": 1,
-   "discardedPolygons": 0,
-   "discardedAreaShare": 0
-  },
-  {
    "code": "VC",
    "code3": "VCT",
    "names": {
