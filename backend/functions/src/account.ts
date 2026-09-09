@@ -25,7 +25,16 @@ async function deleteAll(query: Query): Promise<void> {
 }
 
 export const deleteAccount = callable<unknown, { ok: true }>(async (uid) => {
-  // a. memberships, with D-23 succession per group
+  // a. memberships, with D-23 succession per group.
+  //
+  // This trusts `users.groups` as the index of memberships. A member document
+  // for a group the index never listed would survive, keeping a name on that
+  // board — but the two are only ever written together inside a transaction, so
+  // reaching that state needs a write from outside this code. Catching it would
+  // mean a collection-group query on `members`, which needs a collection-group
+  // scoped index and buys nothing against a state the code cannot produce.
+  // `leaveTx` already heals the opposite drift (index listing a group with no
+  // member document behind it).
   const profileSnap = await userRef(uid).get();
   for (const gid of groupsOf(profileSnap.exists ? (profileSnap.data() as Profile) : null)) {
     try {

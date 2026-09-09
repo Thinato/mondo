@@ -22,12 +22,10 @@ const params = new URLSearchParams(location.search);
 let gid = params.get("g");
 let view = null;          // last getLeaderboard response
 let window_ = "last30";   // FR-4.7
-let user = null;
 
 watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, setStatus,
   onUser: (u) => {
-    user = u;
     el.list.hidden = el.board.hidden = true;
     if (!u) return;
     const token = params.get("convite");

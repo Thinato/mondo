@@ -119,7 +119,7 @@ export const createGroup = callable<{ name: unknown }, { groupId: string }>(asyn
 });
 
 /** How many invites one group may have outstanding at once (finding 8). */
-export const MAX_PENDING_INVITES = 20;
+const MAX_PENDING_INVITES = 20;
 
 /** createInvite({ groupId }) → { token, url, expiresAt }. Owner only. */
 export const createInvite = callable<{ groupId: unknown }, { token: string; url: string; expiresAt: string }>(async (uid, data) => {

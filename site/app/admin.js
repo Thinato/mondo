@@ -96,7 +96,7 @@ async function loadUserAttempts(u) {
     el.userAttemptsTitle.textContent = `Tentativas de ${u.displayName} (31 dias)`;
     el.userAttemptsRows.replaceChildren(...attempts.map((a) => {
       const tr = document.createElement("tr");
-      tr.append(cell(formatDay(a.puzzleId)), cell(t(`state.${a.state}`)), cell(a.guessCount), pointsCell(a), cell(formatMs(a.elapsedMs)), intervalsCell(a), extrasCell(a));
+      tr.append(cell(formatDay(a.puzzleId)), cell(t(`state.${a.state}`)), cell(a.guessCount), cell(a.points), cell(formatMs(a.elapsedMs)), intervalsCell(a), extrasCell(a));
       return tr;
     }));
     el.userAttempts.hidden = false;
@@ -139,7 +139,7 @@ async function loadDay(puzzleId) {
         });
         retry.append(b);
       }
-      tr.append(cell(a.displayName, "name"), cell(t(`state.${a.state}`)), cell(a.guessCount), pointsCell(a), cell(formatMs(a.elapsedMs)), intervalsCell(a), extrasCell(a), retry);
+      tr.append(cell(a.displayName, "name"), cell(t(`state.${a.state}`)), cell(a.guessCount), cell(a.points), cell(formatMs(a.elapsedMs)), intervalsCell(a), extrasCell(a), retry);
       return tr;
     }));
   } catch (err) { fail(err); }
@@ -166,11 +166,6 @@ function intervalsCell(a) {
   });
   if (a.intervalsMs.length === 0) td.textContent = "–";
   return td;
-}
-
-/** Points, or "–" while the server withholds today's outcome (D-31). */
-function pointsCell(a) {
-  return cell(a.points === null || a.points === undefined ? null : a.points);
 }
 
 /** suspicious badge, retries, and the guesses when the server chose to send them. */
