@@ -16,7 +16,7 @@ import { cardIntervalsMs, totalGuesses, type CardPlay } from "./lib/card";
 import { countryByCode } from "./lib/countries";
 import { mondoError } from "./lib/errors";
 import { todayState, type Group, type TodayState } from "./lib/groups";
-import { intervalsMs, puzzleItems, resetAttempt, type Attempt, type Profile, type Puzzle, type Role } from "./lib/round";
+import { intervalsMs, isNumberGuess, puzzleItems, resetAttempt, type Attempt, type Profile, type Puzzle, type Role } from "./lib/round";
 import { windowDays } from "./lib/standings";
 import { playId, type TournamentRound } from "./lib/tournament";
 import { requireObject, requirePuzzleId, requireRole, requireUid } from "./lib/validate";
@@ -254,9 +254,14 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
         // which shows one row of guesses per player either way; pre-D-52
         // attempts keep their single flat list.
         const guesses = a.items ? a.items.flatMap((it) => it.guesses) : (a.guesses ?? []);
-        row.guesses = guesses.map((g) => ({
-          code: g.code, name: countryByCode(g.code)?.names["pt-BR"] ?? g.code, distanceKm: g.distanceKm, proximity: g.proximity,
-        }));
+        row.guesses = guesses.map((g) =>
+          // D-53: a `gdp` guess is a number, so it has no code and no distance.
+          // The panel is a cheating surface, and what matters on it — how close
+          // and how fast — is the same either way.
+          isNumberGuess(g)
+            ? { code: "", name: String(g.value), distanceKm: 0, proximity: g.proximity }
+            : { code: g.code, name: countryByCode(g.code)?.names["pt-BR"] ?? g.code, distanceKm: g.distanceKm, proximity: g.proximity },
+        );
       }
       return row;
     }),

@@ -17,12 +17,12 @@
 
 import type { Timestamp } from "firebase-admin/firestore";
 import { MAX_GUESSES } from "./config";
-import { COUNTRIES, countryByCode, flagFor, shapeFor, type Country, type Flag, type Shape } from "./countries";
+import { COUNTRIES, countryByCode, flagFor, gdpFor, shapeFor, GDP_YEAR, type Country, type Flag, type Shape } from "./countries";
 import { mondoError } from "./errors";
 import { bearingDeg, distanceKm, proximity } from "./geo";
-import type { StoredGuess } from "./round";
+import { isNumberGuess, type StoredGuess } from "./round";
 
-export const KIND_IDS = ["shape", "capital", "flag"] as const;
+export const KIND_IDS = ["shape", "capital", "flag", "gdp"] as const;
 export type KindId = (typeof KIND_IDS)[number];
 
 /** FR-8.2 / D-44 — every kind scores one challenge on the same 0..6 scale, so a
@@ -37,7 +37,14 @@ export const MAX_ITEM_POINTS = 6;
 export type Prompt =
   | { kind: "shape"; shape: Shape }
   | { kind: "capital"; capital: string }
-  | { kind: "flag"; flag: Flag };
+  | { kind: "flag"; flag: Flag }
+  /**
+   * The only prompt that names its own country, and legitimately: for `gdp` the
+   * country is the question and the figure is the answer (D-53). `buildCard`
+   * keeps subjects distinct within a card, which is what stops a `gdp` prompt
+   * from naming the answer to the silhouette sitting next to it.
+   */
+  | { kind: "gdp"; country: string; year: number };
 
 export interface Graded {
   guess: StoredGuess;
@@ -59,6 +66,13 @@ export interface Kind {
   prompt(subject: string): Prompt;
   /** Validate and grade one raw guess from the client (SEC-8). */
   grade(subject: string, raw: unknown, now: Timestamp): Graded;
+  /**
+   * Was this stored guess the right one? Read back out of a finished item, by
+   * the share grid — which cannot ask `grade` again because grading needs the
+   * clock. Only the kind knows what right means: the same country code, or a
+   * number inside D-53's tolerance.
+   */
+  wasCorrect(subject: string, guess: StoredGuess): boolean;
   /** Shown once the item is over, never before. */
   reveal(subject: string): { code: string; name: string };
 }
@@ -97,6 +111,8 @@ export function gradeCountryGuess(subject: string, raw: unknown, now: Timestamp)
     },
   };
 }
+
+const countryWasCorrect = (subject: string, guess: StoredGuess): boolean => !isNumberGuess(guess) && guess.code === subject;
 
 function requireGuessCode(raw: unknown): Country {
   if (typeof raw !== "string") throw mondoError("invalid-argument", "A guess must be a country code.");
@@ -156,6 +172,7 @@ const shape: Kind = {
     return { kind: "shape", shape: s };
   },
   grade: gradeCountryGuess,
+  wasCorrect: countryWasCorrect,
   reveal: (subject) => nameOf(subject),
 };
 
@@ -175,6 +192,7 @@ const capital: Kind = {
   pool: () => ALL().filter((c) => c.capital?.["pt-BR"] && !capitalNamesItsCountry(c)),
   prompt: (subject) => ({ kind: "capital", capital: mustCountry(subject).capital["pt-BR"] }),
   grade: gradeCountryGuess,
+  wasCorrect: countryWasCorrect,
   reveal: (subject) => nameOf(subject),
 };
 
@@ -208,10 +226,83 @@ const flag: Kind = {
     return { kind: "flag", flag: f };
   },
   grade: gradeCountryGuess,
+  wasCorrect: countryWasCorrect,
   reveal: (subject) => nameOf(subject),
 };
 
-export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag };
+/**
+ * `gdp` — "what is this country's GDP per capita?". The one kind that inverts
+ * the others: the country is public and the number is the secret (D-53).
+ *
+ * **GDP per capita, PPP, in current international dollars, for one pinned
+ * year**, shown in the prompt. That combination was chosen over the three
+ * alternatives because it is the only one a player can reason about without
+ * already knowing the answer: a 133x spread from Burundi to Luxembourg, against
+ * 520 000x for total GDP, which is mostly a population quiz. PPP also keeps the
+ * figure from moving with exchange rates between vintages.
+ *
+ * **A guess counts when it is within 10 % of the answer** — `min/max >= 0.9`,
+ * which is symmetric, so there is no argument about "10 % of which number".
+ * Everything closer than that and still wrong scores nothing, exactly as a
+ * silhouette guess 200 km away scores what one 10 000 km away scores. The
+ * consolation is the same too: you are told how close you were.
+ */
+const gdp: Kind = {
+  id: "gdp",
+  maxGuesses: 3,
+  pointsByGuess: [6, 4, 2],
+  pool: () => ALL().filter((c) => gdpFor(c.code) !== undefined),
+  prompt: (subject) => ({ kind: "gdp", country: mustCountry(subject).names["pt-BR"], year: GDP_YEAR }),
+  grade: gradeNumberGuess,
+  wasCorrect: (_subject, guess) => isNumberGuess(guess) && guess.proximity >= GDP_CORRECT_WITHIN,
+  // The country was never secret here, so the reveal is the figure — with the
+  // country beside it, because the finished list shows one row per challenge
+  // and a bare number there says nothing.
+  reveal: (subject) => ({ code: subject, name: `${mustCountry(subject).names["pt-BR"]}: ${mustGdp(subject).toLocaleString("pt-BR")}` }),
+};
+
+export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag, gdp };
+
+/**
+ * A guess is right when it and the answer are within 10 % of each other. Stated
+ * as a ratio rather than a percentage of one side, so "10 % of what?" has no
+ * answer to argue about (D-53).
+ */
+export const GDP_CORRECT_WITHIN = 0.9;
+
+/** Anything above this per-capita figure is a typo, not a guess. */
+const MAX_GDP_GUESS = 1e9;
+
+/**
+ * Grade a numeric guess: how close as a ratio, and which way to go.
+ *
+ * `proximity` is `min/max`, which lands on the same 0..1 scale the geo kinds
+ * use — so the proximity bar, the colour bands and the share grid all work
+ * without knowing this kind exists. It is also the honest shape for a quantity
+ * spanning two orders of magnitude: being 2x out reads as 50 %, not as 99.99 %
+ * of the way from zero.
+ */
+export function gradeNumberGuess(subject: string, raw: unknown, now: Timestamp): Graded {
+  const answer = mustGdp(subject);
+  const value = requireGuessNumber(raw);
+  const proximity = Math.min(value, answer) / Math.max(value, answer);
+  return {
+    correct: proximity >= GDP_CORRECT_WITHIN,
+    guess: { value, higher: answer > value, proximity, at: now },
+  };
+}
+
+function requireGuessNumber(raw: unknown): number {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) throw mondoError("invalid-argument", "A guess must be a number.");
+  if (raw <= 0 || raw > MAX_GDP_GUESS) throw mondoError("invalid-argument", "That is not a plausible figure.");
+  return Math.round(raw);
+}
+
+function mustGdp(code: string): number {
+  const v = gdpFor(code);
+  if (v === undefined) throw mondoError("not-found", "No figure for this challenge.");
+  return v;
+}
 
 /**
  * Look up a kind by id.

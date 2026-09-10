@@ -144,6 +144,10 @@ export const PRESETS: readonly Preset[] = [
     items: [{ kind: "flag", count: 5 }],
     order: "as_listed",
   }),
+  freeForAll("economia", "Economia", "Cinco países, cinco PIBs per capita para adivinhar. Vale se chegar a 10%.", {
+    items: [{ kind: "gdp", count: 5 }],
+    order: "as_listed",
+  }),
   {
     id: "liga",
     label: "Liga",

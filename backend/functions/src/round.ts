@@ -23,7 +23,7 @@ import {
   applyGuess, newAttempt, puzzleItems, recordCompletion, roundView,
   type Attempt, type Profile, type Puzzle, type RoundView,
 } from "./lib/round";
-import { requireCountryCode, requireObject, requirePuzzleId } from "./lib/validate";
+import { requireObject, requirePuzzleId } from "./lib/validate";
 
 /**
  * Phase 1 serves only today's puzzle (FR-2.12 archive play is Phase 4).
@@ -69,15 +69,26 @@ export const getRound = callable<{ puzzleId?: unknown } | null | undefined, Roun
 });
 
 /**
- * submitGuess({ puzzleId, code }) — one guess, evaluated server-side (SEC-1).
+ * submitGuess({ puzzleId, guess }) — one guess, evaluated server-side (SEC-1).
+ *
+ * The guess is passed to the kind unvalidated beyond its shape, because only
+ * the kind knows what a guess IS: a country code for three of them, a number
+ * for `gdp` (D-53). Every kind validates and throws typed errors (SEC-8), which
+ * is where that rule has always lived.
+ *
+ * `code` is still accepted as a name for it. The site is served from a CDN, so
+ * a browser holding yesterday's `game.js` would otherwise lose its lunch.
  * Read-modify-write in a transaction so concurrent calls cannot exceed six
  * guesses (SEC-4); the 400 ms floor is enforced against the previous guess's
  * server timestamp (SEC-5).
  */
-export const submitGuess = callable<{ puzzleId: unknown; code: unknown }, RoundView>(async (uid, data) => {
+export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?: unknown }, RoundView>(async (uid, data) => {
   const input = requireObject(data);
   const puzzleId = requirePuzzleId(input.puzzleId);
-  const code = requireCountryCode(input.code);
+  const raw = input.guess ?? input.code;
+  // A shape guard only: anything that is not a scalar cannot be any kind's
+  // guess, and rejecting it here costs no reads.
+  if (typeof raw !== "string" && typeof raw !== "number") throw mondoError("invalid-argument", "A guess must be a country or a number.");
   const now = Timestamp.now();
   const puzzle = await loadOpenPuzzle(puzzleId, now);
 
@@ -90,7 +101,7 @@ export const submitGuess = callable<{ puzzleId: unknown; code: unknown }, RoundV
     requireCanPlay(profile); // losing your last group closes the round too
     if (!snap.exists) throw mondoError("not-found", "Call getRound before guessing.");
     const before = snap.data() as Attempt;
-    const after = applyGuess(before, puzzleItems(puzzle), code, now);
+    const after = applyGuess(before, puzzleItems(puzzle), raw, now);
     tx.set(attemptRef(uid, puzzleId), after);
     if (after.finishedAt !== null && profile !== null) tx.set(userRef(uid), recordCompletion(profile, after));
     return after;

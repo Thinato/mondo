@@ -52,7 +52,7 @@ export function shareGrid(puzzleId: string, items: readonly ItemForShare[], poin
 }
 
 /** What kind of question it was — never which question. */
-const ICON: Record<KindId, string> = { shape: "🗺️", capital: "🏙️", flag: "🏳️" };
+const ICON: Record<KindId, string> = { shape: "🗺️", capital: "🏙️", flag: "🏳️", gdp: "💰" };
 
 /** One square for how close a guess landed: the five-square bar, collapsed. */
 export function band(proximity: number): string {

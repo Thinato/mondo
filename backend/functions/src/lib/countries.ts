@@ -8,6 +8,7 @@
 import countriesJson from "../data/countries.json";
 import shapesJson from "../data/shapes.json";
 import flagsJson from "../data/flags.json";
+import gdpJson from "../data/gdp.json";
 import type { LonLat } from "./geo";
 
 export interface Country {
@@ -65,6 +66,14 @@ export interface Flag {
 const list = (countriesJson as unknown as { countries: Country[] }).countries;
 const shapes = shapesJson as unknown as { viewBox: string; fillRule: "evenodd"; shapes: Record<string, string> };
 const flags = (flagsJson as unknown as { flags: Record<string, Flag> }).flags;
+const gdp = gdpJson as unknown as { year: number; values: Record<string, number> };
+
+/**
+ * The year every `gdp` challenge asks about (D-53). Pinned and shown in the
+ * prompt: "the GDP of Argentina" is not a stable number, and an unstated
+ * vintage is an argument waiting to happen.
+ */
+export const GDP_YEAR: number = gdp.year;
 
 export const COUNTRIES: ReadonlyMap<string, Country> = new Map(list.map((c) => [c.code, c]));
 
@@ -87,4 +96,14 @@ export function shapeFor(code: string): Shape | undefined {
  */
 export function flagFor(code: string): Flag | undefined {
   return flags[code];
+}
+
+/**
+ * GDP per capita, PPP, in current international dollars, for `GDP_YEAR`
+ * (D-53). Undefined for the ten countries the World Bank has no figure for —
+ * Cuba, Eritreia, Coreia do Norte, Liechtenstein, Mônaco, Sudão do Sul, Síria,
+ * Taiwan, Venezuela and Iêmen — which is what keeps them out of `gdp.pool()`.
+ */
+export function gdpFor(code: string): number | undefined {
+  return gdp.values[code];
 }

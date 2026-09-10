@@ -50,13 +50,33 @@ export function puzzleItems(puzzle: Puzzle): CardItem[] {
   throw mondoError("not-found", "This puzzle has no challenges.");
 }
 
-export interface StoredGuess {
+/**
+ * One recorded guess. Two shapes, because `gdp` asks for a number rather than a
+ * country (D-53) — the discriminator is the presence of `value`.
+ *
+ * `proximity` and `at` are common on purpose: the share grid, the proximity bar
+ * and every timing surface read only those two, so they work for both without
+ * knowing which is which.
+ */
+export type StoredGuess = StoredCountryGuess | StoredNumberGuess;
+
+export interface StoredCountryGuess {
   code: string;
   distanceKm: number;
   bearingDeg: number;
   proximity: number;
   at: Timestamp;
 }
+
+export interface StoredNumberGuess {
+  value: number;
+  /** The answer is HIGHER than this guess. Meaningless once the guess is right. */
+  higher: boolean;
+  proximity: number;
+  at: Timestamp;
+}
+
+export const isNumberGuess = (g: StoredGuess): g is StoredNumberGuess => "value" in g;
 
 /**
  * One player's day. A card play (D-52) that additionally carries `puzzleId` —
@@ -234,7 +254,11 @@ export function recordCompletion(profile: Profile, attempt: Attempt): Profile {
 // once the round is over (SEC-1). Nothing else here can identify the country.
 // ---------------------------------------------------------------------------
 
-export interface GuessView {
+/** What the client is told about one guess. Discriminated, like the stored form. */
+export type GuessView = CountryGuessView | NumberGuessView;
+
+export interface CountryGuessView {
+  kind: "country";
   code: string;
   name: string;
   distanceKm: number;
@@ -246,6 +270,18 @@ export interface GuessView {
    * is lost; a determined player must now trilaterate over several guesses.
    */
   compass: Compass;
+  proximity: number;
+}
+
+export interface NumberGuessView {
+  kind: "number";
+  value: number;
+  /**
+   * The answer is higher than this guess. The numeric analogue of `compass`,
+   * and the same concession: it narrows the search without naming the answer,
+   * and three guesses is not enough to bisect a 133x range from nothing.
+   */
+  higher: boolean;
   proximity: number;
 }
 
@@ -346,15 +382,19 @@ function shareItems(attempt: Attempt, card: readonly CardItem[]): ItemForShare[]
     solved: it.solved,
     maxGuesses: kindById(it.kind).maxGuesses,
     guesses: it.guesses.map((g) => ({
-      correct: g.code === card[i]!.subject,
+      // `wasCorrect` lives on the kind because only the kind knows what right
+      // means — the same country code, or a number inside D-53's tolerance.
+      correct: kindById(it.kind).wasCorrect(card[i]!.subject, g),
       proximity: g.proximity,
-      compass: compass8(g.bearingDeg),
+      compass: isNumberGuess(g) ? (g.higher ? "N" : "S") : compass8(g.bearingDeg),
     })),
   }));
 }
 
 export function guessView(g: StoredGuess): GuessView {
+  if (isNumberGuess(g)) return { kind: "number", value: g.value, higher: g.higher, proximity: g.proximity };
   return {
+    kind: "country",
     code: g.code,
     name: mustCountry(g.code).names["pt-BR"],
     distanceKm: g.distanceKm,
