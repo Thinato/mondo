@@ -16,6 +16,10 @@ const PT_BR = {
   solved: "Acertou em {n}! {points} pontos.",
   solvedOne: "De primeira! {points} pontos.",
   failed: "Não foi hoje. Era {answer}.",
+  // D-52: a day is three challenges, so the result talks about the day.
+  dayDone: "{points} de {max} pontos hoje.",
+  dayPerfect: "Dia perfeito! {points} de {max} pontos.",
+  kindName: { shape: "silhueta", flag: "bandeira", capital: "capital" },
   answerWas: "Era {answer}.",
   share: "Compartilhar",
   copied: "Copiado!",

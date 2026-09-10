@@ -1,19 +1,25 @@
-// The round on screen: sign-in → load → guess loop → result (FR-2, FR-6).
+// The day on screen: sign-in → load → guess loop → result (FR-2, FR-6).
 // State comes from the server on every step; this file only renders it and
 // never computes anything about the answer.
+//
+// D-52: a day is three challenges played in order, so this renders a cursor and
+// one prompt at a time. It cannot know an answer it has not been sent: the
+// server reveals a challenge only once that challenge is over.
 
 import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import { auth, googleProvider } from "./firebase.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
-import { arrow, band, formatKm, formatPercent, renderShape } from "./geo.js";
+import { arrow, band, formatKm, formatPercent, renderFlag, renderShape } from "./geo.js";
 import { errorMessage, t } from "./i18n.js";
 import { share } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), game: $("game"), signIn: $("sign-in"), signOut: $("sign-out"),
-  shape: $("shape"), guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
+  progress: $("progress"), items: $("items"),
+  shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
+  guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
   shareBtn: $("share"), left: $("left"), profileBtn: $("profile-btn"), profileDialog: $("profile-dialog"),
   profileForm: $("profile-form"), profileName: $("profile-name"), profileError: $("profile-error"),
@@ -123,18 +129,49 @@ async function submit() {
 }
 
 function render() {
-  renderShape(el.shape, round.shape);
-  el.guesses.replaceChildren(...round.guesses.map(guessRow));
   const inProgress = round.status === "in_progress";
+  // Once the day is done the counter would read "Desafio 3 de 3" for ever, and
+  // the result block below says everything it said.
+  el.progress.hidden = !inProgress;
+  el.progress.textContent = inProgress ? t("challengeOf", { n: round.cursor + 1, max: round.itemCount }) : "";
+
+  // One prompt shape per kind. An unknown kind means the client is older than
+  // the server: say so rather than rendering nothing.
+  const kind = round.prompt?.kind ?? null;
+  el.shapeWrap.hidden = kind !== "shape";
+  el.flagWrap.hidden = kind !== "flag";
+  el.capital.hidden = kind !== "capital";
+  if (kind === "shape") renderShape(el.shape, round.prompt.shape);
+  else if (kind === "flag") renderFlag(el.flag, round.prompt.flag);
+  else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: round.prompt.capital });
+  else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
+
+  el.guesses.replaceChildren(...round.guesses.map(guessRow));
   el.form.hidden = !inProgress;
-  el.left.textContent = t("guessesLeft", { n: round.guessesUsed, max: round.guessesMax });
+  el.left.textContent = inProgress ? t("guessesLeft", { n: round.guessesUsed, max: round.guessesMax }) : "";
+
+  el.items.replaceChildren(...round.items.map((it, i) => {
+    const li = document.createElement("li");
+    li.className = `card-item ${it.status}`;
+    const n = document.createElement("span");
+    n.textContent = `${i + 1}.`;
+    const label = document.createElement("span");
+    label.className = "name";
+    // An answer appears only for a challenge that is already over (SEC-1).
+    label.textContent = it.answer ? it.answer.name : t(`kindName.${it.kind}`);
+    const pts = document.createElement("span");
+    pts.className = "score";
+    pts.textContent = it.points === null ? "" : `${it.points} pts`;
+    li.append(n, label, pts);
+    return li;
+  }));
+
   el.result.hidden = inProgress;
   if (!inProgress) {
-    const n = round.guessesUsed;
     el.resultText.textContent =
-      round.status === "solved"
-        ? (n === 1 ? t("solvedOne", { points: round.points }) : t("solved", { n, points: round.points })) + " " + t("answerWas", { answer: round.answer.name })
-        : t("failed", { answer: round.answer.name });
+      round.points === round.maxPoints
+        ? t("dayPerfect", { points: round.points, max: round.maxPoints })
+        : t("dayDone", { points: round.points, max: round.maxPoints });
     el.shareBtn.textContent = t("share");
   }
 }

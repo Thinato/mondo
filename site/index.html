@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mondo — que país é este?</title>
-<meta name="description" content="Um país por dia. Adivinhe pela silhueta em até seis tentativas.">
+<meta name="description" content="Três desafios por dia: silhueta, bandeira e capital. Adivinhe o país de cada um.">
 <link rel="stylesheet" href="./mondo.css">
 <script>
   // D-18: follow the parent site's theme choice (lisecki.dev/theme.js writes
@@ -31,7 +31,7 @@
 
 <main>
   <section id="signed-out">
-    <p class="sub">Um país por dia. Adivinhe pela silhueta em até seis tentativas; a cada erro você ganha a distância e a direção.</p>
+    <p class="sub">Três desafios por dia — uma silhueta, uma bandeira e uma capital. Adivinhe o país de cada um; a cada erro você ganha a distância e a direção.</p>
     <button id="sign-in" type="button" class="primary">Entrar com Google</button>
     <p class="fine">Só o nome de exibição aparece para os outros. <a href="./privacidade.html">Privacidade</a>.</p>
   </section>
@@ -43,9 +43,16 @@
   </section>
 
   <section id="game" hidden>
-    <figure class="silhouette">
-      <svg id="shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país de hoje"></svg>
+    <p id="progress" class="fine" aria-live="polite"></p>
+
+    <!-- One prompt per kind; exactly one is visible at a time (D-52). -->
+    <figure class="silhouette" id="shape-wrap" hidden>
+      <svg id="shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
     </figure>
+    <figure class="flag" id="flag-wrap" hidden>
+      <svg id="flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
+    </figure>
+    <p id="capital" class="capital-prompt" hidden></p>
 
     <ol id="guesses" class="guesses" aria-label="Tentativas"></ol>
 
@@ -62,10 +69,12 @@
     <p id="left" class="fine" aria-live="polite"></p>
     <p id="status" aria-live="polite"></p>
 
+    <ol id="items" class="card-items" aria-label="Desafios de hoje"></ol>
+
     <section id="result" class="result" hidden>
       <p id="result-text"></p>
       <button id="share" type="button" class="primary">Compartilhar</button>
-      <p class="fine">Novo país todo dia ao meio-dia. <a href="./grupos.html">Ver ranking</a>.</p>
+      <p class="fine">Três desafios novos todo dia ao meio-dia. <a href="./grupos.html">Ver ranking</a>.</p>
     </section>
   </section>
 </main>

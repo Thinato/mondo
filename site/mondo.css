@@ -218,6 +218,9 @@ h2.title { font-size: 1.25rem; margin: 0 0 .25rem; }
 .preset:has(input:checked) { outline: 1px solid var(--fg); }
 .capital-prompt { font-size: 1.4rem; text-align: center; padding: 2rem 1rem; background: var(--card); border-radius: .75rem; margin: 0 0 1rem; }
 .card-items { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .25rem; font-size: .9rem; }
+/* An empty guess list and an empty hint line must not hold a day's worth of
+   space open once the prompts above them are gone. */
+.guesses:empty { margin: 0; }
 .card-item { display: grid; grid-template-columns: 1.5rem 1fr auto; gap: .5rem; padding: .3rem 0; border-bottom: 1px solid var(--line); color: var(--muted); }
 .card-item.current { color: var(--fg); font-weight: 600; }
 .card-item.solved .score { color: var(--ok); }

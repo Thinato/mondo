@@ -15,9 +15,18 @@
 
 <main class="prose">
   <h2>O jogo</h2>
-  <p>Todo dia, ao <strong>meio-dia (horário de Brasília)</strong>, aparece a silhueta de um país. Você tem
-  <strong>seis tentativas</strong> para acertar qual é. Só valem países da lista: digite e escolha na
-  busca, em português, em inglês ou pela sigla.</p>
+  <p>Todo dia, ao <strong>meio-dia (horário de Brasília)</strong>, entram <strong>três desafios</strong>:
+  uma <strong>silhueta</strong>, uma <strong>bandeira</strong> e uma <strong>capital</strong>. Em todos a
+  pergunta é a mesma — que país é este? — e a ordem muda a cada dia.</p>
+  <p>Você joga <strong>um desafio por vez</strong>, na ordem em que aparecem: só depois de fechar o
+  primeiro é que o segundo abre. As tentativas são de cada desafio:</p>
+  <ul>
+    <li><strong>Silhueta</strong> — seis tentativas.</li>
+    <li><strong>Bandeira</strong> — três tentativas.</li>
+    <li><strong>Capital</strong> — três tentativas.</li>
+  </ul>
+  <p>São três países diferentes por dia, e nunca o mesmo país em dois desafios do mesmo dia. Só valem
+  países da lista: digite e escolha na busca, em português, em inglês ou pela sigla.</p>
   <p>A cada erro você recebe três pistas sobre o país certo em relação ao seu chute:</p>
   <ul>
     <li>a <strong>distância</strong> em quilômetros, medida entre os centros dos dois países;</li>
@@ -26,14 +35,24 @@
   </ul>
 
   <h2>Pontuação</h2>
+  <p>Cada desafio vale de 0 a 6 pontos, e <strong>o dia é a soma dos três</strong>: no máximo
+  <strong>18 pontos</strong>.</p>
   <table>
     <thead><tr><th>Acertou na tentativa</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>Não acertou</th></tr></thead>
-    <tbody><tr><td>Pontos</td><td>6</td><td>5</td><td>4</td><td>3</td><td>2</td><td>1</td><td>0</td></tr></tbody>
+    <tbody>
+      <tr><td>Silhueta</td><td>6</td><td>5</td><td>4</td><td>3</td><td>2</td><td>1</td><td>0</td></tr>
+      <tr><td>Bandeira e capital</td><td>6</td><td>4</td><td>2</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+    </tbody>
   </table>
-  <p>Empate em pontos se resolve pelo <strong>tempo</strong>: do momento em que a silhueta aparece até o
-  último chute, medido no servidor. Menor tempo ganha. Fechar a aba não para o relógio.</p>
-  <p>Uma rodada não pode ser jogada de novo. Se você abrir o jogo em outro aparelho, suas tentativas
-  estão lá do mesmo jeito.</p>
+  <p>Errar um desafio não encerra o dia: ele vale 0 e o próximo abre.</p>
+  <p>Empate em pontos se resolve pelo <strong>tempo</strong>: do momento em que o primeiro desafio
+  aparece até o último chute do dia, medido no servidor. Menor tempo ganha. Fechar a aba não para o
+  relógio.</p>
+  <p>Um dia não pode ser jogado de novo. Se você abrir o jogo em outro aparelho, suas tentativas
+  estão lá do mesmo jeito, no desafio em que você parou.</p>
+  <p class="fine">Os dias anteriores a 10/09/2026 valiam 6 pontos, porque tinham um desafio só. Eles
+  ficam como estão: as janelas de 7 e 30 dias se resolvem sozinhas em um mês, e o total geral guarda
+  a virada em vez de reescrever o que já foi jogado.</p>
 
   <h2>Detalhes que alguém vai perguntar</h2>
   <ul>
@@ -44,7 +63,9 @@
     <li><strong>Quais países entram?</strong> Os 193 membros da ONU mais Palestina, Taiwan e Kosovo. Territórios e
     dependências (Groenlândia, Porto Rico, Hong Kong…) não entram. O Vaticano não tem geometria
     utilizável nos dados que usamos, então também não entra.</li>
-    <li><strong>Um país repete?</strong> Não dentro de 180 dias. A escolha é sorteada com antecedência,
+    <li><strong>Um país repete?</strong> No mesmo tipo de desafio, não dentro de <strong>120 dias</strong>;
+    em qualquer tipo, não dentro de <strong>30 dias</strong>. Antes era 180 dias, quando o dia tinha um
+    desafio só — com três por dia isso não cabe: 180 × 3 dá 540 sorteios para 196 países. A escolha é sorteada com antecedência,
     pesando países mais conhecidos (50%), médios (35%) e obscuros (15%).</li>
     <li><strong>Dá pra trapacear?</strong> A resposta nunca sai do servidor antes do fim da rodada. Um
     acerto de primeira em menos de dois segundos fica marcado como <em>suspeito</em>. Não é proibido; é
@@ -65,9 +86,9 @@
     é descartado.</li>
     <li><strong>Empate em pontos</strong> se resolve pela <strong>soma do tempo</strong> das rodadas jogadas na janela:
     menos tempo fica na frente. Empate em tudo divide a posição: 1º, 2º, 2º, 4º.</li>
-    <li><strong>Rodadas</strong> é quantos dias da janela a pessoa terminou. <strong>Média</strong> é a média de
-    chutes por rodada terminada (uma rodada perdida conta seis chutes). O descarte dos dois piores dias mexe só
-    nos pontos, não na média nem nas rodadas.</li>
+    <li><strong>Rodadas</strong> é quantos dias da janela a pessoa terminou. <strong>Média</strong> é a média
+    de chutes por dia terminado, somando os três desafios — um dia inteiro errado conta doze chutes. O descarte
+    dos dois piores dias mexe só nos pontos, não na média nem nas rodadas.</li>
     <li><strong>Sequência</strong> é quantos dias seguidos a pessoa terminou uma rodada. Um dia sem rodada
     terminada zera a sequência. Ao contrário das janelas, a sequência já conta o dia de hoje assim que você
     termina a rodada — por isso ela pode marcar 2 enquanto <em>Rodadas</em> ainda marca 1.</li>
