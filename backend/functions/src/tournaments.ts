@@ -1,10 +1,10 @@
 /**
  * Tournaments (FR-5 as rewritten, FR-8; docs/06-tournaments.md §8, §9).
  *
- * Slices 1–2: free-for-all under the `aggregate` regime, cards of N challenges
- * from the `shape` and `capital` kinds. The pairing formats, byes and the tie
- * policies arrive in slices 3–6 — every seam they need is in lib/tournament.ts,
- * and `standings()` throws rather than mis-ranking an unimplemented regime.
+ * Slices 1–3: free-for-all under `aggregate`, round robin under `match`, cards
+ * of N challenges from the `shape` and `capital` kinds. Elimination, Swiss and
+ * the tie policies arrive in slices 4–6; the primitives they will share
+ * (`cardWinner`, match points, pairings) are already in lib/tournament-core.ts.
  *
  * Rules in lib/tournament.ts, lib/card.ts and lib/kinds.ts; this file is I/O.
  * Every mutation is one transaction that reads everything before it writes.
@@ -32,6 +32,7 @@ import {
   PRESETS, roundClosesAt, roundId, seedOrder, standings,
   type Format, type Regime, type StandingRow, type Tournament, type TournamentRound, type TournamentStatus,
 } from "./lib/tournament";
+import { assertPairableSize, pairingsFor, resolvePairings, roundCountFor, type Pairing } from "./lib/tournament-core";
 import {
   requireBoolean, requireGroupId, requireGroupName, requireObject, requirePresetId, requireTournamentId, requireUid,
 } from "./lib/validate";
@@ -143,6 +144,11 @@ async function preAuthorizeOwner(tid: string, uid: string): Promise<Tournament> 
 // Opening and closing rounds
 // ---------------------------------------------------------------------------
 
+/** Participants in seed order — the wheel the circle method rotates (§7). */
+function seededUids(t: Tournament): string[] {
+  return [...t.participantUids].sort((a, b) => (t.participants[a]?.seed ?? 0) - (t.participants[b]?.seed ?? 0));
+}
+
 /**
  * Write round `n` and its card. The card and the round are created in the same
  * transaction, so a round can never point at a card that does not exist.
@@ -157,6 +163,8 @@ function openRound(tx: Transaction, tid: string, t: Tournament, n: number, exclu
     closedAt: null,
     cardId: rid,
     results: {},
+    // Published with the round: the draw is public, the outcomes are not.
+    pairings: pairingsFor(t.format, seededUids(t), n),
   };
   const card: CardDoc = { tournamentId: tid, round: n, items, createdAt: now };
   tx.create(cardRef(rid), card);
@@ -196,7 +204,13 @@ async function closeRoundTx(tx: Transaction, tid: string, n: number, scheduled: 
   });
 
   // --- writes ---
-  tx.update(roundRef(tid, n), { results, closedAt: now });
+  const pairings = resolvePairings(
+    round.pairings ?? [],
+    results,
+    t.config.tiebreak.chain,
+    t.config.byePolicy?.credit ?? "win",
+  );
+  tx.update(roundRef(tid, n), { results, pairings, closedAt: now });
   if (wasLastRound) {
     tx.update(tournamentRef(tid), { status: "finished" satisfies TournamentStatus, endedAt: now, currentRound: null });
   } else {
@@ -347,6 +361,9 @@ export const startTournament = callable<{ tournamentId: unknown }, { round: numb
     await requireGroupOwner(tx, t.groupId, uid);
     if (t.status !== "draft") throw mondoError("tournament-not-open", "This tournament has already started.");
     if (t.participantUids.length < MIN_PARTICIPANTS) throw mondoError("invalid-argument", `A tournament needs at least ${MIN_PARTICIPANTS} players.`);
+    // Checked here rather than at create: the field is only frozen now, and a
+    // league of 200 would schedule 199 rounds (one a day, most of a year).
+    assertPairableSize(t.format, t.participantUids.length);
 
     // Every read before the first write.
     const profiles = await tx.getAll(...t.participantUids.map(userRef));
@@ -359,7 +376,8 @@ export const startTournament = callable<{ tournamentId: unknown }, { round: numb
     });
 
     // --- writes ---
-    const started: Tournament = { ...t, status: "running", startedAt: now, participants, currentRound: 1, roundCount: t.config.rounds };
+    const roundCount = roundCountFor(t.format, t.config.rounds, order.length);
+    const started: Tournament = { ...t, status: "running", startedAt: now, participants, currentRound: 1, roundCount };
     tx.set(tournamentRef(tid), started);
     openRound(tx, tid, started, 1, scheduled, now);
     return { round: 1, closesAt: roundClosesAt(now, t.config.roundDays).toISOString() };
@@ -471,6 +489,15 @@ export interface TournamentView extends TournamentSummary {
   closedRounds: number;
   standings: StandingRow[];
   participants: { uid: string; displayName: string; seed: number; isMe: boolean }[];
+  /**
+   * The draw, oldest round first; empty for a format that pairs nobody.
+   *
+   * Fixtures are public as soon as their round opens — a league's whole point
+   * is knowing who you are up against. `outcome` is what FR-5.6 protects, and
+   * it is null until the round closes because that is when the engine writes
+   * it, not because anything here filters it out.
+   */
+  fixtures: { n: number; closed: boolean; pairings: Pairing[] }[];
   /** The open round. Scores stay hidden until it closes (FR-5.6). */
   current: null | {
     n: number;
@@ -552,6 +579,9 @@ export const getTournament = callable<{ tournamentId: unknown }, TournamentView>
     canJoin: t.status === "draft" && !t.participantUids.includes(uid) && t.config.entry === "open",
     closedRounds: rounds.filter((r) => r.closedAt !== null).length,
     standings: rows,
+    fixtures: rounds
+      .filter((r) => (r.pairings ?? []).length > 0)
+      .map((r) => ({ n: r.n, closed: r.closedAt !== null, pairings: r.pairings ?? [] })),
     participants: t.participantUids.map((u) => ({
       uid: u,
       displayName: t.participants[u]?.displayName || "",

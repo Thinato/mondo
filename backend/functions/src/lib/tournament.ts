@@ -17,6 +17,10 @@ import type { CardSpec } from "./card";
 import { mondoError } from "./errors";
 import { opensAt as puzzleOpensAt, puzzleIdAt } from "./puzzle-day";
 import { nextDay, rankBy } from "./standings";
+import {
+  competitionRanks, DEFAULT_MATCH_POINTS, EMPTY_RECORD, matchRecords, MAX_PAIRED_PARTICIPANTS,
+  type MatchPoints, type MatchRecord, type Pairing,
+} from "./tournament-core";
 
 export type Regime = "aggregate" | "match";
 export type Format = "free_for_all" | "single_elim" | "double_elim" | "round_robin" | "swiss";
@@ -37,6 +41,11 @@ export interface Tiebreak {
 
 export interface TournamentConfig {
   cardSpec: CardSpec;
+  /**
+   * What the preset asked for. Round robin overrides it at start, because its
+   * length is a function of the field (n−1, or n when odd) and the field is
+   * not frozen until then — `roundCount` on the tournament is the real number.
+   */
   rounds: number;
   /** Round length in puzzle days; a round always closes on a noon boundary (D-43). */
   roundDays: number;
@@ -44,6 +53,13 @@ export interface TournamentConfig {
   consolation: boolean;
   entry: "open" | "managed";
   maxParticipants: number;
+  /**
+   * Both are absent on `aggregate` presets, and absent is the honest shape:
+   * free-for-all pairs nobody, so it has no match points to award and no byes
+   * to credit. Only the pairing formats read them (§6.2, §7).
+   */
+  matchPoints?: MatchPoints;
+  byePolicy?: { credit: "win" | "draw"; play: boolean };
 }
 
 export interface Preset {
@@ -70,9 +86,10 @@ export interface Preset {
  * client-supplied settings lattice to reject incoherent corners of. Every
  * shipped combination is one of these, and each has a fixture.
  *
- * Only free-for-all under `aggregate` exists so far, which is why every preset
- * here is one: the pairing formats arrive with slices 3–6, and a preset for a
- * format that does not exist would be a create form that 500s.
+ * A preset for a format that does not exist yet would be a create form that
+ * 500s, so this list only ever grows with the slice that implements it:
+ * free-for-all under `aggregate` (slices 1–2) and round robin under `match`
+ * (slice 3). Elimination and Swiss presets land with slices 4–6.
  */
 const AGGREGATE_TIEBREAK: Tiebreak = { chain: ["points", "time"], unresolved: "seed", suddenDeathMaxItems: 0 };
 
@@ -111,6 +128,31 @@ export const PRESETS: readonly Preset[] = [
     ],
     order: "shuffled",
   }),
+  {
+    id: "liga",
+    label: "Liga",
+    description: "Todo mundo joga contra todo mundo, uma rodada por dia. Vitória 3, empate 1.",
+    format: "round_robin",
+    regime: "match",
+    config: {
+      cardSpec: { items: [{ kind: "shape", count: 3 }], order: "as_listed" },
+      // Overridden at start: a league's length is n−1, or n for an odd field.
+      rounds: 1,
+      roundDays: 1,
+      // Time stays in the chain, so a drawn fixture needs identical points AND
+      // identical milliseconds — rare, but legal here, which is why `draw` is
+      // the policy rather than sudden death (§6.4). A table can hold a draw;
+      // a knockout cannot, and that is slice 4's problem.
+      tiebreak: { chain: ["points", "time"], unresolved: "draw", suddenDeathMaxItems: 0 },
+      consolation: true,
+      entry: "open",
+      maxParticipants: MAX_PAIRED_PARTICIPANTS,
+      matchPoints: DEFAULT_MATCH_POINTS,
+      // The odd player out plays the card anyway: a free win, plus a score that
+      // still counts for the card-points tiebreak (§7).
+      byePolicy: { credit: "win", play: true },
+    },
+  },
 ];
 
 export function presetById(id: string): Preset {
@@ -184,9 +226,15 @@ export interface TournamentRound {
   cardId: string;
   /** Written when the round closes. Empty while it is open — FR-5.6 has nothing to leak. */
   results: Record<string, RoundResultRow>;
-  // Pairings, bracket bookkeeping and the tie sub-round (§4.2) arrive with the
-  // pairing formats in slices 3–6. Free-for-all pairs nobody, so writing those
-  // fields now would be storing empty structures for a format that has none.
+  /**
+   * The fixtures, written when the round OPENS — a league publishes its draw in
+   * advance, and a fixture is not a result. Each `outcome` stays null until the
+   * round closes, which is the only part FR-5.6 protects.
+   *
+   * Absent on a free-for-all round, and on every round written before slice 3.
+   * Bracket bookkeeping and the tie sub-round (§4.2) arrive with slices 4–6.
+   */
+  pairings?: Pairing[];
 }
 
 export const NAME_REMOVED = "[removido]";
@@ -276,6 +324,14 @@ export interface StandingRow {
   played: number;
   totalGuesses: number;
   totalElapsedMs: number;
+  /**
+   * The match record, present only under the `match` regime. `points` above
+   * stays the card total in both regimes: under `match` it is shown and used
+   * as the first tiebreak, but it never decides the table — that is what
+   * "points off" means (D-49), and keeping it in one field rather than two is
+   * what lets one table component render both regimes.
+   */
+  record?: MatchRecord;
 }
 
 /**
@@ -295,11 +351,6 @@ export function standings(
   rounds: readonly TournamentRound[],
   viewerUid: string,
 ): StandingRow[] {
-  if (t.regime !== "aggregate") {
-    // Fail loudly rather than mis-rank: the match regime needs round winners
-    // and match points, which arrive with the pairing formats (slices 3–6).
-    throw mondoError("invalid-argument", `standings: regime ${t.regime} is not implemented yet.`);
-  }
   const closed = rounds.filter((r) => r.closedAt !== null);
   const useTime = t.config.tiebreak.chain.includes("time");
 
@@ -317,10 +368,32 @@ export function standings(
     };
   });
 
-  const ranks = rankBy(rows, (r) => ({ points: r.points, totalElapsedMs: useTime ? r.totalElapsedMs : 0 }));
-  return rows
-    .map((r, i) => ({ ...r, rank: ranks[i]! }))
-    .sort((a, b) => a.rank - b.rank || a.displayName.localeCompare(b.displayName));
+  if (t.regime === "aggregate") {
+    const ranks = rankBy(rows, (r) => ({ points: r.points, totalElapsedMs: useTime ? r.totalElapsedMs : 0 }));
+    return finish(rows.map((r, i) => ({ ...r, rank: ranks[i]! })));
+  }
+
+  // `match` (D-49): the table is decided by match points. Card points are the
+  // first tiebreak and are still shown, but they do not carry — a player can
+  // out-score the field all tournament and finish second on fixtures.
+  const records = matchRecords(
+    t.participantUids,
+    closed.map((r) => r.pairings ?? []),
+    t.config.matchPoints ?? DEFAULT_MATCH_POINTS,
+  );
+  const withRecord = rows.map((r) => ({ ...r, record: records.get(r.uid) ?? { ...EMPTY_RECORD } }));
+  const ranks = competitionRanks(withRecord, (r) => [
+    r.record?.matchPoints ?? 0,
+    r.points,
+    // Negated: less time is better, and `competitionRanks` sorts descending.
+    useTime ? -r.totalElapsedMs : 0,
+  ]);
+  return finish(withRecord.map((r, i) => ({ ...r, rank: ranks[i]! })));
+}
+
+/** Rank ascending, then alphabetically so a genuine tie renders in a stable order. */
+function finish(rows: StandingRow[]): StandingRow[] {
+  return rows.sort((a, b) => a.rank - b.rank || a.displayName.localeCompare(b.displayName));
 }
 
 /** Seeds by join order, stable and reproducible; ties broken by uid. */
