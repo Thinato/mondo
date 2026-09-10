@@ -4,7 +4,8 @@ Licensed under the MIT License. See LICENSE.
 
 This product includes third-party data and software, listed below with their
 licenses and required attributions. Data listed here is processed offline at
-build time by tools/build-geo.mjs; none of it is fetched at request time.
+build time by tools/build-geo.mjs and tools/build-flags.mjs; none of it is
+fetched at request time.
 
 
 -------------------------------------------------------------------------------
@@ -47,6 +48,23 @@ Note on ODbL and this repository: the derived file site/data/countries.min.json
 is a Produced Work containing a substantial extract of the source database. It
 is distributed under the ODbL's share-alike terms, not under the MIT license
 that covers Mondo's own source code.
+
+
+-------------------------------------------------------------------------------
+svg-country-flags  —  national flag artwork
+-------------------------------------------------------------------------------
+Source:   https://github.com/hjnilsson/country-flags
+License:  Public domain.
+
+The flags are derived from Wikimedia Commons, where national flag artwork is
+in the public domain. The project places no restrictions on use, and asks for
+no attribution; this entry is here because the derived file
+backend/functions/src/data/flags.json is a processed copy of that artwork and
+a reader deserves to know where the drawings came from (OQ-11).
+
+tools/build-flags.mjs flattens each file to a list of filled paths and drops
+what it cannot express; the drawings themselves are not modified beyond
+coordinate rounding.
 
 
 -------------------------------------------------------------------------------

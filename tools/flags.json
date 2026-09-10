@@ -1,0 +1,8 @@
+{
+  "//": "Countries kept out of the `flag` pool by hand, with a reason each (the D-14 precedent). The byte budget in build-flags.mjs already drops every coat-of-arms flag heavy enough to spell its country's name; this file is for the ones small enough to slip through. A prompt that names its own answer is FR-8.4 broken by the prompt itself, not the cheap-lookup residual SEC-13 concedes — the same finding as `capitalNamesItsCountry`, one medium down.",
+  "exclude": {
+    "BN": "the crest scroll reads بروني دارالسلام — Brunei Darussalam (SEC-1)",
+    "EG": "the Eagle of Saladin's scroll reads جمهورية مصر العربية — Arab Republic of Egypt (SEC-1)",
+    "PY": "the obverse emblem reads REPÚBLICA DEL PARAGUAY (SEC-1)"
+  }
+}

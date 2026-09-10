@@ -4,6 +4,7 @@ tools/out/
 # Generated geo artifacts are committed on purpose; scratch is not
 tools/.cache/
 tools/preview.html
+tools/flags-preview.html
 
 # Crawled reference SVGs of unknown license (D-15, D-16). Local-only; the preview shows them
 # beside the Natural Earth output, nothing else may read them.
