@@ -19,9 +19,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
-  assertPairableSize, cardWinner, competitionRanks, DEFAULT_MATCH_POINTS, matchRecords,
-  MAX_PAIRED_PARTICIPANTS, pairingsFor, resolvePairings, roundCountFor, roundRobinPairings, roundRobinRounds,
-  type Pairing,
+  alive, allowsDraws, applyTieResults, assertPairableSize, bracketOrder, bracketSize, cardWinner,
+  competitionRanks, DEFAULT_MATCH_POINTS, drawnPairs, matchRecords, MAX_PAIRED_PARTICIPANTS,
+  pairingsFor, resolvePairings, roundCountFor, roundRobinPairings, roundRobinRounds,
+  singleElimPairings, singleElimRounds, survivedRounds, type Pairing,
 } from "../src/lib/tournament-core";
 import type { RoundResultRow, Tiebreak } from "../src/lib/tournament";
 
@@ -300,4 +301,158 @@ test("a pairing format refuses a field it cannot schedule; free-for-all takes an
   );
   // 200 players would schedule 199 rounds — most of a year at one round a day.
   assert.equal(roundRobinRounds(200), 199);
+});
+
+// ---------------------------------------------------------------------------
+// Single elimination (§6.3) — slice 4
+// ---------------------------------------------------------------------------
+
+test("the bracket is the next power of two, and its depth is log2 of that", () => {
+  assert.deepEqual([2, 3, 4, 5, 8, 9, 12].map(bracketSize), [2, 4, 4, 8, 8, 16, 16]);
+  assert.deepEqual([2, 3, 4, 5, 8, 9, 12].map(singleElimRounds), [1, 2, 2, 3, 3, 4, 4]);
+});
+
+test("bracketOrder is the standard recursive seeding", () => {
+  assert.deepEqual(bracketOrder(2), [1, 2]);
+  assert.deepEqual(bracketOrder(4), [1, 4, 2, 3]);
+  assert.deepEqual(bracketOrder(8), [1, 8, 4, 5, 2, 7, 3, 6]);
+});
+
+test("seeding well is rewarded: the top 2^m seeds are always in different eighths, quarters, halves", () => {
+  // The property the whole bracket order exists for. If seeds 1 and 2 could
+  // land in the same half, the final would be decided in the semis.
+  for (const size of [2, 4, 8, 16, 32]) {
+    const order = bracketOrder(size);
+    const slotOf = new Map(order.map((seed, slot) => [seed, slot]));
+    for (let block = size / 2; block >= 1; block /= 2) {
+      const top = size / block;                       // how many seeds must be separated
+      const blocks = new Set<number>();
+      for (let seed = 1; seed <= top; seed++) blocks.add(Math.floor(slotOf.get(seed)! / block));
+      assert.equal(blocks.size, top, `size ${size}: seeds 1..${top} must be in ${top} distinct blocks of ${block}`);
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Fixture: five players, the odd knockout, written out
+//
+//   Seeds A B C D E. The bracket is 8, so there are 3 byes and they go to the
+//   top three seeds — the conventional reward, and the advantage the odd
+//   players get (§7).
+//
+//     round 1   A bye   D–E   B bye   C bye
+//     round 2   A–D     B–C                    (D beat E)
+//     round 3   A–B                            (A beat D, B beat C)
+//
+//   Survived: A 3 (champion), B 2, C 1, D 1, E 0.
+// ---------------------------------------------------------------------------
+
+const BRACKET = ["A", "B", "C", "D", "E"];
+
+test("the five-player bracket is exactly the draw written in the comment", () => {
+  const show = (ps: Pairing[]) => ps.map((p) => (p.b === null ? `${p.a} bye` : `${p.a}-${p.b}`)).join(" ");
+  const r1 = singleElimPairings(BRACKET, 1, []);
+  assert.equal(show(r1), "A bye D-E B bye C bye");
+  assert.equal(r1.filter((p) => p.b === null).length, bracketSize(5) - 5, "S - n byes");
+
+  const decided1 = r1.map((p) => ({ ...p, outcome: "a" as const })); // byes and D over E
+  const r2 = singleElimPairings(BRACKET, 2, [decided1]);
+  assert.equal(show(r2), "A-D B-C");
+
+  const decided2 = r2.map((p) => ({ ...p, outcome: "a" as const })); // A over D, B over C
+  const r3 = singleElimPairings(BRACKET, 3, [decided1, decided2]);
+  assert.equal(show(r3), "A-B");
+});
+
+test("byes land on the top seeds, for every field size from 2 to 12", () => {
+  for (let n = 2; n <= 12; n++) {
+    const seeds = Array.from({ length: n }, (_, i) => `s${i + 1}`);
+    const r1 = singleElimPairings(seeds, 1, []);
+    const byes = r1.filter((p) => p.b === null).map((p) => p.a);
+    assert.equal(byes.length, bracketSize(n) - n, `${n} players: bye count`);
+    // Whoever got a bye must be among the top `byes.length` seeds.
+    const topSeeds = seeds.slice(0, byes.length);
+    assert.deepEqual([...byes].sort(), [...topSeeds].sort(), `${n} players: byes must go to the top seeds`);
+    // Nobody is scheduled twice, and everybody appears exactly once.
+    const seen = r1.flatMap((p) => (p.b === null ? [p.a] : [p.a, p.b]));
+    assert.deepEqual([...seen].sort(), [...seeds].sort(), `${n} players: round one must include everybody once`);
+  }
+});
+
+test("a knockout cannot be paired past an undecided fixture", () => {
+  const r1 = singleElimPairings(["A", "B", "C", "D"], 1, []);
+  assert.throws(() => singleElimPairings(["A", "B", "C", "D"], 2, [r1]), /undecided/);
+  assert.throws(() => singleElimPairings(["A", "B", "C", "D"], 2, []), RangeError);
+});
+
+test("alive and survivedRounds fold the bracket rather than storing a flag", () => {
+  const r1 = singleElimPairings(BRACKET, 1, []).map((p) => ({ ...p, outcome: "a" as const }));
+  const r2 = singleElimPairings(BRACKET, 2, [r1]).map((p) => ({ ...p, outcome: "a" as const }));
+  const r3 = singleElimPairings(BRACKET, 3, [r1, r2]).map((p) => ({ ...p, outcome: "a" as const }));
+  const rounds = [r1, r2, r3];
+
+  assert.deepEqual([...alive(BRACKET, rounds)], ["A"], "one player standing");
+  const s = survivedRounds(BRACKET, rounds);
+  assert.deepEqual(BRACKET.map((u) => [u, s.get(u)]), [["A", 3], ["B", 2], ["C", 1], ["D", 1], ["E", 0]]);
+});
+
+test("a bye never knocks anybody out, and consolation play cannot eliminate you twice", () => {
+  const bye: Pairing[] = [{ a: "A", b: null, outcome: "a" }];
+  assert.deepEqual([...alive(["A", "B"], [bye])], ["A", "B"], "an unpaired player loses nothing");
+  // Losing in round 1 and again in round 3 (consolation) still reads as round 1.
+  const r1: Pairing[] = [{ a: "A", b: "B", outcome: "a" }];
+  const r3: Pairing[] = [{ a: "A", b: "B", outcome: "a" }];
+  assert.equal(survivedRounds(["A", "B"], [r1, [], r3]).get("B"), 0);
+});
+
+// ---------------------------------------------------------------------------
+// Ties the clock cannot settle (§6.4, D-50)
+// ---------------------------------------------------------------------------
+
+test("only a table can hold a draw; a knockout must settle it", () => {
+  assert.equal(allowsDraws("round_robin"), true);
+  assert.equal(allowsDraws("swiss"), true);
+  assert.equal(allowsDraws("single_elim"), false);
+  assert.equal(allowsDraws("double_elim"), false);
+});
+
+test("drawnPairs finds the level fixtures and ignores byes", () => {
+  const ps: Pairing[] = [
+    { a: "A", b: "B", outcome: "draw" },
+    { a: "C", b: "D", outcome: "a" },
+    { a: "E", b: null, outcome: "a" },
+    { a: "F", b: "G", outcome: "draw" },
+  ];
+  assert.deepEqual(drawnPairs(ps), [["A", "B"], ["F", "G"]]);
+});
+
+test("sudden death decides the level fixture and leaves every other one alone", () => {
+  const ps: Pairing[] = [{ a: "A", b: "B", outcome: "draw" }, { a: "C", b: "D", outcome: "a" }];
+  const after = applyTieResults(ps, { A: res(6, 1000), B: res(4, 900) }, POINTS_ONLY,
+    { exhausted: false, seedOf: () => 1 });
+  assert.equal(after[0]!.outcome, "a", "A scored more on the sudden-death card");
+  assert.equal(after[1]!.outcome, "a", "an already-decided fixture is untouched");
+});
+
+test("still level after the card, and another challenge follows", () => {
+  const ps: Pairing[] = [{ a: "A", b: "B", outcome: "draw" }];
+  const after = applyTieResults(ps, { A: res(6, 1000), B: res(6, 9999) }, POINTS_ONLY,
+    { exhausted: false, seedOf: () => 1 });
+  assert.equal(after[0]!.outcome, "draw", "time is not in the chain, so this is still level");
+  assert.deepEqual(drawnPairs(after), [["A", "B"]]);
+});
+
+test("the safety valve: once sudden death runs out, the better seed takes it", () => {
+  const ps: Pairing[] = [{ a: "A", b: "B", outcome: "draw" }];
+  const seeds: Record<string, number> = { A: 3, B: 2 };
+  const after = applyTieResults(ps, { A: res(6, 1), B: res(6, 1) }, POINTS_ONLY,
+    { exhausted: true, seedOf: (u) => seeds[u]! });
+  assert.equal(after[0]!.outcome, "b", "B is seed 2, A is seed 3");
+  assert.deepEqual(drawnPairs(after), [], "and nothing is left level, so the round can advance");
+});
+
+test("a player who skipped the sudden-death card loses it, however level they were", () => {
+  const ps: Pairing[] = [{ a: "A", b: "B", outcome: "draw" }];
+  const after = applyTieResults(ps, { A: res(0, 60_000) }, POINTS_ONLY, { exhausted: false, seedOf: () => 1 });
+  assert.equal(after[0]!.outcome, "a", "B never opened it; turning up wins");
 });

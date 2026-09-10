@@ -56,11 +56,34 @@ test("every shipped preset is coherent: a real format, a real regime, real kinds
 test("preset ids are unique and unknown ones are refused", () => {
   assert.equal(new Set(PRESETS.map((p) => p.id)).size, PRESETS.length);
   assert.equal(presetById("quintal").format, "free_for_all");
-  rejects(() => presetById("mata-mata"), "invalid-argument"); // slice 4, not shipped
+  assert.equal(presetById("liga").format, "round_robin");
+  assert.equal(presetById("mata-mata").format, "single_elim");
+  rejects(() => presetById("suico"), "invalid-argument"); // slice 5, not shipped
   rejects(() => presetById("nope"), "invalid-argument");
 });
 
-test("the three shipped presets cover both kinds and both orderings", () => {
+test("every pairing preset caps its field, and only free-for-all takes a whole group", () => {
+  for (const p of PRESETS) {
+    if (p.format === "free_for_all") assert.equal(p.config.maxParticipants, MAX_PARTICIPANTS, p.id);
+    else assert.ok(p.config.maxParticipants <= 12, `${p.id}: a pairing format must stay lunch-sized`);
+  }
+});
+
+test("D-50: only a format that can hold a draw is allowed to record one", () => {
+  for (const p of PRESETS) {
+    if (p.config.tiebreak.unresolved !== "draw") continue;
+    assert.ok(["round_robin", "swiss"].includes(p.format), `${p.id}: a knockout cannot end drawn`);
+  }
+  // And a preset that wants sudden death must leave time out of the chain, or
+  // millisecond ties never happen and the policy is unreachable (D-44).
+  for (const p of PRESETS) {
+    if (p.config.tiebreak.unresolved !== "sudden_death") continue;
+    assert.ok(!p.config.tiebreak.chain.includes("time"), `${p.id}: sudden death would never fire`);
+    assert.ok(p.config.tiebreak.suddenDeathMaxItems >= 1, `${p.id}: needs a safety valve`);
+  }
+});
+
+test("the shipped presets cover both kinds and both orderings", () => {
   const quintal = presetById("quintal");
   assert.deepEqual(quintal.config.cardSpec, { items: [{ kind: "shape", count: 5 }], order: "as_listed" });
   assert.deepEqual(presetById("capitais").config.cardSpec.items, [{ kind: "capital", count: 5 }]);
@@ -166,10 +189,11 @@ test("roundDays must be a positive whole number", () => {
 
 const P = (seed: number, displayName: string) => ({ seed, displayName, joinedAt: T0 });
 
-const T: Pick<Tournament, "participants" | "participantUids" | "regime" | "config"> = {
+const T: Pick<Tournament, "participants" | "participantUids" | "regime" | "config" | "format"> = {
   participantUids: ["ana", "bruno", "carla"],
   participants: { ana: P(1, "ana-um"), bruno: P(2, "bruno-dois"), carla: P(3, "carla-tres") },
   regime: "aggregate",
+  format: "free_for_all",
   config: presetById("quintal").config,
 };
 
@@ -277,9 +301,10 @@ test("D-50: with time out of the chain, equal points tie — which is what lets 
 //   points while ana, who scored more, is second. Card points do not carry.
 // ---------------------------------------------------------------------------
 
-const LIGA: Pick<Tournament, "participants" | "participantUids" | "regime" | "config"> = {
+const LIGA: Pick<Tournament, "participants" | "participantUids" | "regime" | "config" | "format"> = {
   ...T,
   regime: "match",
+  format: "round_robin",
   config: presetById("liga").config,
 };
 
@@ -388,4 +413,69 @@ test("seeds follow join order, with uid as the stable tiebreak", () => {
     bruno: { seed: 0, displayName: "b", joinedAt: T0 },
   });
   assert.deepEqual(order, ["ana", "bruno", "zoe"]);
+});
+
+// ---------------------------------------------------------------------------
+// Single elimination (§6.3, D-47) — the same three players, run as a knockout.
+//
+//   Bracket of 4, so ana (seed 1) gets the bye. Two rounds:
+//
+//     round 1   ana bye        bruno–carla     bruno 20 v carla 15  -> bruno
+//     round 2   ana–bruno                      ana   10 v bruno 24  -> bruno
+//
+//   Survived: bruno 2 (champion), ana 1, carla 0.
+//
+//   carla is knocked out in round 1 and KEEPS PLAYING (consolation, D-47), so
+//   she out-scores ana on cards across the two rounds — 15 + 30 against
+//   ana's 0 + 10. She still finishes last, because a knockout is ranked by how
+//   far you got and nothing else can move you past someone still in.
+// ---------------------------------------------------------------------------
+
+const MATA: Pick<Tournament, "participants" | "participantUids" | "regime" | "config" | "format"> = {
+  ...T,
+  regime: "match",
+  format: "single_elim",
+  config: presetById("mata-mata").config,
+};
+
+const KNOCKOUT = [
+  withPairings(1, { ana: row(0, 0, 0, false), bruno: row(20, 30_000), carla: row(15, 40_000) }, [
+    { a: "ana", b: null, outcome: "a" },
+    { a: "bruno", b: "carla", outcome: "a" },
+  ]),
+  withPairings(2, { ana: row(10, 50_000), bruno: row(24, 20_000), carla: row(30, 10_000) }, [
+    { a: "ana", b: "bruno", outcome: "b" },
+  ]),
+];
+
+test("a knockout is ranked by how far you got, not by what you scored", () => {
+  const rows = standings(MATA, KNOCKOUT, "ana");
+  assert.deepEqual(
+    rows.map((r) => [r.displayName, r.rank, r.survived, r.eliminated, r.points]),
+    [
+      ["bruno-dois", 1, 2, false, 44],
+      ["ana-um", 2, 1, true, 10],
+      ["carla-tres", 3, 0, true, 45],
+    ],
+  );
+});
+
+test("D-47: the consolation player out-scores a semifinalist and still finishes below her", () => {
+  const rows = standings(MATA, KNOCKOUT, "ana");
+  const carla = rows.find((r) => r.uid === "carla")!;
+  const ana = rows.find((r) => r.uid === "ana")!;
+  assert.ok(carla.points > ana.points, "carla scored more across the two cards");
+  assert.ok(carla.rank > ana.rank, "and is still ranked below her, because she went out first");
+});
+
+test("the champion is the only player left alive", () => {
+  const rows = standings(MATA, KNOCKOUT, "ana");
+  assert.deepEqual(rows.filter((r) => !r.eliminated).map((r) => r.uid), ["bruno"]);
+});
+
+test("with only round 1 closed, nobody is champion yet and the bye player is still in", () => {
+  const rows = standings(MATA, KNOCKOUT.slice(0, 1), "ana");
+  const stillIn = rows.filter((r) => !r.eliminated).map((r) => r.uid).sort();
+  assert.deepEqual(stillIn, ["ana", "bruno"], "a bye eliminates nobody");
+  assert.equal(rows.find((r) => r.uid === "carla")!.survived, 0);
 });

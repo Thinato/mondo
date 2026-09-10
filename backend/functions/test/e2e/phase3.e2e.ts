@@ -97,7 +97,7 @@ before(async () => {
 test("only the group owner may create a tournament, and only from a shipped preset", async () => {
   assert.equal(code(await ana.call("createTournament", { groupId: gid, name: "Meu torneio", preset: "quintal" })), "permission-denied");
   assert.equal(code(await carla.call("createTournament", { groupId: gid, name: "Meu torneio", preset: "quintal" })), "permission-denied");
-  assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "Nope", preset: "mata-mata" })), "invalid-argument");
+  assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "Nope", preset: "suico" })), "invalid-argument"); // slice 5, not shipped
   assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "ab", preset: "quintal" })), "invalid-argument");
 });
 
@@ -363,7 +363,7 @@ test("listTournaments shows the group's tournaments and the presets the form nee
   assert.equal(row.status, "finished");
   assert.equal(row.participantCount, 3);
   assert.equal(row.isParticipant, true);
-  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "liga"]);
+  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "liga", "mata-mata"]);
   for (const p of v.presets) assert.ok(p.label && p.description, "the create form needs pt-BR copy");
   assert.equal(ok(await ana.call("listTournaments", { groupId: gid }), "as member").canManage, false);
 });
@@ -600,6 +600,118 @@ test("FR-5.9 holds for league play too: no card play carries a puzzleId", async 
   const plays = await db.collection("attempts").where("mode", "==", "match").get();
   assert.ok(plays.size > 0, "the league produced card plays");
   for (const d of plays.docs) assert.equal((d.data() as Any).puzzleId, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// Slice 4 — single elimination and sudden death (§6.3, §6.4, D-47, D-50)
+//
+// Three players, bracket of four, so the top seed gets a bye. `mata-mata`
+// leaves time out of the tiebreak chain, so two players who both finish the
+// card perfectly are genuinely level and sudden death actually fires — which
+// is the whole reason the chain is written that way (D-44).
+// ---------------------------------------------------------------------------
+
+let mataId: string;
+
+/** Play every item of a specific card for one account. */
+async function playCardOf(a: Account, tournamentId: string, cardDocId: string): Promise<Any> {
+  const card = await doc(`cards/${cardDocId}`);
+  let v = ok(await a.call("getCard", { tournamentId }), "getCard");
+  while (v.status === "in_progress") {
+    await sleep(450);
+    v = ok(await a.call("submitCardGuess", { tournamentId, guess: card.items[v.cursor].subject }), "submitCardGuess");
+  }
+  return v;
+}
+
+const mataRound = async (n: number): Promise<Any> => doc(`tournaments/${mataId}/rounds/${n}`);
+
+test("a knockout seeds into a bracket and hands the spare slots to the top seeds", async () => {
+  mataId = ok(await owner.call("createTournament", { groupId: gid, name: "Mata-mata do quintal", preset: "mata-mata" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: mataId, join: true }), "ana joins");
+  ok(await davi.call("setParticipation", { tournamentId: mataId, join: true }), "davi joins");
+  ok(await owner.call("startTournament", { tournamentId: mataId }), "startTournament");
+
+  const t = await doc(`tournaments/${mataId}`);
+  assert.equal(t.format, "single_elim");
+  assert.equal(t.roundCount, 2, "three players fit a bracket of four: two rounds");
+
+  const p1 = (await mataRound(1)).pairings;
+  assert.equal(p1.length, 2);
+  const bye = p1.find((p: Any) => p.b === null);
+  assert.ok(bye, "one spare slot, so one bye");
+  assert.equal(bye.a, owner.uid, "and it goes to the top seed, who created the tournament first");
+});
+
+test("two perfect cards are genuinely level, so closing the round opens sudden death", async () => {
+  await playCardOf(ana, mataId, `${mataId}_r1`);
+  await playCardOf(davi, mataId, `${mataId}_r1`);
+  ok(await owner.call("advanceTournament", { tournamentId: mataId }), "advanceTournament");
+
+  const r1 = await mataRound(1);
+  assert.ok(r1.closedAt, "the round's own card is finished with");
+  assert.ok(r1.tie, "but a level fixture holds it open");
+  assert.equal(r1.tie.k, 1);
+  assert.equal(r1.tie.kind, "sudden_death");
+  assert.deepEqual([...r1.tie.uids].sort(), [ana.uid, davi.uid].sort());
+  assert.equal(r1.tie.closedAt, null);
+
+  // The next round is NOT paired until this resolves.
+  assert.equal((await doc(`tournaments/${mataId}`)).currentRound, 1);
+  assert.equal((await db.doc(`tournaments/${mataId}/rounds/2`).get()).exists, false);
+
+  // One challenge, not a whole card.
+  const card = await doc(`cards/${mataId}_r1_t1`);
+  assert.equal(card.items.length, 1);
+});
+
+test("only the tied players are served the sudden-death card (D-38)", async () => {
+  assert.equal(code(await owner.call("getCard", { tournamentId: mataId })), "tournament-not-open");
+  const v = ok(await ana.call("getTournament", { tournamentId: mataId }), "getTournament");
+  assert.ok(v.current, "the panel must not vanish mid-knockout");
+  assert.equal(v.current.tie.k, 1);
+  assert.equal(v.current.tie.amIn, true);
+  const asOwner = ok(await owner.call("getTournament", { tournamentId: mataId }), "getTournament");
+  assert.equal(asOwner.current.tie.amIn, false, "the bye player is waiting on them");
+});
+
+test("the sudden-death card decides it, and the bracket pairs the next round", async () => {
+  // ana turns up, davi does not: turning up wins.
+  await playCardOf(ana, mataId, `${mataId}_r1_t1`);
+  ok(await owner.call("advanceTournament", { tournamentId: mataId }), "advanceTournament");
+
+  const r1 = await mataRound(1);
+  assert.ok(r1.tie.closedAt, "the tiebreak is settled");
+  const fixture = r1.pairings.find((p: Any) => p.b !== null);
+  const winner = fixture.outcome === "a" ? fixture.a : fixture.b;
+  assert.equal(winner, ana.uid, "ana played the decider; davi did not");
+
+  const t = await doc(`tournaments/${mataId}`);
+  assert.equal(t.currentRound, 2);
+  const p2 = (await mataRound(2)).pairings;
+  assert.equal(p2.length, 1, "a final");
+  assert.deepEqual([p2[0].a, p2[0].b].sort(), [owner.uid, ana.uid].sort());
+});
+
+test("D-47: the eliminated player keeps playing the final's card for the side ranking", async () => {
+  ok(await davi.call("getCard", { tournamentId: mataId }), "davi is out but consolation is on");
+});
+
+test("the last round crowns exactly one champion", async () => {
+  await playCardOf(owner, mataId, `${mataId}_r2`);
+  ok(await owner.call("advanceTournament", { tournamentId: mataId }), "advanceTournament");
+
+  const t = await doc(`tournaments/${mataId}`);
+  assert.equal(t.status, "finished");
+
+  const v = ok(await owner.call("getTournament", { tournamentId: mataId }), "getTournament");
+  const standing = v.standings;
+  assert.equal(standing[0].uid, owner.uid, "owner played the final; ana did not");
+  assert.equal(standing[0].eliminated, false);
+  assert.equal(standing.filter((r: Any) => !r.eliminated).length, 1, "exactly one player left standing");
+  assert.equal(standing[0].survived, 2);
+  // davi went out in round one and stays bottom however much consolation he played.
+  assert.equal(standing[standing.length - 1].uid, davi.uid);
 });
 
 test("a group cannot be drowned in open tournaments", async () => {
