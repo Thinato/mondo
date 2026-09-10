@@ -721,25 +721,34 @@ function pairLosersRound(
   const pool = [...survivors, ...drops];
   if (pool.length === 0) return [];
 
-  // An odd pool means a bye upstream; the best seed left carries it, which is
-  // the conventional reward and keeps the bracket the right shape.
-  let bye: string | null = null;
-  let playing = pool;
-  if (pool.length % 2 === 1) {
-    bye = [...pool].sort((x, y) => (seedRank.get(x) ?? 0) - (seedRank.get(y) ?? 0))[0]!;
-    playing = pool.filter((u) => u !== bye);
+  const survivorSet = new Set(survivors);
+  const cross = (a: string, b: string) => survivorSet.has(a) !== survivorSet.has(b);
+  const attempt = (playing: readonly string[], allowRepeat: boolean) =>
+    solveBracket(playing, allowRepeat ? new Set() : met, cross, true) ??
+    solveBracket(playing, allowRepeat ? new Set() : met, cross, false);
+
+  if (pool.length % 2 === 0) {
+    return (attempt(pool, false) ?? attempt(pool, true) ?? []).map(([a, b]) => ({ a, b, outcome: null }));
   }
 
-  const survivorSet = new Set(survivors.filter((u) => u !== bye));
-  const cross = (a: string, b: string) => survivorSet.has(a) !== survivorSet.has(b);
-  const solved =
-    solveBracket(playing, met, cross, true) ??
-    solveBracket(playing, met, cross, false) ??
-    solveBracket(playing, new Set(), cross, false) ??
-    [];
+  // An odd pool means a bye upstream. The best seed left is the conventional
+  // choice, but taking it can strand two players who have already met — which
+  // is what happened the first time this ran on a five-player bracket. So the
+  // candidates are tried in seed order and the first one that leaves a
+  // repeat-free draw wins; only if none does, the convention stands.
+  const candidates = [...pool].sort((x, y) => (seedRank.get(x) ?? 0) - (seedRank.get(y) ?? 0));
+  for (const bye of candidates) {
+    const solved = attempt(pool.filter((u) => u !== bye), false);
+    if (!solved) continue;
+    const out: Pairing[] = solved.map(([a, b]) => ({ a, b, outcome: null }));
+    out.push({ a: bye, b: null, outcome: null });
+    return out;
+  }
 
+  const bye = candidates[0]!;
+  const solved = attempt(pool.filter((u) => u !== bye), true) ?? [];
   const out: Pairing[] = solved.map(([a, b]) => ({ a, b, outcome: null }));
-  if (bye !== null) out.push({ a: bye, b: null, outcome: null });
+  out.push({ a: bye, b: null, outcome: null });
   return out;
 }
 

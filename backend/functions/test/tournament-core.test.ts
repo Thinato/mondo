@@ -778,3 +778,28 @@ test("with the reset on, that same result pairs the two of them again", () => {
   const played = [...upset, reset.map((p) => ({ ...p, outcome: "a" as const }))];
   assert.deepEqual([...alive(SEEDED, played, 2)], ["p1"]);
 });
+
+test("the losers bye is chosen so the rest of the draw stays rematch-free", () => {
+  // The five-player case that produced a rematch on the first run: the losers
+  // pool is one survivor plus two dropdowns, and giving the bye to the best
+  // seed strands the other two, who met in round one.
+  const seeds = ["s1", "s2", "s3", "s4", "s5"];
+  const history: Pairing[][] = [
+    [
+      { a: "s1", b: null, outcome: "a", bracket: "w" },
+      { a: "s4", b: "s5", outcome: "a", bracket: "w" },
+      { a: "s2", b: null, outcome: "a", bracket: "w" },
+      { a: "s3", b: null, outcome: "a", bracket: "w" },
+    ],
+    [
+      { a: "s1", b: "s4", outcome: "a", bracket: "w" },
+      { a: "s2", b: "s3", outcome: "a", bracket: "w" },
+      { a: "s5", b: null, outcome: "a", bracket: "l" },
+    ],
+  ];
+  const lb = doubleElimPairings(seeds, 3, history).filter((p) => p.bracket === "l");
+  const fixture = lb.find((p) => p.b !== null)!;
+  const key = [fixture.a, fixture.b].sort().join("|");
+  assert.notEqual(key, "s4|s5", "s4 and s5 met in round one; the bye must not force them together");
+  assert.equal(lb.filter((p) => p.b === null).length, 1, "still exactly one bye");
+});

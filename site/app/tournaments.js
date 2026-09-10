@@ -365,7 +365,9 @@ function renderFixtures() {
         const tag = document.createElement("span");
         tag.className = "bracket-tag";
         tag.textContent = t(`bracketOf.${p.bracket}`);
-        li.append(tag);
+        // A text node after the tag, so the line still reads as a sentence when
+        // it is copied or spoken — the inline-block only separates it visually.
+        li.append(tag, " · ");
       }
       if (p.b === null) {
         li.append(t("byeFixture", { name: nameOf(p.a) }));
