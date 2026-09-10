@@ -15,6 +15,7 @@ import {
   MAX_PARTICIPANTS, MIN_ROUND_MS, newTournament, playId, presetById, PRESETS, roundClosesAt, roundId,
   seedOrder, standings, type Tournament, type TournamentRound,
 } from "../src/lib/tournament";
+import type { Pairing } from "../src/lib/tournament-core";
 import { KIND_IDS } from "../src/lib/kinds";
 import { MAX_CARD_ITEMS } from "../src/lib/card";
 import { puzzleIdAt } from "../src/lib/puzzle-day";
@@ -257,8 +258,124 @@ test("D-50: with time out of the chain, equal points tie — which is what lets 
   assert.deepEqual(rows.map((r) => [r.displayName, r.rank]), [["ana-um", 1], ["bruno-dois", 1], ["carla-tres", 3]]);
 });
 
-test("an unimplemented regime throws rather than mis-ranking (slices 3-6)", () => {
-  rejects(() => standings({ ...T, regime: "match" }, ROUNDS, "ana"), "invalid-argument");
+// ---------------------------------------------------------------------------
+// The `match` regime (D-49) — the same three players, run as a league.
+//
+//   Three players means the circle method adds a ghost, so this is also the
+//   odd-count path through `standings`. Three rounds:
+//
+//     round 1   ana bye     bruno–carla        bruno 18 v carla 12  -> bruno
+//     round 2   ana–carla   bruno bye          ana   18 v carla  9  -> ana
+//     round 3   ana–bruno   carla bye          ana   12 v bruno 24  -> bruno
+//
+//   Match points 3/1/0, byes credited as wins:
+//     bruno  bye + 2 wins = 9   card  18 + 0 + 24 = 42
+//     ana    bye + 1 win + 1 loss = 6   card  0 + 18 + 12 = 30
+//     carla  bye + 2 losses = 3   card  12 + 9 + 0 = 21
+//
+//   Table: bruno 1, ana 2, carla 3 — and note that carla is last on match
+//   points while ana, who scored more, is second. Card points do not carry.
+// ---------------------------------------------------------------------------
+
+const LIGA: Pick<Tournament, "participants" | "participantUids" | "regime" | "config"> = {
+  ...T,
+  regime: "match",
+  config: presetById("liga").config,
+};
+
+const withPairings = (n: number, results: TournamentRound["results"], pairings: Pairing[]): TournamentRound =>
+  ({ ...round(n, results, true), pairings });
+
+const LEAGUE_ROUNDS = [
+  withPairings(1, { bruno: row(18, 30_000), carla: row(12, 40_000), ana: row(0, 0, 0, false) }, [
+    { a: "ana", b: null, outcome: "a" },
+    { a: "bruno", b: "carla", outcome: "a" },
+  ]),
+  withPairings(2, { ana: row(18, 20_000), carla: row(9, 50_000), bruno: row(0, 0, 0, false) }, [
+    { a: "ana", b: "carla", outcome: "a" },
+    { a: "bruno", b: null, outcome: "a" },
+  ]),
+  withPairings(3, { ana: row(12, 60_000), bruno: row(24, 10_000), carla: row(0, 0, 0, false) }, [
+    { a: "ana", b: "bruno", outcome: "b" },
+    { a: "carla", b: null, outcome: "a" },
+  ]),
+];
+
+test("the match regime ranks on match points, not on the card total", () => {
+  const rows = standings(LIGA, LEAGUE_ROUNDS, "ana");
+  assert.deepEqual(
+    rows.map((r) => [r.displayName, r.rank, r.record!.matchPoints, r.points]),
+    [
+      ["bruno-dois", 1, 9, 42],
+      ["ana-um", 2, 6, 30],
+      ["carla-tres", 3, 3, 21],
+    ],
+  );
+});
+
+test("the match record carries wins, draws, losses and byes separately", () => {
+  const by = new Map(standings(LIGA, LEAGUE_ROUNDS, "ana").map((r) => [r.uid, r.record!]));
+  assert.deepEqual(by.get("bruno"), { matchPoints: 9, won: 3, drawn: 0, lost: 0, byes: 1 });
+  assert.deepEqual(by.get("ana"), { matchPoints: 6, won: 2, drawn: 0, lost: 1, byes: 1 });
+  assert.deepEqual(by.get("carla"), { matchPoints: 3, won: 1, drawn: 0, lost: 2, byes: 1 });
+});
+
+test("an open round contributes no match points, the same way it contributes no card points", () => {
+  const openLast = [...LEAGUE_ROUNDS.slice(0, 2), { ...LEAGUE_ROUNDS[2]!, closedAt: null }];
+  const rows = standings(LIGA, openLast, "ana");
+  const by = new Map(rows.map((r) => [r.uid, r]));
+  // Without round 3: ana bye+win = 6, bruno bye+win = 6, carla two losses = 0.
+  assert.equal(by.get("ana")!.record!.matchPoints, 6);
+  assert.equal(by.get("bruno")!.record!.matchPoints, 6);
+  assert.equal(by.get("carla")!.record!.matchPoints, 0);
+});
+
+test("level on match points, the card total breaks it BEFORE the stopwatch is consulted", () => {
+  // ana and bruno both win a fixture and a bye, so both are on 6. ana has the
+  // bigger card total (30 v 18) but is nine times slower (90 s v 10 s). Card
+  // points come first in the chain, so ana takes it — if the two keys were
+  // swapped, or collapsed into one, bruno would win this and the test would say so.
+  const rounds = [
+    withPairings(1, { ana: row(20, 50_000), bruno: row(9, 5_000), carla: row(8, 40_000) }, [
+      { a: "ana", b: null, outcome: "a" },
+      { a: "bruno", b: "carla", outcome: "a" },
+    ]),
+    withPairings(2, { ana: row(10, 40_000), carla: row(5, 50_000), bruno: row(9, 5_000) }, [
+      { a: "ana", b: "carla", outcome: "a" },
+      { a: "bruno", b: null, outcome: "a" },
+    ]),
+  ];
+  const rows = standings(LIGA, rounds, "ana");
+  assert.deepEqual(rows.map((r) => [r.displayName, r.rank, r.record!.matchPoints, r.points, r.totalElapsedMs]), [
+    ["ana-um", 1, 6, 30, 90_000],
+    ["bruno-dois", 2, 6, 18, 10_000],
+    ["carla-tres", 3, 0, 13, 90_000],
+  ]);
+});
+
+test("level on match points AND on card points, the stopwatch decides", () => {
+  // Rounds 1-2 of the league fixture leave ana and bruno on 6 match points and
+  // 18 card points each — each won one fixture and sat out one bye. The only
+  // thing left is time: ana's 20 s against bruno's 30 s.
+  const openLast = [...LEAGUE_ROUNDS.slice(0, 2), { ...LEAGUE_ROUNDS[2]!, closedAt: null }];
+  const rows = standings(LIGA, openLast, "ana");
+  assert.deepEqual(rows.map((r) => [r.displayName, r.rank, r.record!.matchPoints, r.points, r.totalElapsedMs]), [
+    ["ana-um", 1, 6, 18, 20_000],
+    ["bruno-dois", 2, 6, 18, 30_000],
+    ["carla-tres", 3, 0, 21, 90_000],
+  ]);
+  // And note carla: the most card points of anyone (21) and dead last, because
+  // she lost both fixtures. That is "points off" (D-49) doing its job.
+});
+
+test("a free-for-all round carries no pairings, and the match fold simply finds nothing", () => {
+  // Defensive: rounds written before slice 3 have no `pairings` field at all.
+  const legacy = LEAGUE_ROUNDS.map(({ pairings: _drop, ...r }) => r);
+  const rows = standings(LIGA, legacy, "ana");
+  for (const r of rows) assert.equal(r.record!.matchPoints, 0);
+  // Card points still fold, so the table degrades to a card ranking rather than
+  // throwing or reporting nothing at all.
+  assert.deepEqual(rows.map((r) => r.points).sort((a, b) => b - a), [42, 30, 21]);
 });
 
 // ---------------------------------------------------------------------------

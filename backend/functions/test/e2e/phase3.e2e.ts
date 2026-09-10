@@ -363,7 +363,7 @@ test("listTournaments shows the group's tournaments and the presets the form nee
   assert.equal(row.status, "finished");
   assert.equal(row.participantCount, 3);
   assert.equal(row.isParticipant, true);
-  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura"]);
+  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "liga"]);
   for (const p of v.presets) assert.ok(p.label && p.description, "the create form needs pt-BR copy");
   assert.equal(ok(await ana.call("listTournaments", { groupId: gid }), "as member").canManage, false);
 });
@@ -479,6 +479,127 @@ test("FR-1.5 / D-46: deleting an account scrubs the name but keeps the bracket s
   assert.equal((await db.collection("attempts").where("uid", "==", bruno.uid).get()).size, 0, "their card plays went with them");
   const v = ok(await owner.call("getTournament", { tournamentId: tid }), "getTournament");
   assert.equal(v.standings.find((r: Any) => r.uid === bruno.uid).displayName, "[removido]");
+});
+
+// ---------------------------------------------------------------------------
+// Slice 3 — round robin under the `match` regime (§6.2, §7)
+//
+// Three players, so the circle method adds a ghost and the league runs three
+// rounds with one bye each. Odd counts are where these engines break, so the
+// e2e uses the odd case rather than a comfortable four.
+// ---------------------------------------------------------------------------
+
+let ligaId: string;
+let davi: Account;
+
+/** Play every item of the open round's card for one account. */
+async function playRound(a: Account, tournamentId: string, n: number): Promise<Any> {
+  const card = await doc(`cards/${tournamentId}_r${n}`);
+  let v = ok(await a.call("getCard", { tournamentId }), "getCard");
+  while (v.status === "in_progress") {
+    await sleep(450);
+    v = ok(await a.call("submitCardGuess", { tournamentId, guess: card.items[v.cursor].subject }), "submitCardGuess");
+  }
+  return v;
+}
+
+const pairingsOf = async (n: number): Promise<Any[]> => (await doc(`tournaments/${ligaId}/rounds/${n}`)).pairings;
+
+test("a `liga` starts as a round robin whose length comes from the field, not the preset", async () => {
+  davi = await newAccount("t3-davi");
+  const { token } = ok(await owner.call("createInvite", { groupId: gid }), "createInvite");
+  ok(await davi.call("acceptInvite", { token }), "acceptInvite");
+
+  ligaId = ok(await owner.call("createTournament", { groupId: gid, name: "Liga do quintal", preset: "liga" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: ligaId, join: true }), "ana joins");
+  ok(await davi.call("setParticipation", { tournamentId: ligaId, join: true }), "davi joins");
+  ok(await owner.call("startTournament", { tournamentId: ligaId }), "startTournament");
+
+  const t = await doc(`tournaments/${ligaId}`);
+  assert.equal(t.format, "round_robin");
+  assert.equal(t.regime, "match");
+  // The preset says 1; three players say 3. The field wins.
+  assert.equal(t.config.rounds, 1);
+  assert.equal(t.roundCount, 3, "an odd field costs a round: n, not n-1");
+
+  const p1 = await pairingsOf(1);
+  assert.equal(p1.length, 2, "three players plus a ghost is two fixtures");
+  assert.equal(p1.filter((p: Any) => p.b === null).length, 1, "exactly one bye");
+  for (const p of p1) assert.equal(p.outcome, null, "an open round has decided nothing");
+});
+
+test("the draw is public while the round is open, but its outcomes are not (FR-5.6)", async () => {
+  const v = ok(await ana.call("getTournament", { tournamentId: ligaId }), "getTournament");
+  assert.equal(v.fixtures.length, 1);
+  assert.equal(v.fixtures[0].n, 1);
+  assert.equal(v.fixtures[0].closed, false);
+  for (const p of v.fixtures[0].pairings) assert.equal(p.outcome, null);
+});
+
+test("closing a round decides its fixtures, and a forfeit loses to whoever turned up", async () => {
+  // owner and ana play; davi never opens the card.
+  await playRound(owner, ligaId, 1);
+  await playRound(ana, ligaId, 1);
+  ok(await owner.call("advanceTournament", { tournamentId: ligaId }), "advanceTournament");
+
+  const p1 = await pairingsOf(1);
+  for (const p of p1) assert.notEqual(p.outcome, null, "every fixture must be decided when the round closes");
+
+  const bye = p1.find((p: Any) => p.b === null)!;
+  assert.equal(bye.outcome, "a", "a bye is credited as a win (§7)");
+
+  // Whoever was drawn against davi beat him without needing a single point:
+  // he forfeited, and turning up beats not turning up.
+  const vsDavi = p1.find((p: Any) => p.b !== null && (p.a === davi.uid || p.b === davi.uid));
+  if (vsDavi) {
+    const daviWon = (vsDavi.a === davi.uid && vsDavi.outcome === "a") || (vsDavi.b === davi.uid && vsDavi.outcome === "b");
+    assert.equal(daviWon, false, "a forfeit must never win a fixture");
+    assert.notEqual(vsDavi.outcome, "draw", "nor draw one against a player who finished the card");
+  }
+});
+
+test("the table ranks on match points, and reports a record rather than a card total", async () => {
+  const v = ok(await owner.call("getTournament", { tournamentId: ligaId }), "getTournament");
+  assert.equal(v.regime, "match");
+  for (const r of v.standings) {
+    assert.ok(r.record, "every row needs a W-D-L record under the match regime");
+    assert.equal(r.record.won + r.record.drawn + r.record.lost, 1, "one closed round, one result each");
+  }
+  const total = v.standings.reduce((n: number, r: Any) => n + r.record.matchPoints, 0);
+  // One decisive fixture (3) plus one bye credited as a win (3).
+  assert.equal(total, 6);
+  assert.deepEqual(v.standings.map((r: Any) => r.rank).sort(), [1, 2, 3].sort());
+});
+
+test("over the whole league every pair meets exactly once and everybody sits out once", async () => {
+  // Rounds 2 and 3, closed without anybody playing: the schedule is what is
+  // under test, not the scores.
+  ok(await owner.call("advanceTournament", { tournamentId: ligaId }), "close round 2");
+  ok(await owner.call("advanceTournament", { tournamentId: ligaId }), "close round 3");
+
+  const t = await doc(`tournaments/${ligaId}`);
+  assert.equal(t.status, "finished", "three rounds is the whole league");
+
+  const met: string[] = [];
+  const byes: string[] = [];
+  for (let n = 1; n <= 3; n++) {
+    for (const p of await pairingsOf(n)) {
+      if (p.b === null) byes.push(p.a);
+      else met.push([p.a, p.b].sort().join("|"));
+    }
+  }
+  const uids = [owner.uid, ana.uid, davi.uid];
+  const expected = new Set<string>();
+  for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) expected.add([uids[i]!, uids[j]!].sort().join("|"));
+  assert.deepEqual(new Set(met), expected, "every pair exactly once");
+  assert.equal(met.length, 3, "and no pair twice");
+  assert.deepEqual([...byes].sort(), [...uids].sort(), "every player sits out exactly once");
+});
+
+test("FR-5.9 holds for league play too: no card play carries a puzzleId", async () => {
+  const plays = await db.collection("attempts").where("mode", "==", "match").get();
+  assert.ok(plays.size > 0, "the league produced card plays");
+  for (const d of plays.docs) assert.equal((d.data() as Any).puzzleId, undefined);
 });
 
 test("a group cannot be drowned in open tournaments", async () => {
