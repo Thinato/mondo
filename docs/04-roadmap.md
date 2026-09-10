@@ -91,6 +91,14 @@ Scope: FR-1.5, FR-1.7, FR-3, FR-4 as amended, FR-7, NFR-6.
 - A brand-new Google account sees the invitation screen and no attempt document is created.
 - Create a group, invite two people by link, all three play; after 12:05 the board ranks correctly
   and **matches a spreadsheet** built from the D-24 rules — do this once by hand.
+  **Arithmetic done 2026-09-09.** The D-24 rules were re-derived from `regras.html` alone, without
+  reading `lib/standings.ts`, and the two implementations were diffed over 299 attempts and 12
+  players: every `points`, `played` and `totalElapsedMs` figure agrees in all three windows,
+  including the two-worst drop and the unplayed-day-is-a-zero rule. The live board also matches a
+  recompute from its own raw attempts. The one real divergence was the streak, which counts today
+  while the windows do not — true, deliberate, and now said out loud in `regras.html`.
+  **Still owed:** the multi-player half. `rebuildStandings` has never actually fired in production
+  (Cloud Scheduler shows no last-attempt time), so the scheduled path is unexercised.
 - A used, revoked or expired link is refused. A non-member gets `permission-denied` on every group
   document (rules tests) and on `getLeaderboard`.
 - Organizer cannot reach any admin callable. `listUsers` never shows an e-mail.
@@ -99,7 +107,8 @@ Scope: FR-1.5, FR-1.7, FR-3, FR-4 as amended, FR-7, NFR-6.
 
 **Shipping (Paulo):** push; confirm the two Cloud Scheduler jobs exist in `southamerica-east1`;
 `cd tools && npm run set-role -- --project lisecki-dev --uid <your uid> --role admin`; check
-Artifact Registry size once (18 Cloud Run services, docs/05-cost.md §3.2). **This is the point where
+Artifact Registry size once — **measured 2026-09-09: 192.7 MB of 0.5 GB, no action needed**
+(docs/05-cost.md §3.2). **This is the point where
 you share the link.** Talk to whoever owns security policy first.
 
 ---
