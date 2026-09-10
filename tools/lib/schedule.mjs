@@ -5,10 +5,11 @@
 // FR-2.3  no country repeats: see the two windows below (D-52)
 // FR-2.4  tier mix targets 50 / 35 / 15
 //
-// D-52 — a day is one challenge of every kind, so a day spends THREE countries.
-// The old "no repeat within 180 days" is arithmetically impossible at that rate:
-// 180 days × 3 = 540 draws from a pool of 196. It is replaced by two windows,
-// which together say what the old one meant:
+// D-52 — a day is one challenge of every kind, so a day spends one country per
+// kind (four since D-53 added `gdp`). The old "no repeat within 180 days" is
+// arithmetically impossible at that rate: 180 days × 4 = 720 draws from a pool
+// of 196. It is replaced by two windows, which together say what the old one
+// meant:
 //
 //   KIND_WINDOW (120 days)  the same country is not asked BY THE SAME KIND again.
 //                           Bounded by the smallest pool: 172 flags, so 120 days
@@ -29,7 +30,7 @@ export const DEFAULT_WEIGHTS = { 1: 0.5, 2: 0.35, 3: 0.15 };
 export const KIND_WINDOW = 120;
 export const DAY_WINDOW = 30;
 /** The order challenges are drawn in. The order they are PLAYED in is shuffled. */
-export const KINDS = ["shape", "flag", "capital"];
+export const KINDS = ["shape", "flag", "capital", "gdp"];
 
 /** mulberry32 — small, seedable, good enough for shuffling countries. */
 export function prng(seed) {
@@ -53,7 +54,7 @@ export function prng(seed) {
  * drift is that both sides pin their pool sizes in tests, so a change to either
  * rule fails one of them loudly.
  */
-export function poolsFrom(countriesJson, flagsJson) {
+export function poolsFrom(countriesJson, flagsJson, gdpJson) {
   const fold = (x) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const namesItsCapital = (c) => {
     const cap = fold(c.capital?.["pt-BR"] ?? "");
@@ -62,10 +63,12 @@ export function poolsFrom(countriesJson, flagsJson) {
   };
   const withTier = (list) => list.map((c) => ({ code: c.code, tier: c.tier }));
   const hasFlag = new Set(Object.keys(flagsJson.flags));
+  const hasGdp = new Set(Object.keys(gdpJson.values));
   return {
     shape: withTier(countriesJson.countries),
     capital: withTier(countriesJson.countries.filter((c) => c.capital?.["pt-BR"] && !namesItsCapital(c))),
     flag: withTier(countriesJson.countries.filter((c) => hasFlag.has(c.code))),
+    gdp: withTier(countriesJson.countries.filter((c) => hasGdp.has(c.code))),
   };
 }
 

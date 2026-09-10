@@ -4,8 +4,8 @@ Licensed under the MIT License. See LICENSE.
 
 This product includes third-party data and software, listed below with their
 licenses and required attributions. Data listed here is processed offline at
-build time by tools/build-geo.mjs and tools/build-flags.mjs; none of it is
-fetched at request time.
+build time by tools/build-geo.mjs, tools/build-flags.mjs and tools/build-gdp.mjs;
+none of it is fetched at request time.
 
 
 -------------------------------------------------------------------------------
@@ -65,6 +65,25 @@ a reader deserves to know where the drawings came from (OQ-11).
 tools/build-flags.mjs flattens each file to a list of filled paths and drops
 what it cannot express; the drawings themselves are not modified beyond
 coordinate rounding.
+
+
+-------------------------------------------------------------------------------
+World Bank, World Development Indicators  —  GDP per capita
+-------------------------------------------------------------------------------
+Indicator: NY.GDP.PCAP.PP.CD — GDP per capita, PPP (current international $)
+Source:    https://data.worldbank.org/indicator/NY.GDP.PCAP.PP.CD
+License:   Creative Commons Attribution 4.0 International (CC BY 4.0)
+           https://creativecommons.org/licenses/by/4.0/
+
+    Contains figures from the World Bank's World Development Indicators,
+    used under CC BY 4.0. The World Bank does not endorse this work.
+
+CC BY 4.0 requires attribution, a link to the licence, and an indication of
+what was changed. The derived file backend/functions/src/data/gdp.json holds one
+figure per country for a single pinned year, rounded to the nearest integer;
+nothing else was altered. The year is stated in every prompt the game shows,
+because the World Bank revises past years and an unstated vintage is an argument
+waiting to happen (D-53).
 
 
 -------------------------------------------------------------------------------

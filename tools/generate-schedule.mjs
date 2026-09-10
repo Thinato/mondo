@@ -29,7 +29,8 @@ if (!args.seed || !args.start) {
 
 const data = JSON.parse(readFileSync(join(TOOLS, "../backend/functions/src/data/countries.json"), "utf8"));
 const flags = JSON.parse(readFileSync(join(TOOLS, "../backend/functions/src/data/flags.json"), "utf8"));
-const pools = poolsFrom(data, flags);
+const gdp = JSON.parse(readFileSync(join(TOOLS, "../backend/functions/src/data/gdp.json"), "utf8"));
+const pools = poolsFrom(data, flags, gdp);
 const tierOf = new Map(data.countries.map((c) => [c.code, c.tier]));
 const history = args.history ? JSON.parse(readFileSync(args.history, "utf8")).puzzles : [];
 

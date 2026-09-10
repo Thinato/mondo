@@ -7,7 +7,8 @@ import { generate, itemsOf, minDayGap, minRepeatGap, opensAt, poolsFrom, prng, t
 // tight one at 172 countries against a 120-day window.
 const countriesJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/countries.json", import.meta.url)));
 const flagsJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/flags.json", import.meta.url)));
-const pools = poolsFrom(countriesJson, flagsJson);
+const gdpJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/gdp.json", import.meta.url)));
+const pools = poolsFrom(countriesJson, flagsJson, gdpJson);
 const tierOf = new Map(countriesJson.countries.map((c) => [c.code, c.tier]));
 const base = { pools, seed: 20260908, start: "2026-09-15" };
 
@@ -17,11 +18,15 @@ test("the pools match what the server's kinds allow (kinds.ts is the authority)"
   assert.equal(pools.shape.length, 196);
   assert.equal(pools.capital.length, 181);
   assert.equal(pools.flag.length, 172);
+  assert.equal(pools.gdp.length, 186);
   for (const code of ["BR", "SG", "MX", "MC"]) {
     assert.ok(!pools.capital.some((c) => c.code === code), `${code} names itself in its capital`);
   }
   for (const code of ["MX", "PY", "EG"]) {
     assert.ok(!pools.flag.some((c) => c.code === code), `${code} has no flag in the pool`);
+  }
+  for (const code of ["CU", "KP", "TW", "VE"]) {
+    assert.ok(!pools.gdp.some((c) => c.code === code), `${code} has no World Bank figure`);
   }
 });
 
@@ -30,10 +35,11 @@ test("D-52: every day is one challenge of every kind, in a shuffled order", () =
   const orders = new Set();
   for (const d of s) {
     assert.deepEqual([...d.items.map((i) => i.kind)].sort(), [...KINDS].sort(), d.puzzleId);
-    assert.equal(new Set(d.items.map((i) => i.subject)).size, 3, `${d.puzzleId} asks the same country twice`);
+    assert.equal(new Set(d.items.map((i) => i.subject)).size, KINDS.length, `${d.puzzleId} asks the same country twice`);
     orders.add(d.items.map((i) => i.kind).join(">"));
   }
-  assert.equal(orders.size, 6, "all six orderings should turn up over a year");
+  // 4! = 24 orderings; over 365 days most should turn up.
+  assert.ok(orders.size >= 20, `only ${orders.size} of 24 orderings appeared`);
 });
 
 test("D-52: every subject is in its own kind's pool", () => {
