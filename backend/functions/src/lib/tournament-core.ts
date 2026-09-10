@@ -142,6 +142,7 @@ export function roundRobinRounds(players: number): number {
 export function roundCountFor(format: Format, configuredRounds: number, players: number): number {
   if (format === "round_robin") return roundRobinRounds(players);
   if (format === "single_elim") return singleElimRounds(players);
+  if (format === "swiss") return swissRounds(configuredRounds, players);
   return configuredRounds;
 }
 
@@ -150,16 +151,27 @@ export function roundCountFor(format: Format, configuredRounds: number, players:
  *
  * `prior` is every earlier round's fixtures, oldest first. Round robin ignores
  * it — the circle method knows the whole schedule up front — but a knockout
- * cannot be drawn before the previous round has produced its winners.
+ * cannot be drawn before the previous round has produced its winners, and a
+ * Swiss needs the entire history: who has met whom, and who has sat out.
+ *
+ * `standing` is best-first with match points, and only Swiss reads it.
  */
 export function pairingsFor(
   format: Format,
   seeds: readonly string[],
   n: number,
   prior: readonly (readonly Pairing[])[] = [],
+  standing: readonly SwissStanding[] = [],
 ): Pairing[] {
   if (format === "round_robin") return roundRobinPairings(seeds, n);
   if (format === "single_elim") return singleElimPairings(seeds, n, prior);
+  if (format === "swiss") {
+    // Round one has no table yet, so seed order stands in for it: everyone is
+    // on zero, which makes the whole field one score group and the fold the
+    // conventional "seed 1 against the middle".
+    const table = standing.length > 0 ? standing : seeds.map((uid) => ({ uid, matchPoints: 0 }));
+    return swissPairings(table, prior);
+  }
   return [];
 }
 
@@ -393,4 +405,113 @@ export function applyTieResults(
     // Lower seed number is the better seed.
     return { ...p, outcome: opts.seedOf(p.a) <= opts.seedOf(p.b) ? ("a" as const) : ("b" as const) };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Swiss (§6.3) — slice 5
+// ---------------------------------------------------------------------------
+
+/** One row of the table, as the pairing engine needs it: who, and on how much. */
+export interface SwissStanding {
+  uid: string;
+  matchPoints: number;
+}
+
+const pairKey = (a: string, b: string) => [a, b].sort().join("|");
+
+/**
+ * How many rounds a Swiss actually runs.
+ *
+ * Capped at `players − 1`, which is the number of distinct opponents anybody
+ * has. Without the cap a 4-player Swiss configured for 4 rounds would reach a
+ * round where every legal pairing is a rematch, and "no repeats" would quietly
+ * stop being true in the one place people would notice.
+ */
+export function swissRounds(configured: number, players: number): number {
+  return Math.max(1, Math.min(configured, players - 1));
+}
+
+/**
+ * Pair a Swiss round: sort by standing, pair the top half of each score group
+ * against its bottom half, float the odd player down, and never repeat a
+ * fixture if any legal alternative exists (§6.3).
+ *
+ * `standing` is best-first and carries each player's match points, which is
+ * what defines the score groups. `prior` supplies both halves of the memory
+ * this format needs: who has already met whom, and who has already sat out.
+ *
+ * The search is exhaustive rather than the "bounded swap-and-retry" the design
+ * sketched, and that is a simplification rather than a shortcut: the pairing
+ * formats are capped at 12 players (MAX_PAIRED_PARTICIPANTS), so the worst case
+ * is 11!! = 10,395 candidate pairings — small enough to enumerate outright.
+ * Enumeration cannot fail to find a repeat-free pairing that exists, which is
+ * exactly the failure mode risk T-3 is about; a heuristic can.
+ */
+export function swissPairings(
+  standing: readonly SwissStanding[],
+  prior: readonly (readonly Pairing[])[],
+): Pairing[] {
+  const met = new Set<string>();
+  const hadBye = new Set<string>();
+  for (const round of prior) {
+    for (const p of round) {
+      if (p.b === null) hadBye.add(p.a);
+      else met.add(pairKey(p.a, p.b));
+    }
+  }
+
+  const points = new Map(standing.map((s) => [s.uid, s.matchPoints]));
+  let pool = standing.map((s) => s.uid);
+
+  // §7: the bye goes to the lowest-standing player who has not already had one.
+  let bye: string | null = null;
+  if (pool.length % 2 === 1) {
+    for (let i = pool.length - 1; i >= 0; i--) {
+      if (!hadBye.has(pool[i]!)) { bye = pool[i]!; break; }
+    }
+    // Everyone has sat out once already: the bottom of the table takes a second.
+    bye ??= pool[pool.length - 1]!;
+    pool = pool.filter((u) => u !== bye);
+  }
+
+  // Repeat-free if one exists at all; a rematch only when the field leaves no
+  // choice, which the round cap above is designed to prevent.
+  const paired = solveSwiss(pool, points, met, false) ?? solveSwiss(pool, points, met, true) ?? [];
+  const pairings: Pairing[] = paired.map(([a, b]) => ({ a, b, outcome: null }));
+  if (bye !== null) pairings.push({ a: bye, b: null, outcome: null });
+  return pairings;
+}
+
+/** Exhaustive pairing of a standing-ordered pool, best candidate first. */
+function solveSwiss(
+  pool: readonly string[],
+  points: ReadonlyMap<string, number>,
+  met: ReadonlySet<string>,
+  allowRepeats: boolean,
+): [string, string][] | null {
+  if (pool.length === 0) return [];
+  const a = pool[0]!;
+  const rest = pool.slice(1);
+  for (const b of swissPreference(a, rest, points)) {
+    if (!allowRepeats && met.has(pairKey(a, b))) continue;
+    const sub = solveSwiss(rest.filter((x) => x !== b), points, met, allowRepeats);
+    if (sub) return [[a, b], ...sub];
+  }
+  return null;
+}
+
+/**
+ * Who `a` should ideally play, best first: the fold within their own score
+ * group (top half against bottom half), then outwards through the group, then
+ * players from other groups — the float.
+ */
+function swissPreference(a: string, rest: readonly string[], points: ReadonlyMap<string, number>): string[] {
+  const mine = points.get(a) ?? 0;
+  const same = rest.filter((x) => (points.get(x) ?? 0) === mine);
+  const others = rest.filter((x) => (points.get(x) ?? 0) !== mine);
+  // `a` heads its group, so the fold partner is the top of the bottom half.
+  const ideal = Math.floor((same.length + 1) / 2) - 1;
+  const distance = (x: string) => Math.abs(same.indexOf(x) - ideal);
+  const byFold = [...same].sort((x, y) => distance(x) - distance(y) || same.indexOf(x) - same.indexOf(y));
+  return [...byFold, ...others];
 }

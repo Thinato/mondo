@@ -35,7 +35,7 @@ import {
 } from "./lib/tournament";
 import {
   alive, allowsDraws, applyTieResults, assertPairableSize, drawnPairs, pairingsFor, resolvePairings,
-  roundCountFor, type Pairing,
+  roundCountFor, type Pairing, type SwissStanding,
 } from "./lib/tournament-core";
 import {
   requireBoolean, requireGroupId, requireGroupName, requireObject, requirePresetId, requireTournamentId, requireUid,
@@ -165,6 +165,7 @@ function openRound(
   exclude: ReadonlySet<string>,
   now: Timestamp,
   prior: readonly (readonly Pairing[])[] = [],
+  standing: readonly SwissStanding[] = [],
 ): void {
   const items = buildCard(t.config.cardSpec, exclude);
   const rid = roundId(tid, n);
@@ -178,7 +179,7 @@ function openRound(
     // Published with the round: the draw is public, the outcomes are not.
     // A knockout cannot be drawn before the previous round produced winners,
     // which is what `prior` carries.
-    pairings: pairingsFor(t.format, seededUids(t), n, prior),
+    pairings: pairingsFor(t.format, seededUids(t), n, prior, standing),
     tie: null,
   };
   const card: CardDoc = { tournamentId: tid, round: n, items, createdAt: now };
@@ -292,8 +293,10 @@ async function closeRoundTx(tx: Transaction, tid: string, n: number, scheduled: 
     ? applyTieResults(pairings, {}, t.config.tiebreak.chain, { exhausted: true, seedOf: seedOf(t) })
     : pairings;
 
+  const history = await swissHistory(tx, tid, t, { ...round, results, pairings: settled }, now);
+
   tx.update(roundRef(tid, n), { results, pairings: settled, closedAt: now, tie: null });
-  advanceAfter(tx, tid, t, n, settled, new Set([...scheduled, ...priorSubjects]), now);
+  advanceAfter(tx, tid, t, n, settled, new Set([...scheduled, ...priorSubjects]), now, history);
   return true;
 }
 
@@ -311,17 +314,59 @@ function advanceAfter(
   pairings: readonly Pairing[],
   exclude: ReadonlySet<string>,
   now: Timestamp,
+  history: History,
 ): void {
   if (n >= (t.roundCount ?? t.config.rounds)) {
     tx.update(tournamentRef(tid), { status: "finished" satisfies TournamentStatus, endedAt: now, currentRound: null });
     return;
   }
-  // A knockout draws round n+1 from round n's winners; `prior` is indexed by
-  // round number - 1, so only the slot for round n needs filling.
-  const prior: Pairing[][] = [];
+  // A knockout draws round n+1 from round n's winners; a Swiss needs every
+  // round before it. `prior` is indexed by round number − 1.
+  const prior: Pairing[][] = [...history.pairingsByRound];
   prior[n - 1] = [...pairings];
-  openRound(tx, tid, t, n + 1, exclude, now, prior);
+  openRound(tx, tid, t, n + 1, exclude, now, prior, history.standing);
   tx.update(tournamentRef(tid), { currentRound: n + 1 });
+}
+
+/**
+ * What the next round needs to know about every round before it. Only Swiss
+ * uses more than the round just closed, so only Swiss pays for the query.
+ */
+interface History {
+  pairingsByRound: Pairing[][];
+  standing: SwissStanding[];
+}
+
+const NO_HISTORY: History = { pairingsByRound: [], standing: [] };
+
+/**
+ * Read the whole round log so a Swiss can be paired: it must know who has
+ * already met whom, who has already sat out, and what the table looks like now.
+ * `closing` is the round being closed in this same transaction — it is not
+ * written yet, so it is substituted in rather than re-read.
+ */
+async function swissHistory(
+  tx: Transaction,
+  tid: string,
+  t: Tournament,
+  closing: TournamentRound,
+  now: Timestamp,
+): Promise<History> {
+  if (t.format !== "swiss") return NO_HISTORY;
+  const snap = await tx.get(roundsCol(tid));
+  const rounds = snap.docs
+    .map((d) => d.data() as TournamentRound)
+    .map((r) => (r.n === closing.n ? { ...closing, closedAt: now } : r))
+    .sort((a, b) => a.n - b.n);
+
+  const pairingsByRound: Pairing[][] = [];
+  for (const r of rounds) if (r.closedAt !== null) pairingsByRound[r.n - 1] = [...(r.pairings ?? [])];
+
+  const standing = standings(t, rounds, "").map((row) => ({
+    uid: row.uid,
+    matchPoints: row.record?.matchPoints ?? 0,
+  }));
+  return { pairingsByRound, standing };
 }
 
 /**
@@ -364,8 +409,9 @@ async function closeTieTx(
     tx.update(roundRef(tid, n), { pairings: settled, tie: { ...next, results: tieResults } });
     return true;
   }
+  const history = await swissHistory(tx, tid, t, { ...round, pairings: settled }, now);
   tx.update(roundRef(tid, n), { pairings: settled, tie: { ...tie, results: tieResults, closedAt: now } });
-  advanceAfter(tx, tid, t, n, settled, exclude, now);
+  advanceAfter(tx, tid, t, n, settled, exclude, now, history);
   return true;
 }
 

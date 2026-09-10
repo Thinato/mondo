@@ -88,9 +88,9 @@ export interface Preset {
  *
  * A preset for a format that does not exist yet would be a create form that
  * 500s, so this list only ever grows with the slice that implements it:
- * free-for-all under `aggregate` (slices 1–2), round robin (slice 3) and
- * single elimination (slice 4) under `match`. Swiss and double elimination
- * presets land with slices 5–6.
+ * free-for-all under `aggregate` (slices 1–2), and round robin (slice 3),
+ * single elimination (slice 4) and Swiss (slice 5) under `match`. The double
+ * elimination preset lands with slice 6.
  */
 const AGGREGATE_TIEBREAK: Tiebreak = { chain: ["points", "time"], unresolved: "seed", suddenDeathMaxItems: 0 };
 
@@ -175,6 +175,29 @@ export const PRESETS: readonly Preset[] = [
       entry: "open",
       maxParticipants: MAX_PAIRED_PARTICIPANTS,
       matchPoints: DEFAULT_MATCH_POINTS,
+      byePolicy: { credit: "win", play: true },
+    },
+  },
+  {
+    id: "suico",
+    label: "Suíço",
+    description: "Quatro rodadas contra quem está na mesma pontuação. Ninguém é eliminado.",
+    format: "swiss",
+    regime: "match",
+    config: {
+      cardSpec: { items: [{ kind: "shape", count: 3 }], order: "as_listed" },
+      // Capped at players − 1 at start: a Swiss must never reach a round where
+      // every legal pairing is a rematch.
+      rounds: 4,
+      roundDays: 1,
+      // A table can hold a draw, so it does — no sudden death, no stopwatch
+      // drama, just the classic Swiss table.
+      tiebreak: { chain: ["points", "time"], unresolved: "draw", suddenDeathMaxItems: 0 },
+      consolation: true,
+      entry: "open",
+      maxParticipants: MAX_PAIRED_PARTICIPANTS,
+      matchPoints: DEFAULT_MATCH_POINTS,
+      // §7: the bye goes to the lowest-standing player who has not had one.
       byePolicy: { credit: "win", play: true },
     },
   },
