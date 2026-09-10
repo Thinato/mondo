@@ -18,8 +18,8 @@ import { mondoError } from "./errors";
 import { opensAt as puzzleOpensAt, puzzleIdAt } from "./puzzle-day";
 import { nextDay, rankBy } from "./standings";
 import {
-  alive, competitionRanks, DEFAULT_MATCH_POINTS, EMPTY_RECORD, matchRecords, MAX_PAIRED_PARTICIPANTS,
-  survivedRounds, type MatchPoints, type MatchRecord, type Pairing,
+  alive, competitionRanks, DEFAULT_MATCH_POINTS, EMPTY_RECORD, isKnockout, livesFor, matchRecords,
+  MAX_PAIRED_PARTICIPANTS, survivedRounds, type MatchPoints, type MatchRecord, type Pairing,
 } from "./tournament-core";
 
 export type Regime = "aggregate" | "match";
@@ -60,6 +60,17 @@ export interface TournamentConfig {
    */
   matchPoints?: MatchPoints;
   byePolicy?: { credit: "win" | "draw"; play: boolean };
+  /**
+   * Double elimination only. When the losers-bracket champion beats the
+   * winners-bracket champion in the grand final, both have one defeat, so a
+   * second grand final is played to settle it.
+   *
+   * Off by default (§6.3): a reset can double a tournament's length, and these
+   * run at lunch. Off means the winners-bracket champion's unbeaten run buys
+   * them nothing in the final — which is a real cost, stated here rather than
+   * discovered.
+   */
+  grandFinalReset?: boolean;
 }
 
 export interface Preset {
@@ -89,8 +100,8 @@ export interface Preset {
  * A preset for a format that does not exist yet would be a create form that
  * 500s, so this list only ever grows with the slice that implements it:
  * free-for-all under `aggregate` (slices 1–2), and round robin (slice 3),
- * single elimination (slice 4) and Swiss (slice 5) under `match`. The double
- * elimination preset lands with slice 6.
+ * single elimination (slice 4), Swiss (slice 5) and double elimination
+ * (slice 6) under `match`.
  */
 const AGGREGATE_TIEBREAK: Tiebreak = { chain: ["points", "time"], unresolved: "seed", suddenDeathMaxItems: 0 };
 
@@ -199,6 +210,28 @@ export const PRESETS: readonly Preset[] = [
       matchPoints: DEFAULT_MATCH_POINTS,
       // §7: the bye goes to the lowest-standing player who has not had one.
       byePolicy: { credit: "win", play: true },
+    },
+  },
+  {
+    id: "chave-dupla",
+    label: "Chave dupla",
+    description: "Você precisa perder duas vezes para estar fora. Quem cai na chave de cima vai para a de baixo.",
+    format: "double_elim",
+    regime: "match",
+    config: {
+      cardSpec: { items: [{ kind: "shape", count: 5 }], order: "as_listed" },
+      // Overridden at start: 2·log2 of the bracket.
+      rounds: 1,
+      roundDays: 1,
+      // A bracket cannot hold a draw, so time stays out and sudden death
+      // settles it — same reasoning as mata-mata (D-44, D-50).
+      tiebreak: { chain: ["points"], unresolved: "sudden_death", suddenDeathMaxItems: 5 },
+      consolation: true,
+      entry: "open",
+      maxParticipants: MAX_PAIRED_PARTICIPANTS,
+      matchPoints: DEFAULT_MATCH_POINTS,
+      byePolicy: { credit: "win", play: true },
+      grandFinalReset: false,
     },
   },
 ];
@@ -478,14 +511,15 @@ export function standings(
   );
   const withRecord = rows.map((r) => ({ ...r, record: records.get(r.uid) ?? { ...EMPTY_RECORD } }));
 
-  if (t.format === "single_elim") {
+  if (isKnockout(t.format)) {
     // A knockout is ranked by how far you got, full stop. Card points only
     // order the players who went out in the same round — which is exactly the
     // consolation ranking (D-47), and why an eliminated player who keeps
     // scoring can never climb past someone still in the bracket.
+    const lives = livesFor(t.format);
     const pairingsByRound = closed.map((r) => r.pairings ?? []);
-    const survived = survivedRounds(t.participantUids, pairingsByRound);
-    const stillIn = alive(t.participantUids, pairingsByRound);
+    const survived = survivedRounds(t.participantUids, pairingsByRound, lives);
+    const stillIn = alive(t.participantUids, pairingsByRound, lives);
     const bracket = withRecord.map((r) => ({
       ...r,
       survived: survived.get(r.uid) ?? 0,

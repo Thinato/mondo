@@ -34,8 +34,8 @@ import {
   type Tournament, type TournamentRound, type TournamentStatus,
 } from "./lib/tournament";
 import {
-  alive, allowsDraws, applyTieResults, assertPairableSize, drawnPairs, pairingsFor, resolvePairings,
-  roundCountFor, type Pairing, type SwissStanding,
+  alive, allowsDraws, applyTieResults, assertPairableSize, drawnPairs, isKnockout, livesFor,
+  pairingsFor, resolvePairings, roundCountFor, type Pairing, type SwissStanding,
 } from "./lib/tournament-core";
 import {
   requireBoolean, requireGroupId, requireGroupName, requireObject, requirePresetId, requireTournamentId, requireUid,
@@ -293,11 +293,28 @@ async function closeRoundTx(tx: Transaction, tid: string, n: number, scheduled: 
     ? applyTieResults(pairings, {}, t.config.tiebreak.chain, { exhausted: true, seedOf: seedOf(t) })
     : pairings;
 
-  const history = await swissHistory(tx, tid, t, { ...round, results, pairings: settled }, now);
+  const history = await roundHistory(tx, tid, t, { ...round, results, pairings: settled }, now);
+  const after = withGrandFinalReset(t, n, settled);
 
   tx.update(roundRef(tid, n), { results, pairings: settled, closedAt: now, tie: null });
-  advanceAfter(tx, tid, t, n, settled, new Set([...scheduled, ...priorSubjects]), now, history);
+  if (after.roundCount !== t.roundCount) tx.update(tournamentRef(tid), { roundCount: after.roundCount });
+  advanceAfter(tx, tid, after, n, settled, new Set([...scheduled, ...priorSubjects]), now, history);
   return true;
+}
+
+/**
+ * A grand final the losers-bracket champion wins leaves both finalists on one
+ * defeat, so it settles nothing: `grandFinalReset` plays a second one. Off by
+ * default, in which case this returns the tournament unchanged and the single
+ * grand final stands.
+ */
+function withGrandFinalReset(t: Tournament, n: number, pairings: readonly Pairing[]): Tournament {
+  if (t.format !== "double_elim" || !t.config.grandFinalReset) return t;
+  if (n !== (t.roundCount ?? t.config.rounds)) return t;
+  const gf = pairings.find((p) => p.bracket === "gf");
+  // `a` is always the winners-bracket champion, so only "b" forces a rematch.
+  if (!gf || gf.b === null || gf.outcome !== "b") return t;
+  return { ...t, roundCount: n + 1 };
 }
 
 /** Lower is better: seed 1 beats seed 2. Missing seeds sort last. */
@@ -329,8 +346,10 @@ function advanceAfter(
 }
 
 /**
- * What the next round needs to know about every round before it. Only Swiss
- * uses more than the round just closed, so only Swiss pays for the query.
+ * What the next round needs to know about every round before it. Swiss needs
+ * who met whom and who sat out; double elimination needs which bracket each
+ * fixture belonged to. Round robin and single elimination need only the round
+ * just closed, so they never pay for the query.
  */
 interface History {
   pairingsByRound: Pairing[][];
@@ -345,14 +364,14 @@ const NO_HISTORY: History = { pairingsByRound: [], standing: [] };
  * `closing` is the round being closed in this same transaction — it is not
  * written yet, so it is substituted in rather than re-read.
  */
-async function swissHistory(
+async function roundHistory(
   tx: Transaction,
   tid: string,
   t: Tournament,
   closing: TournamentRound,
   now: Timestamp,
 ): Promise<History> {
-  if (t.format !== "swiss") return NO_HISTORY;
+  if (t.format !== "swiss" && t.format !== "double_elim") return NO_HISTORY;
   const snap = await tx.get(roundsCol(tid));
   const rounds = snap.docs
     .map((d) => d.data() as TournamentRound)
@@ -362,10 +381,10 @@ async function swissHistory(
   const pairingsByRound: Pairing[][] = [];
   for (const r of rounds) if (r.closedAt !== null) pairingsByRound[r.n - 1] = [...(r.pairings ?? [])];
 
-  const standing = standings(t, rounds, "").map((row) => ({
-    uid: row.uid,
-    matchPoints: row.record?.matchPoints ?? 0,
-  }));
+  // Only Swiss pairs off the table; a bracket pairs off the fixtures.
+  const standing = t.format === "swiss"
+    ? standings(t, rounds, "").map((row) => ({ uid: row.uid, matchPoints: row.record?.matchPoints ?? 0 }))
+    : [];
   return { pairingsByRound, standing };
 }
 
@@ -409,9 +428,11 @@ async function closeTieTx(
     tx.update(roundRef(tid, n), { pairings: settled, tie: { ...next, results: tieResults } });
     return true;
   }
-  const history = await swissHistory(tx, tid, t, { ...round, pairings: settled }, now);
+  const history = await roundHistory(tx, tid, t, { ...round, pairings: settled }, now);
+  const after = withGrandFinalReset(t, n, settled);
   tx.update(roundRef(tid, n), { pairings: settled, tie: { ...tie, results: tieResults, closedAt: now } });
-  advanceAfter(tx, tid, t, n, settled, exclude, now, history);
+  if (after.roundCount !== t.roundCount) tx.update(tournamentRef(tid), { roundCount: after.roundCount });
+  advanceAfter(tx, tid, after, n, settled, exclude, now, history);
   return true;
 }
 
@@ -849,13 +870,13 @@ async function loadPlayable(uid: string, tid: string, now: Timestamp): Promise<{
   // D-47: knocked out but still playing, unless the preset turned that off.
   // Only read the bracket when it can actually refuse — `consolation` is on in
   // every shipped preset, so this costs nothing in practice.
-  if (!t.config.consolation && t.format === "single_elim") {
+  if (!t.config.consolation && isKnockout(t.format)) {
     const closed = (await roundsCol(tid).get()).docs
       .map((d) => d.data() as TournamentRound)
       .filter((r) => r.closedAt !== null)
       .sort((a, b) => a.n - b.n)
       .map((r) => r.pairings ?? []);
-    if (!alive(t.participantUids, closed).has(uid)) throw mondoError("tournament-not-open", "You are out of this tournament.");
+    if (!alive(t.participantUids, closed, livesFor(t.format)).has(uid)) throw mondoError("tournament-not-open", "You are out of this tournament.");
   }
 
   const cSnap = await cardRef(roundId(tid, t.currentRound)).get();

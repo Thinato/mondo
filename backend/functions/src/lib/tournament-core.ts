@@ -41,6 +41,16 @@ export interface Pairing {
   a: string;
   b: string | null;
   outcome: "a" | "b" | "draw" | null;
+  /**
+   * Which half of a double-elimination bracket this fixture belongs to:
+   * `w` winners, `l` losers, `gf` grand final. Absent for every other format,
+   * which has only one bracket and therefore nothing to say.
+   *
+   * Stored rather than recomputed because the losers bracket is defined in
+   * terms of "who dropped out of winners round r", and that question is only
+   * answerable if the fixtures remember which bracket they were.
+   */
+  bracket?: "w" | "l" | "gf";
 }
 
 /**
@@ -143,6 +153,7 @@ export function roundCountFor(format: Format, configuredRounds: number, players:
   if (format === "round_robin") return roundRobinRounds(players);
   if (format === "single_elim") return singleElimRounds(players);
   if (format === "swiss") return swissRounds(configuredRounds, players);
+  if (format === "double_elim") return doubleElimRounds(players);
   return configuredRounds;
 }
 
@@ -165,6 +176,7 @@ export function pairingsFor(
 ): Pairing[] {
   if (format === "round_robin") return roundRobinPairings(seeds, n);
   if (format === "single_elim") return singleElimPairings(seeds, n, prior);
+  if (format === "double_elim") return doubleElimPairings(seeds, n, prior);
   if (format === "swiss") {
     // Round one has no table yet, so seed order stands in for it: everyone is
     // on zero, which makes the whole field one score group and the fold the
@@ -336,15 +348,55 @@ export function singleElimPairings(seeds: readonly string[], n: number, prior: r
   return pairings;
 }
 
-/** Everyone who has not yet lost a fixture. A fold, never a stored flag. */
-export function alive(uids: readonly string[], roundPairings: readonly (readonly Pairing[])[]): Set<string> {
-  const out = new Set(uids);
-  for (const pairings of roundPairings) {
+/**
+ * Everyone not yet knocked out. A fold, never a stored flag.
+ *
+ * `livesLost` is how many defeats end a tournament for you: one in single
+ * elimination, two in double — which is the entire difference between the two
+ * formats, and the reason this takes a parameter instead of assuming.
+ */
+export function alive(
+  uids: readonly string[],
+  roundPairings: readonly (readonly Pairing[])[],
+  livesLost = 1,
+): Set<string> {
+  const gone = eliminationRound(uids, roundPairings, livesLost);
+  return new Set(uids.filter((u) => gone.get(u) === null));
+}
+
+/**
+ * The round in which each player was knocked out, or null if they never were.
+ *
+ * Two ways to go out. The ordinary one is running out of lives. The other is
+ * **losing the last grand final**, which ends the tournament for you whatever
+ * your record: with `grandFinalReset` off, the losers-bracket champion who wins
+ * the final leaves both finalists on one defeat, and without this rule the
+ * table would show two survivors and no champion. Only the LAST grand final
+ * counts, so that a reset — where the first one is deliberately not final —
+ * still works.
+ */
+function eliminationRound(
+  uids: readonly string[],
+  roundPairings: readonly (readonly Pairing[])[],
+  livesLost: number,
+): Map<string, number | null> {
+  let lastGrandFinal = -1;
+  roundPairings.forEach((pairings, i) => {
+    if (pairings.some((p) => p.bracket === "gf" && p.b !== null)) lastGrandFinal = i;
+  });
+
+  const spent = new Map<string, number>(uids.map((u) => [u, 0]));
+  const out = new Map<string, number | null>(uids.map((u) => [u, null]));
+  roundPairings.forEach((pairings, i) => {
     for (const p of pairings) {
-      if (p.outcome === null || p.outcome === "draw" || p.b === null) continue;
-      out.delete(p.outcome === "a" ? p.b : p.a);
+      if (p.b === null || p.outcome === null || p.outcome === "draw") continue;
+      const loser = p.outcome === "a" ? p.b : p.a;
+      const n = (spent.get(loser) ?? 0) + 1;
+      spent.set(loser, n);
+      const fatal = n >= livesLost || (p.bracket === "gf" && i === lastGrandFinal);
+      if (fatal && out.get(loser) === null) out.set(loser, i);
     }
-  }
+  });
   return out;
 }
 
@@ -352,17 +404,13 @@ export function alive(uids: readonly string[], roundPairings: readonly (readonly
  * How many rounds each player got through: the number of closed rounds they
  * were still in at the end of. Losing in round 3 means surviving 2.
  */
-export function survivedRounds(uids: readonly string[], roundPairings: readonly (readonly Pairing[])[]): Map<string, number> {
-  const out = new Map(uids.map((u) => [u, roundPairings.length]));
-  roundPairings.forEach((pairings, i) => {
-    for (const p of pairings) {
-      if (p.outcome === null || p.outcome === "draw" || p.b === null) continue;
-      const loser = p.outcome === "a" ? p.b : p.a;
-      // Only the first loss counts; consolation play cannot knock you out twice.
-      if ((out.get(loser) ?? 0) > i) out.set(loser, i);
-    }
-  });
-  return out;
+export function survivedRounds(
+  uids: readonly string[],
+  roundPairings: readonly (readonly Pairing[])[],
+  livesLost = 1,
+): Map<string, number> {
+  const gone = eliminationRound(uids, roundPairings, livesLost);
+  return new Map(uids.map((u) => [u, gone.get(u) ?? roundPairings.length]));
 }
 
 // ---------------------------------------------------------------------------
@@ -514,4 +562,226 @@ function swissPreference(a: string, rest: readonly string[], points: ReadonlyMap
   const distance = (x: string) => Math.abs(same.indexOf(x) - ideal);
   const byFold = [...same].sort((x, y) => distance(x) - distance(y) || same.indexOf(x) - same.indexOf(y));
   return [...byFold, ...others];
+}
+
+// ---------------------------------------------------------------------------
+// Double elimination (§6.3) — slice 6
+//
+// The schedule, worked out by hand before any of this was written (risk T-2):
+//
+//   t          1     2       3       4     5     6
+//   S=8,k=3    W1    W2      W3      -     -     GF
+//              -     L1      L2      L3    L4    -
+//
+// Under D-38 one card per round is shared by everyone still in, so a winners
+// round and a losers round run in the SAME tournament round. That is what makes
+// the whole thing 2k rounds rather than 3k−1, and it is the one place where
+// duplicate scoring buys something a conventional bracket cannot have.
+// ---------------------------------------------------------------------------
+
+/** 2·log2(S). A grand-final reset, if enabled and needed, adds one more. */
+export function doubleElimRounds(players: number): number {
+  return 2 * singleElimRounds(players);
+}
+
+export interface DoubleElimSlot {
+  /** Winners-bracket round to play this tournament round, if any. */
+  wb: number | null;
+  /** Losers-bracket round to play this tournament round, if any. */
+  lb: number | null;
+  grandFinal: boolean;
+}
+
+/** What tournament round `n` consists of, for a bracket of `2^k`. */
+export function doubleElimSlot(k: number, n: number): DoubleElimSlot {
+  return {
+    wb: n <= k ? n : null,
+    lb: n >= 2 && n <= 2 * k - 1 ? n - 1 : null,
+    // 2k+1 is the reset: only reached when `grandFinalReset` is on AND the
+    // losers champion won the first one, which is what extends `roundCount`.
+    grandFinal: n === 2 * k || n === 2 * k + 1,
+  };
+}
+
+/**
+ * Which winners round drops into losers round `j`, or null when `j` is a
+ * "minor" round in which the survivors simply play each other.
+ *
+ *   j = 1      ← winners round 1
+ *   j even     ← winners round j/2 + 1
+ *   j odd ≥ 3  ← nothing
+ */
+export function dropdownSource(j: number): number | null {
+  if (j === 1) return 1;
+  return j % 2 === 0 ? j / 2 + 1 : null;
+}
+
+/** How many fixtures each player has lost, folded over the round log. */
+export function lossesOf(uids: readonly string[], prior: readonly (readonly Pairing[])[]): Map<string, number> {
+  const out = new Map(uids.map((u) => [u, 0]));
+  for (const round of prior) {
+    for (const p of round) {
+      if (p.b === null || p.outcome === null || p.outcome === "draw") continue;
+      const loser = p.outcome === "a" ? p.b : p.a;
+      out.set(loser, (out.get(loser) ?? 0) + 1);
+    }
+  }
+  return out;
+}
+
+const winnerOf = (p: Pairing): string | null =>
+  p.b === null ? p.a : p.outcome === "a" ? p.a : p.outcome === "b" ? p.b : null;
+const loserOf = (p: Pairing): string | null =>
+  p.b === null || p.outcome === null || p.outcome === "draw" ? null : p.outcome === "a" ? p.b : p.a;
+
+const inBracket = (round: readonly Pairing[] | undefined, half: "w" | "l" | "gf") =>
+  (round ?? []).filter((p) => p.bracket === half);
+
+/**
+ * Pair a double-elimination round. Every bracket question is answered by
+ * folding `prior` rather than by stored bookkeeping (D-41), which is why each
+ * fixture carries the half it belonged to.
+ */
+export function doubleElimPairings(seeds: readonly string[], n: number, prior: readonly (readonly Pairing[])[]): Pairing[] {
+  const k = singleElimRounds(seeds.length);
+  const slot = doubleElimSlot(k, n);
+  const met = metSet(prior);
+  const seedRank = new Map(seeds.map((u, i) => [u, i]));
+  const bySeed = (list: readonly string[]) => [...list].sort((x, y) => (seedRank.get(x) ?? 0) - (seedRank.get(y) ?? 0));
+
+  const pairings: Pairing[] = [];
+
+  // --- winners bracket: exactly the single-elimination bracket ---
+  if (slot.wb !== null) {
+    const wbPrior = prior.map((round) => inBracket(round, "w"));
+    const wb = slot.wb === 1
+      ? singleElimPairings(seeds, 1, [])
+      : singleElimPairings(seeds, slot.wb, wbPrior);
+    pairings.push(...wb.map((p) => ({ ...p, bracket: "w" as const })));
+  }
+
+  // --- losers bracket ---
+  if (slot.lb !== null) {
+    const j = slot.lb;
+    const source = dropdownSource(j);
+    // Survivors of the previous losers round; for j = 1 there is no previous one.
+    const survivors = j === 1 ? [] : inBracket(prior[n - 2], "l").map(winnerOf).filter((u): u is string => u !== null);
+    const drops = source === null ? [] : bySeed(inBracket(prior[source - 1], "w").map(loserOf).filter((u): u is string => u !== null));
+
+    const lb = pairLosersRound(bySeed(survivors), drops, met, seedRank);
+    pairings.push(...lb.map((p) => ({ ...p, bracket: "l" as const })));
+  }
+
+  // --- grand final ---
+  if (slot.grandFinal && n === 2 * k + 1) {
+    // The reset: the same two players, one more time, with the bracket's
+    // memory of who was unbeaten now spent.
+    const first = (prior[2 * k - 1] ?? []).find((p) => p.bracket === "gf" && p.b !== null);
+    if (first) pairings.push({ a: first.a, b: first.b, outcome: null, bracket: "gf" });
+    return pairings;
+  }
+  if (slot.grandFinal) {
+    const losses = lossesOf(seeds, prior);
+    const wbChampion = seeds.find((u) => (losses.get(u) ?? 0) === 0) ?? null;
+    // Whoever came through the LAST losers round, which is tournament round
+    // 2k−1 and therefore index 2k−2. With k = 1 there are no losers rounds at
+    // all, and the beaten finalist is simply the other player.
+    const lbChampion = inBracket(prior[2 * k - 2], "l").map(winnerOf).find((u): u is string => u !== null)
+      ?? seeds.find((u) => (losses.get(u) ?? 0) === 1) ?? null;
+    if (wbChampion && lbChampion) pairings.push({ a: wbChampion, b: lbChampion, outcome: null, bracket: "gf" });
+    else if (wbChampion) pairings.push({ a: wbChampion, b: null, outcome: null, bracket: "gf" });
+  }
+
+  return pairings;
+}
+
+/**
+ * One losers-bracket round: survivors against the players who just dropped out
+ * of the winners bracket, then whatever is left over folded among itself.
+ *
+ * The design sketched a fixed index mapping with a reversal on alternating
+ * rounds. That is the thing T-2 says is subtly wrong in most implementations,
+ * and it stops being defined at all once byes make the two sides uneven — which
+ * happens for every field that is not a power of two. So the pairing is chosen
+ * by search instead: prefer survivor-against-dropdown and the conventional
+ * fold, and reject any fixture that repeats one already played, unless the pool
+ * leaves no alternative.
+ *
+ * A rematch at the losers final or the grand final is normal and expected — the
+ * beaten winners-bracket finalist has to enter somewhere. It is the EARLY
+ * rematch, where the player who just knocked you down is handed to you again,
+ * that this exists to prevent.
+ */
+function pairLosersRound(
+  survivors: readonly string[],
+  drops: readonly string[],
+  met: ReadonlySet<string>,
+  seedRank: ReadonlyMap<string, number>,
+): Pairing[] {
+  const pool = [...survivors, ...drops];
+  if (pool.length === 0) return [];
+
+  // An odd pool means a bye upstream; the best seed left carries it, which is
+  // the conventional reward and keeps the bracket the right shape.
+  let bye: string | null = null;
+  let playing = pool;
+  if (pool.length % 2 === 1) {
+    bye = [...pool].sort((x, y) => (seedRank.get(x) ?? 0) - (seedRank.get(y) ?? 0))[0]!;
+    playing = pool.filter((u) => u !== bye);
+  }
+
+  const survivorSet = new Set(survivors.filter((u) => u !== bye));
+  const cross = (a: string, b: string) => survivorSet.has(a) !== survivorSet.has(b);
+  const solved =
+    solveBracket(playing, met, cross, true) ??
+    solveBracket(playing, met, cross, false) ??
+    solveBracket(playing, new Set(), cross, false) ??
+    [];
+
+  const out: Pairing[] = solved.map(([a, b]) => ({ a, b, outcome: null }));
+  if (bye !== null) out.push({ a: bye, b: null, outcome: null });
+  return out;
+}
+
+/**
+ * Exhaustive pairing of a losers-bracket pool. `preferCross` asks for
+ * survivor-against-dropdown first; dropping it is the fallback when the two
+ * sides are uneven. Pools here are at most six a side, so enumeration is free.
+ */
+function solveBracket(
+  pool: readonly string[],
+  met: ReadonlySet<string>,
+  cross: (a: string, b: string) => boolean,
+  requireCross: boolean,
+): [string, string][] | null {
+  if (pool.length === 0) return [];
+  const a = pool[0]!;
+  const rest = pool.slice(1);
+  // Conventional fold first: top of the pool against the top of its other half.
+  const half = Math.floor(rest.length / 2);
+  const order = [...rest].sort((x, y) => Math.abs(rest.indexOf(x) - half) - Math.abs(rest.indexOf(y) - half));
+  for (const b of order) {
+    if (requireCross && !cross(a, b)) continue;
+    if (met.has(pairKey(a, b))) continue;
+    const sub = solveBracket(rest.filter((x) => x !== b), met, cross, requireCross);
+    if (sub) return [[a, b], ...sub];
+  }
+  return null;
+}
+
+/** Every fixture already played, as unordered keys. */
+function metSet(prior: readonly (readonly Pairing[])[]): Set<string> {
+  const met = new Set<string>();
+  for (const round of prior) for (const p of round) if (p.b !== null) met.add(pairKey(p.a, p.b));
+  return met;
+}
+
+/** How many defeats end a tournament for you under `format`. */
+export function livesFor(format: Format): number {
+  return format === "double_elim" ? 2 : 1;
+}
+
+/** Whether a format knocks players out at all. */
+export function isKnockout(format: Format): boolean {
+  return format === "single_elim" || format === "double_elim";
 }
