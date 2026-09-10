@@ -22,7 +22,8 @@ const el = {
   detail: $("detail"), backToList: $("back-to-list"), tName: $("t-name"), tMeta: $("t-meta"), tActions: $("t-actions"),
   round: $("round"), roundTitle: $("round-title"), roundCloses: $("round-closes"), playBtn: $("play-btn"),
   roundHint: $("round-hint"), roundFinished: $("round-finished"), roundPlaying: $("round-playing"), roundWaiting: $("round-waiting"),
-  tRows: $("t-rows"), standingsNote: $("standings-note"),
+  tHead: $("t-head"), tRows: $("t-rows"), standingsNote: $("standings-note"),
+  fixtures: $("fixtures"), fixtureRounds: $("fixture-rounds"),
   card: $("card"), backFromCard: $("back-from-card"), cardProgress: $("card-progress"),
   cardShapeWrap: $("card-shape-wrap"), cardShape: $("card-shape"), cardCapital: $("card-capital"),
   cardGuesses: $("card-guesses"), cardForm: $("card-form"), cardInput: $("card-input"), cardList: $("card-datalist"),
@@ -204,6 +205,7 @@ function renderTournament() {
   renderActions();
   renderRound();
   renderStandings();
+  renderFixtures();
 }
 
 function renderActions() {
@@ -264,11 +266,30 @@ function playerItem(p) {
   return li;
 }
 
+/**
+ * Two tables, one function. Under `match` the league is decided by match
+ * points and the card total is only the first tiebreak, so both columns are
+ * shown and the points column is NOT the one that ranks — labelling them apart
+ * is the whole reason this varies by regime (D-49).
+ */
 function renderStandings() {
+  const isMatch = view.regime === "match";
+  const heads = isMatch
+    ? ["#", t("colName"), t("colMatchPoints"), t("colRecord"), t("colCards"), t("colGuesses"), t("colTime")]
+    : ["#", t("colName"), t("colPoints"), t("colRounds"), t("colGuesses"), t("colTime")];
+  el.tHead.replaceChildren(...heads.map((h) => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    return th;
+  }));
+
   el.tRows.replaceChildren(...view.standings.map((r) => {
     const tr = document.createElement("tr");
     if (r.isMe) tr.className = "me";
-    const cells = [r.rank, r.displayName, r.points, r.played, r.totalGuesses, formatDuration(r.totalElapsedMs)];
+    const rec = r.record;
+    const cells = isMatch
+      ? [r.rank, r.displayName, rec ? rec.matchPoints : 0, recordText(rec), r.points, r.totalGuesses, formatDuration(r.totalElapsedMs)]
+      : [r.rank, r.displayName, r.points, r.played, r.totalGuesses, formatDuration(r.totalElapsedMs)];
     cells.forEach((v, i) => {
       const td = document.createElement("td");
       if (i === 1) td.className = "name";
@@ -278,6 +299,51 @@ function renderStandings() {
     return tr;
   }));
   el.standingsNote.textContent = view.closedRounds === 0 ? t("standingsPending") : "";
+}
+
+/** "3-1-0" wins-draws-losses, with the byes named rather than folded in silently. */
+function recordText(rec) {
+  if (!rec) return "";
+  const base = `${rec.won}-${rec.drawn}-${rec.lost}`;
+  return rec.byes > 0 ? `${base} (${t("byeCount", { n: rec.byes })})` : base;
+}
+
+/**
+ * The draw, newest round first so the current one is at the top. A fixture is
+ * public as soon as its round opens; the outcome only appears once it closes,
+ * which is FR-5.6 falling out of the data rather than being filtered here.
+ */
+function renderFixtures() {
+  const rounds = view.fixtures || [];
+  el.fixtures.hidden = rounds.length === 0;
+  if (rounds.length === 0) return;
+
+  const nameOf = (uid) => {
+    const p = view.participants.find((x) => x.uid === uid);
+    return p ? p.displayName : "";
+  };
+
+  el.fixtureRounds.replaceChildren(...[...rounds].reverse().map((r) => {
+    const wrap = document.createElement("div");
+    const h = document.createElement("h4");
+    h.textContent = `${t("roundOf", { n: r.n, max: view.rounds })}${r.closed ? "" : ` · ${t("roundOpen")}`}`;
+    const ul = document.createElement("ul");
+    ul.className = "fixtures";
+    ul.append(...r.pairings.map((p) => {
+      const li = document.createElement("li");
+      if (p.b === null) {
+        li.textContent = t("byeFixture", { name: nameOf(p.a) });
+        return li;
+      }
+      // The winner is marked rather than the score being shown: under `match`
+      // the score does not carry, so leading with it would mislead.
+      const mark = (side) => (p.outcome === null ? "" : p.outcome === side ? " ✓" : p.outcome === "draw" ? " =" : "");
+      li.textContent = `${nameOf(p.a)}${mark("a")} × ${nameOf(p.b)}${mark("b")}`;
+      return li;
+    }));
+    wrap.append(h, ul);
+    return wrap;
+  }));
 }
 
 el.playBtn.addEventListener("click", () => {

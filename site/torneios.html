@@ -76,11 +76,19 @@
       <h3 class="title">Classificação</h3>
       <div class="table-wrap">
         <table class="board">
-          <thead><tr><th>#</th><th>Nome</th><th>Pontos</th><th>Rodadas</th><th>Chutes</th><th>Tempo</th></tr></thead>
+          <!-- Columns depend on the regime: a league needs match points and a
+               W-D-L record, a free-for-all does not. Built in tournaments.js. -->
+          <thead><tr id="t-head"></tr></thead>
           <tbody id="t-rows"></tbody>
         </table>
       </div>
       <p id="standings-note" class="fine"></p>
+    </section>
+
+    <!-- The draw. Only the pairing formats have one. -->
+    <section id="fixtures" aria-label="Confrontos" hidden>
+      <h3 class="title">Confrontos</h3>
+      <div id="fixture-rounds"></div>
     </section>
   </section>
 
