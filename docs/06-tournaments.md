@@ -672,7 +672,12 @@ Each slice ends in something playable, and the risk rises monotonically.
    rejects an array whose elements are arrays ("invalid nested entity") and only the emulator
    catches that; and one sub-round serves every level fixture at once rather than one tied pair,
    because resolving them one at a time would cost a day each.
-5. **Swiss** — the pairing engine; the only genuinely fiddly pure algorithm here.
+5. **Swiss** — the pairing engine; the only genuinely fiddly pure algorithm here. **Built
+   2026-09-10.** Two amendments to §6.3: the pairing search is **exhaustive**, not "bounded
+   swap-and-retry" — `MAX_PAIRED_PARTICIPANTS` is 12, so the whole space is 11!! = 10,395 pairings
+   and enumerating it removes T-3's failure mode rather than bounding it; and the round count is
+   **capped at players − 1**, because a Swiss configured for more rounds than anybody has
+   opponents must otherwise either repeat a fixture or stop pairing.
 6. **Double elimination** — bracket plumbing, grand final. Last, deliberately.
 7. **`flag` and `gdp` kinds** — `flag` per OQ-11's answer (vendored public-domain SVG set with a
    `NOTICE` entry), which also unlocks the `bandeiras` preset; `gdp` gated on OQ-12. Independent of
