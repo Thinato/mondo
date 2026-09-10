@@ -15,7 +15,8 @@ import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
-import { puzzleIdAt } from "../../src/lib/puzzle-day";
+import { opensAt, puzzleIdAt } from "../../src/lib/puzzle-day";
+import { gdpFor } from "../../src/lib/countries";
 import { advanceOpenRoundsNow } from "../../src/tournaments";
 
 process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
@@ -75,10 +76,13 @@ async function withOrganizer(label: string): Promise<Account> {
 before(async () => {
   // A puzzle must exist for the daily-schedule exclusion query (FR-5.2) and so
   // getRound works for the profile-creating first call.
+  // phase2 and phase3 share one emulator and both seed today, so the two must
+  // agree byte for byte — they raced, and the winner decided how many
+  // challenges the day had.
   await db.doc(`puzzles/${TODAY}`).set({
     puzzleId: TODAY,
-    items: [{ kind: "shape", subject: "PY" }, { kind: "flag", subject: "BR" }, { kind: "capital", subject: "IT" }],
-    opensAt: Timestamp.now(),
+    items: [{ kind: "shape", subject: "PY" }, { kind: "flag", subject: "BR" }, { kind: "capital", subject: "IT" }, { kind: "gdp", subject: "JP" }],
+    opensAt: Timestamp.fromDate(opensAt(TODAY)),
   });
 
   owner = await newAccount("t3-owner");
@@ -367,7 +371,7 @@ test("listTournaments shows the group's tournaments and the presets the form nee
   assert.equal(row.status, "finished");
   assert.equal(row.participantCount, 3);
   assert.equal(row.isParticipant, true);
-  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "bandeiras", "liga", "mata-mata", "suico", "chave-dupla"]);
+  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "bandeiras", "economia", "liga", "mata-mata", "suico", "chave-dupla"]);
   for (const p of v.presets) assert.ok(p.label && p.description, "the create form needs pt-BR copy");
   assert.equal(ok(await ana.call("listTournaments", { groupId: gid }), "as member").canManage, false);
 });
@@ -459,6 +463,38 @@ test("the bandeiras preset sends drawing data and nothing that names the country
   const out = ok(await ana.call("submitCardGuess", { tournamentId: t8, guess }), "guess");
   assert.equal(out.items[0].guessCount, 1);
   assert.ok(out.guesses[0].distanceKm >= 0, "a flag grades on distance, like a silhouette");
+});
+
+test("the economia preset asks for a number and grades it on a ratio (D-53)", async () => {
+  const t9 = ok(await owner.call("createTournament", { groupId: gid, name: "So PIB", preset: "economia" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: t9, join: true }), "ana joins");
+  ok(await owner.call("startTournament", { tournamentId: t9 }), "startTournament");
+  const v = ok(await ana.call("getCard", { tournamentId: t9 }), "getCard");
+  assert.equal(v.prompt.kind, "gdp");
+  assert.ok(typeof v.prompt.country === "string" && v.prompt.country.length > 1);
+  assert.equal(typeof v.prompt.year, "number");
+  assert.equal(v.guessesMax, 3);
+
+  // SEC-1: the country is the question here, but the figure is the answer.
+  const card = await doc(`cards/${t9}_r1`);
+  assert.equal(card.items[0].kind, "gdp");
+  const answer = gdpFor(card.items[0].subject)!;
+  assert.ok(answer > 0);
+  assert.ok(!JSON.stringify(v).includes(String(answer)), "the prompt carries the figure");
+
+  // A country code is not a guess for this kind, and a number is.
+  assert.equal(code(await ana.call("submitCardGuess", { tournamentId: t9, guess: "BR" })), "invalid-argument");
+  await sleep(450);
+  const out = ok(await ana.call("submitCardGuess", { tournamentId: t9, guess: 20000 }), "numeric guess");
+  assert.equal(out.guesses[0].kind, "number");
+  assert.equal(out.guesses[0].value, 20000);
+  assert.equal(typeof out.guesses[0].higher, "boolean");
+  assert.ok(out.guesses[0].proximity > 0 && out.guesses[0].proximity <= 1);
+  assert.equal("compass" in out.guesses[0], false);
+
+  // A group may only hold five open tournaments; leaving this one open would
+  // starve the double-elimination tests further down the file.
+  ok(await owner.call("cancelTournament", { tournamentId: t9 }), "cleanup");
 });
 
 test("D-31: an admin in the same open round sees a rival's timings but not their score", async () => {

@@ -9,6 +9,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import type { CountryGuessView, GuessView } from "../src/lib/round";
+
+/** Narrow where the test already knows the challenge was a country one. */
+const asCountryView = (g: GuessView): CountryGuessView => g as CountryGuessView;
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
@@ -60,6 +64,17 @@ test("subjects are unique within a card", () => {
   assert.equal(new Set(card.map((i) => i.subject)).size, 5);
 });
 
+test("SEC-1 / D-53: a gdp prompt names its country, so no other challenge may answer it", () => {
+  // This is the leak `gdp` makes possible and no other kind does: its prompt is
+  // a country name in plain text. Distinct subjects within a card is what stops
+  // "Qual o PIB do Brasil?" sitting beside a silhouette whose answer is Brasil.
+  const spec = { items: [{ kind: "gdp" as const, count: 2 }, { kind: "shape" as const, count: 2 }, { kind: "flag" as const, count: 1 }], order: "shuffled" as const };
+  for (let i = 0; i < 2_000; i++) {
+    const card = buildCard(spec, NONE, Math.random);
+    assert.equal(new Set(card.map((c) => c.subject)).size, card.length, JSON.stringify(card));
+  }
+});
+
 test("FR-5.2: an excluded subject never appears — not even when it is almost everything", () => {
   const all = [...COUNTRIES.keys()];
   const keep = new Set(["PY", "BR", "IT", "JP", "KE"]);
@@ -78,7 +93,7 @@ test("a spec must ask for at least one challenge and at most ten", () => {
   rejects(() => buildCard({ items: [{ kind: "shape", count: 11 }], order: "as_listed" }, NONE), "invalid-argument");
   rejects(() => buildCard({ items: [{ kind: "shape", count: 0 }], order: "as_listed" }, NONE), "invalid-argument");
   rejects(() => buildCard({ items: [{ kind: "shape", count: 1.5 }], order: "as_listed" }, NONE), "invalid-argument");
-  rejects(() => buildCard({ items: [{ kind: "gdp" as "shape", count: 1 }], order: "as_listed" }, NONE), "invalid-argument");
+  rejects(() => buildCard({ items: [{ kind: "population" as "shape", count: 1 }], order: "as_listed" }, NONE), "invalid-argument");
 });
 
 test("tier weighting follows FR-2.4 rather than the raw pool shape", () => {
@@ -238,7 +253,7 @@ test("a finished item reveals its own answer; a pending one still hides its kind
 
 test("D-36: the view gives the compass, never the exact bearing", () => {
   const v = cardView(play([["AR", 1000]]), CARD, at(1000));
-  const g = v.guesses[0]!;
+  const g = asCountryView(v.guesses[0]!);
   assert.ok(g.compass.length <= 2);
   assert.ok(!("bearingDeg" in g), "an exact bearing plus an exact distance solves for the centroid");
 });
@@ -247,7 +262,7 @@ test("guesses in the view are the current item's only", () => {
   const v = cardView(play([["AR", 1000], ["PY", 2000], ["FR", 3000]]), CARD, at(3000));
   assert.equal(v.cursor, 1);
   assert.equal(v.guesses.length, 1);
-  assert.equal(v.guesses[0]!.code, "FR");
+  assert.equal(asCountryView(v.guesses[0]!).code, "FR");
 });
 
 test("a finished card shows totals and no prompt", () => {

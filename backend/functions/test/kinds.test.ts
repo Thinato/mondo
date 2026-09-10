@@ -11,8 +11,14 @@ import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { COUNTRIES, countryByCode, flagFor } from "../src/lib/countries";
-import { KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem } from "../src/lib/kinds";
+import { GDP_CORRECT_WITHIN, KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem } from "../src/lib/kinds";
+import { GDP_YEAR, gdpFor } from "../src/lib/countries";
+import { isNumberGuess, type StoredNumberGuess } from "../src/lib/round";
 import { distanceKm } from "../src/lib/geo";
+import type { StoredCountryGuess, StoredGuess } from "../src/lib/round";
+
+/** Narrow where the test already knows the kind stores a country guess. */
+const asCountry = (g: StoredGuess): StoredCountryGuess => g as StoredCountryGuess;
 
 const T0 = Timestamp.fromMillis(Date.parse("2026-09-15T15:30:00Z"));
 
@@ -175,20 +181,95 @@ test("flag grades identically to shape — the answer is a country either way", 
   assert.deepEqual(KINDS.flag.grade("BR", "AR", T0), KINDS.shape.grade("BR", "AR", T0));
 });
 
+// --- gdp (OQ-12, D-53) -----------------------------------------------------
+
+const asNumber = (g: StoredGuess): StoredNumberGuess => g as StoredNumberGuess;
+
+test("D-53: the gdp prompt names the country, because here the country is the question", () => {
+  const p = KINDS.gdp.prompt("BR");
+  assert.deepEqual(p, { kind: "gdp", country: "Brasil", year: GDP_YEAR });
+  // ...and the figure, which IS the answer, is nowhere in it (SEC-1).
+  assert.ok(!JSON.stringify(p).includes(String(gdpFor("BR"))), "the prompt carries the figure");
+});
+
+test("D-53: a guess within 10 % counts, and one just outside does not", () => {
+  const answer = gdpFor("BR")!;
+  const grade = (v: number) => KINDS.gdp.grade("BR", v, T0);
+  assert.equal(grade(answer).correct, true, "exact");
+  assert.equal(grade(Math.round(answer * 0.91)).correct, true, "9 % under");
+  assert.equal(grade(Math.round(answer / 0.91)).correct, true, "9 % over, symmetrically");
+  assert.equal(grade(Math.round(answer * 0.89)).correct, false, "11 % under");
+  assert.equal(grade(Math.round(answer / 0.89)).correct, false, "11 % over");
+  // The rule is a ratio, so there is no "10 % of which number?" to argue about.
+  assert.equal(GDP_CORRECT_WITHIN, 0.9);
+});
+
+test("D-53: the feedback is how close as a ratio, and which way to go", () => {
+  const answer = gdpFor("BR")!;
+  const half = asNumber(KINDS.gdp.grade("BR", Math.round(answer / 2), T0).guess);
+  assert.ok(Math.abs(half.proximity - 0.5) < 0.01, `2x out should read ~50 %, got ${half.proximity}`);
+  assert.equal(half.higher, true, "the answer is higher than half of it");
+
+  const double = asNumber(KINDS.gdp.grade("BR", answer * 2, T0).guess);
+  assert.ok(Math.abs(double.proximity - 0.5) < 0.01);
+  assert.equal(double.higher, false);
+  assert.equal(isNumberGuess(double), true);
+});
+
+test("SEC-8: a gdp guess must be a plausible number, and nothing else", () => {
+  for (const bad of ["22000", null, {}, [], true, NaN, Infinity]) {
+    rejects(() => KINDS.gdp.grade("BR", bad, T0), "invalid-argument");
+  }
+  rejects(() => KINDS.gdp.grade("BR", 0, T0), "invalid-argument");
+  rejects(() => KINDS.gdp.grade("BR", -5, T0), "invalid-argument");
+  rejects(() => KINDS.gdp.grade("BR", 1e10, T0), "invalid-argument");
+  // A country code is a guess for the other three kinds and gibberish for this one.
+  rejects(() => KINDS.shape.grade("PY", 22000, T0), "invalid-argument");
+});
+
+test("D-53: the ten countries the World Bank has no figure for cannot be asked", () => {
+  const pool = new Set(KINDS.gdp.pool().map((c) => c.code));
+  for (const code of ["CU", "ER", "KP", "LI", "MC", "SS", "SY", "TW", "VE", "YE"]) {
+    assert.ok(!pool.has(code), `${code} has no figure and must not be asked`);
+  }
+  for (const code of ["BR", "PT", "US", "VN", "NG", "QA"]) assert.ok(pool.has(code), `${code} should be askable`);
+  assert.equal(pool.size, 186);
+  for (const c of KINDS.gdp.pool()) assert.ok(gdpFor(c.code)! > 0, `${c.code}: implausible figure`);
+});
+
+test("D-53: reveal is the figure, since the country was never the secret", () => {
+  const r = KINDS.gdp.reveal("BR");
+  assert.equal(r.code, "BR");
+  assert.ok(r.name.startsWith("Brasil: "));
+  assert.ok(r.name.includes(gdpFor("BR")!.toLocaleString("pt-BR")));
+});
+
+test("wasCorrect reads a stored guess back without a clock", () => {
+  const answer = gdpFor("BR")!;
+  const near = KINDS.gdp.grade("BR", Math.round(answer * 0.95), T0).guess;
+  const far = KINDS.gdp.grade("BR", Math.round(answer * 0.5), T0).guess;
+  assert.equal(KINDS.gdp.wasCorrect("BR", near), true);
+  assert.equal(KINDS.gdp.wasCorrect("BR", far), false);
+  // And a country kind still answers on the code it stored.
+  assert.equal(KINDS.shape.wasCorrect("PY", KINDS.shape.grade("PY", "PY", T0).guess), true);
+  assert.equal(KINDS.shape.wasCorrect("PY", KINDS.shape.grade("PY", "AR", T0).guess), false);
+  assert.equal(KINDS.shape.wasCorrect("PY", near), false, "a number is never a country");
+});
+
 // --- grading ---------------------------------------------------------------
 
 test("a wrong guess grades to distance, bearing and proximity; a right one to zero distance", () => {
   const wrong = KINDS.shape.grade("PY", "AR", T0);
   assert.equal(wrong.correct, false);
-  assert.equal(wrong.guess.code, "AR");
-  assert.equal(wrong.guess.distanceKm, distanceKm(COUNTRIES.get("AR")!.centroid, COUNTRIES.get("PY")!.centroid));
-  assert.ok(wrong.guess.bearingDeg > 0);
+  assert.equal(asCountry(wrong.guess).code, "AR");
+  assert.equal(asCountry(wrong.guess).distanceKm, distanceKm(COUNTRIES.get("AR")!.centroid, COUNTRIES.get("PY")!.centroid));
+  assert.ok(asCountry(wrong.guess).bearingDeg > 0);
 
   const right = KINDS.shape.grade("PY", "PY", T0);
   assert.equal(right.correct, true);
-  assert.equal(right.guess.distanceKm, 0);
-  assert.equal(right.guess.bearingDeg, 0);
-  assert.equal(right.guess.proximity, 1);
+  assert.equal(asCountry(right.guess).distanceKm, 0);
+  assert.equal(asCountry(right.guess).bearingDeg, 0);
+  assert.equal(asCountry(right.guess).proximity, 1);
 });
 
 test("capital grades identically to shape — the answer is a country either way", () => {
@@ -205,7 +286,7 @@ test("SEC-8: a guess that is not a known country code is rejected by the kind it
 });
 
 test("kindById rejects anything not registered", () => {
-  rejects(() => kindById("gdp"), "invalid-argument"); // planned, not shipped (OQ-12)
+  rejects(() => kindById("population"), "invalid-argument"); // every shipped kind is now in KIND_IDS
   rejects(() => kindById("constructor"), "invalid-argument");
   rejects(() => kindById("__proto__"), "invalid-argument");
 });

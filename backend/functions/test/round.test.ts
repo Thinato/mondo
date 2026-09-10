@@ -15,10 +15,10 @@ import { HttpsError } from "firebase-functions/v2/https";
 import {
   applyGuess, intervalsMs, maxPointsFor, newAttempt, newProfile, previousDay, puzzleItems, randomHandle,
   recordCompletion, resetAttempt, roundView, statusOf, upgradeAttempt,
-  type Attempt, type Puzzle,
+  type Attempt, type CountryGuessView, type GuessView, type Puzzle, type StoredCountryGuess, type StoredGuess,
 } from "../src/lib/round";
 import type { CardItem } from "../src/lib/card";
-import { COUNTRIES } from "../src/lib/countries";
+import { COUNTRIES, gdpFor } from "../src/lib/countries";
 import { distanceKm } from "../src/lib/geo";
 
 const T0 = Timestamp.fromMillis(Date.parse("2026-09-15T15:30:00Z"));
@@ -39,6 +39,12 @@ const rejects = (fn: () => unknown, code: string) =>
     assert.deepEqual(e.details, { code });
     return true;
   });
+
+
+/** The three country kinds store a country guess; `gdp` stores a number (D-53).
+ *  These narrow the union where a test already knows which it is. */
+const asCountry = (g: StoredGuess): StoredCountryGuess => g as StoredCountryGuess;
+const asCountryView = (g: GuessView): CountryGuessView => g as CountryGuessView;
 
 /** Play `codes` one second apart against the day's card. */
 function play(codes: string[], a: Attempt = start()): Attempt {
@@ -68,7 +74,7 @@ test("a wrong guess records distance, bearing and proximity and leaves the chall
   assert.equal(a.cursor, 0, "a wrong guess does not move on");
   assert.equal(a.finishedAt, null);
   assert.equal(statusOf(a), "in_progress");
-  const g = a.items[0]!.guesses[0]!;
+  const g = asCountry(a.items[0]!.guesses[0]!);
   assert.equal(g.code, "AR");
   assert.equal(g.distanceKm, distanceKm(COUNTRIES.get("AR")!.centroid, COUNTRIES.get("PY")!.centroid));
   assert.ok(g.distanceKm > 800 && g.distanceKm < 1600, `AR→PY ${g.distanceKm} km`);
@@ -229,10 +235,54 @@ test("SEC-1: the view gives the 8-point arrow, never the exact bearing", () => {
   // Exact distance AND exact bearing from a public centroid solve for the
   // answer's centroid in closed form, so one guess would have named it.
   const view = roundView(play(["AR"]), puzzle, at(1000));
-  const g = view.guesses[0]!;
+  const g = asCountryView(view.guesses[0]!);
   assert.equal(g.compass, "NE");
   assert.equal("bearingDeg" in g, false);
   assert.equal(JSON.stringify(view).includes("bearing"), false);
+});
+
+// --- a real day, all four kinds (D-53) --------------------------------------
+
+test("D-53: a four-kind day is worth 24, and the number challenge plays like the rest", () => {
+  const card: CardItem[] = [
+    { kind: "shape", subject: "PY" },
+    { kind: "gdp", subject: "BR" },
+    { kind: "flag", subject: "JP" },
+    { kind: "capital", subject: "IT" },
+  ];
+  const p: Puzzle = { puzzleId: "2026-09-15", items: card, opensAt: T0 };
+  assert.equal(maxPointsFor(card), 24);
+
+  const answer = gdpFor("BR")!;
+  const steps: unknown[] = ["PY", Math.round(answer * 0.5), answer, "JP", "IT"];
+  const a = steps.reduce<Attempt>((acc, g, i) => applyGuess(acc, card, g, at((i + 1) * 1000)), newAttempt("u1", p.puzzleId, card, T0));
+
+  assert.equal(a.solved, true);
+  assert.equal(a.points, 6 + 4 + 6 + 6, "the gdp fell on the second guess");
+  assert.equal(a.guessCount, 5);
+
+  const view = roundView(a, p, at(6000));
+  assert.equal(view.maxPoints, 24);
+  assert.equal(view.items[1]!.answer?.name, `Brasil: ${answer.toLocaleString("pt-BR")}`);
+  const rows = view.shareGrid!.split("\n");
+  assert.equal(rows[0], "Mondo 2026-09-15 22/24");
+  assert.equal(rows.length, 5);
+  assert.ok(rows[2]!.startsWith("💰 "), rows[2]);
+  // SEC-1 holds for the text people paste into a chat: the figure is an answer.
+  assert.ok(!view.shareGrid!.includes(String(answer)), "the share grid leaks the figure");
+});
+
+test("D-53: a number guess is rendered as a number, with a direction instead of a compass", () => {
+  const card: CardItem[] = [{ kind: "gdp", subject: "BR" }];
+  const p: Puzzle = { puzzleId: "2026-09-15", items: card, opensAt: T0 };
+  const answer = gdpFor("BR")!;
+  const a = applyGuess(newAttempt("u1", p.puzzleId, card, T0), card, Math.round(answer / 2), at(1000));
+  const g = roundView(a, p, at(1000)).guesses[0]!;
+  assert.equal(g.kind, "number");
+  assert.equal(g.kind === "number" && g.higher, true);
+  assert.ok(g.kind === "number" && Math.abs(g.proximity - 0.5) < 0.01);
+  assert.equal("compass" in g, false);
+  assert.equal("code" in g, false);
 });
 
 // --- days seeded before D-52 ------------------------------------------------

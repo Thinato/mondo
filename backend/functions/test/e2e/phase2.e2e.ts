@@ -13,6 +13,7 @@ import { initializeApp } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { healthCheckNow, sweepExpiredInvites } from "../../src/health";
 import { opensAt, puzzleIdAt } from "../../src/lib/puzzle-day";
+import { gdpFor } from "../../src/lib/countries";
 import { previousDay } from "../../src/lib/round";
 import { rebuildStandingsNow } from "../../src/standings";
 
@@ -64,11 +65,13 @@ async function withRole(label: string, role: "admin" | "organizer"): Promise<Acc
   return a;
 }
 
-async function play(a: Account, codes: string[]): Promise<Res> {
+async function play(a: Account, guesses: (string | number)[]): Promise<Res> {
   let r = await a.call("getRound", {});
-  for (const c of codes) {
+  for (const g of guesses) {
     await sleep(450);
-    r = await a.call("submitGuess", { puzzleId: TODAY, code: c });
+    // `code` rather than `guess`, on purpose: this is the field an older cached
+    // client sends, and D-53 kept accepting it (src/round.ts).
+    r = await a.call("submitGuess", { puzzleId: TODAY, code: g });
   }
   return r;
 }
@@ -97,7 +100,7 @@ before(async () => {
   // than asserted about.
   await db.doc(`puzzles/${TODAY}`).set({
     puzzleId: TODAY,
-    items: [{ kind: "shape", subject: "PY" }, { kind: "flag", subject: "BR" }, { kind: "capital", subject: "IT" }],
+    items: [{ kind: "shape", subject: "PY" }, { kind: "flag", subject: "BR" }, { kind: "capital", subject: "IT" }, { kind: "gdp", subject: "JP" }],
     opensAt: Timestamp.fromDate(opensAt(TODAY)),
   });
   await db.doc(`puzzles/${YESTERDAY}`).set({ puzzleId: YESTERDAY, countryCode: "AR", tier: 1, opensAt: Timestamp.fromDate(opensAt(YESTERDAY)) });
@@ -155,12 +158,13 @@ test("3. FR-4.3: invite link → accept → the player can play", async () => {
   const round = ok(await player.call("getRound", {}), "getRound after invite");
   assert.equal(round.status, "in_progress");
   assert.deepEqual(round.me, { displayName: (await doc(`users/${player.uid}`)).displayName, role: "player", groupCount: 1 });
-  assert.equal(round.itemCount, 3, "D-52: a day is three challenges");
-  const done = ok(await play(player, ["PY", "BR", "IT"]), "solve the day");
+  assert.equal(round.itemCount, 4, "D-52/D-53: a day is one challenge of every kind");
+  const jp = gdpFor("JP")!;
+  const done = ok(await play(player, ["PY", "BR", "IT", jp]), "solve the day");
   assert.equal(done.status, "solved");
-  assert.equal(done.points, 18);
-  assert.equal(done.maxPoints, 18);
-  assert.deepEqual(done.items.map((i: Any) => i.answer.name), ["Paraguai", "Brasil", "Itália"]);
+  assert.equal(done.points, 24);
+  assert.equal(done.maxPoints, 24);
+  assert.deepEqual(done.items.map((i: Any) => i.answer.name), ["Paraguai", "Brasil", "Itália", `Japão: ${jp.toLocaleString("pt-BR")}`]);
 
   const list = ok(await player.call("listGroups", {}), "listGroups");
   assert.deepEqual(list.groups, [{ groupId: gid, name: "Almoço", memberCount: 2, isOwner: false }]);
@@ -231,13 +235,15 @@ test("5. FR-4.10 / FR-4.11: the board is members-only and hides today's scores u
   assert.equal(before.group.isOwner, true);
   assert.equal(before.group.memberCount, 3);
 
-  const solved = ok(await play(organizer, ["AR", "PY", "BR", "IT"]), "organizer solves");
+  // A ratio guess: half the real figure is wrong, then the figure itself.
+  const jp = gdpFor("JP")!;
+  const solved = ok(await play(organizer, ["AR", "PY", "BR", "IT", Math.round(jp / 2), jp]), "organizer solves");
   assert.equal(solved.status, "solved");
-  assert.equal(solved.points, 17, "5 + 6 + 6");
+  assert.equal(solved.points, 21, "5 + 6 + 6 + 4");
   const after = ok(await organizer.call("getLeaderboard", { groupId: gid }), "getLeaderboard finished");
   assert.equal(after.today.viewerFinished, true);
   const p = after.today.players.find((x: Any) => x.uid === player.uid);
-  assert.deepEqual([p.state, p.points, p.guessCount], ["finished", 18, 3]);
+  assert.deepEqual([p.state, p.points, p.guessCount], ["finished", 24, 4]);
   const me = after.rows.find((r: Any) => r.uid === organizer.uid);
   assert.equal(me.isMe, true);
   for (const w of ["allTime", "last7", "last30"]) assert.equal(typeof me[w].rank, "number");
@@ -310,13 +316,13 @@ test("6. FR-7.2: admin dashboard callables, gates, retry", async () => {
   const a = await doc(`attempts/${player.uid}_${TODAY}`);
   assert.equal(a.retries, 1);
   assert.equal(a.history.length, 1);
-  assert.equal(a.history[0].points, 18, "the whole day it replaced is on the record");
-  assert.equal(a.history[0].items.length, 3);
+  assert.equal(a.history[0].points, 24, "the whole day it replaced is on the record");
+  assert.equal(a.history[0].items.length, 4);
   assert.equal(a.cursor, 0, "a retry starts at the first challenge again");
   assert.equal(a.history[0].retryGrantedBy, admin.uid);
-  // The whole day again: silhouette on the second guess, then both others first.
-  const again = ok(await play(player, ["BR", "PY", "BR", "IT"]), "replay");
-  assert.equal(again.points, 17);
+  // The whole day again: silhouette on the second guess, then the rest first time.
+  const again = ok(await play(player, ["BR", "PY", "BR", "IT", gdpFor("JP")!]), "replay");
+  assert.equal(again.points, 23, "5 + 6 + 6 + 6");
   const prof = await doc(`users/${player.uid}`);
   assert.equal(prof.totalPlayed, 1, "D-30: a retried day is counted once");
   assert.equal(prof.totalSolved, 1);
