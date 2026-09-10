@@ -97,7 +97,7 @@ before(async () => {
 test("only the group owner may create a tournament, and only from a shipped preset", async () => {
   assert.equal(code(await ana.call("createTournament", { groupId: gid, name: "Meu torneio", preset: "quintal" })), "permission-denied");
   assert.equal(code(await carla.call("createTournament", { groupId: gid, name: "Meu torneio", preset: "quintal" })), "permission-denied");
-  assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "Nope", preset: "suico" })), "invalid-argument"); // slice 5, not shipped
+  assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "Nope", preset: "chave-dupla" })), "invalid-argument"); // slice 6, not shipped
   assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "ab", preset: "quintal" })), "invalid-argument");
 });
 
@@ -363,7 +363,7 @@ test("listTournaments shows the group's tournaments and the presets the form nee
   assert.equal(row.status, "finished");
   assert.equal(row.participantCount, 3);
   assert.equal(row.isParticipant, true);
-  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "liga", "mata-mata"]);
+  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "liga", "mata-mata", "suico"]);
   for (const p of v.presets) assert.ok(p.label && p.description, "the create form needs pt-BR copy");
   assert.equal(ok(await ana.call("listTournaments", { groupId: gid }), "as member").canManage, false);
 });
@@ -712,6 +712,65 @@ test("the last round crowns exactly one champion", async () => {
   assert.equal(standing[0].survived, 2);
   // davi went out in round one and stays bottom however much consolation he played.
   assert.equal(standing[standing.length - 1].uid, davi.uid);
+});
+
+// ---------------------------------------------------------------------------
+// Slice 5 — Swiss (§6.3)
+//
+// Three players, so `rounds: 4` is capped to 2: nobody has more than two
+// possible opponents, and a Swiss must never reach a round where every legal
+// pairing is a rematch.
+// ---------------------------------------------------------------------------
+
+let swissId: string;
+
+test("a Swiss caps its length at the number of opponents anybody actually has", async () => {
+  swissId = ok(await owner.call("createTournament", { groupId: gid, name: "Suíço do quintal", preset: "suico" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: swissId, join: true }), "ana joins");
+  ok(await davi.call("setParticipation", { tournamentId: swissId, join: true }), "davi joins");
+  ok(await owner.call("startTournament", { tournamentId: swissId }), "startTournament");
+
+  const t = await doc(`tournaments/${swissId}`);
+  assert.equal(t.format, "swiss");
+  assert.equal(t.regime, "match");
+  assert.equal(t.config.rounds, 4, "the preset still says four");
+  assert.equal(t.roundCount, 2, "but three players only have two opponents each");
+
+  const p1 = (await doc(`tournaments/${swissId}/rounds/1`)).pairings;
+  assert.equal(p1.length, 2, "one fixture and one bye");
+  assert.equal(p1.filter((p: Any) => p.b === null).length, 1);
+});
+
+test("the second round pairs on the table and repeats nobody", async () => {
+  // Whoever is drawn together in round 1 plays it out; the bye sits.
+  const p1 = (await doc(`tournaments/${swissId}/rounds/1`)).pairings;
+  const fixture = p1.find((p: Any) => p.b !== null)!;
+  const byePlayer = p1.find((p: Any) => p.b === null)!.a;
+  const accounts: Record<string, Account> = { [owner.uid]: owner, [ana.uid]: ana, [davi.uid]: davi };
+  await playCardOf(accounts[fixture.a]!, swissId, `${swissId}_r1`);
+  ok(await owner.call("advanceTournament", { tournamentId: swissId }), "advanceTournament");
+
+  const t = await doc(`tournaments/${swissId}`);
+  assert.equal(t.currentRound, 2, "a Swiss eliminates nobody, so it just carries on");
+
+  const p2 = (await doc(`tournaments/${swissId}/rounds/2`)).pairings;
+  assert.equal(p2.filter((p: Any) => p.b === null).length, 1, "still one bye");
+  assert.notEqual(p2.find((p: Any) => p.b === null)!.a, byePlayer, "and not the same player twice");
+
+  const key = (p: Any) => [p.a, p.b].sort().join("|");
+  assert.notEqual(key(p2.find((p: Any) => p.b !== null)!), key(fixture), "nor the same fixture twice");
+});
+
+test("the Swiss table is a league table, and nobody is ever knocked out of it", async () => {
+  const v = ok(await owner.call("getTournament", { tournamentId: swissId }), "getTournament");
+  assert.equal(v.regime, "match");
+  for (const r of v.standings) {
+    assert.ok(r.record, "a Swiss row needs a W-D-L record");
+    assert.equal(r.eliminated, undefined, "Swiss has no elimination column at all");
+  }
+  // Round 1 awarded three points for the fixture and three for the bye.
+  const total = v.standings.reduce((n: number, r: Any) => n + r.record.matchPoints, 0);
+  assert.equal(total, 6);
 });
 
 test("a group cannot be drowned in open tournaments", async () => {

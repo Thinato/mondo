@@ -22,7 +22,7 @@ import {
   alive, allowsDraws, applyTieResults, assertPairableSize, bracketOrder, bracketSize, cardWinner,
   competitionRanks, DEFAULT_MATCH_POINTS, drawnPairs, matchRecords, MAX_PAIRED_PARTICIPANTS,
   pairingsFor, resolvePairings, roundCountFor, roundRobinPairings, roundRobinRounds,
-  singleElimPairings, singleElimRounds, survivedRounds, type Pairing,
+  singleElimPairings, singleElimRounds, survivedRounds, swissPairings, swissRounds, type Pairing,
 } from "../src/lib/tournament-core";
 import type { RoundResultRow, Tiebreak } from "../src/lib/tournament";
 
@@ -455,4 +455,164 @@ test("a player who skipped the sudden-death card loses it, however level they we
   const ps: Pairing[] = [{ a: "A", b: "B", outcome: "draw" }];
   const after = applyTieResults(ps, { A: res(0, 60_000) }, POINTS_ONLY, { exhausted: false, seedOf: () => 1 });
   assert.equal(after[0]!.outcome, "a", "B never opened it; turning up wins");
+});
+
+// ---------------------------------------------------------------------------
+// Swiss (§6.3) — slice 5
+//
+// The claims that matter, and none of them are checkable by eye:
+//   - nobody meets the same opponent twice
+//   - nobody sits out twice while somebody else has not sat out at all
+//   - winners are paired with winners
+// So they are simulated over full tournaments and asserted as properties.
+// ---------------------------------------------------------------------------
+
+/** Run a whole Swiss, deciding every fixture with `decide`. */
+function runSwiss(
+  uids: string[],
+  rounds: number,
+  decide: (a: string, b: string, round: number) => "a" | "b" | "draw",
+): Pairing[][] {
+  const history: Pairing[][] = [];
+  for (let n = 1; n <= rounds; n++) {
+    const recs = matchRecords(uids, history, DEFAULT_MATCH_POINTS);
+    const standing = [...uids]
+      .sort((x, y) => recs.get(y)!.matchPoints - recs.get(x)!.matchPoints || uids.indexOf(x) - uids.indexOf(y))
+      .map((uid) => ({ uid, matchPoints: recs.get(uid)!.matchPoints }));
+    const ps = swissPairings(standing, history);
+    history.push(ps.map((p) => ({ ...p, outcome: p.b === null ? "a" : decide(p.a, p.b, n) })));
+  }
+  return history;
+}
+
+const meetings = (history: Pairing[][]) =>
+  history.flat().filter((p) => p.b !== null).map((p) => [p.a, p.b].sort().join("|"));
+const byesIn = (history: Pairing[][]) => history.flat().filter((p) => p.b === null).map((p) => p.a);
+
+test("a Swiss never runs longer than there are opponents to play", () => {
+  assert.equal(swissRounds(4, 8), 4);
+  assert.equal(swissRounds(4, 4), 3, "four players have three possible opponents");
+  assert.equal(swissRounds(4, 2), 1);
+  assert.equal(swissRounds(9, 6), 5);
+  assert.equal(roundCountFor("swiss", 4, 4), 3);
+});
+
+test("nobody meets the same opponent twice, for every field from 2 to 12", () => {
+  for (let n = 2; n <= MAX_PAIRED_PARTICIPANTS; n++) {
+    const uids = Array.from({ length: n }, (_, i) => `p${i + 1}`);
+    const rounds = swissRounds(4, n);
+    // Decide deterministically but not uniformly: the higher seed usually wins,
+    // every third fixture is an upset, so the score groups actually churn.
+    const history = runSwiss(uids, rounds, (a, b, r) => ((uids.indexOf(a) + uids.indexOf(b) + r) % 3 === 0 ? "b" : "a"));
+    const met = meetings(history);
+    assert.equal(new Set(met).size, met.length, `${n} players: a rematch was scheduled`);
+    for (const round of history) {
+      const seen = round.flatMap((p) => (p.b === null ? [p.a] : [p.a, p.b]));
+      assert.equal(new Set(seen).size, seen.length, `${n} players: somebody is double-booked`);
+      assert.deepEqual([...seen].sort(), [...uids].sort(), `${n} players: everybody plays every round`);
+    }
+  }
+});
+
+test("an odd field gives exactly one bye per round, and never twice to the same player first", () => {
+  for (const n of [3, 5, 7, 9, 11]) {
+    const uids = Array.from({ length: n }, (_, i) => `p${i + 1}`);
+    const rounds = swissRounds(4, n);
+    const history = runSwiss(uids, rounds, () => "a");
+    const byes = byesIn(history);
+    assert.equal(byes.length, rounds, `${n} players: one bye per round`);
+    // Nobody sits out a second time while somebody has not sat out at all.
+    const counts = new Map<string, number>();
+    for (const u of byes) counts.set(u, (counts.get(u) ?? 0) + 1);
+    assert.ok(Math.max(...counts.values()) - Math.min(0, ...uids.map((u) => counts.get(u) ?? 0)) <= 1,
+      `${n} players: byes are not spread evenly`);
+    assert.equal(new Set(byes).size, byes.length, `${n} players: somebody sat out twice inside ${rounds} rounds`);
+  }
+});
+
+test("an even field has no byes at all", () => {
+  const uids = ["a", "b", "c", "d", "e", "f"];
+  assert.deepEqual(byesIn(runSwiss(uids, 3, () => "a")), []);
+});
+
+test("the bye goes to the bottom of the table, not to whoever happens to be last in the list", () => {
+  // p1 has lost everything, so it sits at the bottom of the standing even though
+  // it is first in the uid list.
+  const standing = [
+    { uid: "p3", matchPoints: 6 },
+    { uid: "p2", matchPoints: 3 },
+    { uid: "p1", matchPoints: 0 },
+  ];
+  const ps = swissPairings(standing, []);
+  assert.deepEqual(ps.filter((p) => p.b === null).map((p) => p.a), ["p1"]);
+});
+
+test("somebody who has already sat out is passed over for the bye", () => {
+  const standing = [
+    { uid: "top", matchPoints: 6 },
+    { uid: "mid", matchPoints: 3 },
+    { uid: "bottom", matchPoints: 0 },
+  ];
+  // `bottom` is lowest but already had one, so it falls to `mid`.
+  const prior: Pairing[][] = [[{ a: "bottom", b: null, outcome: "a" }]];
+  const ps = swissPairings(standing, prior);
+  assert.deepEqual(ps.filter((p) => p.b === null).map((p) => p.a), ["mid"]);
+});
+
+test("winners are paired with winners: the fold happens inside each score group", () => {
+  // Four on 3 points, four on 0. The 3-point group must pair 1v3 and 2v4 within
+  // itself, and the 0-point group likewise — no cross-group fixture is needed.
+  const standing = [
+    { uid: "w1", matchPoints: 3 }, { uid: "w2", matchPoints: 3 },
+    { uid: "w3", matchPoints: 3 }, { uid: "w4", matchPoints: 3 },
+    { uid: "l1", matchPoints: 0 }, { uid: "l2", matchPoints: 0 },
+    { uid: "l3", matchPoints: 0 }, { uid: "l4", matchPoints: 0 },
+  ];
+  const ps = swissPairings(standing, []);
+  const text = ps.map((p) => `${p.a}-${p.b}`).sort();
+  assert.deepEqual(text, ["l1-l3", "l2-l4", "w1-w3", "w2-w4"]);
+});
+
+test("an odd score group floats its spare player down to the next one", () => {
+  const standing = [
+    { uid: "w1", matchPoints: 3 }, { uid: "w2", matchPoints: 3 }, { uid: "w3", matchPoints: 3 },
+    { uid: "l1", matchPoints: 0 }, { uid: "l2", matchPoints: 0 }, { uid: "l3", matchPoints: 0 },
+  ];
+  const ps = swissPairings(standing, []);
+  // w1-w2 inside the group, then w3 floats down to meet the 0-point group.
+  const crossGroup = ps.filter((p) => p.b !== null && p.a.startsWith("w") !== p.b!.startsWith("w"));
+  assert.equal(crossGroup.length, 1, "exactly one float");
+  assert.equal(crossGroup[0]!.a, "w3", "and it is the bottom of the odd group that drops");
+});
+
+test("T-3: the engine backtracks rather than settling for a rematch it could avoid", () => {
+  // A's preferred opponent is C (the fold), but taking it strands B and D, who
+  // have already met. A heuristic that does not backtrack pairs A-C and then
+  // repeats B-D; enumeration finds A-B / C-D instead.
+  const standing = ["A", "B", "C", "D"].map((uid) => ({ uid, matchPoints: 0 }));
+  const prior: Pairing[][] = [[
+    { a: "B", b: "C", outcome: "a" },
+    { a: "B", b: "D", outcome: "a" },
+  ]];
+  const ps = swissPairings(standing, prior);
+  const met = ps.filter((p) => p.b !== null).map((p) => [p.a, p.b].sort().join("|"));
+  assert.ok(!met.includes("B|C") && !met.includes("B|D"), `rematch scheduled: ${met.join(", ")}`);
+  assert.deepEqual(met.sort(), ["A|B", "C|D"]);
+});
+
+test("when every legal pairing is a rematch it still pairs, rather than returning nothing", () => {
+  // Two players who have already met and a round left to play: the round cap
+  // exists to stop this, so reaching it means something upstream went wrong —
+  // but a tournament that silently stops pairing is worse than a rematch.
+  const standing = [{ uid: "A", matchPoints: 3 }, { uid: "B", matchPoints: 0 }];
+  const prior: Pairing[][] = [[{ a: "A", b: "B", outcome: "a" }]];
+  const ps = swissPairings(standing, prior);
+  assert.equal(ps.length, 1);
+  assert.deepEqual([ps[0]!.a, ps[0]!.b].sort(), ["A", "B"]);
+});
+
+test("round one has no table, so a Swiss folds the seed order instead", () => {
+  const seeds = ["s1", "s2", "s3", "s4", "s5", "s6"];
+  const ps = pairingsFor("swiss", seeds, 1, [], []);
+  assert.deepEqual(ps.map((p) => `${p.a}-${p.b}`), ["s1-s4", "s2-s5", "s3-s6"]);
 });

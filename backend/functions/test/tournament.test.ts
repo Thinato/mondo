@@ -58,7 +58,8 @@ test("preset ids are unique and unknown ones are refused", () => {
   assert.equal(presetById("quintal").format, "free_for_all");
   assert.equal(presetById("liga").format, "round_robin");
   assert.equal(presetById("mata-mata").format, "single_elim");
-  rejects(() => presetById("suico"), "invalid-argument"); // slice 5, not shipped
+  assert.equal(presetById("suico").format, "swiss");
+  rejects(() => presetById("chave-dupla"), "invalid-argument"); // slice 6, not shipped
   rejects(() => presetById("nope"), "invalid-argument");
 });
 
