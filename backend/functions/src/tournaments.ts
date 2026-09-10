@@ -29,10 +29,14 @@ import { previousDay, type Profile, type Puzzle } from "./lib/round";
 import { nextDay } from "./lib/standings";
 import {
   MAX_ACTIVE_PER_GROUP, MIN_PARTICIPANTS, newTournament, playId, presetById,
-  PRESETS, roundClosesAt, roundId, seedOrder, standings,
-  type Format, type Regime, type StandingRow, type Tournament, type TournamentRound, type TournamentStatus,
+  PRESETS, roundClosesAt, roundId, seedOrder, standings, tieId,
+  type Format, type Regime, type RoundResultRow, type StandingRow, type TieBreak,
+  type Tournament, type TournamentRound, type TournamentStatus,
 } from "./lib/tournament";
-import { assertPairableSize, pairingsFor, resolvePairings, roundCountFor, type Pairing } from "./lib/tournament-core";
+import {
+  alive, allowsDraws, applyTieResults, assertPairableSize, drawnPairs, pairingsFor, resolvePairings,
+  roundCountFor, type Pairing,
+} from "./lib/tournament-core";
 import {
   requireBoolean, requireGroupId, requireGroupName, requireObject, requirePresetId, requireTournamentId, requireUid,
 } from "./lib/validate";
@@ -153,7 +157,15 @@ function seededUids(t: Tournament): string[] {
  * Write round `n` and its card. The card and the round are created in the same
  * transaction, so a round can never point at a card that does not exist.
  */
-function openRound(tx: Transaction, tid: string, t: Tournament, n: number, exclude: ReadonlySet<string>, now: Timestamp): void {
+function openRound(
+  tx: Transaction,
+  tid: string,
+  t: Tournament,
+  n: number,
+  exclude: ReadonlySet<string>,
+  now: Timestamp,
+  prior: readonly (readonly Pairing[])[] = [],
+): void {
   const items = buildCard(t.config.cardSpec, exclude);
   const rid = roundId(tid, n);
   const round: TournamentRound = {
@@ -164,11 +176,72 @@ function openRound(tx: Transaction, tid: string, t: Tournament, n: number, exclu
     cardId: rid,
     results: {},
     // Published with the round: the draw is public, the outcomes are not.
-    pairings: pairingsFor(t.format, seededUids(t), n),
+    // A knockout cannot be drawn before the previous round produced winners,
+    // which is what `prior` carries.
+    pairings: pairingsFor(t.format, seededUids(t), n, prior),
+    tie: null,
   };
   const card: CardDoc = { tournamentId: tid, round: n, items, createdAt: now };
   tx.create(cardRef(rid), card);
   tx.create(roundRef(tid, n), round);
+}
+
+/**
+ * A sudden-death card holds ONE challenge of the tournament's first kind; a
+ * replay re-issues the whole card (§6.4). Either way only the tied players are
+ * served it, which still satisfies D-38: the two scores being compared came
+ * from the same card, they simply did not need the rest of the field.
+ */
+function tieCardSpec(t: Tournament, kind: TieBreak["kind"]) {
+  if (kind === "replay") return t.config.cardSpec;
+  const first = t.config.cardSpec.items[0]!;
+  return { items: [{ kind: first.kind, count: 1 }], order: "as_listed" as const };
+}
+
+/** Open sudden-death step `k` for the pairs still level. */
+function openTie(
+  tx: Transaction,
+  tid: string,
+  t: Tournament,
+  n: number,
+  k: number,
+  pairs: [string, string][],
+  exclude: ReadonlySet<string>,
+  now: Timestamp,
+): TieBreak {
+  const kind = t.config.tiebreak.unresolved === "replay" ? "replay" as const : "sudden_death" as const;
+  const cid = tieId(tid, n, k);
+  const items = buildCard(tieCardSpec(t, kind), exclude);
+  const tie: TieBreak = {
+    k,
+    kind,
+    cardId: cid,
+    uids: [...new Set(pairs.flat())],
+    pairs: pairs.map(([a, b]) => ({ a, b })),
+    opensAt: now,
+    closesAt: Timestamp.fromDate(roundClosesAt(now, t.config.roundDays)),
+    closedAt: null,
+    results: {},
+  };
+  tx.create(cardRef(cid), { tournamentId: tid, round: n, items, createdAt: now } satisfies CardDoc);
+  return tie;
+}
+
+/** Score a set of play documents into the round-result shape. */
+function resultsFrom(uids: readonly string[], snaps: readonly (FirebaseFirestore.DocumentSnapshot | undefined)[]): Record<string, RoundResultRow> {
+  const out: Record<string, RoundResultRow> = {};
+  uids.forEach((u, i) => {
+    const snap = snaps[i];
+    const play = snap?.exists ? (snap.data() as CardPlay) : null;
+    const finished = play !== null && play.finishedAt !== null;
+    out[u] = {
+      points: finished ? play.points : 0,
+      elapsedMs: finished ? (play.elapsedMs ?? 0) : 0,
+      guessCount: play ? totalGuesses(play) : 0,
+      played: finished,
+    };
+  });
+  return out;
 }
 
 /**
@@ -184,39 +257,115 @@ async function closeRoundTx(tx: Transaction, tid: string, n: number, scheduled: 
   if (!tSnap.exists || !rSnap.exists) return false;
   const t = tSnap.data() as Tournament;
   const round = rSnap.data() as TournamentRound;
-  if (t.status !== "running" || round.closedAt !== null) return false;
+  if (t.status !== "running") return false;
+  // A round held open by an unresolved fixture: the sub-round is what closes.
+  if (round.tie && round.tie.closedAt === null) return closeTieTx(tx, tid, t, n, round, scheduled, now);
+  if (round.closedAt !== null) return false;
 
   const playSnaps = await tx.getAll(...t.participantUids.map((u) => playRef(playId(u, tid, n))));
-  const wasLastRound = n >= (t.roundCount ?? t.config.rounds);
-  const priorSubjects = wasLastRound ? [] : await usedSubjects(tx, tid, n);
+  // Read everything any branch below might need, before the first write.
+  const priorSubjects = await usedSubjects(tx, tid, n);
+  const results = resultsFrom(t.participantUids, playSnaps);
 
-  const results: TournamentRound["results"] = {};
-  t.participantUids.forEach((u, i) => {
-    const snap = playSnaps[i];
-    const play = snap?.exists ? (snap.data() as CardPlay) : null;
-    const finished = play !== null && play.finishedAt !== null;
-    results[u] = {
-      points: finished ? play.points : 0,
-      elapsedMs: finished ? (play.elapsedMs ?? 0) : 0,
-      guessCount: play ? totalGuesses(play) : 0,
-      played: finished,
-    };
-  });
-
-  // --- writes ---
   const pairings = resolvePairings(
     round.pairings ?? [],
     results,
     t.config.tiebreak.chain,
     t.config.byePolicy?.credit ?? "win",
   );
-  tx.update(roundRef(tid, n), { results, pairings, closedAt: now });
-  if (wasLastRound) {
-    tx.update(tournamentRef(tid), { status: "finished" satisfies TournamentStatus, endedAt: now, currentRound: null });
-  } else {
-    openRound(tx, tid, t, n + 1, new Set([...scheduled, ...priorSubjects]), now);
-    tx.update(tournamentRef(tid), { currentRound: n + 1 });
+
+  // A format whose standing cannot hold a draw has to actually settle it.
+  const unsettled = allowsDraws(t.format) ? [] : drawnPairs(pairings);
+  const policy = t.config.tiebreak.unresolved;
+
+  // --- writes ---
+  if (unsettled.length > 0 && (policy === "sudden_death" || policy === "replay")) {
+    // The round's own card is finished with, so `closedAt` is set — but the
+    // next round is not paired until the tie resolves (§6.4).
+    const tie = openTie(tx, tid, t, n, 1, unsettled, new Set([...scheduled, ...priorSubjects]), now);
+    tx.update(roundRef(tid, n), { results, pairings, closedAt: now, tie });
+    return true;
   }
+
+  const settled = unsettled.length > 0
+    // "seed" (or a policy a knockout cannot honour) decides it now, silently.
+    ? applyTieResults(pairings, {}, t.config.tiebreak.chain, { exhausted: true, seedOf: seedOf(t) })
+    : pairings;
+
+  tx.update(roundRef(tid, n), { results, pairings: settled, closedAt: now, tie: null });
+  advanceAfter(tx, tid, t, n, settled, new Set([...scheduled, ...priorSubjects]), now);
+  return true;
+}
+
+/** Lower is better: seed 1 beats seed 2. Missing seeds sort last. */
+function seedOf(t: Tournament): (uid: string) => number {
+  return (uid) => t.participants[uid]?.seed ?? Number.MAX_SAFE_INTEGER;
+}
+
+/** Open the next round, or finish the tournament if that was the last one. */
+function advanceAfter(
+  tx: Transaction,
+  tid: string,
+  t: Tournament,
+  n: number,
+  pairings: readonly Pairing[],
+  exclude: ReadonlySet<string>,
+  now: Timestamp,
+): void {
+  if (n >= (t.roundCount ?? t.config.rounds)) {
+    tx.update(tournamentRef(tid), { status: "finished" satisfies TournamentStatus, endedAt: now, currentRound: null });
+    return;
+  }
+  // A knockout draws round n+1 from round n's winners; `prior` is indexed by
+  // round number - 1, so only the slot for round n needs filling.
+  const prior: Pairing[][] = [];
+  prior[n - 1] = [...pairings];
+  openRound(tx, tid, t, n + 1, exclude, now, prior);
+  tx.update(tournamentRef(tid), { currentRound: n + 1 });
+}
+
+/**
+ * Close an open sudden-death sub-round: score it, decide whichever fixtures it
+ * separated, and either serve another challenge or let the round finally
+ * advance.
+ *
+ * `suddenDeathMaxItems` is the safety valve, not a preference: two players who
+ * match each other every single time would otherwise hold a knockout open for
+ * ever, so once it runs out the better seed takes it (D-50).
+ */
+async function closeTieTx(
+  tx: Transaction,
+  tid: string,
+  t: Tournament,
+  n: number,
+  round: TournamentRound,
+  scheduled: ReadonlySet<string>,
+  now: Timestamp,
+): Promise<boolean> {
+  const tie = round.tie!;
+  const playSnaps = await tx.getAll(...tie.uids.map((u) => playRef(playId(u, tid, n, tie.k))));
+  const priorSubjects = await usedSubjects(tx, tid, n);
+  // The sudden-death cards already served, so challenge k+1 does not repeat one.
+  const tieCardSnap = await tx.get(cardRef(tie.cardId));
+  const tieSubjects = tieCardSnap.exists ? (tieCardSnap.data() as CardDoc).items.map((i) => i.subject) : [];
+
+  const tieResults = resultsFrom(tie.uids, playSnaps);
+  const exhausted = tie.kind === "replay" || tie.k >= Math.max(1, t.config.tiebreak.suddenDeathMaxItems);
+  const settled = applyTieResults(round.pairings ?? [], tieResults, t.config.tiebreak.chain, {
+    exhausted,
+    seedOf: seedOf(t),
+  });
+  const stillLevel = drawnPairs(settled);
+  const exclude = new Set([...scheduled, ...priorSubjects, ...tieSubjects]);
+
+  // --- writes ---
+  if (stillLevel.length > 0) {
+    const next = openTie(tx, tid, t, n, tie.k + 1, stillLevel, exclude, now);
+    tx.update(roundRef(tid, n), { pairings: settled, tie: { ...next, results: tieResults } });
+    return true;
+  }
+  tx.update(roundRef(tid, n), { pairings: settled, tie: { ...tie, results: tieResults, closedAt: now } });
+  advanceAfter(tx, tid, t, n, settled, exclude, now);
   return true;
 }
 
@@ -245,7 +394,11 @@ export async function advanceOpenRoundsNow(now: Timestamp): Promise<{ tournament
       const roundSnap = await roundRef(doc.id, n).get();
       if (!roundSnap.exists) continue;
       const round = roundSnap.data() as TournamentRound;
-      if (round.closedAt !== null || now.toMillis() < round.closesAt.toMillis()) continue;
+      // A round held open by a tie has `closedAt` set already, so the deadline
+      // that matters is the sub-round's (§6.4). Without this the sweep skipped
+      // it for ever and the knockout stopped dead.
+      const open = round.tie && round.tie.closedAt === null ? round.tie : round;
+      if ((open === round && round.closedAt !== null) || now.toMillis() < open.closesAt.toMillis()) continue;
       if (await db().runTransaction((tx) => closeRoundTx(tx, doc.id, n, scheduled, now))) closed++;
     } catch (e) {
       failed++;
@@ -507,6 +660,12 @@ export interface TournamentView extends TournamentSummary {
     /** The viewer's own score, which is theirs to see immediately. */
     myPoints: number | null;
     players: { uid: string; displayName: string; state: "not_started" | "in_progress" | "finished" }[];
+    /**
+     * A sudden-death challenge holding this round open (§6.4). The round's own
+     * card is finished with; only `uids` are served this one, and everybody
+     * else is waiting on them.
+     */
+    tie: null | { k: number; kind: "sudden_death" | "replay"; uids: string[]; amIn: boolean };
   };
   serverTime: string;
 }
@@ -536,28 +695,35 @@ export const getTournament = callable<{ tournamentId: unknown }, TournamentView>
 
   let current: TournamentView["current"] = null;
   const open = t.currentRound === null ? undefined : rounds.find((r) => r.n === t.currentRound);
-  if (open && open.closedAt === null) {
-    const snaps = await db().getAll(...t.participantUids.map((u) => playRef(playId(u, tid, open.n))));
+  // A round held open by a tiebreak has `closedAt` set but is not finished with
+  // the players: without this the whole panel vanished mid-knockout.
+  const liveTie = open?.tie && open.tie.closedAt === null ? open.tie : null;
+  if (open && (open.closedAt === null || liveTie)) {
+    const playing = liveTie ? liveTie.uids : t.participantUids;
+    const snaps = await db().getAll(...playing.map((u) => playRef(playId(u, tid, open.n, liveTie?.k))));
     const stateOf = (i: number) => {
       const s = snaps[i];
       if (!s?.exists) return "not_started" as const;
       return (s.data() as CardPlay).finishedAt === null ? ("in_progress" as const) : ("finished" as const);
     };
-    const mineIndex = t.participantUids.indexOf(uid);
+    const mineIndex = playing.indexOf(uid);
     const mine = mineIndex >= 0 ? snaps[mineIndex] : undefined;
     const minePlay = mine?.exists ? (mine.data() as CardPlay) : null;
-    const card = (await cardRef(open.cardId).get()).data() as CardDoc | undefined;
+    const card = (await cardRef(liveTie ? liveTie.cardId : open.cardId).get()).data() as CardDoc | undefined;
     current = {
       n: open.n,
-      closesAt: open.closesAt.toDate().toISOString(),
+      closesAt: (liveTie ? liveTie.closesAt : open.closesAt).toDate().toISOString(),
       itemCount: card?.items.length ?? 0,
       myState: mineIndex < 0 ? "not_started" : stateOf(mineIndex),
       myPoints: minePlay?.finishedAt ? minePlay.points : null,
-      players: t.participantUids.map((u, i) => ({
+      players: playing.map((u, i) => ({
         uid: u,
         displayName: t.participants[u]?.displayName || "",
         state: stateOf(i),
       })),
+      tie: liveTie
+        ? { k: liveTie.k, kind: liveTie.kind, uids: liveTie.uids, amIn: liveTie.uids.includes(uid) }
+        : null,
     };
   }
 
@@ -598,7 +764,7 @@ export const getTournament = callable<{ tournamentId: unknown }, TournamentView>
 // ---------------------------------------------------------------------------
 
 /** The open round plus its card, for a caller who is allowed to play it. */
-async function loadPlayable(uid: string, tid: string, now: Timestamp): Promise<{ t: Tournament; round: TournamentRound; card: CardItem[] }> {
+async function loadPlayable(uid: string, tid: string, now: Timestamp): Promise<{ t: Tournament; round: TournamentRound; card: CardItem[]; tieK: number | null }> {
   const tSnap = await tournamentRef(tid).get();
   if (!tSnap.exists) throw mondoError("not-found", "No such tournament.");
   const t = tSnap.data() as Tournament;
@@ -615,16 +781,40 @@ async function loadPlayable(uid: string, tid: string, now: Timestamp): Promise<{
   requireCanPlay(profileSnap.exists ? (profileSnap.data() as Profile) : null);
   if (t.status !== "running" || t.currentRound === null) throw mondoError("tournament-not-open", "This tournament has no open round.");
 
-  const [rSnap, cSnap] = await Promise.all([
-    roundRef(tid, t.currentRound).get(),
-    cardRef(roundId(tid, t.currentRound)).get(),
-  ]);
-  if (!rSnap.exists || !cSnap.exists) throw mondoError("not-found", "This round is not ready.");
+  const rSnap = await roundRef(tid, t.currentRound).get();
+  if (!rSnap.exists) throw mondoError("not-found", "This round is not ready.");
   const round = rSnap.data() as TournamentRound;
+
+  // A tie sub-round replaces the round's own card, and only the tied players
+  // are served it (§6.4). Everyone else is done for this round.
+  const tie = round.tie && round.tie.closedAt === null ? round.tie : null;
+  if (tie) {
+    if (!tie.uids.includes(uid)) throw mondoError("tournament-not-open", "Waiting on a tiebreak between two other players.");
+    if (now.toMillis() >= tie.closesAt.toMillis()) throw mondoError("tournament-not-open", "This tiebreak's deadline has passed.");
+    const tSnapCard = await cardRef(tie.cardId).get();
+    if (!tSnapCard.exists) throw mondoError("not-found", "This round is not ready.");
+    return { t, round, card: (tSnapCard.data() as CardDoc).items, tieK: tie.k };
+  }
+
   if (round.closedAt !== null) throw mondoError("tournament-not-open", "This round is closed.");
   // FR-5.7 — past the deadline the card is over whether or not the job has run.
   if (now.toMillis() >= round.closesAt.toMillis()) throw mondoError("tournament-not-open", "This round's deadline has passed.");
-  return { t, round, card: (cSnap.data() as CardDoc).items };
+
+  // D-47: knocked out but still playing, unless the preset turned that off.
+  // Only read the bracket when it can actually refuse — `consolation` is on in
+  // every shipped preset, so this costs nothing in practice.
+  if (!t.config.consolation && t.format === "single_elim") {
+    const closed = (await roundsCol(tid).get()).docs
+      .map((d) => d.data() as TournamentRound)
+      .filter((r) => r.closedAt !== null)
+      .sort((a, b) => a.n - b.n)
+      .map((r) => r.pairings ?? []);
+    if (!alive(t.participantUids, closed).has(uid)) throw mondoError("tournament-not-open", "You are out of this tournament.");
+  }
+
+  const cSnap = await cardRef(roundId(tid, t.currentRound)).get();
+  if (!cSnap.exists) throw mondoError("not-found", "This round is not ready.");
+  return { t, round, card: (cSnap.data() as CardDoc).items, tieK: null };
 }
 
 /**
@@ -635,13 +825,15 @@ async function loadPlayable(uid: string, tid: string, now: Timestamp): Promise<{
 export const getCard = callable<{ tournamentId: unknown }, CardView>(async (uid, data) => {
   const tid = requireTournamentId(requireObject(data).tournamentId);
   const now = Timestamp.now();
-  const { t, card } = await loadPlayable(uid, tid, now);
-  const id = playId(uid, tid, t.currentRound!);
+  const { t, card, tieK } = await loadPlayable(uid, tid, now);
+  const n = t.currentRound!;
+  const id = playId(uid, tid, n, tieK ?? undefined);
+  const rid = tieK === null ? roundId(tid, n) : tieId(tid, n, tieK);
 
   const play = await db().runTransaction(async (tx) => {
     const snap = await tx.get(playRef(id));
     if (snap.exists) return snap.data() as CardPlay;
-    const fresh = newCardPlay(uid, tid, roundId(tid, t.currentRound!), card, now);
+    const fresh = newCardPlay(uid, tid, rid, card, now);
     tx.create(playRef(id), fresh);
     return fresh;
   });
@@ -661,17 +853,19 @@ export const submitCardGuess = callable<{ tournamentId: unknown; guess: unknown 
   const input = requireObject(data);
   const tid = requireTournamentId(input.tournamentId);
   const now = Timestamp.now();
-  const { t, card } = await loadPlayable(uid, tid, now);
+  const { t, card, tieK } = await loadPlayable(uid, tid, now);
   const n = t.currentRound!;
-  const id = playId(uid, tid, n);
+  const id = playId(uid, tid, n, tieK ?? undefined);
 
   const play = await db().runTransaction(async (tx) => {
     // The round is re-read inside the transaction so a guess cannot land on a
-    // round the nightly job closed a moment ago.
+    // round the nightly job closed a moment ago. On a tiebreak the sub-round
+    // is what must still be open; the round itself is already closed.
     const [snap, rSnap] = await Promise.all([tx.get(playRef(id)), tx.get(roundRef(tid, n))]);
-    if (!rSnap.exists || (rSnap.data() as TournamentRound).closedAt !== null) {
-      throw mondoError("tournament-not-open", "This round is closed.");
-    }
+    if (!rSnap.exists) throw mondoError("tournament-not-open", "This round is closed.");
+    const live = rSnap.data() as TournamentRound;
+    const stillOpen = tieK === null ? live.closedAt === null : live.tie?.k === tieK && live.tie.closedAt === null;
+    if (!stillOpen) throw mondoError("tournament-not-open", "This round is closed.");
     if (!snap.exists) throw mondoError("not-found", "Call getCard before guessing.");
     const after = applyCardGuess(snap.data() as CardPlay, card, input.guess, now);
     tx.set(playRef(id), after);

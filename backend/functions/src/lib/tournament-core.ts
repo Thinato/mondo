@@ -136,16 +136,31 @@ export function roundRobinRounds(players: number): number {
 
 /**
  * How many rounds a tournament of `players` will actually run. Free-for-all
- * takes it from the preset; round robin derives it from the field, which is
- * why it can only be known at start, once the participant list is frozen.
+ * takes it from the preset; the pairing formats derive it from the field, which
+ * is why it can only be known at start, once the participant list is frozen.
  */
 export function roundCountFor(format: Format, configuredRounds: number, players: number): number {
-  return format === "round_robin" ? roundRobinRounds(players) : configuredRounds;
+  if (format === "round_robin") return roundRobinRounds(players);
+  if (format === "single_elim") return singleElimRounds(players);
+  return configuredRounds;
 }
 
-/** Pairings for round `n`, or [] for a format that pairs nobody. */
-export function pairingsFor(format: Format, seeds: readonly string[], n: number): Pairing[] {
-  return format === "round_robin" ? roundRobinPairings(seeds, n) : [];
+/**
+ * Pairings for round `n`, or [] for a format that pairs nobody.
+ *
+ * `prior` is every earlier round's fixtures, oldest first. Round robin ignores
+ * it — the circle method knows the whole schedule up front — but a knockout
+ * cannot be drawn before the previous round has produced its winners.
+ */
+export function pairingsFor(
+  format: Format,
+  seeds: readonly string[],
+  n: number,
+  prior: readonly (readonly Pairing[])[] = [],
+): Pairing[] {
+  if (format === "round_robin") return roundRobinPairings(seeds, n);
+  if (format === "single_elim") return singleElimPairings(seeds, n, prior);
+  return [];
 }
 
 /**
@@ -217,4 +232,165 @@ export function assertPairableSize(format: Format, players: number): void {
   if (players > MAX_PAIRED_PARTICIPANTS) {
     throw mondoError("invalid-argument", `This format takes at most ${MAX_PAIRED_PARTICIPANTS} players.`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Single elimination (§6.3) — slice 4
+// ---------------------------------------------------------------------------
+
+/** The next power of two at or above `players`: the bracket has that many slots. */
+export function bracketSize(players: number): number {
+  let s = 1;
+  while (s < players) s *= 2;
+  return s;
+}
+
+/** log2 of the bracket, i.e. how many rounds it takes to get to one player. */
+export function singleElimRounds(players: number): number {
+  return Math.log2(bracketSize(players));
+}
+
+/**
+ * The standard recursive bracket order for `size` slots, as seed numbers.
+ *
+ *   2  → [1, 2]
+ *   4  → [1, 4, 2, 3]
+ *   8  → [1, 8, 4, 5, 2, 7, 3, 6]
+ *
+ * Read in consecutive pairs it gives round one, and the property that matters
+ * is that the top two seeds can only meet in the final, the top four only in
+ * the semis, and so on. Seeding well is the reward for having seeded well.
+ */
+export function bracketOrder(size: number): number[] {
+  let order = [1];
+  while (order.length < size) {
+    const n = order.length * 2;
+    const next: number[] = [];
+    for (const x of order) next.push(x, n + 1 - x);
+    order = next;
+  }
+  return order;
+}
+
+/**
+ * Round one. Slots past the end of the field are empty, and because the order
+ * above puts the top seeds against the *bottom* slots, the `S − n` empty ones
+ * land on the top seeds — the conventional reward, and the "advantage" Paulo
+ * was willing to hand the odd player out (§7).
+ */
+function firstRoundPairings(seeds: readonly string[]): Pairing[] {
+  const size = bracketSize(seeds.length);
+  const order = bracketOrder(size);
+  const pairings: Pairing[] = [];
+  for (let i = 0; i < size; i += 2) {
+    const a = seeds[order[i]! - 1] ?? null;
+    const b = seeds[order[i + 1]! - 1] ?? null;
+    if (a === null && b === null) continue; // both slots empty: no fixture at all
+    if (a === null) pairings.push({ a: b!, b: null, outcome: null });
+    else if (b === null) pairings.push({ a, b: null, outcome: null });
+    else pairings.push({ a, b, outcome: null });
+  }
+  return pairings;
+}
+
+/** Who came out of each fixture, in fixture order. Null where it is undecided. */
+export function winnersOf(pairings: readonly Pairing[]): (string | null)[] {
+  return pairings.map((p) => {
+    if (p.outcome === null || p.outcome === "draw") return p.b === null ? p.a : null;
+    return p.outcome === "a" ? p.a : p.b;
+  });
+}
+
+/**
+ * Round `n` of a knockout: round one from the seeding, every later round by
+ * pairing the previous round's winners in the order they came out. The bracket
+ * is therefore never stored — it is a fold over the round log, like everything
+ * else here (D-41).
+ */
+export function singleElimPairings(seeds: readonly string[], n: number, prior: readonly (readonly Pairing[])[]): Pairing[] {
+  if (n === 1) return firstRoundPairings(seeds);
+
+  const previous = prior[n - 2];
+  if (!previous) throw new RangeError(`round ${n} needs round ${n - 1} to have been played`);
+  const winners = winnersOf(previous);
+  if (winners.some((w) => w === null)) throw new Error(`round ${n - 1} has an undecided fixture; a knockout cannot pair past it`);
+
+  const pairings: Pairing[] = [];
+  for (let i = 0; i < winners.length; i += 2) {
+    const a = winners[i]!;
+    const b = winners[i + 1] ?? null;
+    pairings.push({ a, b, outcome: null });
+  }
+  return pairings;
+}
+
+/** Everyone who has not yet lost a fixture. A fold, never a stored flag. */
+export function alive(uids: readonly string[], roundPairings: readonly (readonly Pairing[])[]): Set<string> {
+  const out = new Set(uids);
+  for (const pairings of roundPairings) {
+    for (const p of pairings) {
+      if (p.outcome === null || p.outcome === "draw" || p.b === null) continue;
+      out.delete(p.outcome === "a" ? p.b : p.a);
+    }
+  }
+  return out;
+}
+
+/**
+ * How many rounds each player got through: the number of closed rounds they
+ * were still in at the end of. Losing in round 3 means surviving 2.
+ */
+export function survivedRounds(uids: readonly string[], roundPairings: readonly (readonly Pairing[])[]): Map<string, number> {
+  const out = new Map(uids.map((u) => [u, roundPairings.length]));
+  roundPairings.forEach((pairings, i) => {
+    for (const p of pairings) {
+      if (p.outcome === null || p.outcome === "draw" || p.b === null) continue;
+      const loser = p.outcome === "a" ? p.b : p.a;
+      // Only the first loss counts; consolation play cannot knock you out twice.
+      if ((out.get(loser) ?? 0) > i) out.set(loser, i);
+    }
+  });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Ties that the clock cannot settle (§6.4, D-50)
+// ---------------------------------------------------------------------------
+
+/** Whether a format's standing can hold a drawn fixture at all. */
+export function allowsDraws(format: Format): boolean {
+  return format === "round_robin" || format === "swiss";
+}
+
+/** The fixtures still level after the comparator chain ran out. */
+export function drawnPairs(pairings: readonly Pairing[]): [string, string][] {
+  return pairings
+    .filter((p): p is Pairing & { b: string } => p.b !== null && p.outcome === "draw")
+    .map((p) => [p.a, p.b]);
+}
+
+/**
+ * Re-decide the drawn fixtures from a sudden-death card, leaving every other
+ * fixture exactly as it was.
+ *
+ * `seedOf` is the last resort: after `suddenDeathMaxItems` challenges two
+ * players who have matched each other every single time are separated by
+ * seeding rather than by a card that keeps coming back level. That is the
+ * safety valve in D-50, not a preference — without it a knockout can hang.
+ */
+export function applyTieResults(
+  pairings: readonly Pairing[],
+  results: Record<string, RoundResultRow>,
+  chain: Tiebreak["chain"],
+  opts: { exhausted: boolean; seedOf: (uid: string) => number },
+): Pairing[] {
+  const blank: RoundResultRow = { points: 0, elapsedMs: 0, guessCount: 0, played: false };
+  return pairings.map((p) => {
+    if (p.b === null || p.outcome !== "draw") return p;
+    const decided = cardWinner(results[p.a] ?? blank, results[p.b] ?? blank, chain);
+    if (decided !== "draw") return { ...p, outcome: decided };
+    if (!opts.exhausted) return p; // still level: another challenge follows
+    // Lower seed number is the better seed.
+    return { ...p, outcome: opts.seedOf(p.a) <= opts.seedOf(p.b) ? ("a" as const) : ("b" as const) };
+  });
 }

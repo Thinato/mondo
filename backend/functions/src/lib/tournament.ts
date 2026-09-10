@@ -18,8 +18,8 @@ import { mondoError } from "./errors";
 import { opensAt as puzzleOpensAt, puzzleIdAt } from "./puzzle-day";
 import { nextDay, rankBy } from "./standings";
 import {
-  competitionRanks, DEFAULT_MATCH_POINTS, EMPTY_RECORD, matchRecords, MAX_PAIRED_PARTICIPANTS,
-  type MatchPoints, type MatchRecord, type Pairing,
+  alive, competitionRanks, DEFAULT_MATCH_POINTS, EMPTY_RECORD, matchRecords, MAX_PAIRED_PARTICIPANTS,
+  survivedRounds, type MatchPoints, type MatchRecord, type Pairing,
 } from "./tournament-core";
 
 export type Regime = "aggregate" | "match";
@@ -88,8 +88,9 @@ export interface Preset {
  *
  * A preset for a format that does not exist yet would be a create form that
  * 500s, so this list only ever grows with the slice that implements it:
- * free-for-all under `aggregate` (slices 1–2) and round robin under `match`
- * (slice 3). Elimination and Swiss presets land with slices 4–6.
+ * free-for-all under `aggregate` (slices 1–2), round robin (slice 3) and
+ * single elimination (slice 4) under `match`. Swiss and double elimination
+ * presets land with slices 5–6.
  */
 const AGGREGATE_TIEBREAK: Tiebreak = { chain: ["points", "time"], unresolved: "seed", suddenDeathMaxItems: 0 };
 
@@ -150,6 +151,30 @@ export const PRESETS: readonly Preset[] = [
       matchPoints: DEFAULT_MATCH_POINTS,
       // The odd player out plays the card anyway: a free win, plus a score that
       // still counts for the card-points tiebreak (§7).
+      byePolicy: { credit: "win", play: true },
+    },
+  },
+  {
+    id: "mata-mata",
+    label: "Mata-mata",
+    description: "Chave eliminatória. Quem perde a rodada está fora — mas continua jogando por fora.",
+    format: "single_elim",
+    regime: "match",
+    config: {
+      cardSpec: { items: [{ kind: "shape", count: 5 }], order: "as_listed" },
+      // Overridden at start: log2 of the bracket, so 5-8 players is 3 rounds.
+      rounds: 1,
+      roundDays: 1,
+      // Time is deliberately OUT of the chain. With it in, a millisecond tie
+      // never happens and sudden death never fires; leaving it out is what
+      // makes "keep adding challenges until someone fails" a real rule rather
+      // than a branch nobody reaches (D-44, D-50).
+      tiebreak: { chain: ["points"], unresolved: "sudden_death", suddenDeathMaxItems: 5 },
+      // D-47: knocked out at lunch, still playing at lunch.
+      consolation: true,
+      entry: "open",
+      maxParticipants: MAX_PAIRED_PARTICIPANTS,
+      matchPoints: DEFAULT_MATCH_POINTS,
       byePolicy: { credit: "win", play: true },
     },
   },
@@ -232,9 +257,40 @@ export interface TournamentRound {
    * round closes, which is the only part FR-5.6 protects.
    *
    * Absent on a free-for-all round, and on every round written before slice 3.
-   * Bracket bookkeeping and the tie sub-round (§4.2) arrive with slices 4–6.
    */
   pairings?: Pairing[];
+  /**
+   * An unresolved fixture holding the round open (§6.4, D-50). The round's own
+   * `closedAt` is set — its card is finished with — but the next round is not
+   * paired until this is null again.
+   *
+   * The design sketched `uids: [uid, uid]`, one tied pair. It is a list of
+   * pairs instead, because a round can produce several level fixtures at once
+   * and resolving them one at a time would cost a day each. One sudden-death
+   * card goes to everybody still level, and each tied pair is compared on it —
+   * which is still D-38, since the two scores being compared share a card.
+   */
+  tie?: TieBreak | null;
+}
+
+export interface TieBreak {
+  /** 1-based: how many sudden-death challenges have been served so far. */
+  k: number;
+  kind: "sudden_death" | "replay";
+  /** cards/{tid}_r{n}_t{k} */
+  cardId: string;
+  /** Everyone who must play it — the union of the pairs below. */
+  uids: string[];
+  /**
+   * Objects, not [a, b] tuples: Firestore rejects an array whose elements are
+   * themselves arrays ("invalid nested entity"), and a tuple is an array. The
+   * emulator caught this; no unit test could have.
+   */
+  pairs: { a: string; b: string }[];
+  opensAt: Timestamp;
+  closesAt: Timestamp;
+  closedAt: Timestamp | null;
+  results: Record<string, RoundResultRow>;
 }
 
 export const NAME_REMOVED = "[removido]";
@@ -274,9 +330,17 @@ export function roundId(tournamentId: string, n: number): string {
   return `${tournamentId}_r${n}`;
 }
 
-/** attempts/{uid}_{tid}_r{n} — uid first, so the rules' split('_')[0] still holds (§4.4). */
-export function playId(uid: string, tournamentId: string, n: number): string {
-  return `${uid}_${roundId(tournamentId, n)}`;
+/**
+ * attempts/{uid}_{tid}_r{n}, or {..}_r{n}_t{k} for a sudden-death challenge —
+ * uid first, so the rules' split('_')[0] still holds (§4.4).
+ */
+export function playId(uid: string, tournamentId: string, n: number, k?: number): string {
+  return k === undefined ? `${uid}_${roundId(tournamentId, n)}` : `${uid}_${tieId(tournamentId, n, k)}`;
+}
+
+/** cards/{tid}_r{n}_t{k} — a sudden-death card, seen only by the tied players. */
+export function tieId(tournamentId: string, n: number, k: number): string {
+  return `${roundId(tournamentId, n)}_t${k}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -332,6 +396,14 @@ export interface StandingRow {
    * what lets one table component render both regimes.
    */
   record?: MatchRecord;
+  /**
+   * Knockout only: how many closed rounds this player survived, and whether
+   * they are still in. `eliminated` is what makes the consolation ranking
+   * readable (D-47) — an eliminated player keeps playing and keeps scoring, so
+   * without it a strong loser and a live semifinalist look the same.
+   */
+  survived?: number;
+  eliminated?: boolean;
 }
 
 /**
@@ -347,7 +419,7 @@ export interface StandingRow {
  * a stopwatch nobody agreed to.
  */
 export function standings(
-  t: Pick<Tournament, "participants" | "participantUids" | "regime" | "config">,
+  t: Pick<Tournament, "participants" | "participantUids" | "regime" | "config" | "format">,
   rounds: readonly TournamentRound[],
   viewerUid: string,
 ): StandingRow[] {
@@ -382,6 +454,24 @@ export function standings(
     t.config.matchPoints ?? DEFAULT_MATCH_POINTS,
   );
   const withRecord = rows.map((r) => ({ ...r, record: records.get(r.uid) ?? { ...EMPTY_RECORD } }));
+
+  if (t.format === "single_elim") {
+    // A knockout is ranked by how far you got, full stop. Card points only
+    // order the players who went out in the same round — which is exactly the
+    // consolation ranking (D-47), and why an eliminated player who keeps
+    // scoring can never climb past someone still in the bracket.
+    const pairingsByRound = closed.map((r) => r.pairings ?? []);
+    const survived = survivedRounds(t.participantUids, pairingsByRound);
+    const stillIn = alive(t.participantUids, pairingsByRound);
+    const bracket = withRecord.map((r) => ({
+      ...r,
+      survived: survived.get(r.uid) ?? 0,
+      eliminated: !stillIn.has(r.uid),
+    }));
+    const ranks = competitionRanks(bracket, (r) => [r.survived, r.points, useTime ? -r.totalElapsedMs : 0]);
+    return finish(bracket.map((r, i) => ({ ...r, rank: ranks[i]! })));
+  }
+
   const ranks = competitionRanks(withRecord, (r) => [
     r.record?.matchPoints ?? 0,
     r.points,
