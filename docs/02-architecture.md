@@ -216,7 +216,9 @@ allTime        { points, played, totalGuesses, avgGuesses, totalElapsedMs }
 allTimeThrough string|null   last puzzle day folded into allTime — makes the job idempotent
 last7          { ... }
 last30         { ... }   worst 2 of the 30 days already dropped (FR-3.5, D-24)
-currentStreak  number    effective streak as of the closed day (0 if the last play is older)
+currentStreak  number    live streak off the profile: kept when the last play was the closed
+                         day *or today*, else 0. Alone among these fields it counts today, so it
+                         can read 2 while last30.played reads 1 (FR-3.6, and regras.html says so)
 updatedAt      timestamp
 ```
 
