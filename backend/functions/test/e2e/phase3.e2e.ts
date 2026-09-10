@@ -363,7 +363,7 @@ test("listTournaments shows the group's tournaments and the presets the form nee
   assert.equal(row.status, "finished");
   assert.equal(row.participantCount, 3);
   assert.equal(row.isParticipant, true);
-  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "liga", "mata-mata", "suico", "chave-dupla"]);
+  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "bandeiras", "liga", "mata-mata", "suico", "chave-dupla"]);
   for (const p of v.presets) assert.ok(p.label && p.description, "the create form needs pt-BR copy");
   assert.equal(ok(await ana.call("listTournaments", { groupId: gid }), "as member").canManage, false);
 });
@@ -433,6 +433,28 @@ test("the capitais preset asks with a city name and never sends the country", as
   assert.equal(out.items[0].points, 0);
   assert.equal(out.cursor, 1);
   assert.equal(out.status, "in_progress");
+});
+
+test("the bandeiras preset sends drawing data and nothing that names the country", async () => {
+  const t8 = ok(await owner.call("createTournament", { groupId: gid, name: "Só bandeiras", preset: "bandeiras" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: t8, join: true }), "ana joins");
+  ok(await owner.call("startTournament", { tournamentId: t8 }), "startTournament");
+  const v = ok(await ana.call("getCard", { tournamentId: t8 }), "getCard");
+  assert.equal(v.prompt.kind, "flag");
+  assert.ok(v.prompt.flag.paths.length > 0, "a flag is at least one path");
+  assert.match(v.prompt.flag.viewBox, /^-?[\d.]+ -?[\d.]+ [\d.]+ [\d.]+$/);
+  assert.equal(v.guessesMax, 3, "a flag item allows three guesses");
+
+  const card = await doc(`cards/${t8}_r1`);
+  const answer = card.items[0].subject;
+  const json = JSON.stringify(v);
+  assert.ok(!json.includes(`"${answer}"`), "SEC-1: the code");
+  assert.ok(!/Flag of|<title/i.test(json), "SEC-1: metadata from the vendored file");
+
+  const guess = answer === "BR" ? "AR" : "BR";
+  const out = ok(await ana.call("submitCardGuess", { tournamentId: t8, guess }), "guess");
+  assert.equal(out.items[0].guessCount, 1);
+  assert.ok(out.guesses[0].distanceKm >= 0, "a flag grades on distance, like a silhouette");
 });
 
 test("D-31: an admin in the same open round sees a rival's timings but not their score", async () => {

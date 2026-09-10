@@ -84,13 +84,18 @@ test("D-50: only a format that can hold a draw is allowed to record one", () => 
   }
 });
 
-test("the shipped presets cover both kinds and both orderings", () => {
+test("the shipped presets cover every kind and both orderings", () => {
   const quintal = presetById("quintal");
   assert.deepEqual(quintal.config.cardSpec, { items: [{ kind: "shape", count: 5 }], order: "as_listed" });
   assert.deepEqual(presetById("capitais").config.cardSpec.items, [{ kind: "capital", count: 5 }]);
+  assert.deepEqual(presetById("bandeiras").config.cardSpec.items, [{ kind: "flag", count: 5 }]);
   const mistura = presetById("mistura");
   assert.equal(mistura.config.cardSpec.order, "shuffled");
   assert.deepEqual(mistura.config.cardSpec.items.map((i) => i.kind), ["shape", "capital"]);
+  // Every shipped kind is reachable from some preset: a kind nobody can pick
+  // is a kind nobody tests (D-48 leaves the client no other way in).
+  const asked = new Set(PRESETS.flatMap((p) => p.config.cardSpec.items.map((i) => i.kind)));
+  assert.deepEqual([...asked].sort(), ["capital", "flag", "shape"]);
 });
 
 test("D-48: a new tournament copies the preset's settings rather than referring to it", () => {

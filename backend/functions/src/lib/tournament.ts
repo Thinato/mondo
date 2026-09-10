@@ -140,6 +140,10 @@ export const PRESETS: readonly Preset[] = [
     ],
     order: "shuffled",
   }),
+  freeForAll("bandeiras", "Bandeiras", "Cinco bandeiras para descobrir o país. Três tentativas cada.", {
+    items: [{ kind: "flag", count: 5 }],
+    order: "as_listed",
+  }),
   {
     id: "liga",
     label: "Liga",

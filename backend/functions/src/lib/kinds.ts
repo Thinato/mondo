@@ -16,12 +16,12 @@
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
-import { COUNTRIES, countryByCode, shapeFor, type Country, type Shape } from "./countries";
+import { COUNTRIES, countryByCode, flagFor, shapeFor, type Country, type Flag, type Shape } from "./countries";
 import { mondoError } from "./errors";
 import { bearingDeg, distanceKm, proximity } from "./geo";
 import type { StoredGuess } from "./round";
 
-export const KIND_IDS = ["shape", "capital"] as const;
+export const KIND_IDS = ["shape", "capital", "flag"] as const;
 export type KindId = (typeof KIND_IDS)[number];
 
 /** FR-8.2 / D-44 — every kind scores one challenge on the same 0..6 scale, so a
@@ -35,7 +35,8 @@ export const MAX_ITEM_POINTS = 6;
  */
 export type Prompt =
   | { kind: "shape"; shape: Shape }
-  | { kind: "capital"; capital: string };
+  | { kind: "capital"; capital: string }
+  | { kind: "flag"; flag: Flag };
 
 export interface Graded {
   guess: StoredGuess;
@@ -66,7 +67,7 @@ export interface Kind {
 // ---------------------------------------------------------------------------
 
 /**
- * Both kinds shipped so far ask "which country is this?" and take a country
+ * Every kind shipped so far asks "which country is this?" and takes a country
  * code as the guess, so they grade identically: great-circle distance between
  * the two centroids, plus the 8-point compass the UI draws.
  *
@@ -174,7 +175,40 @@ const capital: Kind = {
   reveal: (subject) => nameOf(subject),
 };
 
-export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital };
+/**
+ * `flag` — "which country's flag is this?". Three guesses, like `capital`:
+ * either you know a flag or you are guessing, and the distance feedback is
+ * what turns the second and third guesses into something better than a coin
+ * toss.
+ *
+ * The pool is smaller than every other kind's, and deliberately: 24 of the 196
+ * countries have no flag in `flags.json`. Most were dropped by the build's byte
+ * budget, which — not by coincidence — is the same measure as "the artwork is a
+ * coat of arms", and a coat of arms is usually where a flag writes its own
+ * country's name. Bolivia, Costa Rica, the Dominican Republic, El Salvador,
+ * Guatemala, Nicaragua, Paraguay and Peru all do. FR-8.4 says a prompt must not
+ * name its own answer, and a player who zooms an inlined SVG reads it at any
+ * size; the three that were small enough to slip past the budget are excluded
+ * by hand in tools/flags.json.
+ *
+ * SEC-13 applies as it does to `capital`: a flag is one image search away, and
+ * time is what a cheat costs (FR-8.3).
+ */
+const flag: Kind = {
+  id: "flag",
+  maxGuesses: 3,
+  pointsByGuess: [6, 4, 2],
+  pool: () => ALL().filter((c) => flagFor(c.code) !== undefined),
+  prompt: (subject) => {
+    const f = flagFor(subject);
+    if (!f) throw mondoError("not-found", "No flag for this challenge.");
+    return { kind: "flag", flag: f };
+  },
+  grade: gradeCountryGuess,
+  reveal: (subject) => nameOf(subject),
+};
+
+export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag };
 
 /**
  * Look up a kind by id.

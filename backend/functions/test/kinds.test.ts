@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { COUNTRIES, countryByCode } from "../src/lib/countries";
+import { COUNTRIES, countryByCode, flagFor } from "../src/lib/countries";
 import { KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem } from "../src/lib/kinds";
 import { distanceKm } from "../src/lib/geo";
 
@@ -36,11 +36,13 @@ test("FR-8.2 / D-44: every kind scores a first-guess solve at exactly 6 and neve
   }
 });
 
-test("shape scores exactly like the daily (FR-3.1), capital over three guesses", () => {
+test("shape scores exactly like the daily (FR-3.1); capital and flag over three guesses", () => {
   assert.deepEqual([...KINDS.shape.pointsByGuess], [6, 5, 4, 3, 2, 1]);
   assert.deepEqual([...KINDS.capital.pointsByGuess], [6, 4, 2]);
+  assert.deepEqual([...KINDS.flag.pointsByGuess], [6, 4, 2]);
   assert.equal(KINDS.shape.maxGuesses, 6);
   assert.equal(KINDS.capital.maxGuesses, 3);
+  assert.equal(KINDS.flag.maxGuesses, 3);
 });
 
 test("scoreItem refuses a guess count the kind cannot produce", () => {
@@ -108,6 +110,71 @@ test("the countries whose capital gives the game away are the ones excluded", ()
   for (const code of ["KE", "IT", "JP", "RU", "PY", "IS"]) assert.ok(pool.has(code), `${code} should still be askable`);
 });
 
+// --- flag (OQ-11) ----------------------------------------------------------
+
+test("FR-8.4: the flag prompt is paths and colours, and nothing that names the country", () => {
+  const p = KINDS.flag.prompt("BR");
+  assert.equal(p.kind, "flag");
+  assert.ok(p.kind === "flag" && p.flag.paths.length > 0, "expected at least one path");
+  const json = JSON.stringify(p);
+  const br = countryByCode("BR")!;
+  for (const term of [br.code3, br.names.en, br.names["pt-BR"], br.capital["pt-BR"], String(br.centroid[0])]) {
+    assert.ok(!json.includes(term), `prompt leaks ${term}`);
+  }
+  // The vendored files carry `<title>Flag of Brazil</title>` and Inkscape ids;
+  // the build drops both, and this is what would catch it coming back.
+  assert.ok(!/title|desc|Flag of/i.test(json), "prompt carries metadata from the source file");
+});
+
+test("SEC-2: a flag prompt carries only the drawing keys the renderer knows", () => {
+  const allowed = new Set([
+    "d", "clip", "transform", "fill", "fillRule", "fillOpacity", "stroke", "strokeWidth",
+    "strokeLinecap", "strokeLinejoin", "strokeMiterlimit", "strokeOpacity", "strokeDasharray", "opacity",
+  ]);
+  for (const c of KINDS.flag.pool()) {
+    const flag = flagFor(c.code)!;
+    assert.match(flag.viewBox, /^-?[\d.]+ -?[\d.]+ [\d.]+ [\d.]+$/, `${c.code}: viewBox`);
+    assert.ok(flag.paths.length > 0, `${c.code}: nothing to draw`);
+    for (const path of flag.paths) {
+      assert.ok(path.d.length > 0, `${c.code}: empty path`);
+      for (const key of Object.keys(path)) assert.ok(allowed.has(key), `${c.code}: unknown key ${key}`);
+    }
+  }
+});
+
+test("the flag pool is a real pool, and smaller than every other kind's", () => {
+  const pool = KINDS.flag.pool().length;
+  assert.ok(pool > 150, `only ${pool} flags: the build dropped more than it should`);
+  assert.ok(pool < COUNTRIES.size, "some countries have no flag, and that is the point of pool()");
+  assert.ok(pool < KINDS.shape.pool().length);
+});
+
+test("FR-8.4: the flags whose artwork spells their own country's name are not askable", () => {
+  const pool = new Set(KINDS.flag.pool().map((c) => c.code));
+  // Dropped by the byte budget, which is the same measure as "has a coat of
+  // arms": REPÚBLICA DOMINICANA, REPUBLICA DE EL SALVADOR, BOLIVIA, and so on.
+  for (const code of ["BO", "CR", "DO", "SV", "PE", "AF"]) {
+    assert.ok(!pool.has(code), `${code}'s flag writes its own name`);
+  }
+  // Small enough to slip past the budget, so excluded by hand in tools/flags.json.
+  for (const code of ["BN", "EG", "PY"]) {
+    assert.ok(!pool.has(code), `${code} must be excluded by hand`);
+  }
+  // ...while the ordinary ones stay. Brazil's banner says ORDEM E PROGRESSO,
+  // which is not its name.
+  for (const code of ["BR", "AR", "PT", "US", "GB", "JP", "ZA", "AU"]) {
+    assert.ok(pool.has(code), `${code} should still be askable`);
+  }
+});
+
+test("a country the flag build dropped cannot be prompted, even if a card asks", () => {
+  rejects(() => KINDS.flag.prompt("MX"), "not-found");
+});
+
+test("flag grades identically to shape — the answer is a country either way", () => {
+  assert.deepEqual(KINDS.flag.grade("BR", "AR", T0), KINDS.shape.grade("BR", "AR", T0));
+});
+
 // --- grading ---------------------------------------------------------------
 
 test("a wrong guess grades to distance, bearing and proximity; a right one to zero distance", () => {
@@ -138,7 +205,7 @@ test("SEC-8: a guess that is not a known country code is rejected by the kind it
 });
 
 test("kindById rejects anything not registered", () => {
-  rejects(() => kindById("flag"), "invalid-argument"); // planned, not shipped (OQ-11)
+  rejects(() => kindById("gdp"), "invalid-argument"); // planned, not shipped (OQ-12)
   rejects(() => kindById("constructor"), "invalid-argument");
   rejects(() => kindById("__proto__"), "invalid-argument");
 });
