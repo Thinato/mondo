@@ -107,12 +107,31 @@ and pushes it, and old images are not removed automatically. A dozen deploys of 
 handful of functions will quietly cross 0.5 GB, and then you are paying for
 storage forever for images you will never run.
 
-**Phase 3 made this worse and it is worth re-measuring.** Nine more callables is nine more Cloud
-Run services and nine more images: 22 functions became 31. At keep-3 that is roughly 90 image
-versions against a 0.5 GB free allowance, so this is now the most likely line to actually bill —
-a few reais a month, not a catastrophe, but the one to check. Measure with
-`gcloud artifacts repositories describe gcf-artifacts --location=southamerica-east1` and tighten
-to keep 1 / delete older than 7 days if it has crossed.
+**Measured 2026-09-09, after the Phase 3 deploy: 192.7 MB of the 0.5 GB free allowance (38%).**
+No action needed. The measurement also refuted the estimate this section used to carry, which
+said nine more callables meant nine more images and "roughly 90 image versions" — wrong by an
+order of magnitude, and wrong in a way worth writing down.
+
+**Images track deploys, not functions.** 31 functions are live, but the repository holds only
+four image packages — `ping`, `get_round`, `create_group`, `create_tournament` — plus four build
+caches. Those four names are the four deploy generations to date (Phase 0, 1, 2, 3): functions
+that deploy together share one image, which is named after whichever function led the batch. So
+the number to watch is how often you deploy, not how many callables you have. Roughly 48 MB per
+generation.
+
+**That means `keep-recent` is not what is protecting you.** Each of the four packages holds
+exactly one version, so the keep-3 rule has never pruned anything and will not until a later
+deploy reuses an existing lead-function name. The effective bound is `delete-old` at 30 days.
+Ten deploy generations inside any 30-day window would cross the allowance.
+
+Re-measure after a burst of deploys, not after adding callables:
+
+```sh
+gcloud artifacts repositories describe gcf-artifacts \
+  --location=southamerica-east1 --project=lisecki-dev --format='value(sizeBytes)'
+```
+
+If it has crossed, tighten to keep 1 / delete older than 7 days.
 
 Set a cleanup policy once, after the first deploy:
 
