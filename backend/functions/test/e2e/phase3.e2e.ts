@@ -97,7 +97,7 @@ before(async () => {
 test("only the group owner may create a tournament, and only from a shipped preset", async () => {
   assert.equal(code(await ana.call("createTournament", { groupId: gid, name: "Meu torneio", preset: "quintal" })), "permission-denied");
   assert.equal(code(await carla.call("createTournament", { groupId: gid, name: "Meu torneio", preset: "quintal" })), "permission-denied");
-  assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "Nope", preset: "chave-dupla" })), "invalid-argument"); // slice 6, not shipped
+  assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "Nope", preset: "nao-existe" })), "invalid-argument");
   assert.equal(code(await owner.call("createTournament", { groupId: gid, name: "ab", preset: "quintal" })), "invalid-argument");
 });
 
@@ -363,7 +363,7 @@ test("listTournaments shows the group's tournaments and the presets the form nee
   assert.equal(row.status, "finished");
   assert.equal(row.participantCount, 3);
   assert.equal(row.isParticipant, true);
-  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "liga", "mata-mata", "suico"]);
+  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "liga", "mata-mata", "suico", "chave-dupla"]);
   for (const p of v.presets) assert.ok(p.label && p.description, "the create form needs pt-BR copy");
   assert.equal(ok(await ana.call("listTournaments", { groupId: gid }), "as member").canManage, false);
 });
@@ -771,6 +771,87 @@ test("the Swiss table is a league table, and nobody is ever knocked out of it", 
   // Round 1 awarded three points for the fixture and three for the bye.
   const total = v.standings.reduce((n: number, r: Any) => n + r.record.matchPoints, 0);
   assert.equal(total, 6);
+});
+
+// ---------------------------------------------------------------------------
+// Slice 6 — double elimination (§6.3, T-2)
+//
+// Three players, bracket of four, so 2·log2(4) = 4 rounds. The winners and
+// losers brackets run in the SAME tournament round, which is what D-38's shared
+// card buys: one card, fixtures from both halves resolved on it.
+// ---------------------------------------------------------------------------
+
+let deId: string;
+const deRound = async (n: number): Promise<Any> => doc(`tournaments/${deId}/rounds/${n}`);
+const half = (ps: Any[], b: string) => ps.filter((p: Any) => p.bracket === b);
+
+test("a double elimination runs both brackets at once, in 2·log2(S) rounds", async () => {
+  deId = ok(await owner.call("createTournament", { groupId: gid, name: "Chave dupla", preset: "chave-dupla" }), "createTournament").tournamentId;
+  ok(await ana.call("setParticipation", { tournamentId: deId, join: true }), "ana joins");
+  ok(await davi.call("setParticipation", { tournamentId: deId, join: true }), "davi joins");
+  ok(await owner.call("startTournament", { tournamentId: deId }), "startTournament");
+
+  const t = await doc(`tournaments/${deId}`);
+  assert.equal(t.format, "double_elim");
+  assert.equal(t.roundCount, 4, "bracket of four: 2 x log2(4)");
+  assert.equal(t.config.grandFinalReset, false);
+
+  const p1 = (await deRound(1)).pairings;
+  assert.equal(half(p1, "l").length, 0, "nobody has lost yet, so there is no losers bracket");
+  assert.equal(half(p1, "w").length, 2, "one fixture and one bye");
+  const bye = half(p1, "w").find((p: Any) => p.b === null)!;
+  assert.equal(bye.a, owner.uid, "the spare slot goes to the top seed");
+});
+
+test("the loser of round one drops into the losers bracket rather than out", async () => {
+  // Whoever was drawn together: one plays, one does not. Turning up wins.
+  const p1 = (await deRound(1)).pairings;
+  const fixture = half(p1, "w").find((p: Any) => p.b !== null)!;
+  const accounts: Record<string, Account> = { [owner.uid]: owner, [ana.uid]: ana, [davi.uid]: davi };
+  await playCardOf(accounts[fixture.a]!, deId, `${deId}_r1`);
+  ok(await owner.call("advanceTournament", { tournamentId: deId }), "advanceTournament");
+
+  const r1 = await deRound(1);
+  const decided = half(r1.pairings, "w").find((p: Any) => p.b !== null)!;
+  const loser = decided.outcome === "a" ? decided.b : decided.a;
+
+  const p2 = (await deRound(2)).pairings;
+  assert.equal(half(p2, "w").length, 1, "the winners final");
+  assert.equal(half(p2, "l").length, 1, "and the losers bracket has opened");
+  // With three players only one person drops, so the losers round is a bye.
+  assert.equal(half(p2, "l")[0].a, loser, "the beaten player is in the losers bracket, not gone");
+  assert.equal(half(p2, "l")[0].b, null);
+
+  // And they are still allowed to play: one defeat is not elimination.
+  const v = ok(await accounts[loser]!.call("getTournament", { tournamentId: deId }), "getTournament");
+  assert.equal(v.standings.find((r: Any) => r.uid === loser).eliminated, false);
+});
+
+test("the whole bracket runs to exactly one champion", async () => {
+  const accounts: Record<string, Account> = { [owner.uid]: owner, [ana.uid]: ana, [davi.uid]: davi };
+  // Rounds 2, 3 and 4: in each, exactly one side of each fixture turns up, so
+  // every fixture is decided without a tie.
+  for (let n = 2; n <= 4; n++) {
+    const ps = (await deRound(n)).pairings;
+    for (const p of ps) {
+      if (p.b === null) continue;
+      await playCardOf(accounts[p.a]!, deId, `${deId}_r${n}`);
+    }
+    ok(await owner.call("advanceTournament", { tournamentId: deId }), `advance round ${n}`);
+  }
+
+  const t = await doc(`tournaments/${deId}`);
+  assert.equal(t.status, "finished");
+
+  const v = ok(await owner.call("getTournament", { tournamentId: deId }), "getTournament");
+  const standing = v.standings;
+  assert.equal(standing.filter((r: Any) => !r.eliminated).length, 1, "exactly one champion");
+  assert.equal(standing[0].eliminated, false, "and they are top of the table");
+
+  // The grand final was played, and it named the two brackets' champions.
+  const gf = half((await deRound(4)).pairings, "gf");
+  assert.equal(gf.length, 1);
+  assert.notEqual(gf[0].outcome, null);
 });
 
 test("a group cannot be drowned in open tournaments", async () => {

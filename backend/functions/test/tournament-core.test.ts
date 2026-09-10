@@ -22,6 +22,7 @@ import {
   alive, allowsDraws, applyTieResults, assertPairableSize, bracketOrder, bracketSize, cardWinner,
   competitionRanks, DEFAULT_MATCH_POINTS, drawnPairs, matchRecords, MAX_PAIRED_PARTICIPANTS,
   pairingsFor, resolvePairings, roundCountFor, roundRobinPairings, roundRobinRounds,
+  doubleElimPairings, doubleElimRounds, doubleElimSlot, dropdownSource, lossesOf,
   singleElimPairings, singleElimRounds, survivedRounds, swissPairings, swissRounds, type Pairing,
 } from "../src/lib/tournament-core";
 import type { RoundResultRow, Tiebreak } from "../src/lib/tournament";
@@ -615,4 +616,165 @@ test("round one has no table, so a Swiss folds the seed order instead", () => {
   const seeds = ["s1", "s2", "s3", "s4", "s5", "s6"];
   const ps = pairingsFor("swiss", seeds, 1, [], []);
   assert.deepEqual(ps.map((p) => `${p.a}-${p.b}`), ["s1-s4", "s2-s5", "s3-s6"]);
+});
+
+// ---------------------------------------------------------------------------
+// Double elimination (§6.3, T-2) — slice 6
+//
+// The schedule, from the hand-worked table this was built against:
+//
+//   t          1     2       3       4     5     6
+//   S=8,k=3    W1    W2      W3      -     -     GF
+//              -     L1      L2      L3    L4    -
+// ---------------------------------------------------------------------------
+
+test("the schedule runs both brackets in the same tournament round", () => {
+  const slots = (k: number, upTo: number) =>
+    Array.from({ length: upTo }, (_, i) => doubleElimSlot(k, i + 1))
+      .map((s) => `${s.wb ?? "-"}/${s.lb ?? "-"}${s.grandFinal ? "/GF" : ""}`);
+
+  assert.deepEqual(slots(3, 6), ["1/-", "2/1", "3/2", "-/3", "-/4", "-/-/GF"]);
+  assert.deepEqual(slots(2, 4), ["1/-", "2/1", "-/2", "-/-/GF"]);
+  assert.deepEqual(slots(1, 2), ["1/-", "-/-/GF"]);
+});
+
+test("double elimination is 2·log2(S) rounds, not 3k−1", () => {
+  assert.deepEqual([2, 3, 4, 5, 8, 12].map(doubleElimRounds), [2, 4, 4, 6, 6, 8]);
+  assert.equal(roundCountFor("double_elim", 1, 8), 6);
+});
+
+test("dropdowns arrive on the rounds the hand table says they do", () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map(dropdownSource), [1, 2, null, 3, null, 4]);
+});
+
+/** Run a whole double elimination, deciding every fixture with `decide`. */
+function runDoubleElim(uids: string[], decide: (a: string, b: string) => "a" | "b"): Pairing[][] {
+  const history: Pairing[][] = [];
+  for (let n = 1; n <= doubleElimRounds(uids.length); n++) {
+    const ps = doubleElimPairings(uids, n, history);
+    history.push(ps.map((p) => ({ ...p, outcome: p.b === null ? ("a" as const) : decide(p.a, p.b) })));
+  }
+  return history;
+}
+
+const SEEDED = Array.from({ length: 8 }, (_, i) => `p${i + 1}`);
+/** The better seed (lower number) always wins. */
+const seedWins = (a: string, b: string) => (Number(a.slice(1)) < Number(b.slice(1)) ? "a" as const : "b" as const);
+
+test("the eight-player bracket is exactly the table worked out by hand", () => {
+  const history = runDoubleElim(SEEDED, seedWins);
+  const show = (n: number, half: "w" | "l" | "gf") =>
+    history[n - 1]!.filter((p) => p.bracket === half)
+      .map((p) => (p.b === null ? `${p.a} bye` : `${p.a}-${p.b}`)).join(" ");
+
+  assert.equal(show(1, "w"), "p1-p8 p4-p5 p2-p7 p3-p6");
+  assert.equal(show(2, "w"), "p1-p4 p2-p3");
+  assert.equal(show(2, "l"), "p5-p7 p6-p8");
+  assert.equal(show(3, "w"), "p1-p2");
+  // The T-2 case: the naive mapping would hand p5 back to p4 and p6 back to p3,
+  // the very players who just knocked them down. Search finds the clean draw.
+  assert.equal(show(3, "l"), "p5-p3 p6-p4");
+  assert.equal(show(4, "l"), "p3-p4");
+  assert.equal(show(5, "l"), "p3-p2");
+  assert.equal(show(6, "gf"), "p1-p2");
+});
+
+test("nobody meets the same opponent twice before the losers final", () => {
+  const history = runDoubleElim(SEEDED, seedWins);
+  // Rounds 1-4: every fixture must be a first meeting.
+  const seen = new Set<string>();
+  for (const round of history.slice(0, 4)) {
+    for (const p of round) {
+      if (p.b === null) continue;
+      const key = [p.a, p.b].sort().join("|");
+      assert.ok(!seen.has(key), `rematch scheduled early: ${key}`);
+      seen.add(key);
+    }
+  }
+  // The losers final IS a rematch here, and that is expected: the beaten
+  // winners-bracket finalist has to enter the losers bracket somewhere.
+  const lbFinal = history[4]!.find((p) => p.bracket === "l")!;
+  assert.deepEqual([lbFinal.a, lbFinal.b].sort(), ["p2", "p3"]);
+});
+
+test("two defeats put you out, one does not", () => {
+  const history = runDoubleElim(SEEDED, seedWins);
+  const losses = lossesOf(SEEDED, history);
+  assert.equal(losses.get("p1"), 0, "the winners champion never lost");
+  assert.equal(losses.get("p2"), 2, "beaten in the winners final and again in the grand final");
+  assert.deepEqual([...alive(SEEDED, history, 2)], ["p1"], "exactly one player left");
+  // With one life the same log would have knocked out everybody but p1 by round 3.
+  assert.ok(alive(SEEDED, history, 1).size <= 1);
+});
+
+test("every field from 2 to 12 ends with exactly one unbeaten-enough champion", () => {
+  for (let n = 2; n <= MAX_PAIRED_PARTICIPANTS; n++) {
+    const uids = Array.from({ length: n }, (_, i) => `p${i + 1}`);
+    // An upset every third fixture, so the brackets do not just mirror the seeds.
+    let seq = 0;
+    const history = runDoubleElim(uids, (a, b) => (seq++ % 3 === 2 ? "b" : seedWins(a, b)));
+
+    const left = alive(uids, history, 2);
+    assert.equal(left.size, 1, `${n} players: ${left.size} players left standing`);
+
+    for (const round of history) {
+      const seen = round.flatMap((p) => (p.b === null ? [p.a] : [p.a, p.b]));
+      assert.equal(new Set(seen).size, seen.length, `${n} players: somebody is double-booked in one round`);
+    }
+    // Nobody keeps playing after their second defeat.
+    const losses = lossesOf(uids, history);
+    for (const u of uids) assert.ok((losses.get(u) ?? 0) <= 2, `${n} players: ${u} lost ${losses.get(u)} times`);
+  }
+});
+
+test("survivedRounds counts the defeat that ends it, not the first one", () => {
+  // One loss in round 1, the second in round 3: knocked out in round 3, so two
+  // rounds survived — under single elimination the same log reads as zero.
+  const history: Pairing[][] = [
+    [{ a: "A", b: "B", outcome: "a", bracket: "w" }],
+    [],
+    [{ a: "C", b: "B", outcome: "a", bracket: "l" }],
+  ];
+  assert.equal(survivedRounds(["A", "B", "C"], history, 2).get("B"), 2);
+  assert.equal(survivedRounds(["A", "B", "C"], history, 1).get("B"), 0);
+});
+
+test("a grand final the losers champion wins is the one that needs a reset", () => {
+  const history = runDoubleElim(SEEDED, seedWins);
+  const gf = history[5]!.find((p) => p.bracket === "gf")!;
+  assert.equal(gf.a, "p1", "the winners champion is always side a");
+  assert.equal(gf.b, "p2");
+  // p1 won it here, so both brackets agree and nothing more is needed. Had it
+  // gone the other way both would be on one defeat — which is what
+  // grandFinalReset exists for.
+  assert.equal(gf.outcome, "a");
+});
+
+test("losing the grand final ends it, even on only one defeat (reset off)", () => {
+  // The losers champion wins the final, so both finalists are on one defeat.
+  // Without the "last grand final is decisive" rule the table would show two
+  // survivors and no champion — which is what a property check caught.
+  const history = runDoubleElim(SEEDED, seedWins);
+  const upset = history.map((round, i) =>
+    i === 5 ? round.map((p) => (p.bracket === "gf" ? { ...p, outcome: "b" as const } : p)) : round);
+
+  const losses = lossesOf(SEEDED, upset);
+  assert.equal(losses.get("p1"), 1, "the winners champion has lost exactly once");
+  assert.equal(losses.get("p2"), 1, "and so has the losers champion");
+  assert.deepEqual([...alive(SEEDED, upset, 2)], ["p2"], "the final decided it anyway");
+});
+
+test("with the reset on, that same result pairs the two of them again", () => {
+  const history = runDoubleElim(SEEDED, seedWins);
+  const upset = history.map((round, i) =>
+    i === 5 ? round.map((p) => (p.bracket === "gf" ? { ...p, outcome: "b" as const } : p)) : round);
+
+  const reset = doubleElimPairings(SEEDED, 7, upset);
+  assert.equal(reset.length, 1);
+  assert.equal(reset[0]!.bracket, "gf");
+  assert.deepEqual([reset[0]!.a, reset[0]!.b], ["p1", "p2"]);
+
+  // And once the reset is played, the loser of THAT is the one who is out.
+  const played = [...upset, reset.map((p) => ({ ...p, outcome: "a" as const }))];
+  assert.deepEqual([...alive(SEEDED, played, 2)], ["p1"]);
 });
