@@ -3,17 +3,8 @@
  * the part people will argue about over lunch (NFR-8, FR-3.7).
  */
 
-import { MAX_GUESSES } from "./config";
 import type { Compass } from "./geo";
-
-/**
- * FR-3.1: solved on guess n → 7 − n points (6 … 1); not solved → 0.
- */
-export function pointsFor(solved: boolean, guessCount: number): number {
-  if (!solved) return 0;
-  if (guessCount < 1 || guessCount > MAX_GUESSES) throw new RangeError(`guessCount ${guessCount} out of range`);
-  return MAX_GUESSES + 1 - guessCount;
-}
+import type { KindId } from "./kinds";
 
 const ARROW: Record<Compass, string> = {
   N: "⬆️", NE: "↗️", E: "➡️", SE: "↘️", S: "⬇️", SW: "↙️", W: "⬅️", NW: "↖️",
@@ -26,20 +17,47 @@ export interface GuessForShare {
   compass: Compass;
 }
 
+/** One challenge of a day, as the share text sees it. No name, no code. */
+export interface ItemForShare {
+  kind: KindId;
+  solved: boolean;
+  maxGuesses: number;
+  guesses: readonly GuessForShare[];
+}
+
 /**
- * One row per guess: five squares filled by proximity, then the arrow (or 🎉).
- * Contains the puzzle date and the guess count, never the answer or any guess name.
+ * D-52: a day is three challenges, so the grid gained a column rather than a
+ * pile of rows. Each challenge is one line — its icon, then one square per
+ * allowed guess — and the wrong ones still carry the direction they pointed,
+ * which is the part people actually compare at lunch.
+ *
+ * Contains the date and the score, never an answer, a name or a country code.
  * The client appends the link (FR-2.11).
  *
- *   Mondo 2026-09-15 3/6
- *   🟩🟩🟨⬜⬜ ↗️
- *   🟩🟩🟩🟩⬜ ↘️
- *   🟩🟩🟩🟩🟩 🎉
+ *   Mondo 2026-09-15 12/18
+ *   🗺️ 🟨↗️ 🟩🎉 ⬛ ⬛ ⬛ ⬛
+ *   🏳️ 🟩🎉 ⬛ ⬛
+ *   🏙️ 🟥⬅️ 🟨➡️ 🟥↘️
+ *
+ * A challenge nobody reached is all ⬛, which is how a share still reads when
+ * the day was abandoned halfway.
  */
-export function shareGrid(puzzleId: string, guesses: readonly GuessForShare[], solved: boolean): string {
-  const score = solved ? String(guesses.length) : "X";
-  const rows = guesses.map((g) => `${squares(g.proximity)} ${g.correct ? "🎉" : ARROW[g.compass]}`);
-  return [`Mondo ${puzzleId} ${score}/${MAX_GUESSES}`, ...rows].join("\n");
+export function shareGrid(puzzleId: string, items: readonly ItemForShare[], points: number, maxPoints: number): string {
+  const rows = items.map((it) => {
+    const played = it.guesses.map((g) => `${band(g.proximity)}${g.correct ? "🎉" : ARROW[g.compass]}`);
+    const unused = Array(Math.max(0, it.maxGuesses - it.guesses.length)).fill("⬛");
+    return [ICON[it.kind], ...played, ...unused].join(" ");
+  });
+  return [`Mondo ${puzzleId} ${points}/${maxPoints}`, ...rows].join("\n");
+}
+
+/** What kind of question it was — never which question. */
+const ICON: Record<KindId, string> = { shape: "🗺️", capital: "🏙️", flag: "🏳️" };
+
+/** One square for how close a guess landed: the five-square bar, collapsed. */
+export function band(proximity: number): string {
+  const p = Math.min(1, Math.max(0, proximity));
+  return p >= 0.8 ? "🟩" : p >= 0.4 ? "🟨" : "🟥";
 }
 
 /** 5 squares: 20 % each; a half-step (≥ 10 % of the way to the next) shows yellow. */

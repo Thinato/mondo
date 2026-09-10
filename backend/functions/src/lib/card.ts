@@ -131,20 +131,14 @@ export interface CardPlayItem {
 }
 
 /**
- * A card in progress or finished.
- *
- * **There is deliberately no `puzzleId` field, and adding one would be a bug
- * with consequences.** The daily standings job selects with
- * `where("puzzleId", ">=", …)`, and a Firestore inequality filter never returns
- * a document that lacks the field — so its absence is what keeps tournament
- * results out of the daily boards (FR-5.9, D-40), with no filter to remember
- * and no composite index. `test/card.test.ts` pins it.
+ * Playing a card, independent of what the card belongs to. The daily round and
+ * a tournament round are the same act — N challenges in order, one at a time,
+ * on one clock — so they share this state and the transitions below (D-52,
+ * which reverses D-45). What differs is identity and what the result is *for*,
+ * and that lives in the two documents that extend this.
  */
-export interface CardPlay {
+export interface CardCore {
   uid: string;
-  tournamentId: string;
-  roundId: string;
-  mode: "match";
   startedAt: Timestamp;
   finishedAt: Timestamp | null;
   /** Index of the item being played; === items.length once finished. */
@@ -155,13 +149,29 @@ export interface CardPlay {
   suspicious: boolean;
 }
 
-export function newCardPlay(uid: string, tournamentId: string, roundId: string, card: readonly CardItem[], now: Timestamp): CardPlay {
+/**
+ * A tournament card in progress or finished.
+ *
+ * **There is deliberately no `puzzleId` field, and adding one would be a bug
+ * with consequences.** The daily standings job selects with
+ * `where("puzzleId", ">=", …)`, and a Firestore inequality filter never returns
+ * a document that lacks the field — so its absence is what keeps tournament
+ * results out of the daily boards (FR-5.9, D-40), with no filter to remember
+ * and no composite index. `test/card.test.ts` pins it. The daily attempt is the
+ * mirror image: it extends the same core and DOES carry `puzzleId`, which is
+ * exactly how the job finds it.
+ */
+export interface CardPlay extends CardCore {
+  tournamentId: string;
+  roundId: string;
+  mode: "match";
+}
+
+/** The shared half of a fresh play: the items, with only the first clock running. */
+export function newCardCore(uid: string, card: readonly CardItem[], now: Timestamp): CardCore {
   if (card.length === 0) throw mondoError("not-found", "This round is not ready.");
   return {
     uid,
-    tournamentId,
-    roundId,
-    mode: "match",
     startedAt: now,
     finishedAt: null,
     cursor: 0,
@@ -181,12 +191,16 @@ export function newCardPlay(uid: string, tournamentId: string, roundId: string, 
   };
 }
 
+export function newCardPlay(uid: string, tournamentId: string, roundId: string, card: readonly CardItem[], now: Timestamp): CardPlay {
+  return { ...newCardCore(uid, card, now), tournamentId, roundId, mode: "match" };
+}
+
 /**
  * Apply one guess to the current item. Returns a new play; never mutates.
  * Throws the same typed errors the daily does, for the same reasons (FR-2.10,
  * SEC-4 via the caller's transaction, SEC-5's 400 ms floor).
  */
-export function applyCardGuess(play: CardPlay, card: readonly CardItem[], raw: unknown, now: Timestamp): CardPlay {
+export function applyCardGuess(play: CardCore, card: readonly CardItem[], raw: unknown, now: Timestamp): CardCore {
   if (play.finishedAt !== null) throw mondoError("already-completed", "This card is finished.");
   if (play.items.length !== card.length) throw mondoError("not-found", "This round is not ready.");
 
@@ -247,7 +261,7 @@ export function applyCardGuess(play: CardPlay, card: readonly CardItem[], raw: u
 }
 
 /** Total guesses across the card, for the standings' display column. */
-export function totalGuesses(play: CardPlay): number {
+export function totalGuesses(play: CardCore): number {
   return play.items.reduce((n, it) => n + it.guesses.length, 0);
 }
 
@@ -257,7 +271,7 @@ export function totalGuesses(play: CardPlay): number {
  * whole detection story for tournament cheating (SEC-13, SEC-14) — a card whose
  * capital items all came back in 1.5 s is a conversation at lunch.
  */
-export function cardIntervalsMs(play: CardPlay): number[][] {
+export function cardIntervalsMs(play: CardCore): number[][] {
   return play.items.map((it) => {
     let prev = (it.startedAt ?? play.startedAt).toMillis();
     return it.guesses.map((g) => {

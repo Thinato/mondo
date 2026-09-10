@@ -1,6 +1,10 @@
 /**
  * getRound / submitGuess — the daily round (02-architecture.md §4).
  *
+ * A day is a card of one challenge per kind since D-52, so `submitGuess` walks
+ * a cursor rather than a single guess list. The callable's shape did not change:
+ * every shipped kind still takes a country code as its guess.
+ *
  * All state changes happen inside Firestore transactions on the deterministic
  * attempt document `attempts/{uid}_{puzzleId}` (SEC-4), with server timestamps
  * only (SEC-3). The pure rules live in lib/round.ts; this file is I/O.
@@ -16,7 +20,7 @@ import { callable } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { puzzleIdAt } from "./lib/puzzle-day";
 import {
-  applyGuess, newAttempt, recordCompletion, roundView,
+  applyGuess, newAttempt, puzzleItems, recordCompletion, roundView,
   type Attempt, type Profile, type Puzzle, type RoundView,
 } from "./lib/round";
 import { requireCountryCode, requireObject, requirePuzzleId } from "./lib/validate";
@@ -56,7 +60,7 @@ export const getRound = callable<{ puzzleId?: unknown } | null | undefined, Roun
   const attempt = await db().runTransaction(async (tx) => {
     const snap = await tx.get(attemptRef(uid, puzzle.puzzleId));
     if (snap.exists) return snap.data() as Attempt;
-    const fresh = newAttempt(uid, puzzle.puzzleId, now);
+    const fresh = newAttempt(uid, puzzle.puzzleId, puzzleItems(puzzle), now);
     tx.create(attemptRef(uid, puzzle.puzzleId), fresh);
     return fresh;
   });
@@ -86,7 +90,7 @@ export const submitGuess = callable<{ puzzleId: unknown; code: unknown }, RoundV
     requireCanPlay(profile); // losing your last group closes the round too
     if (!snap.exists) throw mondoError("not-found", "Call getRound before guessing.");
     const before = snap.data() as Attempt;
-    const after = applyGuess(before, puzzle, code, now);
+    const after = applyGuess(before, puzzleItems(puzzle), code, now);
     tx.set(attemptRef(uid, puzzleId), after);
     if (after.finishedAt !== null && profile !== null) tx.set(userRef(uid), recordCompletion(profile, after));
     return after;

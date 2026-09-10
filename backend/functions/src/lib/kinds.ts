@@ -16,6 +16,7 @@
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
+import { MAX_GUESSES } from "./config";
 import { COUNTRIES, countryByCode, flagFor, shapeFor, type Country, type Flag, type Shape } from "./countries";
 import { mondoError } from "./errors";
 import { bearingDeg, distanceKm, proximity } from "./geo";
@@ -144,7 +145,9 @@ export function capitalNamesItsCountry(c: Country): boolean {
  */
 const shape: Kind = {
   id: "shape",
-  maxGuesses: 6,
+  // FR-3.1's ladder, and since D-52 the daily's too: a silhouette scores the
+  // same whether it is asked on its own or as one challenge of a day.
+  maxGuesses: MAX_GUESSES,
   pointsByGuess: [6, 5, 4, 3, 2, 1],
   pool: () => ALL().filter((c) => shapeFor(c.code) !== undefined),
   prompt: (subject) => {

@@ -2,14 +2,28 @@
  * The round state machine, pure (NFR-8). `src/round.ts` wraps these in
  * Firestore transactions; everything that can be argued about lives here and
  * is unit-tested without an emulator.
+ *
+ * **D-52 — the daily is a card.** A day is one challenge of every kind, in a
+ * shuffled order, and playing it is the same act as playing a tournament round:
+ * N challenges, one at a time, on one clock. So the transitions live in
+ * `lib/card.ts` and this file holds what is specific to a *day* — the schedule,
+ * the streak, the share grid, and the document the standings job reads.
+ *
+ * This reverses D-45, which said the daily would not be rebuilt on the card
+ * engine. D-45 was right while the daily was one silhouette: rewriting a live,
+ * tested, playing round to gain nothing is a bad trade. It stopped being right
+ * the moment a day had to hold three challenges, because the alternative was a
+ * second implementation of the ordering, throttling and per-item timing rules
+ * that card.ts already had under test.
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
-import { GUESS_MIN_INTERVAL_MS, MAX_GUESSES, SUSPICIOUS_SOLVE_MS } from "./config";
-import { countryByCode, shapeFor, type Country, type Shape } from "./countries";
+import { applyCardGuess, newCardCore, cardIntervalsMs, totalGuesses, type CardCore, type CardItem } from "./card";
+import { countryByCode, type Country } from "./countries";
 import { mondoError } from "./errors";
-import { bearingDeg, compass8, distanceKm, proximity, type Compass } from "./geo";
-import { pointsFor, shareGrid } from "./scoring";
+import { compass8, type Compass } from "./geo";
+import { kindById, type KindId, type Prompt } from "./kinds";
+import { shareGrid, type ItemForShare } from "./scoring";
 
 // ---------------------------------------------------------------------------
 // Stored documents (02-architecture.md §3.2, §3.3)
@@ -17,9 +31,23 @@ import { pointsFor, shareGrid } from "./scoring";
 
 export interface Puzzle {
   puzzleId: string;
-  countryCode: string;
-  tier: 1 | 2 | 3;
+  /** FR-2.1, D-52 — the day's challenges, in the order they are played. */
+  items?: CardItem[];
   opensAt: Timestamp;
+  /**
+   * Pre-D-52 days: one silhouette. Still present on every day seeded before the
+   * switch, so `puzzleItems` reads either shape and a day that was never
+   * re-seeded plays as a one-challenge day rather than failing at noon.
+   */
+  countryCode?: string;
+  tier?: 1 | 2 | 3;
+}
+
+/** The day's card, whichever generation seeded it (D-52). */
+export function puzzleItems(puzzle: Puzzle): CardItem[] {
+  if (puzzle.items && puzzle.items.length > 0) return puzzle.items;
+  if (puzzle.countryCode) return [{ kind: "shape", subject: puzzle.countryCode }];
+  throw mondoError("not-found", "This puzzle has no challenges.");
 }
 
 export interface StoredGuess {
@@ -30,21 +58,28 @@ export interface StoredGuess {
   at: Timestamp;
 }
 
-export interface Attempt {
-  uid: string;
+/**
+ * One player's day. A card play (D-52) that additionally carries `puzzleId` —
+ * which is precisely how the nightly standings job finds it, and precisely what
+ * a tournament play omits so the job cannot (FR-5.9, D-40).
+ *
+ * `guessCount`, `solved`, `points` and `elapsedMs` stay at the top level even
+ * though the per-item detail is in `items`. They are what `resultOf` and the
+ * admin dashboard read, and attempts written before D-52 carry the same four —
+ * so the boards go on summing days across the switch without a migration.
+ */
+export interface Attempt extends CardCore {
   puzzleId: string;
-  startedAt: Timestamp;
-  finishedAt: Timestamp | null;
-  guesses: StoredGuess[];
-  guessCount: number;
-  solved: boolean;
-  points: number;
-  elapsedMs: number | null;
   mode: "daily";
-  suspicious: boolean;
+  /** Guesses across every challenge of the day. */
+  guessCount: number;
+  /** Every challenge of the day solved. */
+  solved: boolean;
   /** D-30: set only on attempts an admin has reset. Earlier tries, oldest first. */
   history?: AttemptSnapshot[];
   retries?: number;
+  /** Pre-D-52 attempts: one country, one flat list. Read, never written. */
+  guesses?: StoredGuess[];
 }
 
 /** An attempt as it was when an admin granted a retry (D-30). */
@@ -74,11 +109,8 @@ export type RoundStatus = "in_progress" | "solved" | "failed";
 // Transitions
 // ---------------------------------------------------------------------------
 
-export function newAttempt(uid: string, puzzleId: string, now: Timestamp): Attempt {
-  return {
-    uid, puzzleId, startedAt: now, finishedAt: null, guesses: [], guessCount: 0,
-    solved: false, points: 0, elapsedMs: null, mode: "daily", suspicious: false,
-  };
+export function newAttempt(uid: string, puzzleId: string, card: readonly CardItem[], now: Timestamp): Attempt {
+  return { ...newCardCore(uid, card, now), puzzleId, mode: "daily", guessCount: 0, solved: false };
 }
 
 export function newProfile(now: Timestamp, displayName = randomHandle()): Profile {
@@ -93,19 +125,27 @@ export function newProfile(now: Timestamp, displayName = randomHandle()): Profil
  * D-30 — an admin's "extra chance": the round starts over now, and the old try
  * is kept in `history` so the dashboard can still show what happened.
  */
-export function resetAttempt(attempt: Attempt, now: Timestamp, byUid: string): Attempt {
+export function resetAttempt(attempt: Attempt, card: readonly CardItem[], now: Timestamp, byUid: string): Attempt {
   const { history = [], ...current } = attempt;
   return {
-    ...newAttempt(attempt.uid, attempt.puzzleId, now),
+    ...newAttempt(attempt.uid, attempt.puzzleId, card, now),
     retries: (attempt.retries ?? 0) + 1,
     history: [...history, { ...current, retryGrantedBy: byUid, retryGrantedAt: now }],
   };
 }
 
-/** Gaps between consecutive server timestamps: start→first guess, then guess→guess. */
-export function intervalsMs(attempt: Pick<Attempt, "startedAt" | "guesses">): number[] {
+/**
+ * Gaps between consecutive server timestamps: served→first guess, then
+ * guess→guess, concatenated across the day's challenges. Still one flat list,
+ * because that is what the admin table draws and what a suspiciously fast
+ * answer looks like either way (D-31).
+ *
+ * Reads a pre-D-52 attempt too: those have one flat `guesses` and no `items`.
+ */
+export function intervalsMs(attempt: Pick<Attempt, "startedAt" | "items" | "guesses">): number[] {
+  if (attempt.items) return cardIntervalsMs(attempt as CardCore).flat();
   let prev = attempt.startedAt.toMillis();
-  return attempt.guesses.map((g) => {
+  return (attempt.guesses ?? []).map((g) => {
     const d = g.at.toMillis() - prev;
     prev = g.at.toMillis();
     return d;
@@ -113,42 +153,21 @@ export function intervalsMs(attempt: Pick<Attempt, "startedAt" | "guesses">): nu
 }
 
 /**
- * Apply one guess. Throws typed errors for every rejected case (FR-2.10,
- * SEC-4, SEC-5); returns a new attempt, never mutating the input.
+ * Apply one guess to the day's current challenge. The rules — order, the 400 ms
+ * floor, per-item clocks, scoring — are `applyCardGuess`'s, shared with
+ * tournaments (D-52); what this adds is the three summary fields the boards and
+ * the dashboard read off the top of the document.
  */
-export function applyGuess(attempt: Attempt, puzzle: Puzzle, code: string, now: Timestamp): Attempt {
-  if (attempt.finishedAt !== null) throw mondoError("already-completed", "This round is over.");
-  if (attempt.guessCount >= MAX_GUESSES) throw mondoError("no-guesses-remaining", "No guesses left.");
-  const last = attempt.guesses.at(-1);
-  if (last && now.toMillis() - last.at.toMillis() < GUESS_MIN_INTERVAL_MS) {
-    throw mondoError("rate-limited", "Too fast. Try again.");
-  }
-  const guessed = mustCountry(code);
-  const answer = mustCountry(puzzle.countryCode);
-
-  const correct = guessed.code === answer.code;
-  const km = correct ? 0 : distanceKm(guessed.centroid, answer.centroid);
-  const guess: StoredGuess = {
-    code: guessed.code,
-    distanceKm: km,
-    bearingDeg: correct ? 0 : bearingDeg(guessed.centroid, answer.centroid),
-    proximity: proximity(km),
-    at: now,
-  };
-
-  const guesses = [...attempt.guesses, guess];
-  const guessCount = guesses.length;
-  const finished = correct || guessCount >= MAX_GUESSES;
-  if (!finished) return { ...attempt, guesses, guessCount };
-
-  const elapsedMs = now.toMillis() - attempt.startedAt.toMillis();
+export function applyGuess(attempt: Attempt, card: readonly CardItem[], raw: unknown, now: Timestamp): Attempt {
+  const core = applyCardGuess(attempt, card, raw, now);
   return {
-    ...attempt, guesses, guessCount,
-    finishedAt: now,
-    solved: correct,
-    points: pointsFor(correct, guessCount),
-    elapsedMs,
-    suspicious: correct && guessCount === 1 && elapsedMs < SUSPICIOUS_SOLVE_MS,
+    ...attempt,
+    ...core,
+    guessCount: totalGuesses(core),
+    // A "solved" day is a day where every challenge fell. It is what
+    // `profile.totalSolved` counts and what the result line celebrates; the
+    // points are the honest measure, and they are separate.
+    solved: core.items.every((it) => it.solved),
   };
 }
 
@@ -193,16 +212,34 @@ export interface GuessView {
   proximity: number;
 }
 
+export type RoundItemStatus = "pending" | "current" | "solved" | "failed";
+
+export interface RoundItemView {
+  kind: KindId;
+  status: RoundItemStatus;
+  guessCount: number;
+  /** Both only once the challenge itself is over (SEC-1). */
+  points: number | null;
+  answer: { code: string; name: string } | null;
+}
+
 export interface RoundView {
   puzzleId: string;
   mode: "daily";
-  shape: Shape;
+  itemCount: number;
+  cursor: number;
+  /** The current challenge's prompt; null once the day is finished. */
+  prompt: Prompt | null;
+  /** Guesses used and allowed on the CURRENT challenge, not on the day. */
   guessesUsed: number;
   guessesMax: number;
+  /** Guesses on the current challenge only. */
   guesses: GuessView[];
+  items: RoundItemView[];
   status: RoundStatus;
-  answer: { code: string; name: string } | null;
+  /** Day totals, only once every challenge is done. */
   points: number | null;
+  maxPoints: number;
   elapsedMs: number | null;
   shareGrid: string | null;
   serverTime: string;
@@ -214,34 +251,65 @@ export function statusOf(attempt: Attempt): RoundStatus {
   return attempt.finishedAt === null ? "in_progress" : attempt.solved ? "solved" : "failed";
 }
 
+/**
+ * Project a day for its own player. A challenge's answer appears only once that
+ * challenge is over, and never the ones still to come (SEC-1) — the same line
+ * `cardView` draws, for the same reason.
+ */
 export function roundView(attempt: Attempt, puzzle: Puzzle, now: Timestamp, profile: Profile | null = null): RoundView {
-  const status = statusOf(attempt);
-  const finished = status !== "in_progress";
-  const shape = shapeFor(puzzle.countryCode);
-  if (!shape) throw mondoError("not-found", "No silhouette for this puzzle.");
-  const guesses = attempt.guesses.map(guessView);
-  const answer = mustCountry(puzzle.countryCode);
+  const card = puzzleItems(puzzle);
+  if (attempt.items.length !== card.length) throw mondoError("not-found", "This round is not ready.");
+  const finished = attempt.finishedAt !== null;
+  const current = attempt.items[attempt.cursor];
+  const currentCard = card[attempt.cursor];
+  const kind = currentCard ? kindById(currentCard.kind) : null;
+
   return {
     puzzleId: puzzle.puzzleId,
     mode: "daily",
-    shape,
-    guessesUsed: attempt.guessCount,
-    guessesMax: MAX_GUESSES,
-    guesses,
-    status,
-    answer: finished ? { code: answer.code, name: answer.names["pt-BR"] } : null,
+    itemCount: attempt.items.length,
+    cursor: attempt.cursor,
+    prompt: kind && currentCard && !finished ? kind.prompt(currentCard.subject) : null,
+    guessesUsed: current?.guesses.length ?? 0,
+    guessesMax: kind?.maxGuesses ?? 0,
+    guesses: (current?.guesses ?? []).map(guessView),
+    items: attempt.items.map((it, i) => {
+      const over = it.finishedAt !== null;
+      return {
+        kind: it.kind,
+        status: over ? (it.solved ? "solved" : "failed") : i === attempt.cursor && !finished ? "current" : "pending",
+        guessCount: it.guesses.length,
+        points: over ? it.points : null,
+        answer: over ? kindById(it.kind).reveal(card[i]!.subject) : null,
+      };
+    }),
+    status: statusOf(attempt),
     points: finished ? attempt.points : null,
+    maxPoints: maxPointsFor(card),
     elapsedMs: finished ? attempt.elapsedMs : null,
-    shareGrid: finished
-      ? shareGrid(
-          puzzle.puzzleId,
-          attempt.guesses.map((g) => ({ correct: g.code === answer.code, proximity: g.proximity, compass: compass8(g.bearingDeg) })),
-          attempt.solved,
-        )
-      : null,
+    shareGrid: finished ? shareGrid(puzzle.puzzleId, shareItems(attempt, card), attempt.points, maxPointsFor(card)) : null,
     serverTime: now.toDate().toISOString(),
     me: profile ? { displayName: profile.displayName, role: profile.role ?? "player", groupCount: profile.groups?.length ?? 0 } : null,
   };
+}
+
+/** The best a day could have gone: every challenge on the first guess (D-44). */
+export function maxPointsFor(card: readonly CardItem[]): number {
+  return card.reduce((n, it) => n + kindById(it.kind).pointsByGuess[0]!, 0);
+}
+
+/** One share row per guess, grouped by challenge. Carries no name and no code. */
+function shareItems(attempt: Attempt, card: readonly CardItem[]): ItemForShare[] {
+  return attempt.items.map((it, i) => ({
+    kind: it.kind,
+    solved: it.solved,
+    maxGuesses: kindById(it.kind).maxGuesses,
+    guesses: it.guesses.map((g) => ({
+      correct: g.code === card[i]!.subject,
+      proximity: g.proximity,
+      compass: compass8(g.bearingDeg),
+    })),
+  }));
 }
 
 export function guessView(g: StoredGuess): GuessView {

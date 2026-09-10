@@ -16,7 +16,7 @@ import { cardIntervalsMs, totalGuesses, type CardPlay } from "./lib/card";
 import { countryByCode } from "./lib/countries";
 import { mondoError } from "./lib/errors";
 import { todayState, type Group, type TodayState } from "./lib/groups";
-import { intervalsMs, resetAttempt, type Attempt, type Profile, type Role } from "./lib/round";
+import { intervalsMs, puzzleItems, resetAttempt, type Attempt, type Profile, type Puzzle, type Role } from "./lib/round";
 import { windowDays } from "./lib/standings";
 import { playId, type TournamentRound } from "./lib/tournament";
 import { requireObject, requirePuzzleId, requireRole, requireUid } from "./lib/validate";
@@ -250,7 +250,11 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
         solved: reveal ? a.solved : null, points: reveal ? a.points : null, suspicious: reveal ? a.suspicious : null,
       };
       if (reveal) {
-        row.guesses = a.guesses.map((g) => ({
+        // D-52: the day's guesses live per challenge. Flattened for the table,
+        // which shows one row of guesses per player either way; pre-D-52
+        // attempts keep their single flat list.
+        const guesses = a.items ? a.items.flatMap((it) => it.guesses) : (a.guesses ?? []);
+        row.guesses = guesses.map((g) => ({
           code: g.code, name: countryByCode(g.code)?.names["pt-BR"] ?? g.code, distanceKm: g.distanceKm, proximity: g.proximity,
         }));
       }
@@ -276,9 +280,13 @@ export const grantRetry = callable<{ uid: unknown; puzzleId: unknown }, { ok: tr
   if (target === uid) throw mondoError("invalid-argument", "You cannot grant yourself a retry.");
   if (puzzleId !== puzzleDays(now).today) throw mondoError("puzzle-not-open", "Retries apply to today's puzzle only.");
   await db().runTransaction(async (tx) => {
-    const snap = await tx.get(attemptRef(target, puzzleId));
+    // D-52: starting over means a fresh set of items, so the day's card is read
+    // inside the transaction — before any write, per the Firestore rule.
+    const [snap, puzzleSnap] = await Promise.all([tx.get(attemptRef(target, puzzleId)), tx.get(db().doc(`puzzles/${puzzleId}`))]);
     if (!snap.exists) throw mondoError("not-found", "That player has not started today.");
-    tx.set(attemptRef(target, puzzleId), resetAttempt(snap.data() as Attempt, now, uid));
+    if (!puzzleSnap.exists) throw mondoError("not-found", `No puzzle scheduled for ${puzzleId}.`);
+    const card = puzzleItems(puzzleSnap.data() as Puzzle);
+    tx.set(attemptRef(target, puzzleId), resetAttempt(snap.data() as Attempt, card, now, uid));
   });
   return { ok: true };
 });

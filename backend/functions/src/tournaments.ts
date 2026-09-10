@@ -25,7 +25,7 @@ import {
 import { mondoError } from "./lib/errors";
 import type { Group } from "./lib/groups";
 import { puzzleIdAt } from "./lib/puzzle-day";
-import { previousDay, type Profile, type Puzzle } from "./lib/round";
+import { previousDay, puzzleItems, type Profile, type Puzzle } from "./lib/round";
 import { nextDay } from "./lib/standings";
 import {
   MAX_ACTIVE_PER_GROUP, MIN_PARTICIPANTS, newTournament, playId, presetById,
@@ -77,7 +77,10 @@ async function scheduledSubjects(now: Timestamp): Promise<Set<string>> {
     to = nextDay(to);
   }
   const snap = await db().collection("puzzles").where("puzzleId", ">=", from).where("puzzleId", "<=", to).get();
-  return new Set(snap.docs.map((d) => (d.data() as Puzzle).countryCode));
+  // A day is three challenges since D-52, so every subject on it is excluded —
+  // being asked Paraguay in a tournament the week the daily asks for its flag
+  // is the thing FR-5.2 exists to stop, whichever kind each of them uses.
+  return new Set(snap.docs.flatMap((d) => puzzleItems(d.data() as Puzzle).map((it) => it.subject)));
 }
 
 /** Subjects this tournament has already used, so a card never repeats one (FR-5.2). */
@@ -934,7 +937,10 @@ export const submitCardGuess = callable<{ tournamentId: unknown; guess: unknown 
     const stillOpen = tieK === null ? live.closedAt === null : live.tie?.k === tieK && live.tie.closedAt === null;
     if (!stillOpen) throw mondoError("tournament-not-open", "This round is closed.");
     if (!snap.exists) throw mondoError("not-found", "Call getCard before guessing.");
-    const after = applyCardGuess(snap.data() as CardPlay, card, input.guess, now);
+    // The transitions are shared with the daily (D-52), so they return the
+    // core; spreading it back over the play keeps this card's identity fields.
+    const before = snap.data() as CardPlay;
+    const after: CardPlay = { ...before, ...applyCardGuess(before, card, input.guess, now) };
     tx.set(playRef(id), after);
     return after;
   });
