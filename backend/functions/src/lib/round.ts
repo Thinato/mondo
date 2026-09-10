@@ -135,6 +135,39 @@ export function resetAttempt(attempt: Attempt, card: readonly CardItem[], now: T
 }
 
 /**
+ * An attempt written before D-52, read as the one-challenge day it was.
+ *
+ * The D-52 change made `puzzles` backward compatible and forgot to do the same
+ * for `attempts`, which broke production: anyone who had already started the day
+ * when the new code went out had a document with no `items`, and `roundView`
+ * read `.length` off it. A TypeError reaches the player as `INTERNAL`, which
+ * tells them nothing and tells us nothing either.
+ *
+ * Upgrading on read rather than migrating is the same trade the puzzle side
+ * makes: the daily only ever loads today, so at most one day of documents is
+ * ever in the old shape, and the first guess after this rewrites it anyway.
+ */
+export function upgradeAttempt(attempt: Attempt): Attempt {
+  if (attempt.items) return attempt;
+  const { guesses = [], ...rest } = attempt;
+  return {
+    ...rest,
+    // A finished legacy attempt is a finished one-challenge day, so the cursor
+    // sits past the end exactly as `applyCardGuess` would have left it.
+    cursor: attempt.finishedAt === null ? 0 : 1,
+    items: [{
+      kind: "shape",
+      guesses,
+      solved: attempt.solved,
+      points: attempt.points,
+      startedAt: attempt.startedAt,
+      finishedAt: attempt.finishedAt,
+      elapsedMs: attempt.elapsedMs,
+    }],
+  };
+}
+
+/**
  * Gaps between consecutive server timestamps: served→first guess, then
  * guess→guess, concatenated across the day's challenges. Still one flat list,
  * because that is what the admin table draws and what a suspiciously fast
@@ -158,7 +191,11 @@ export function intervalsMs(attempt: Pick<Attempt, "startedAt" | "items" | "gues
  * tournaments (D-52); what this adds is the three summary fields the boards and
  * the dashboard read off the top of the document.
  */
-export function applyGuess(attempt: Attempt, card: readonly CardItem[], raw: unknown, now: Timestamp): Attempt {
+export function applyGuess(legacyOrCurrent: Attempt, card: readonly CardItem[], raw: unknown, now: Timestamp): Attempt {
+  // Upgrading here rather than at the call site is deliberate: this and
+  // `roundView` are the two doors into a day, and the production bug was a
+  // caller forgetting. A caller cannot forget something it does not do.
+  const attempt = upgradeAttempt(legacyOrCurrent);
   const core = applyCardGuess(attempt, card, raw, now);
   return {
     ...attempt,
@@ -256,9 +293,13 @@ export function statusOf(attempt: Attempt): RoundStatus {
  * challenge is over, and never the ones still to come (SEC-1) — the same line
  * `cardView` draws, for the same reason.
  */
-export function roundView(attempt: Attempt, puzzle: Puzzle, now: Timestamp, profile: Profile | null = null): RoundView {
+export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timestamp, profile: Profile | null = null): RoundView {
+  const attempt = upgradeAttempt(legacyOrCurrent);
   const card = puzzleItems(puzzle);
-  if (attempt.items.length !== card.length) throw mondoError("not-found", "This round is not ready.");
+  // A day whose puzzle was re-seeded under a play already in progress. Rare and
+  // self-inflicted (re-seed future days, not today), but a typed error says so
+  // where a TypeError would just read INTERNAL.
+  if (attempt.items.length !== card.length) throw mondoError("not-found", "Today's challenges changed while this round was open.");
   const finished = attempt.finishedAt !== null;
   const current = attempt.items[attempt.cursor];
   const currentCard = card[attempt.cursor];

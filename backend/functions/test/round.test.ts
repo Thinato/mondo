@@ -14,7 +14,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
   applyGuess, intervalsMs, maxPointsFor, newAttempt, newProfile, previousDay, puzzleItems, randomHandle,
-  recordCompletion, resetAttempt, roundView, statusOf,
+  recordCompletion, resetAttempt, roundView, statusOf, upgradeAttempt,
   type Attempt, type Puzzle,
 } from "../src/lib/round";
 import type { CardItem } from "../src/lib/card";
@@ -250,6 +250,68 @@ test("D-52: a day seeded as one silhouette still plays, as a one-challenge day",
   assert.equal(view.itemCount, 1);
   assert.equal(view.maxPoints, 6);
   assert.ok(view.shareGrid?.startsWith("Mondo 2026-09-14 6/6\n"));
+});
+
+/**
+ * The production bug of 2026-09-10. D-52 made `puzzles` backward compatible and
+ * forgot `attempts`: the one player who had already played that day had a
+ * document with no `items`, and `getRound` answered INTERNAL for the rest of
+ * the day. These fixtures are that document's exact shape.
+ */
+const legacyAttempt = (over: boolean): Attempt => ({
+  uid: "u1",
+  puzzleId: "2026-09-10",
+  startedAt: T0,
+  finishedAt: over ? at(6000) : null,
+  guesses: ["AR", "BO", "BR", "CL", "UY", "PE"].slice(0, over ? 6 : 2).map((code, i) => ({
+    code, distanceKm: 1000, bearingDeg: 90, proximity: 0.5, at: at((i + 1) * 1000),
+  })),
+  guessCount: over ? 6 : 2,
+  solved: false,
+  points: 0,
+  elapsedMs: over ? 6000 : null,
+  mode: "daily",
+  suspicious: false,
+} as unknown as Attempt);
+
+const legacyPuzzle: Puzzle = { puzzleId: "2026-09-10", countryCode: "GA", tier: 1, opensAt: T0 };
+
+test("D-52: a FINISHED day played before the switch still renders, it does not 500", () => {
+  const view = roundView(legacyAttempt(true), legacyPuzzle, at(9000));
+  assert.equal(view.status, "failed");
+  assert.equal(view.itemCount, 1);
+  assert.equal(view.cursor, 1, "a finished one-challenge day sits past its only item");
+  assert.equal(view.points, 0);
+  assert.equal(view.maxPoints, 6);
+  assert.deepEqual(view.items[0]!.answer, { code: "GA", name: "Gabão" });
+  assert.equal(view.items[0]!.guessCount, 6);
+  assert.ok(view.shareGrid?.startsWith("Mondo 2026-09-10 0/6\n"));
+  assert.equal(view.prompt, null);
+});
+
+test("D-52: an UNFINISHED day played before the switch can be finished", () => {
+  const view = roundView(legacyAttempt(false), legacyPuzzle, at(3000));
+  assert.equal(view.status, "in_progress");
+  assert.equal(view.cursor, 0);
+  assert.equal(view.guessesUsed, 2, "the guesses already spent still count");
+  assert.equal(view.guessesMax, 6);
+  assert.equal(view.prompt?.kind, "shape");
+
+  const after = applyGuess(legacyAttempt(false), puzzleItems(legacyPuzzle), "GA", at(3000));
+  assert.equal(after.solved, true);
+  assert.equal(after.points, 4, "solved on the third guess");
+  assert.equal(after.guessCount, 3);
+  assert.equal(after.items.length, 1);
+  assert.equal("guesses" in after, false, "the first guess after the upgrade rewrites the document");
+});
+
+test("upgradeAttempt leaves a D-52 attempt exactly as it found it", () => {
+  const a = play(["AR", "PY"]);
+  assert.equal(upgradeAttempt(a), a, "same object: no copy, no churn");
+});
+
+test("a day whose puzzle was re-seeded mid-play is a typed error, not a crash", () => {
+  rejects(() => roundView(legacyAttempt(false), puzzle, at(3000)), "not-found");
 });
 
 test("a puzzle with neither items nor a country is a typed error, not a crash", () => {
