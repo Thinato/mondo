@@ -75,7 +75,11 @@ async function withOrganizer(label: string): Promise<Account> {
 before(async () => {
   // A puzzle must exist for the daily-schedule exclusion query (FR-5.2) and so
   // getRound works for the profile-creating first call.
-  await db.doc(`puzzles/${TODAY}`).set({ puzzleId: TODAY, countryCode: "PY", tier: 1, opensAt: Timestamp.now() });
+  await db.doc(`puzzles/${TODAY}`).set({
+    puzzleId: TODAY,
+    items: [{ kind: "shape", subject: "PY" }, { kind: "flag", subject: "BR" }, { kind: "capital", subject: "IT" }],
+    opensAt: Timestamp.now(),
+  });
 
   owner = await newAccount("t3-owner");
   await owner.call("getRound", {});

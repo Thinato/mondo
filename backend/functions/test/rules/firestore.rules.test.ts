@@ -37,7 +37,7 @@ before(async () => {
     const profile = { displayName: "x", createdAt: new Date(), lastPlayedOn: null, currentStreak: 0, longestStreak: 0, totalPlayed: 0, totalSolved: 0, locale: "pt-BR" };
     await db.doc(`users/${ALICE}`).set({ ...profile, displayName: "alice-um" });
     await db.doc(`users/${BOB}`).set({ ...profile, displayName: "bob-dois" });
-    await db.doc(`puzzles/${PUZZLE}`).set({ puzzleId: PUZZLE, countryCode: "PY", tier: 1, opensAt: new Date() });
+    await db.doc(`puzzles/${PUZZLE}`).set({ puzzleId: PUZZLE, items: [{ kind: "shape", subject: "PY" }], opensAt: new Date() });
     await db.doc(`attempts/${ALICE}_${PUZZLE}`).set({ uid: ALICE, puzzleId: PUZZLE, guesses: [], guessCount: 0 });
     await db.doc(`attempts/${BOB}_${PUZZLE}`).set({ uid: BOB, puzzleId: PUZZLE, guesses: [], guessCount: 0 });
     await db.doc("challenges/c1").set({ countryCode: "PY" });

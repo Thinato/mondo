@@ -92,9 +92,15 @@ let organizer: Account, player: Account, third: Account, admin: Account;
 let gid: string;
 
 before(async () => {
-  for (const [id, cc] of [[TODAY, "PY"], [YESTERDAY, "AR"]] as const) {
-    await db.doc(`puzzles/${id}`).set({ puzzleId: id, countryCode: cc, tier: 1, opensAt: Timestamp.fromDate(opensAt(id)) });
-  }
+  // Today is a D-52 day: one challenge of each kind. Yesterday is deliberately
+  // left in the pre-D-52 shape, so the compatibility path is exercised rather
+  // than asserted about.
+  await db.doc(`puzzles/${TODAY}`).set({
+    puzzleId: TODAY,
+    items: [{ kind: "shape", subject: "PY" }, { kind: "flag", subject: "BR" }, { kind: "capital", subject: "IT" }],
+    opensAt: Timestamp.fromDate(opensAt(TODAY)),
+  });
+  await db.doc(`puzzles/${YESTERDAY}`).set({ puzzleId: YESTERDAY, countryCode: "AR", tier: 1, opensAt: Timestamp.fromDate(opensAt(YESTERDAY)) });
   organizer = await withRole("org", "organizer");
   player = await newAccount("player");
   third = await newAccount("third");
@@ -149,9 +155,12 @@ test("3. FR-4.3: invite link → accept → the player can play", async () => {
   const round = ok(await player.call("getRound", {}), "getRound after invite");
   assert.equal(round.status, "in_progress");
   assert.deepEqual(round.me, { displayName: (await doc(`users/${player.uid}`)).displayName, role: "player", groupCount: 1 });
-  const done = ok(await play(player, ["PY"]), "solve");
+  assert.equal(round.itemCount, 3, "D-52: a day is three challenges");
+  const done = ok(await play(player, ["PY", "BR", "IT"]), "solve the day");
   assert.equal(done.status, "solved");
-  assert.equal(done.points, 6);
+  assert.equal(done.points, 18);
+  assert.equal(done.maxPoints, 18);
+  assert.deepEqual(done.items.map((i: Any) => i.answer.name), ["Paraguai", "Brasil", "Itália"]);
 
   const list = ok(await player.call("listGroups", {}), "listGroups");
   assert.deepEqual(list.groups, [{ groupId: gid, name: "Almoço", memberCount: 2, isOwner: false }]);
@@ -218,16 +227,17 @@ test("5. FR-4.10 / FR-4.11: the board is members-only and hides today's scores u
   assert.equal(states[organizer.uid].state, "in_progress");
   assert.ok(before.today.players.every((p: Any) => p.points === null && p.guessCount === null));
   const json = JSON.stringify(before);
-  for (const needle of ["Paraguai", "countryCode", '"code"', "@"]) assert.ok(!json.includes(needle), needle);
+  for (const needle of ["Paraguai", "Brasil", "Itália", "countryCode", "subject", '"code"', "@"]) assert.ok(!json.includes(needle), needle);
   assert.equal(before.group.isOwner, true);
   assert.equal(before.group.memberCount, 3);
 
-  const solved = ok(await play(organizer, ["AR", "PY"]), "organizer solves");
+  const solved = ok(await play(organizer, ["AR", "PY", "BR", "IT"]), "organizer solves");
   assert.equal(solved.status, "solved");
+  assert.equal(solved.points, 17, "5 + 6 + 6");
   const after = ok(await organizer.call("getLeaderboard", { groupId: gid }), "getLeaderboard finished");
   assert.equal(after.today.viewerFinished, true);
   const p = after.today.players.find((x: Any) => x.uid === player.uid);
-  assert.deepEqual([p.state, p.points, p.guessCount], ["finished", 6, 1]);
+  assert.deepEqual([p.state, p.points, p.guessCount], ["finished", 18, 3]);
   const me = after.rows.find((r: Any) => r.uid === organizer.uid);
   assert.equal(me.isMe, true);
   for (const w of ["allTime", "last7", "last30"]) assert.equal(typeof me[w].rank, "number");
@@ -300,10 +310,13 @@ test("6. FR-7.2: admin dashboard callables, gates, retry", async () => {
   const a = await doc(`attempts/${player.uid}_${TODAY}`);
   assert.equal(a.retries, 1);
   assert.equal(a.history.length, 1);
-  assert.equal(a.history[0].points, 6);
+  assert.equal(a.history[0].points, 18, "the whole day it replaced is on the record");
+  assert.equal(a.history[0].items.length, 3);
+  assert.equal(a.cursor, 0, "a retry starts at the first challenge again");
   assert.equal(a.history[0].retryGrantedBy, admin.uid);
-  const again = ok(await play(player, ["BR", "PY"]), "replay");
-  assert.equal(again.points, 5);
+  // The whole day again: silhouette on the second guess, then both others first.
+  const again = ok(await play(player, ["BR", "PY", "BR", "IT"]), "replay");
+  assert.equal(again.points, 17);
   const prof = await doc(`users/${player.uid}`);
   assert.equal(prof.totalPlayed, 1, "D-30: a retried day is counted once");
   assert.equal(prof.totalSolved, 1);

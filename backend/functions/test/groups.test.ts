@@ -5,7 +5,8 @@ import {
   backfillStats, leaderboardView, memberStats, newMember, nextOwner, resultOf, todayState, uniqueNames,
   type Group, type Member,
 } from "../src/lib/groups";
-import { applyGuess, newAttempt, type Attempt, type Puzzle } from "../src/lib/round";
+import { applyGuess, newAttempt, type Attempt } from "../src/lib/round";
+import type { CardItem } from "../src/lib/card";
 import { EMPTY_STATS, windowDays } from "../src/lib/standings";
 
 const T0 = Timestamp.fromMillis(Date.parse("2026-10-31T15:30:00Z"));
@@ -60,10 +61,17 @@ test("D-23: the longest-standing member takes over, whatever their role; nobody 
   assert.equal(nextOwner([]), null);
 });
 
+/** A day, since D-52: one challenge of each kind. */
+const CARD: CardItem[] = [
+  { kind: "shape", subject: "PY" },
+  { kind: "flag", subject: "BR" },
+  { kind: "capital", subject: "IT" },
+];
+
 // --- stats plumbing -----------------------------------------------------------
 
 test("resultOf: unfinished → null, finished → the four numbers", () => {
-  const a = newAttempt("u", CLOSED, T0);
+  const a = newAttempt("u", CLOSED, CARD, T0);
   assert.equal(resultOf(a), null);
   assert.deepEqual(resultOf({ ...a, finishedAt: T0, points: 4, guessCount: 3, elapsedMs: 9000 }), { puzzleId: CLOSED, points: 4, guessCount: 3, elapsedMs: 9000 });
 });
@@ -96,16 +104,19 @@ test("memberStats keeps the running all-time and recomputes both windows", () =>
 
 // --- today state ---------------------------------------------------------------
 
-const puzzle: Puzzle = { puzzleId: TODAY, countryCode: "PY", tier: 1, opensAt: T0 };
-const fresh = (uid: string) => newAttempt(uid, TODAY, T0);
-const solvedIn = (uid: string, codes: string[]) => codes.reduce((a, c, i) => applyGuess(a, puzzle, c, at((i + 1) * 1000)), fresh(uid));
+const fresh = (uid: string) => newAttempt(uid, TODAY, CARD, T0);
+const solvedIn = (uid: string, codes: string[]) => codes.reduce((a, c, i) => applyGuess(a, CARD, c, at((i + 1) * 1000)), fresh(uid));
+/** D-52: a day is over only when all three challenges are. */
+const perfectDay = (uid: string) => solvedIn(uid, ["PY", "BR", "IT"]);
+const missedEverything = (uid: string) => solvedIn(uid, ["AR", "BO", "BR", "CL", "UY", "PE", "AR", "CL", "UY", "BR", "CL", "UY"]);
 
 test("todayState: missing, unfinished, finished", () => {
   assert.equal(todayState(null), "not_started");
   assert.equal(todayState(undefined), "not_started");
   assert.equal(todayState(fresh("u")), "in_progress");
-  assert.equal(todayState(solvedIn("u", ["PY"])), "finished");
-  assert.equal(todayState(solvedIn("u", ["AR", "BO", "BR", "CL", "UY", "PE"])), "finished");
+  assert.equal(todayState(solvedIn("u", ["PY"])), "in_progress", "one challenge down is not a finished day (D-52)");
+  assert.equal(todayState(perfectDay("u")), "finished");
+  assert.equal(todayState(missedEverything("u")), "finished");
 });
 
 // --- the board -----------------------------------------------------------------
@@ -125,7 +136,7 @@ const members = [
 test("FR-4.11: before the viewer finishes, states show but no scores", () => {
   const view = leaderboardView({
     groupId: "g".repeat(20), group, members, viewerUid: "owner", today: TODAY, closedDay: CLOSED,
-    todayAttempts: new Map<string, Attempt | null>([["owner", fresh("owner")], ["m1", solvedIn("m1", ["PY"])], ["m2", null]]),
+    todayAttempts: new Map<string, Attempt | null>([["owner", fresh("owner")], ["m1", perfectDay("m1")], ["m2", null]]),
   });
   assert.equal(view.today.viewerFinished, false);
   assert.deepEqual(view.today.players.map((p) => [p.displayName, p.state, p.points, p.guessCount]), [
@@ -143,15 +154,16 @@ test("FR-4.11: once the viewer has finished, finished players' points and guess 
     groupId: "g".repeat(20), group, members, viewerUid: "m2", today: TODAY, closedDay: CLOSED,
     todayAttempts: new Map<string, Attempt | null>([
       ["owner", fresh("owner")],
-      ["m1", solvedIn("m1", ["AR", "PY"])],
-      ["m2", solvedIn("m2", ["AR", "BO", "BR", "CL", "UY", "PE"])],
+      // A whole day: silhouette on the second guess, then both others first time.
+      ["m1", solvedIn("m1", ["AR", "PY", "BR", "IT"])],
+      ["m2", missedEverything("m2")],
     ]),
   });
   assert.equal(view.today.viewerFinished, true);
   assert.deepEqual(view.today.players.map((p) => [p.state, p.points, p.guessCount]), [
     ["in_progress", null, null],
-    ["finished", 5, 2],
-    ["finished", 0, 6],
+    ["finished", 17, 4],
+    ["finished", 0, 12],
   ]);
   assert.equal(view.group.isOwner, false);
   assert.equal(view.rows.find((r) => r.uid === "m2")?.isMe, true);

@@ -106,7 +106,7 @@ const fresh = () => newCardPlay("u1", "t1", "t1_r1", CARD, T0);
 
 /** Play a list of [guess, atMs] pairs in order. */
 function play(steps: [string, number][], p: CardPlay = fresh()): CardPlay {
-  return steps.reduce((acc, [code, ms]) => applyCardGuess(acc, CARD, code, at(ms)), p);
+  return steps.reduce<CardPlay>((acc, [code, ms]) => ({ ...acc, ...applyCardGuess(acc, CARD, code, at(ms)) }), p);
 }
 
 test("only the first item's clock starts when the card is created (SEC-3)", () => {
