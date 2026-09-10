@@ -140,6 +140,9 @@ button:disabled { opacity: .5; cursor: default; }
   color: inherit;
 }
 #guess-input:focus { outline: 2px solid var(--fg); outline-offset: 1px; }
+/* The number field stands in for the whole combo, so it takes the same room. */
+#guess-number, #card-number { flex: 1; font: inherit; padding: .6rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); color: inherit; }
+#guess-number:focus, #card-number:focus { outline: 2px solid var(--fg); outline-offset: 1px; }
 #guess-list {
   position: absolute; left: 0; right: 0; top: calc(100% + .25rem); z-index: 2;
   margin: 0; padding: .25rem; list-style: none;

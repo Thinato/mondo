@@ -2,6 +2,8 @@
 // (FR-6.2, FR-6.7). A shape arrives as raw path data and a flag as a list of
 // paths; both go into the DOM with no attribute that could identify them (SEC-2).
 
+import { t } from "./i18n.js";
+
 const ARROW = { N: "↑", NE: "↗", E: "→", SE: "↘", S: "↓", SW: "↙", W: "←", NW: "↖" };
 
 /** Fill an <svg> with the round's path. Nothing else goes in. */
@@ -82,3 +84,36 @@ export const formatPercent = (p) => `${Math.round(p * 100)}%`;
 
 /** 0..4 band for styling the proximity bar; never the only channel (FR-6.7). */
 export const band = (p) => (p >= 0.95 ? 4 : p >= 0.8 ? 3 : p >= 0.6 ? 2 : p >= 0.3 ? 1 : 0);
+
+/**
+ * One row of the guess list: what you guessed, how far off, which way, how close.
+ *
+ * Two shapes, because a `gdp` guess is a number (D-53): "how far" is a ratio
+ * rather than kilometres and "which way" is higher/lower rather than a compass.
+ * The proximity band is common, which is why the colour and the bar work for
+ * both without asking what kind of challenge this is.
+ *
+ * Shared by the daily and by tournaments — it was copied into both before, and
+ * a two-shape row is exactly the thing you do not want to fix twice.
+ */
+export function guessRow(g) {
+  const li = document.createElement("li");
+  li.className = `guess band-${band(g.proximity)}`;
+  const span = (cls, text) => { const e = document.createElement("span"); e.className = cls; e.textContent = text; return e; };
+  const correct = g.kind === "number" ? g.proximity >= 0.9 : g.distanceKm === 0;
+
+  const name = span("name", g.kind === "number" ? formatNumber(g.value) : g.name);
+  const dist = span("dist", correct ? "🎉" : g.kind === "number" ? "" : formatKm(g.distanceKm));
+  const dir = span("dir", "");
+  if (!correct) {
+    const label = g.kind === "number" ? t(g.higher ? "higher" : "lower") : t(`compass.${g.compass}`);
+    dir.textContent = g.kind === "number" ? (g.higher ? "↑" : "↓") : arrow(g.compass);
+    dir.setAttribute("aria-label", label);
+    dir.title = label;
+  }
+  li.append(name, dist, dir, span("pct", formatPercent(g.proximity)));
+  return li;
+}
+
+const nf = new Intl.NumberFormat("pt-BR");
+export const formatNumber = (n) => nf.format(n);

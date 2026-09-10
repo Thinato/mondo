@@ -10,7 +10,7 @@
 import { ask, watchAuth } from "./auth-ui.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
-import { arrow, band, formatKm, formatPercent, renderFlag, renderShape } from "./geo.js";
+import { guessRow, renderFlag, renderShape } from "./geo.js";
 import { errorMessage, t } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -29,6 +29,7 @@ const el = {
   cardFlagWrap: $("card-flag-wrap"), cardFlag: $("card-flag"),
   cardGuesses: $("card-guesses"), cardForm: $("card-form"), cardInput: $("card-input"), cardList: $("card-datalist"),
   cardSubmit: $("card-submit"), cardLeft: $("card-left"), cardItems: $("card-items"), cardDone: $("card-done"),
+  cardCombo: $("card-combo"), cardNumber: $("card-number"),
   confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
 
@@ -469,20 +470,27 @@ async function openCard() {
 
 el.cardForm.addEventListener("submit", (ev) => {
   ev.preventDefault();
+  if (card?.prompt?.kind === "gdp") {
+    const value = Number(el.cardNumber.value);
+    if (!Number.isFinite(value) || value <= 0) return setStatus(t("needNumber"), "warn");
+    return submit(value);
+  }
   if (!picked) ac.commit();
   else submit();
 });
 el.cardInput.addEventListener("input", () => { picked = null; });
 
-async function submit() {
-  if (busy || !card || !picked || card.status !== "in_progress") return;
-  const guess = picked.code;
+async function submit(numberGuess) {
+  if (busy || !card || card.status !== "in_progress") return;
+  if (numberGuess === undefined && !picked) return;
+  const guess = numberGuess ?? picked.code;
   picked = null;
   setBusy(true);
   setStatus("");
   try {
     card = await api.submitCardGuess({ tournamentId: tid, guess });
     el.cardInput.value = "";
+    el.cardNumber.value = "";
     renderCard();
   } catch (err) {
     // FR-6.5: a failed submission consumes nothing and stays retryable.
@@ -501,12 +509,17 @@ function renderCard() {
   // the server: say so rather than rendering nothing.
   const kind = card.prompt?.kind ?? null;
   el.cardShapeWrap.hidden = kind !== "shape";
-  el.cardCapital.hidden = kind !== "capital";
+  el.cardCapital.hidden = kind !== "capital" && kind !== "gdp";
   el.cardFlagWrap.hidden = kind !== "flag";
   if (kind === "shape") renderShape(el.cardShape, card.prompt.shape);
   else if (kind === "capital") el.cardCapital.textContent = t("capitalPrompt", { city: card.prompt.capital });
+  else if (kind === "gdp") el.cardCapital.textContent = t("gdpPrompt", { country: card.prompt.country, year: card.prompt.year });
   else if (kind === "flag") renderFlag(el.cardFlag, card.prompt.flag);
   else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
+
+  // Two inputs, one visible: a country autocomplete, or a number field (D-53).
+  el.cardCombo.hidden = kind === "gdp";
+  el.cardNumber.hidden = kind !== "gdp";
 
   el.cardGuesses.replaceChildren(...card.guesses.map(guessRow));
   el.cardForm.hidden = done;
@@ -532,30 +545,17 @@ function renderCard() {
   if (done) el.cardDone.textContent = t("cardDone", { points: card.points });
 }
 
-function guessRow(g) {
-  const li = document.createElement("li");
-  li.className = `guess band-${band(g.proximity)}`;
-  const name = document.createElement("span"); name.className = "name"; name.textContent = g.name;
-  const dist = document.createElement("span"); dist.className = "dist";
-  dist.textContent = g.distanceKm === 0 ? "🎉" : formatKm(g.distanceKm);
-  const dir = document.createElement("span"); dir.className = "dir";
-  if (g.distanceKm > 0) {
-    dir.textContent = arrow(g.compass);
-    dir.setAttribute("aria-label", t(`compass.${g.compass}`));
-    dir.title = t(`compass.${g.compass}`);
-  }
-  const pct = document.createElement("span"); pct.className = "pct"; pct.textContent = formatPercent(g.proximity);
-  li.append(name, dist, dir, pct);
-  return li;
-}
 
 function focusInput() {
-  if (card?.status === "in_progress" && !el.cardInput.disabled) el.cardInput.focus();
+  if (card?.status !== "in_progress") return;
+  const field = card.prompt?.kind === "gdp" ? el.cardNumber : el.cardInput;
+  if (!field.disabled) field.focus();
 }
 
 function setBusy(b) {
   busy = b;
   el.cardInput.disabled = b;
+  el.cardNumber.disabled = b;
   el.cardSubmit.disabled = b;
 }
 

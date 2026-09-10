@@ -10,14 +10,14 @@ import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstati
 import { auth, googleProvider } from "./firebase.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
-import { arrow, band, formatKm, formatPercent, renderFlag, renderShape } from "./geo.js";
+import { guessRow, renderFlag, renderShape } from "./geo.js";
 import { errorMessage, t } from "./i18n.js";
 import { share } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), game: $("game"), signIn: $("sign-in"), signOut: $("sign-out"),
-  progress: $("progress"), items: $("items"),
+  progress: $("progress"), items: $("items"), combo: $("guess-combo"), number: $("guess-number"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
   guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
@@ -101,21 +101,33 @@ async function load() {
 
 /** Focus only works once the input is enabled again, so call this after setBusy(false). */
 function focusInput() {
-  if (round?.status === "in_progress" && !el.input.disabled) el.input.focus();
+  if (round?.status !== "in_progress") return;
+  const field = round.prompt?.kind === "gdp" ? el.number : el.input;
+  if (!field.disabled) field.focus();
 }
 
-el.form.addEventListener("submit", (ev) => { ev.preventDefault(); if (!picked) ac.commit(); else submit(); });
+el.form.addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  if (round?.prompt?.kind === "gdp") {
+    const value = Number(el.number.value);
+    if (!Number.isFinite(value) || value <= 0) return setStatus(t("needNumber"), "warn");
+    return submit(value);
+  }
+  if (!picked) ac.commit(); else submit();
+});
 el.input.addEventListener("input", () => { picked = null; });
 
-async function submit() {
-  if (busy || !round || !picked || round.status !== "in_progress") return;
-  const code = picked.code;
+async function submit(numberGuess) {
+  if (busy || !round || round.status !== "in_progress") return;
+  if (numberGuess === undefined && !picked) return;
+  const guess = numberGuess ?? picked.code;
   picked = null;
   setBusy(true);
   setStatus("");
   try {
-    round = await api.submitGuess({ puzzleId: round.puzzleId, code });
+    round = await api.submitGuess({ puzzleId: round.puzzleId, guess });
     el.input.value = "";
+    el.number.value = "";
     render();
   } catch (err) {
     // FR-6.5: a failed submission consumes nothing; the text stays so they can retry.
@@ -140,11 +152,16 @@ function render() {
   const kind = round.prompt?.kind ?? null;
   el.shapeWrap.hidden = kind !== "shape";
   el.flagWrap.hidden = kind !== "flag";
-  el.capital.hidden = kind !== "capital";
+  el.capital.hidden = kind !== "capital" && kind !== "gdp";
   if (kind === "shape") renderShape(el.shape, round.prompt.shape);
   else if (kind === "flag") renderFlag(el.flag, round.prompt.flag);
   else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: round.prompt.capital });
+  else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: round.prompt.country, year: round.prompt.year });
   else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
+
+  // Two inputs, one visible: a country autocomplete, or a number field (D-53).
+  el.combo.hidden = kind === "gdp";
+  el.number.hidden = kind !== "gdp";
 
   el.guesses.replaceChildren(...round.guesses.map(guessRow));
   el.form.hidden = !inProgress;
@@ -176,21 +193,6 @@ function render() {
   }
 }
 
-function guessRow(g) {
-  const li = document.createElement("li");
-  li.className = `guess band-${band(g.proximity)}`;
-  const name = document.createElement("span"); name.className = "name"; name.textContent = g.name;
-  const dist = document.createElement("span"); dist.className = "dist"; dist.textContent = g.distanceKm === 0 ? "🎉" : formatKm(g.distanceKm);
-  const dir = document.createElement("span"); dir.className = "dir";
-  if (g.distanceKm > 0) {
-    dir.textContent = arrow(g.compass);
-    dir.setAttribute("aria-label", t(`compass.${g.compass}`));
-    dir.title = t(`compass.${g.compass}`);
-  }
-  const pct = document.createElement("span"); pct.className = "pct"; pct.textContent = formatPercent(g.proximity);
-  li.append(name, dist, dir, pct);
-  return li;
-}
 
 el.shareBtn.addEventListener("click", async () => {
   const outcome = await share(round.shareGrid);
@@ -248,6 +250,7 @@ el.deleteForm.addEventListener("submit", async (ev) => {
 function setBusy(b) {
   busy = b;
   el.input.disabled = b;
+  el.number.disabled = b;
   el.submit.disabled = b;
 }
 

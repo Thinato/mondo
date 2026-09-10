@@ -18,8 +18,9 @@ the browser.
 | `d3-geo` (npm, dev only) | Spherical area/centroid, azimuthal projection, fit-to-extent | ISC |
 | `simplify-js` (npm, dev only) | Douglas-Peucker simplification in pixel space | BSD-2 |
 
-Flag artwork is **not** part of this pipeline. It has its own offline build,
-`tools/build-flags.mjs`, over a separate vendored source; see 06-tournaments.md §5.3.
+Flag artwork and GDP figures are **not** part of this pipeline. Each has its own offline build —
+`tools/build-flags.mjs` (06-tournaments.md §5.3) and `tools/build-gdp.mjs` (§5.4) — over its own
+source.
 
 `world-atlas` is a versioned npm artifact of Natural Earth — prefer it over crawling the site.
 **10m, not 50m:** the 50m set is missing Tuvalu entirely, and every microstate is better at 10m.
@@ -196,10 +197,10 @@ Tiers live in `tools/tiers.json` with the same PR-to-argue convention as `includ
 
 1. Seeded PRNG (store the seed; the schedule must be reproducible).
 2. Walk forward from a start date, day by day, in `America/Sao_Paulo`.
-3. For each day, draw **one country per kind** — silhouette, flag, capital (D-52) — weighted by
+3. For each day, draw **one country per kind** — silhouette, flag, capital, GDP (D-52, D-53) — weighted by
    tier over that kind's own pool, rejecting any country that fails FR-2.3's windows: same kind
    within 120 days, any kind within 30 days, or already used today.
-4. Shuffle the three into a play order, from the same seeded stream.
+4. Shuffle them into a play order, from the same seeded stream.
 5. Emit `{ puzzleId, items: [{ kind, subject }], opensAt }` for 365 days.
 6. Upload to the `puzzles` collection with the Admin SDK.
 
@@ -207,7 +208,8 @@ Tiers live in `tools/tiers.json` with the same PR-to-argue convention as `includ
 duplicating the rules in `backend/functions/src/lib/kinds.ts`** — which is the authority. A
 generator that cannot import the server's TypeScript is the price of keeping the schedule an
 offline artefact (FR-2.2). The guard against drift is that both sides pin their pool sizes in
-tests (196 shapes, 181 capitals, 172 flags), so changing either rule fails one of them loudly.
+tests (196 shapes, 181 capitals, 172 flags, 186 GDPs), so changing either rule fails one of them
+loudly.
 
 Run it once at launch, then annually. The weekly `scheduleHealthCheck` function warns when
 fewer than 30 future days exist (NFR-6).

@@ -192,10 +192,17 @@ not fit in a pool of 196); a day is now worth 0–18 against a history of 0–6,
 deliberately left alone; and the attempt document keeps its four summary fields at the top level
 so the nightly job reads both generations without a migration.
 
-**Still owed for it:** the production schedule must be regenerated and re-seeded before the
-switch is deployed, or every day already in Firestore plays as a single silhouette (which works,
-by design, but is not the game). `tools/generate-schedule.mjs --history` takes the old file so
-the new windows are honoured across the boundary.
+**Done 2026-09-10 — `gdp`, and Phase 3 has no open questions left (D-53).** The last kind: GDP per
+capita, PPP, World Bank, one pinned year in every prompt, right if you land within 10 %. Answers
+OQ-12, which was the only thing still blocking anything. The daily went to four challenges and
+0–24; tournaments got the `economia` preset. What it cost is in 06-tournaments.md §5.4 — a union
+for `StoredGuess`, `wasCorrect` on the kind, and guess validation moving off the callables and
+onto the kinds where SEC-8 always said it belonged.
+
+**~~Still owed for it:~~** the production schedule must be regenerated and re-seeded before the
+switch is deployed. Done for D-52 on 2026-09-10 (seed 20260911, days 2026-09-11 → 2027-09-10) —
+**and owed again for D-53**, because those days hold three challenges and not four. Re-seed from
+tomorrow, never over a day already being played.
 
 - Archive of past puzzles (FR-2.12), unranked
 - Streak display and personal stats page

@@ -319,7 +319,7 @@ what a *day* has that a round does not: the schedule, the streak, the share grid
 | `shape` | one inlined SVG path (D-13) | country | 6 | km + 8-point compass + proximity | `shapes.json`, `countries.json` | **exists** |
 | `capital` | a capital city name | country | 3 | km + compass from the guess (reuses geo) | `world-countries.capital` | **free** — already a dependency |
 | `flag` | one inlined flag, as filled paths | country | 3 | km + compass | `flags.json`, built from a vendored public-domain SVG set | **exists** (§5.3) |
-| `gdp` | a country name (public) | a number | 3 | higher / lower + how close | GDP per country, with a vintage | blocked, OQ-12 |
+| `gdp` | a country name (public) | a number | 3 | higher / lower + how close | `gdp.json`, GDP per capita PPP for one pinned year | **exists** (§5.4) |
 
 **Not every country can be asked as a `capital`.** Fifteen name themselves in their own capital
 — Brasília/Brasil, Cidade do México/México, Singapura/Singapura, Bissau/Guiné-Bissau,
@@ -377,11 +377,42 @@ anyone judges their lettering. Three were small enough to slip through — Brune
 Paraguay — and those are the whole hand-maintained exclusion list, each with its reason, the
 same shape as `tools/overrides.json` (D-14). Brazil stays: ORDEM E PROGRESSO is not its name.
 
-`gdp` is the one that stresses the interface hardest — a numeric answer, error-band scoring, no
-country to reveal — and it is the reason the interface is generic over the answer, the guess and
-the feedback rather than assuming all three are countries. Suggested scoring: within 10 % → 6,
-25 % → 4, 50 % → 2, else 0, minus one per extra guess, floored at 1 for any non-zero band. It is
-sequenced after `flag` only because OQ-12 is still open, not because it is easier.
+### 5.4 `gdp`, and what it cost the interface (OQ-12, D-53)
+
+`gdp` was always going to be the kind that stressed the interface, and it did — but not where
+this document expected.
+
+**What it asks.** GDP **per capita**, **PPP**, current international dollars, for one pinned year
+shown in the prompt, from the World Bank (`NY.GDP.PCAP.PP.CD`, CC BY 4.0, `NOTICE`). Built offline
+by `tools/build-gdp.mjs` into `backend/functions/src/data/gdp.json`; 186 of 196 countries have a
+figure, and the ten that do not — Cuba, Eritreia, Coreia do Norte, Liechtenstein, Mônaco, Sudão do
+Sul, Síria, Taiwan, Venezuela, Iêmen — are simply not in the pool.
+
+Per capita PPP was chosen over the three alternatives on **spread**, which is the only thing that
+makes a number guessable: 1 147 to 152 596 is a 133× range you can reason about from "how rich is
+this place". Total GDP spans 520 000×, and guessing it is mostly a population quiz.
+
+**The scoring band this document proposed was dropped.** The sketch was "within 10 % → 6, 25 % → 4,
+50 % → 2, minus one per extra guess". That needs a per-kind score function, because `scoreItem`
+scores on guess *count*. It is not worth the interface: a silhouette guessed 200 km away already
+scores what one 10 000 km away scores, so partial credit for near-misses would make `gdp` the only
+kind that pays for being close. Instead **a guess within 10 % is simply correct**, and the usual
+`[6, 4, 2]` ladder applies. Ten per cent is stated as a ratio — `min/max >= 0.9` — so "10 % of
+which number?" has no answer to argue about.
+
+**What it did cost.** `StoredGuess` became a union: a country guess carries a code, a distance and
+a bearing; a number guess carries the value, which way to go, and how close as a ratio. Everything
+shared reads only `proximity` and `at`, so the proximity bar, the colour bands, the share grid and
+every timing surface work for both without knowing which is which. Two things had to grow: `Kind`
+gained `wasCorrect(subject, guess)`, because the share grid reads a finished guess back and cannot
+re-grade it without a clock; and the callables stopped validating the guess themselves, since only
+the kind knows whether a guess is a country code or a number (SEC-8 always said so).
+
+**The one new SEC-1 risk, and what closes it.** `gdp` is the only kind whose prompt names a country
+in plain text. On a mixed card that would be a leak if the same country were another challenge's
+answer — "qual o PIB do Brasil?" beside a silhouette of Brasil. `buildCard` already keeps subjects
+distinct within a card, which is exactly what stops it; `test/card.test.ts` pins it over two
+thousand generated cards.
 
 ---
 
@@ -545,6 +576,7 @@ Two things follow, and both are why this is the right shape rather than a shortc
 | `liga` | `round_robin` | `match` (3/1/0) | 3 × `shape` | n−1 or n | points → time → draw | the classic table; one round per day |
 | `suíço` | `swiss` | `match` | 3 × `shape` | 4 | points → time → draw | pairs by standing, no repeats |
 | `bandeiras` | `free_for_all` | `aggregate` | 5 × `flag` | 1 | points → time | one-kind tournament, the thing Paulo asked for by name |
+| `economia` | `free_for_all` | `aggregate` | 5 × `gdp` | 1 | points → time | five numbers, three guesses each; the only preset where nobody names a country |
 
 Preset ids are stable and are referenced in tests. `quintal` is the one built in slice 1; the rest
 land with the format that carries them.
@@ -809,12 +841,14 @@ committed e2e (D-33) gains a full free-for-all and one bracket run with a manual
   2026-09-09, after D-49 and D-50 filled in the parts that felt missing: the win/lose regime and
   resolving a tie by playing more rather than by a stopwatch.
 
-**Still open:**
+- **OQ-12 — GDP data: which source and which vintage?** → Answered 2026-09-10 as **D-53**: the
+  World Bank's `NY.GDP.PCAP.PP.CD` (CC BY 4.0, `NOTICE`), **GDP per capita, PPP**, for **2023**,
+  with the year in every prompt. Per capita PPP won on spread — 133× against 520 000× for total
+  GDP — which is what decides whether a number is guessable at all. 2023 over 2024 because it has
+  one more country and the World Bank has largely finished revising it, and revisions are the
+  thing that starts arguments. `regras.html` says all of it. See §5.4.
 
-- **OQ-12 — GDP data: which source and which vintage?** World Bank figures are CC-BY-4.0 and need
-  a `NOTICE` entry and a stated year, because "the GDP of Argentina" is not a stable number and
-  players will argue. Nominal or PPP is a game-design choice, and the answer has to be on
-  `regras.html` before anybody plays it. Blocks slice 7 only.
+**Still open:** nothing. Every open question in this document is answered.
 
 ---
 

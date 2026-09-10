@@ -19,7 +19,7 @@ const PT_BR = {
   // D-52: a day is three challenges, so the result talks about the day.
   dayDone: "{points} de {max} pontos hoje.",
   dayPerfect: "Dia perfeito! {points} de {max} pontos.",
-  kindName: { shape: "silhueta", flag: "bandeira", capital: "capital" },
+  kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita" },
   answerWas: "Era {answer}.",
   share: "Compartilhar",
   copied: "Copiado!",
@@ -95,6 +95,13 @@ const PT_BR = {
   closesAt: "Fecha {when}.",
   waitingForOthers: "Resultados aparecem quando a rodada fechar.",
   capitalPrompt: "A capital é {city}.",
+  // D-53: the country is the question here, and the figure is the answer.
+  // The country leads, so the sentence needs no article — "de Vietnã" and
+  // "de Itália" are both wrong, and 186 countries is too many to inflect.
+  gdpPrompt: "{country} — qual o PIB per capita (PPP) em {year}?",
+  needNumber: "Digite um número.",
+  higher: "é mais",
+  lower: "é menos",
   standingsPending: "A classificação aparece quando a primeira rodada fechar.",
   // Table headers. A free-for-all's points DECIDE the table; a league's only
   // break a tie, so they are labelled "Cartas" there and never "Pontos" (D-49).

@@ -108,12 +108,16 @@
     <ol id="card-guesses" class="guesses" aria-label="Tentativas"></ol>
 
     <form id="card-form" autocomplete="off">
-      <div class="combo">
+      <div class="combo" id="card-combo">
         <input id="card-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
                aria-controls="card-datalist" aria-label="País" placeholder="Digite um país…"
                autocapitalize="off" spellcheck="false" enterkeyhint="go">
         <ul id="card-datalist" role="listbox" aria-label="Países" hidden></ul>
       </div>
+      <!-- D-53: `gdp` asks for a number, so it gets its own field rather than a
+           country autocomplete that would pop a list over every digit. -->
+      <input id="card-number" type="number" inputmode="numeric" min="1" step="1"
+             aria-label="PIB per capita" placeholder="Digite um valor…" hidden>
       <button id="card-submit" type="submit" class="primary">Chutar</button>
     </form>
 

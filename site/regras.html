@@ -15,33 +15,52 @@
 
 <main class="prose">
   <h2>O jogo</h2>
-  <p>Todo dia, ao <strong>meio-dia (horário de Brasília)</strong>, entram <strong>três desafios</strong>:
-  uma <strong>silhueta</strong>, uma <strong>bandeira</strong> e uma <strong>capital</strong>. Em todos a
-  pergunta é a mesma — que país é este? — e a ordem muda a cada dia.</p>
+  <p>Todo dia, ao <strong>meio-dia (horário de Brasília)</strong>, entram <strong>quatro desafios</strong>:
+  uma <strong>silhueta</strong>, uma <strong>bandeira</strong>, uma <strong>capital</strong> e um
+  <strong>PIB per capita</strong>. A ordem muda a cada dia.</p>
   <p>Você joga <strong>um desafio por vez</strong>, na ordem em que aparecem: só depois de fechar o
   primeiro é que o segundo abre. As tentativas são de cada desafio:</p>
   <ul>
     <li><strong>Silhueta</strong> — seis tentativas.</li>
     <li><strong>Bandeira</strong> — três tentativas.</li>
     <li><strong>Capital</strong> — três tentativas.</li>
+    <li><strong>PIB per capita</strong> — três tentativas.</li>
   </ul>
-  <p>São três países diferentes por dia, e nunca o mesmo país em dois desafios do mesmo dia. Só valem
-  países da lista: digite e escolha na busca, em português, em inglês ou pela sigla.</p>
-  <p>A cada erro você recebe três pistas sobre o país certo em relação ao seu chute:</p>
+  <p>São quatro países diferentes por dia, e nunca o mesmo país em dois desafios do mesmo dia.</p>
+  <p>Em três deles a pergunta é <em>que país é este?</em> — digite e escolha na busca, em português,
+  em inglês ou pela sigla. A cada erro você recebe três pistas sobre o país certo em relação ao
+  seu chute:</p>
   <ul>
     <li>a <strong>distância</strong> em quilômetros, medida entre os centros dos dois países;</li>
     <li>a <strong>direção</strong>, como uma seta em oito pontos (norte, nordeste, leste…);</li>
     <li>a <strong>proximidade</strong> em porcentagem: 100% é o próprio país, 0% é o outro lado do mundo (20.000 km).</li>
   </ul>
 
+  <h2>PIB per capita</h2>
+  <p>Esse é ao contrário: <strong>o país aparece na pergunta</strong> e o que você tem que adivinhar
+  é o <strong>número</strong>. A cada erro você fica sabendo se o valor certo é <strong>maior ou
+  menor</strong> que o seu chute, e <strong>quão perto</strong> chegou.</p>
+  <p>Vale acertar por perto: o chute conta como certo se ele e a resposta estiverem
+  <strong>a 10% um do outro</strong>. Chutar 20.000 para uma resposta de 21.500 acerta; chutar
+  19.000 não. É uma razão entre os dois números, então não existe "10% de qual deles".</p>
+  <p>O número é o <strong>PIB per capita por paridade de poder de compra (PPP), em dólares
+  internacionais correntes de 2023</strong>, do <a href="https://data.worldbank.org/indicator/NY.GDP.PCAP.PP.CD">Banco
+  Mundial</a>. O ano aparece na pergunta porque o Banco Mundial revisa os números com o tempo — se
+  você procurar hoje e achar diferente, é revisão, e o que vale aqui é o valor de 2023 que está no
+  jogo. É PPP e não nominal porque o PPP não balança com o câmbio, e é per capita e não total
+  porque o total é quase um teste de população: da Índia ao Brasil a diferença é de população, não
+  de riqueza.</p>
+  <p>Dez países não entram nesse desafio, porque o Banco Mundial não publica o número: Cuba,
+  Eritreia, Coreia do Norte, Liechtenstein, Mônaco, Sudão do Sul, Síria, Taiwan, Venezuela e Iêmen.</p>
+
   <h2>Pontuação</h2>
-  <p>Cada desafio vale de 0 a 6 pontos, e <strong>o dia é a soma dos três</strong>: no máximo
-  <strong>18 pontos</strong>.</p>
+  <p>Cada desafio vale de 0 a 6 pontos, e <strong>o dia é a soma dos quatro</strong>: no máximo
+  <strong>24 pontos</strong>.</p>
   <table>
     <thead><tr><th>Acertou na tentativa</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>Não acertou</th></tr></thead>
     <tbody>
       <tr><td>Silhueta</td><td>6</td><td>5</td><td>4</td><td>3</td><td>2</td><td>1</td><td>0</td></tr>
-      <tr><td>Bandeira e capital</td><td>6</td><td>4</td><td>2</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+      <tr><td>Bandeira, capital e PIB</td><td>6</td><td>4</td><td>2</td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
     </tbody>
   </table>
   <p>Errar um desafio não encerra o dia: ele vale 0 e o próximo abre.</p>
@@ -50,9 +69,9 @@
   relógio.</p>
   <p>Um dia não pode ser jogado de novo. Se você abrir o jogo em outro aparelho, suas tentativas
   estão lá do mesmo jeito, no desafio em que você parou.</p>
-  <p class="fine">Os dias anteriores a 10/09/2026 valiam 6 pontos, porque tinham um desafio só. Eles
-  ficam como estão: as janelas de 7 e 30 dias se resolvem sozinhas em um mês, e o total geral guarda
-  a virada em vez de reescrever o que já foi jogado.</p>
+  <p class="fine">Os dias anteriores a 11/09/2026 valiam menos, porque tinham menos desafios (6 pontos
+  quando era só a silhueta). Eles ficam como estão: as janelas de 7 e 30 dias se resolvem sozinhas em
+  um mês, e o total geral guarda a virada em vez de reescrever o que já foi jogado.</p>
 
   <h2>Detalhes que alguém vai perguntar</h2>
   <ul>
@@ -87,7 +106,7 @@
     <li><strong>Empate em pontos</strong> se resolve pela <strong>soma do tempo</strong> das rodadas jogadas na janela:
     menos tempo fica na frente. Empate em tudo divide a posição: 1º, 2º, 2º, 4º.</li>
     <li><strong>Rodadas</strong> é quantos dias da janela a pessoa terminou. <strong>Média</strong> é a média
-    de chutes por dia terminado, somando os três desafios — um dia inteiro errado conta doze chutes. O descarte
+    de chutes por dia terminado, somando os quatro desafios — um dia inteiro errado conta quinze chutes. O descarte
     dos dois piores dias mexe só nos pontos, não na média nem nas rodadas.</li>
     <li><strong>Sequência</strong> é quantos dias seguidos a pessoa terminou uma rodada. Um dia sem rodada
     terminada zera a sequência. Ao contrário das janelas, a sequência já conta o dia de hoje assim que você
@@ -113,6 +132,7 @@
     <li><strong>Bandeiras</strong> — cinco bandeiras para descobrir o país, três tentativas cada.
     Nem todo país entra: bandeiras cujo brasão escreve o nome do próprio país ficam de fora, porque
     aí não seria pergunta nenhuma. São 24 países sem bandeira no jogo.</li>
+    <li><strong>Economia</strong> — cinco PIBs per capita para adivinhar, três tentativas cada.</li>
     <li><strong>Liga</strong> — todo mundo joga contra todo mundo, uma rodada por dia,
     três silhuetas por rodada.</li>
     <li><strong>Mata-mata</strong> — chave eliminatória: quem perde a rodada está fora.</li>
@@ -120,7 +140,7 @@
     <li><strong>Chave dupla</strong> — você precisa perder <em>duas</em> vezes para estar fora.</li>
   </ul>
   <p>
-    Os quatro primeiros são <strong>pontos corridos</strong>: soma tudo no fim, quem tem mais
+    Os cinco primeiros são <strong>pontos corridos</strong>: soma tudo no fim, quem tem mais
     pontos ganha. A <strong>Liga</strong> funciona ao contrário, e é bom saber disso antes de
     entrar: cada rodada é um <strong>confronto</strong> contra uma pessoa, e você
     <strong>ganha ou perde aquela rodada</strong> — vitória vale 3, empate 1, derrota 0. Sua nota

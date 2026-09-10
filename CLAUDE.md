@@ -6,8 +6,8 @@ Context for AI coding agents working in this repo. Read `docs/00-brief.md` throu
 ## What this is
 
 A daily country-guessing game served at `lisecki.dev/mondo/`, built for a small competitive
-group. A day is three challenges — silhouette, flag, capital — played in order (D-52). Vanilla
-frontend published from `site/` by GitHub Pages, Firebase backend.
+group. A day is four challenges — silhouette, flag, capital, GDP per capita — played in order
+(D-52, D-53). Vanilla frontend published from `site/` by GitHub Pages, Firebase backend.
 
 ## Invariants — never violate these
 
@@ -77,8 +77,11 @@ frontend published from `site/` by GitHub Pages, Firebase backend.
   card of N challenges played one at a time, so the transitions live once in `lib/card.ts` and
   `lib/round.ts` keeps only what a *day* has — the schedule, the streak, the share grid, and the
   `puzzleId`. A daily attempt carries `puzzleId`; a tournament play must not (D-40).
-- **A day is worth 0–18, but days played before 2026-09-10 are worth 0–6 and stay that way.**
+- **A day is worth 0–24, and earlier days are worth less** (0–6 before D-52, 0–18 before D-53).
   Do not "fix" the seam in the all-time column: leaving it is a deliberate call.
+- **`gdp` is the one kind whose prompt names a country**, because there the country is the
+  question and the figure is the answer. What keeps that safe is `buildCard` holding subjects
+  distinct within a card — do not relax that.
 - There is **no results fan-out and no standings subcollection** (D-21, D-22): `attempts` is
   the single source of truth and the nightly job writes windows onto `groups/*/members/*`.
   Window arithmetic is D-24; do not change it without changing `regras.html` and the fixture

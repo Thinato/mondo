@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mondo — que país é este?</title>
-<meta name="description" content="Três desafios por dia: silhueta, bandeira e capital. Adivinhe o país de cada um.">
+<meta name="description" content="Quatro desafios por dia: silhueta, bandeira, capital e PIB per capita.">
 <link rel="stylesheet" href="./mondo.css">
 <script>
   // D-18: follow the parent site's theme choice (lisecki.dev/theme.js writes
@@ -31,7 +31,8 @@
 
 <main>
   <section id="signed-out">
-    <p class="sub">Três desafios por dia — uma silhueta, uma bandeira e uma capital. Adivinhe o país de cada um; a cada erro você ganha a distância e a direção.</p>
+    <p class="sub">Quatro desafios por dia — uma silhueta, uma bandeira, uma capital e um PIB per capita.
+    Adivinhe cada um; a cada erro você ganha uma pista de quão perto chegou.</p>
     <button id="sign-in" type="button" class="primary">Entrar com Google</button>
     <p class="fine">Só o nome de exibição aparece para os outros. <a href="./privacidade.html">Privacidade</a>.</p>
   </section>
@@ -57,12 +58,16 @@
     <ol id="guesses" class="guesses" aria-label="Tentativas"></ol>
 
     <form id="guess-form" autocomplete="off">
-      <div class="combo">
+      <div class="combo" id="guess-combo">
         <input id="guess-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
                aria-controls="guess-list" aria-label="País" placeholder="Digite um país…"
                autocapitalize="off" spellcheck="false" enterkeyhint="go">
         <ul id="guess-list" role="listbox" aria-label="Países" hidden></ul>
       </div>
+      <!-- D-53: `gdp` asks for a number, so it gets its own field rather than a
+           country autocomplete that would pop a list over every digit. -->
+      <input id="guess-number" type="number" inputmode="numeric" min="1" step="1"
+             aria-label="PIB per capita" placeholder="Digite um valor…" hidden>
       <button id="guess-submit" type="submit" class="primary">Chutar</button>
     </form>
 
@@ -74,7 +79,7 @@
     <section id="result" class="result" hidden>
       <p id="result-text"></p>
       <button id="share" type="button" class="primary">Compartilhar</button>
-      <p class="fine">Três desafios novos todo dia ao meio-dia. <a href="./grupos.html">Ver ranking</a>.</p>
+      <p class="fine">Desafios novos todo dia ao meio-dia. <a href="./grupos.html">Ver ranking</a>.</p>
     </section>
   </section>
 </main>

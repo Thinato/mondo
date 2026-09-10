@@ -158,13 +158,14 @@ clients cannot enumerate. This is the mechanism behind FR-1.4.
 
 ```
 puzzleId       "2026-09-14"
-items          array<{ kind: "shape"|"flag"|"capital", subject: "PY" }>   D-52, play order
+items          array<{ kind: "shape"|"flag"|"capital"|"gdp", subject: "PY" }>   D-52/D-53, play order
 opensAt        timestamp     computed from OQ-2 in America/Sao_Paulo
 ```
 
-A day is three challenges (D-52), and the array's order is the order they are played in — the
-generator shuffles it per day. `subject` IS the answer, which is the whole reason this
-collection is unreadable.
+A day is one challenge of every kind (D-52, D-53), and the array's order is the order they are
+played in — the generator shuffles it per day. `subject` IS the answer, which is the whole reason
+this collection is unreadable. For `gdp` the subject is the country the prompt *names*, and the
+answer is the figure `gdp.json` holds for it: the only kind where the subject is public.
 
 There is no shape key and no flag key. The server looks the artwork up by `subject` in its
 bundled `shapes.json` / `flags.json` and inlines one per challenge into the `getRound` response
@@ -187,11 +188,12 @@ startedAt      timestamp   server
 finishedAt     timestamp   server, null until the last challenge is done
 cursor         number      index of the challenge being played; === items.length once finished
 items          array<{ kind, guesses[], solved, points, startedAt, finishedAt, elapsedMs }>
-                           guesses are { code, distanceKm, bearingDeg, proximity, at };
+                           a country guess is { code, distanceKm, bearingDeg, proximity, at };
                            bearing is stored, never sent (D-36)
+                           a gdp guess is { value, higher, proximity, at } (D-53)
 guessCount     number      across the whole day
 solved         boolean     EVERY challenge solved — a perfect day
-points         number      the day's sum, 0–18 (FR-3.1)
+points         number      the day's sum, 0–24 (FR-3.1)
 elapsedMs      number
 suspicious     boolean     set when any first-guess solve came back in under 2 s
 history        Attempt[]   only after an admin retry (D-30): the earlier tries, oldest first
@@ -360,11 +362,15 @@ time** — the current challenge's — plus a status line per challenge.
   "cursor": 1,                      // the challenge being played
   "prompt": { "kind": "flag", "flag": { "viewBox": "0 0 6 3", "paths": [ … ] } },
                                     // or { kind: "shape", shape } / { kind: "capital", capital }
+                                    // or { kind: "gdp", country: "Vietnã", year: 2023 } — the one
+                                    //    prompt that names a country, because there it is the
+                                    //    question and the figure is the answer (D-53)
                                     // null once the day is finished
   "guessesUsed": 2,                 // on the CURRENT challenge, not the day
   "guessesMax": 3,                  // the current kind's allowance
-  "guesses": [ { "code": "AR", "name": "Argentina", "distanceKm": 1043,
+  "guesses": [ { "kind": "country", "code": "AR", "name": "Argentina", "distanceKm": 1043,
                  "compass": "NW", "proximity": 0.95 } ],   // 8-point arrow, never the exact bearing (D-36)
+                                    // a gdp guess reads { kind: "number", value, higher, proximity }
   "items": [                        // one per challenge, in play order
     { "kind": "shape", "status": "solved", "guessCount": 2,
       "points": 5, "answer": { "code": "PY", "name": "Paraguai" } },
@@ -373,7 +379,7 @@ time** — the current challenge's — plus a status line per challenge.
   ],
   "status": "in_progress",          // in_progress | solved | failed; solved = every challenge fell
   "points": null,                   // the day's total, set when the day ends
-  "maxPoints": 18,
+  "maxPoints": 24,
   "elapsedMs": null,
   "shareGrid": null,                // set when the day ends
   "serverTime": "2026-09-14T15:02:11.482Z"
@@ -387,10 +393,13 @@ projected by one function each rather than by the client.
 Side effect: creates the attempt document with a server `startedAt` on first call. This is
 what makes the timer un-spoofable (SEC-3).
 
-### `submitGuess({ puzzleId, code })`
+### `submitGuess({ puzzleId, guess })`
 
-One guess against the **current** challenge; returns the whole `getRound` view again. The
-callable's shape did not change with D-52, because every shipped kind still takes a country code.
+One guess against the **current** challenge; returns the whole `getRound` view again. `guess` is a
+country code for three of the kinds and a **number** for `gdp` (D-53) — the callable checks only
+that it is a scalar and hands it to the kind, because only the kind knows what a guess is (SEC-8).
+`code` is still accepted as a name for the field: the site is served from a CDN, and a browser
+holding yesterday's `game.js` would otherwise lose its lunch.
 
 Transactional read-modify-write on the attempt doc (SEC-4). Solving or exhausting a challenge
 advances the cursor and starts the next challenge's clock in the same write, so per-challenge

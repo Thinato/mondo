@@ -40,9 +40,9 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-2.1** There MUST be exactly one daily puzzle, identified by `puzzleId` in `YYYY-MM-DD`
   form. The day boundary is **12:00 `America/Sao_Paulo`** (OQ-2, resolved). `puzzleId` names the
   date the puzzle *opens*; the puzzle stays live until 12:00 the following day.
-- **FR-2.1a** (D-52) A day MUST hold **one challenge of every shipped kind** — silhouette, flag
-  and capital — played strictly in order, one at a time. The order MUST be shuffled per day, so
-  that no kind is always first.
+- **FR-2.1a** (D-52, D-53) A day MUST hold **one challenge of every shipped kind** — silhouette,
+  flag, capital and GDP per capita — played strictly in order, one at a time. The order MUST be
+  shuffled per day, so that no kind is always first.
 - **FR-2.2** The puzzle answers MUST be selected from a pre-generated schedule, not chosen at
   request time.
 - **FR-2.3** A country MUST NOT repeat (D-52 replaces the old flat 180 days, which a
@@ -54,8 +54,9 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-2.4** Selection MUST be weighted by recognisability tier, not uniform. Target mix:
   tier 1 (well known) 50%, tier 2 (moderate) 35%, tier 3 (obscure) 15%, applied per kind over
   that kind's own pool. See `03-geo-data-pipeline.md` for tier definitions.
-- **FR-2.5** Guesses are per challenge, and belong to the kind: **6** for a silhouette, **3**
-  for a flag or a capital. Twelve in a day.
+- **FR-2.5** Guesses are per challenge, and belong to the kind: **6** for a silhouette, **3** for
+  a flag, a capital or a GDP. Fifteen in a day. A guess is a country for three of the kinds and a
+  number for `gdp`, and the kind is what validates it (SEC-8).
 - **FR-2.6** Each guess MUST be a country from the canonical list, selected via autocomplete.
   Free-text that does not resolve to a country MUST be rejected client-side before submission.
 - **FR-2.7** After each incorrect guess the player MUST receive: great-circle distance in km,
@@ -80,9 +81,14 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   | Silhouette | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
   | Flag, capital | 6 | 4 | 2 | — | — | — | 0 |
 
-  A **day** is the sum of its three challenges, so it is worth **0–18** (D-52). Days recorded
-  before D-52 are worth 0–6 and are left alone: the 7- and 30-day windows heal themselves within
-  a month, and the all-time column keeps a visible seam rather than a rewrite of history.
+  For `gdp` (D-53) "solved" means the guess and the answer are **within 10 % of each other**
+  (`min/max >= 0.9`), which is symmetric, so there is nothing to argue about. Nothing is paid for
+  a near miss, exactly as a silhouette guessed 200 km away pays what one 10 000 km away pays.
+
+  A **day** is the sum of its challenges, so it is worth **0–24** (D-52, D-53). Earlier days are
+  worth less — 0–6 before D-52, 0–18 between D-52 and D-53 — and are left alone: the 7- and
+  30-day windows heal themselves within a month, and the all-time column keeps a visible seam
+  rather than a rewrite of history.
 
 - **FR-3.2** Elapsed time (server `finishedAt - startedAt`, in ms) MUST be recorded and used as
   the tiebreaker. Lower is better.
@@ -179,9 +185,10 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   be excluded from the `capital` kind's pool.
 - **FR-8.5** The manager MUST be able to specify a card as a multiset of kinds and choose whether
   the order is as listed or shuffled. A card MAY be several challenges of one kind.
-- **FR-8.6** Shipped kinds: `shape` (the daily's question), `capital` and `flag` (a vendored
-  public-domain SVG set, flattened offline to filled paths; 24 countries have no flag and cannot
-  be asked that way). Planned: `gdp`, pending OQ-12.
+- **FR-8.6** Shipped kinds: `shape`, `capital`, `flag` (a vendored public-domain SVG set,
+  flattened offline to filled paths; 24 countries have no flag) and `gdp` (World Bank GDP per
+  capita PPP for one pinned year; 10 countries have no figure). All four are asked every day
+  (FR-2.1a) and are available to tournament card specs. No kind is planned beyond these.
 
 ## FR-6 — Client experience
 
