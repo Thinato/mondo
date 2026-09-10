@@ -5,8 +5,9 @@ Context for AI coding agents working in this repo. Read `docs/00-brief.md` throu
 
 ## What this is
 
-A daily country-silhouette guessing game served at `lisecki.dev/mondo/`, built for a small
-competitive group. Vanilla frontend published from `site/` by GitHub Pages, Firebase backend.
+A daily country-guessing game served at `lisecki.dev/mondo/`, built for a small competitive
+group. A day is three challenges — silhouette, flag, capital — played in order (D-52). Vanilla
+frontend published from `site/` by GitHub Pages, Firebase backend.
 
 ## Invariants — never violate these
 
@@ -72,6 +73,12 @@ competitive group. Vanilla frontend published from `site/` by GitHub Pages, Fire
 - **Playing is invite-only** (FR-1.7, D-28): a `player` with no group gets `not-invited`. Groups
   have no public code; invitations are single-use 7-day tokens (D-32). Roles `admin > organizer
   > player` (FR-7) live on the profile; admin is granted only by `tools/set-role.mjs` (D-29).
+- **The daily and a tournament round are the same act** (D-52, which reversed D-45): both are a
+  card of N challenges played one at a time, so the transitions live once in `lib/card.ts` and
+  `lib/round.ts` keeps only what a *day* has — the schedule, the streak, the share grid, and the
+  `puzzleId`. A daily attempt carries `puzzleId`; a tournament play must not (D-40).
+- **A day is worth 0–18, but days played before 2026-09-10 are worth 0–6 and stay that way.**
+  Do not "fix" the seam in the all-time column: leaving it is a deliberate call.
 - There is **no results fan-out and no standings subcollection** (D-21, D-22): `attempts` is
   the single source of truth and the nightly job writes windows onto `groups/*/members/*`.
   Window arithmetic is D-24; do not change it without changing `regras.html` and the fixture

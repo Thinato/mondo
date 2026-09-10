@@ -40,34 +40,49 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-2.1** There MUST be exactly one daily puzzle, identified by `puzzleId` in `YYYY-MM-DD`
   form. The day boundary is **12:00 `America/Sao_Paulo`** (OQ-2, resolved). `puzzleId` names the
   date the puzzle *opens*; the puzzle stays live until 12:00 the following day.
-- **FR-2.2** The puzzle answer MUST be selected from a pre-generated schedule, not chosen at
+- **FR-2.1a** (D-52) A day MUST hold **one challenge of every shipped kind** — silhouette, flag
+  and capital — played strictly in order, one at a time. The order MUST be shuffled per day, so
+  that no kind is always first.
+- **FR-2.2** The puzzle answers MUST be selected from a pre-generated schedule, not chosen at
   request time.
-- **FR-2.3** A country MUST NOT repeat within 180 days.
+- **FR-2.3** A country MUST NOT repeat (D-52 replaces the old flat 180 days, which a
+  three-challenge day makes arithmetically impossible — 180 × 3 = 540 draws from a pool of 196):
+  - **for the same kind**, within **120 days**. Bounded by the smallest pool, 172 flags.
+  - **for any kind**, within **30 days**. Without this, Paraguay could be the silhouette on
+    Monday and the flag on Thursday, which reads as a bug even though it is two questions.
+  - **twice on the same day**, ever.
 - **FR-2.4** Selection MUST be weighted by recognisability tier, not uniform. Target mix:
-  tier 1 (well known) 50%, tier 2 (moderate) 35%, tier 3 (obscure) 15%. See
-  `03-geo-data-pipeline.md` for tier definitions.
-- **FR-2.5** A player gets **6 guesses**.
+  tier 1 (well known) 50%, tier 2 (moderate) 35%, tier 3 (obscure) 15%, applied per kind over
+  that kind's own pool. See `03-geo-data-pipeline.md` for tier definitions.
+- **FR-2.5** Guesses are per challenge, and belong to the kind: **6** for a silhouette, **3**
+  for a flag or a capital. Twelve in a day.
 - **FR-2.6** Each guess MUST be a country from the canonical list, selected via autocomplete.
   Free-text that does not resolve to a country MUST be rejected client-side before submission.
 - **FR-2.7** After each incorrect guess the player MUST receive: great-circle distance in km,
   direction as one of 8 compass arrows, and proximity as a percentage.
-- **FR-2.8** After a correct guess, or after the 6th incorrect guess, the round ends and the
-  answer is revealed.
+- **FR-2.8** A challenge ends on a correct guess or once its guesses are spent, and its answer
+  is revealed then — never the answers of the challenges still to come (SEC-1). The **day** ends
+  when its last challenge does.
 - **FR-2.9** A player MUST be able to leave and return mid-round on any device and resume with
   guesses intact.
 - **FR-2.10** A completed round MUST NOT be replayable.
 - **FR-2.11** After completing, the player MUST see a share text using emoji squares and arrows
-  that does **not** encode the answer, plus a link to the game.
+  that does **not** encode any answer, plus a link to the game. One row per challenge (D-52).
 - **FR-2.12** Past puzzles MUST be viewable in an archive after their day has ended. Archive
   play SHOULD be permitted but MUST NOT count toward any leaderboard.
 
 ## FR-3 — Scoring
 
-- **FR-3.1** Points for a completed daily:
+- **FR-3.1** Points for one **challenge**, on the 0–6 scale every kind shares (FR-8.2, D-44):
 
   | Solved on guess | 1 | 2 | 3 | 4 | 5 | 6 | Not solved |
   |---|---|---|---|---|---|---|---|
-  | Points | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+  | Silhouette | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+  | Flag, capital | 6 | 4 | 2 | — | — | — | 0 |
+
+  A **day** is the sum of its three challenges, so it is worth **0–18** (D-52). Days recorded
+  before D-52 are worth 0–6 and are left alone: the 7- and 30-day windows heal themselves within
+  a month, and the all-time column keeps a visible seam rather than a rewrite of history.
 
 - **FR-3.2** Elapsed time (server `finishedAt - startedAt`, in ms) MUST be recorded and used as
   the tiebreaker. Lower is better.

@@ -158,37 +158,57 @@ clients cannot enumerate. This is the mechanism behind FR-1.4.
 
 ```
 puzzleId       "2026-09-14"
-countryCode    "PY"
+items          array<{ kind: "shape"|"flag"|"capital", subject: "PY" }>   D-52, play order
 opensAt        timestamp     computed from OQ-2 in America/Sao_Paulo
-tier           1 | 2 | 3
 ```
 
-There is no shape key. The server looks the path up by `countryCode` in its bundled
-`shapes.json` and inlines it into the `getRound` response (D-13). Nothing about the shape is
-ever addressable from the client.
+A day is three challenges (D-52), and the array's order is the order they are played in — the
+generator shuffles it per day. `subject` IS the answer, which is the whole reason this
+collection is unreadable.
+
+There is no shape key and no flag key. The server looks the artwork up by `subject` in its
+bundled `shapes.json` / `flags.json` and inlines one per challenge into the `getRound` response
+(D-13). Nothing about it is ever addressable from the client.
+
+**Days seeded before D-52** carry `countryCode` and `tier` instead of `items`, and still play:
+`puzzleItems()` reads either shape and treats the old one as a day of a single silhouette. The
+seeder writes only the new shape, so this is a bridge for days already in Firestore at the
+switchover, not a format to keep.
 
 ### 3.3 `attempts/{uid}_{puzzleId}` — Admin SDK writes only
 
+Since D-52 this is a **card play** with a `puzzleId` — the same document shape a tournament
+round writes (§3.14), plus the day's identity and the four summary fields the boards read.
+
 ```
 uid, puzzleId
-startedAt      timestamp   server
-finishedAt     timestamp   server, null while in progress
-guesses        array<{ code, distanceKm, bearingDeg, proximity, at }>   bearing is stored, never sent (D-36)
-guessCount     number
-solved         boolean
-points         number      FR-3.1
-elapsedMs      number
 mode           "daily" | "archive"
-suspicious     boolean     set when elapsedMs < 2000 on a first-guess solve
+startedAt      timestamp   server
+finishedAt     timestamp   server, null until the last challenge is done
+cursor         number      index of the challenge being played; === items.length once finished
+items          array<{ kind, guesses[], solved, points, startedAt, finishedAt, elapsedMs }>
+                           guesses are { code, distanceKm, bearingDeg, proximity, at };
+                           bearing is stored, never sent (D-36)
+guessCount     number      across the whole day
+solved         boolean     EVERY challenge solved — a perfect day
+points         number      the day's sum, 0–18 (FR-3.1)
+elapsedMs      number
+suspicious     boolean     set when any first-guess solve came back in under 2 s
 history        Attempt[]   only after an admin retry (D-30): the earlier tries, oldest first
 retries        number      only after an admin retry
 ```
 
+`guessCount`, `solved`, `points` and `elapsedMs` stay at the top level rather than being derived
+on read, because that is exactly the shape attempts written before D-52 have — so the nightly
+job and the admin dashboard read both generations without a migration or a branch.
+
 **No client read at all** (D-51, SEC-15). The earlier rule allowed a player to read their own
 attempt, on the reasoning that they already knew their own guesses — but they do not know
 `bearingDeg`, and distance plus bearing solves for the answer's centroid in closed form (D-36).
-Tournament card plays live in this same collection with `mode: "match"` and no `puzzleId`; see
-§3.14.
+Tournament card plays live in this same collection with `mode: "match"` and **no `puzzleId`**;
+see §3.14. That asymmetry is load-bearing: the nightly job selects on a `puzzleId` range, and a
+Firestore inequality filter never returns a document lacking the field, so a daily is found and
+a tournament card is not — with no filter to remember (FR-5.9, D-40).
 
 ### 3.4 `groups/{groupId}` — Admin SDK writes only
 
@@ -325,43 +345,57 @@ All calls require auth. All reject with typed errors from a shared enum. Region
 `southamerica-east1`. CORS restricted per SEC-9.
 
 ### `getRound({ puzzleId? })`
-Returns the round the caller should see. Omitting `puzzleId` means today.
+Returns the day the caller should see. Omitting `puzzleId` means today. `submitGuess` returns
+the identical shape, so there is one renderer and one contract to keep honest.
+
+Since D-52 a day is three challenges played in order, so the response carries **one prompt at a
+time** — the current challenge's — plus a status line per challenge.
 
 ```jsonc
 // response
 {
   "puzzleId": "2026-09-14",
   "mode": "daily",
-  "shape": { "viewBox": "0 0 500 500", "d": "M12.3 44.1L...Z", "fillRule": "evenodd" },
-  "guessesUsed": 2,
-  "guessesMax": 6,
+  "itemCount": 3,
+  "cursor": 1,                      // the challenge being played
+  "prompt": { "kind": "flag", "flag": { "viewBox": "0 0 6 3", "paths": [ … ] } },
+                                    // or { kind: "shape", shape } / { kind: "capital", capital }
+                                    // null once the day is finished
+  "guessesUsed": 2,                 // on the CURRENT challenge, not the day
+  "guessesMax": 3,                  // the current kind's allowance
   "guesses": [ { "code": "AR", "name": "Argentina", "distanceKm": 1043,
                  "compass": "NW", "proximity": 0.95 } ],   // 8-point arrow, never the exact bearing (D-36)
-  "status": "in_progress",          // in_progress | solved | failed
-  "answer": null,                   // populated ONLY when status != in_progress
+  "items": [                        // one per challenge, in play order
+    { "kind": "shape", "status": "solved", "guessCount": 2,
+      "points": 5, "answer": { "code": "PY", "name": "Paraguai" } },
+    { "kind": "flag",  "status": "current", "guessCount": 2, "points": null, "answer": null },
+    { "kind": "capital", "status": "pending", "guessCount": 0, "points": null, "answer": null }
+  ],
+  "status": "in_progress",          // in_progress | solved | failed; solved = every challenge fell
+  "points": null,                   // the day's total, set when the day ends
+  "maxPoints": 18,
+  "elapsedMs": null,
+  "shareGrid": null,                // set when the day ends
   "serverTime": "2026-09-14T15:02:11.482Z"
 }
 ```
+
+**An answer appears only on a challenge that is already over**, never on the ones ahead of the
+cursor (SEC-1). That is the same line `getCard` draws for tournaments, and the reason both are
+projected by one function each rather than by the client.
 
 Side effect: creates the attempt document with a server `startedAt` on first call. This is
 what makes the timer un-spoofable (SEC-3).
 
 ### `submitGuess({ puzzleId, code })`
 
-```jsonc
-{
-  "correct": false,
-  "distanceKm": 1043, "compass": "NW", "proximity": 0.95,
-  "guessesUsed": 3,
-  "status": "in_progress",
-  "answer": null,                   // revealed on solved | failed
-  "points": null,                   // set when the round ends
-  "shareGrid": null                 // set when the round ends
-}
-```
+One guess against the **current** challenge; returns the whole `getRound` view again. The
+callable's shape did not change with D-52, because every shipped kind still takes a country code.
 
-Transactional read-modify-write on the attempt doc (SEC-4). On completion, updates the
-profile's streak and counters. Nothing is fanned out (D-21); the nightly job reads attempts.
+Transactional read-modify-write on the attempt doc (SEC-4). Solving or exhausting a challenge
+advances the cursor and starts the next challenge's clock in the same write, so per-challenge
+elapsed times are contiguous and the day's total is honest. On completion of the *day*, updates
+the profile's streak and counters. Nothing is fanned out (D-21); the nightly job reads attempts.
 
 ### Play gate (FR-1.7)
 `getRound` and `submitGuess` throw `not-invited` for a `player` with no groups, before any attempt

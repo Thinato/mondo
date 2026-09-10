@@ -183,6 +183,20 @@ own answer. Assume slice 3 has its own.
 ## Phase 4 — Polish
 *Effort: ongoing.*
 
+**Done 2026-09-10 — the daily plays every kind (D-52).** A day is one silhouette, one flag and
+one capital in a shuffled order, worth 0–18. `lib/round.ts` was rebuilt on `lib/card.ts`, which
+reverses D-45: the daily and a tournament round are the same act, and were about to be two
+implementations of it. Three consequences are recorded in D-52 and worth repeating here —
+FR-2.3's 180-day window became 120 days per kind plus 30 days for any kind (180 × 3 draws does
+not fit in a pool of 196); a day is now worth 0–18 against a history of 0–6, and that seam is
+deliberately left alone; and the attempt document keeps its four summary fields at the top level
+so the nightly job reads both generations without a migration.
+
+**Still owed for it:** the production schedule must be regenerated and re-seeded before the
+switch is deployed, or every day already in Firestore plays as a single silhouette (which works,
+by design, but is not the game). `tools/generate-schedule.mjs --history` takes the old file so
+the new windows are honoured across the boundary.
+
 - Archive of past puzzles (FR-2.12), unranked
 - Streak display and personal stats page
 - pt-BR / en toggle (FR-6.6, OQ-6)

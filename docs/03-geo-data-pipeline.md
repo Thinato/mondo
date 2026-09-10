@@ -196,9 +196,18 @@ Tiers live in `tools/tiers.json` with the same PR-to-argue convention as `includ
 
 1. Seeded PRNG (store the seed; the schedule must be reproducible).
 2. Walk forward from a start date, day by day, in `America/Sao_Paulo`.
-3. Weighted pick by tier, rejecting any country used in the previous 180 days (FR-2.3).
-4. Emit `{ puzzleId, countryCode, tier, opensAt }` for 365 days.
-5. Upload to the `puzzles` collection with the Admin SDK.
+3. For each day, draw **one country per kind** — silhouette, flag, capital (D-52) — weighted by
+   tier over that kind's own pool, rejecting any country that fails FR-2.3's windows: same kind
+   within 120 days, any kind within 30 days, or already used today.
+4. Shuffle the three into a play order, from the same seeded stream.
+5. Emit `{ puzzleId, items: [{ kind, subject }], opensAt }` for 365 days.
+6. Upload to the `puzzles` collection with the Admin SDK.
+
+**The kind pools are derived in `tools/lib/schedule.mjs` from `countries.json` and `flags.json`,
+duplicating the rules in `backend/functions/src/lib/kinds.ts`** — which is the authority. A
+generator that cannot import the server's TypeScript is the price of keeping the schedule an
+offline artefact (FR-2.2). The guard against drift is that both sides pin their pool sizes in
+tests (196 shapes, 181 capitals, 172 flags), so changing either rule fails one of them loudly.
 
 Run it once at launch, then annually. The weekly `scheduleHealthCheck` function warns when
 fewer than 30 future days exist (NFR-6).

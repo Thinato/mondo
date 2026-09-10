@@ -303,10 +303,14 @@ export interface ChallengeKind<Answer, Guess, Feedback> {
 The generics matter: `gdp`'s guess is a number and its feedback is "too low", so nothing in the
 interface may assume the answer is a country or the guess is a country code.
 
-**The shipped daily is not refactored onto this.** `lib/round.ts` works, is tested and is playing
-in production; rewriting it to be "a card of one shape challenge" is a Phase 4+ consolidation at
-best. The `shape` kind reuses `lib/geo.ts` and `lib/scoring.ts`, which are already pure, and
-duplicates about fifteen lines of glue. That is the cheaper mistake.
+**The shipped daily was not refactored onto this — until D-52 made it one.** The original
+reasoning stands as written: `lib/round.ts` worked, was tested and was playing, and rewriting it
+to be "a card of one shape challenge" bought nothing. What changed is the premise. Once a day
+had to hold a silhouette, a flag and a capital in order, the "fifteen lines of glue" became a
+second implementation of the ordering, the 400 ms floor and the per-challenge clocks. The daily
+now shares `applyCardGuess` with tournaments through `CardCore`, and `lib/round.ts` keeps only
+what a *day* has that a round does not: the schedule, the streak, the share grid, and the
+`puzzleId` the nightly job selects on.
 
 ### 5.2 The four kinds
 
@@ -778,7 +782,7 @@ committed e2e (D-33) gains a full free-for-all and one bracket run with a manual
 | D-42 | **Cards are stored, not regenerated from a seed.** | A generator that can never change is a worse constraint than a stored document. `puzzles` set the precedent. |
 | D-43 | **Rounds close on the puzzle-day noon boundary and are advanced by the existing 12:05 job; `advanceTournament` closes one early.** | No third Cloud Scheduler job (`05-cost.md` §3.4 — three free per *billing account*), one clock for the whole game (OQ-2), and the manual close is what makes a one-lunch tournament and an automated test possible. |
 | D-44 | **Every kind scores one challenge 0–6 and a card is the sum. Total elapsed time is the default next comparator, not a universal one.** | The 0–6 scale is what makes a mixed-kind card meaningful, and six for a first-guess solve keeps FR-3.1's scale so a shape challenge and a daily score alike. Time was universal in the first draft of this document; revised the same day, because a knockout that resolves ties by sudden death (D-50) must be able to leave time out of the chain — with it in, millisecond ties never happen and sudden death never fires. |
-| D-45 | **The shipped daily is not refactored onto the kind interface.** | `lib/round.ts` is live, tested and playing. Fifteen lines of glue duplicated in the `shape` kind is the cheaper mistake; consolidation is Phase 4+ if ever. |
+| D-45 | ~~**The shipped daily is not refactored onto the kind interface.**~~ **Reversed 2026-09-10 by D-52**, when a day became one challenge of every kind: the glue stopped being a dozen lines and became a second copy of the card engine. `lib/card.ts` now backs both, and `lib/round.ts` holds only what is specific to a day. | `lib/round.ts` is live, tested and playing. Fifteen lines of glue duplicated in the `shape` kind is the cheaper mistake; consolidation is Phase 4+ if ever. |
 | D-46 | **A participant's display name is snapshotted into the tournament at start, does not follow renames, and is scrubbed by `deleteAccount`.** | A tournament is a historical record, unlike the live board (D-26). D-21's "a deleted account just leaves" cannot apply to a bracket, which would be left with a hole; scrubbing the name keeps FR-1.5 while keeping the bracket readable. |
 | D-47 | **Eliminated players may keep playing the round's card for a side ranking (`consolation`, default on).** | The card is already shared, so it costs nothing, and it fixes elimination's real social problem: after round one, half the group has nothing to do at lunch. |
 | D-48 | **A tournament is created from a named, built-in preset, resolved server-side and copied into the tournament document. No client-supplied settings in Phase 3.** | Paulo asked for presets rather than a default. It also deletes the hardest validation problem in the phase: without it, `createTournament` must reject every incoherent corner of a settings lattice (regime against format, draws against elimination, sudden death against a time tiebreak) and each missed corner reaches a player as a broken bracket. Storing the *resolved* config means editing a preset cannot alter a running tournament, and user-defined presets later need no migration. |
