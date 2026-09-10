@@ -104,6 +104,9 @@ const PT_BR = {
   colTime: "Tempo",
   roundOpen: "em aberto",
   drawn: "empate",
+  // Double elimination has two brackets running at once, so a fixture has to
+  // say which one it belongs to or the list is unreadable.
+  bracketOf: { w: "chave de cima", l: "chave de baixo", gf: "grande final" },
   colPhase: "Fase",
   // Knockout: how far each player got, and what a tiebreak is doing.
   phaseChampion: "campeão",

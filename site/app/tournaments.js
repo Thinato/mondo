@@ -360,18 +360,25 @@ function renderFixtures() {
     ul.className = "fixtures";
     ul.append(...r.pairings.map((p) => {
       const li = document.createElement("li");
+      // Two brackets run in the same round, so each fixture names its own.
+      if (p.bracket) {
+        const tag = document.createElement("span");
+        tag.className = "bracket-tag";
+        tag.textContent = t(`bracketOf.${p.bracket}`);
+        li.append(tag);
+      }
       if (p.b === null) {
-        li.textContent = t("byeFixture", { name: nameOf(p.a) });
+        li.append(t("byeFixture", { name: nameOf(p.a) }));
         return li;
       }
       // The winner is marked rather than the score being shown: under `match`
       // the score does not carry, so leading with it would mislead.
       if (p.outcome === "draw") {
-        li.textContent = `${nameOf(p.a)} × ${nameOf(p.b)} · ${t("drawn")}`;
+        li.append(`${nameOf(p.a)} × ${nameOf(p.b)} · ${t("drawn")}`);
         return li;
       }
       const mark = (side) => (p.outcome === side ? " ✓" : "");
-      li.textContent = `${nameOf(p.a)}${mark("a")} × ${nameOf(p.b)}${mark("b")}`;
+      li.append(`${nameOf(p.a)}${mark("a")} × ${nameOf(p.b)}${mark("b")}`);
       return li;
     }));
     wrap.append(h, ul);

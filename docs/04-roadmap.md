@@ -114,7 +114,7 @@ you share the link.** Talk to whoever owns security policy first.
 ---
 
 ## Phase 3 — Tournaments
-*Slices 1–5 built 2026-09-09/10. Slices 6–7 designed, not built.*
+*Slices 1–6 built 2026-09-09/10. Slice 7 designed, not built.*
 
 Design: **`docs/06-tournaments.md`**, written before any code and confirmed with Paulo. The
 spine is **D-38**: any two scores that are ever compared come from the same card, which normally
@@ -159,11 +159,14 @@ never from client-supplied settings (D-48).
   keeps playing without ever climbing back above someone still in the bracket.
 - Create a `suico`: its length is capped to the number of opponents that exist, no pair ever meets
   twice, and the bye moves down the table instead of landing on the same player again.
+- Create a `chave-dupla`: losing once drops you to the losers bracket and you keep playing, losing
+  twice ends it, both brackets appear in the same round, and the grand final leaves exactly one
+  champion.
 - Nothing from a tournament appears on any daily board (FR-5.9 — enforced by D-40, not by a
   filter).
 - A non-member gets `permission-denied` on every tournament callable; a member who leaves the
   group stops being served cards but keeps their standings slot.
-- 209 unit, 24 rules and 51 e2e tests pass.
+- 220 unit, 24 rules and 54 e2e tests pass.
 
 **Before slice 3:** read `06-tournaments.md` §16. Slices 1–2 went through an independent code
 review and security review that found a live production hole older than this phase (D-51), a

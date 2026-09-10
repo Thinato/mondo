@@ -227,3 +227,4 @@ h2.title { font-size: 1.25rem; margin: 0 0 .25rem; }
 /* A knocked-out player stays in the table (consolation, D-47) but should not
    read as if they were still in the bracket. */
 .board tr.out td { color: var(--muted); }
+.bracket-tag { display: inline-block; min-width: 7.5rem; color: var(--muted); font-size: .8rem; }

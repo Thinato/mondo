@@ -678,7 +678,23 @@ Each slice ends in something playable, and the risk rises monotonically.
    and enumerating it removes T-3's failure mode rather than bounding it; and the round count is
    **capped at players − 1**, because a Swiss configured for more rounds than anybody has
    opponents must otherwise either repeat a fixture or stop pairing.
-6. **Double elimination** — bracket plumbing, grand final. Last, deliberately.
+6. **Double elimination** — bracket plumbing, grand final. Last, deliberately. **Built
+   2026-09-10**, with four amendments to §6.3 worth reading before anyone touches it:
+
+   - **The two brackets run in the same tournament round.** Under D-38 one card is shared by
+     everyone still in, so a winners round and a losers round can be scored off it together. That
+     makes the format **2·log₂(S)** rounds rather than the conventional 3·log₂(S)−1 — the table in
+     §6.2 said "~2·log₂(S)" and was right for a reason nobody had written down.
+   - **The losers-bracket draw is chosen by search, not by a fixed reversal rule.** That fixed
+     mapping is what T-2 calls subtly wrong in most implementations, and it stops being defined at
+     all once byes make the two sides uneven — which happens for every field that is not a power
+     of two. Preference is survivor-against-dropdown and the conventional fold; a fixture that
+     repeats an earlier one is rejected unless the pool leaves no alternative.
+   - **Losing the last grand final ends it, whatever your record.** With `grandFinalReset` off,
+     the losers champion winning leaves *both* finalists on one defeat; without this rule the
+     table shows two survivors and no champion. A property check over every field size caught it.
+   - **`Pairing` carries a `bracket` field** (`w` / `l` / `gf`), because "who dropped out of
+     winners round r" is only answerable if the fixtures remember which half they were.
 7. **`flag` and `gdp` kinds** — `flag` per OQ-11's answer (vendored public-domain SVG set with a
    `NOTICE` entry), which also unlocks the `bandeiras` preset; `gdp` gated on OQ-12. Independent of
    everything above.
