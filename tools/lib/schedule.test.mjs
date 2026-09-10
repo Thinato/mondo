@@ -1,13 +1,47 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { generate, opensAt, tierMix, minRepeatGap, prng } from "./schedule.mjs";
+import { generate, itemsOf, minDayGap, minRepeatGap, opensAt, poolsFrom, prng, tierMix, DAY_WINDOW, KINDS, KIND_WINDOW } from "./schedule.mjs";
 
-// The real pool, so the tests exercise the real tension of R-1 (93 tier-1
-// countries against ~90 tier-1 picks per 180-day window).
-const { countries } = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/countries.json", import.meta.url)));
-const pool = countries.map((c) => ({ code: c.code, tier: c.tier }));
-const base = { countries: pool, seed: 20260908, start: "2026-09-15" };
+// The real pools, so the tests exercise the real tension: the flag pool is the
+// tight one at 172 countries against a 120-day window.
+const countriesJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/countries.json", import.meta.url)));
+const flagsJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/flags.json", import.meta.url)));
+const pools = poolsFrom(countriesJson, flagsJson);
+const tierOf = new Map(countriesJson.countries.map((c) => [c.code, c.tier]));
+const base = { pools, seed: 20260908, start: "2026-09-15" };
+
+test("the pools match what the server's kinds allow (kinds.ts is the authority)", () => {
+  // Duplicated rules, pinned on both sides: backend test/kinds.test.ts asserts
+  // the same three numbers, so a change to either rule fails one of them.
+  assert.equal(pools.shape.length, 196);
+  assert.equal(pools.capital.length, 181);
+  assert.equal(pools.flag.length, 172);
+  for (const code of ["BR", "SG", "MX", "MC"]) {
+    assert.ok(!pools.capital.some((c) => c.code === code), `${code} names itself in its capital`);
+  }
+  for (const code of ["MX", "PY", "EG"]) {
+    assert.ok(!pools.flag.some((c) => c.code === code), `${code} has no flag in the pool`);
+  }
+});
+
+test("D-52: every day is one challenge of every kind, in a shuffled order", () => {
+  const s = generate({ ...base, days: 365 });
+  const orders = new Set();
+  for (const d of s) {
+    assert.deepEqual([...d.items.map((i) => i.kind)].sort(), [...KINDS].sort(), d.puzzleId);
+    assert.equal(new Set(d.items.map((i) => i.subject)).size, 3, `${d.puzzleId} asks the same country twice`);
+    orders.add(d.items.map((i) => i.kind).join(">"));
+  }
+  assert.equal(orders.size, 6, "all six orderings should turn up over a year");
+});
+
+test("D-52: every subject is in its own kind's pool", () => {
+  const inPool = Object.fromEntries(KINDS.map((k) => [k, new Set(pools[k].map((c) => c.code))]));
+  for (const d of generate({ ...base, days: 365 })) {
+    for (const it of d.items) assert.ok(inPool[it.kind].has(it.subject), `${d.puzzleId}: ${it.subject} is not askable as ${it.kind}`);
+  }
+});
 
 test("determinism: same seed → identical schedule; different seed → different", () => {
   const a = JSON.stringify(generate(base));
@@ -25,26 +59,41 @@ test("FR-2.1: 365 consecutive puzzleIds starting at start", () => {
   }
 });
 
-test("FR-2.3: no country repeats within 180 days, over 3 years and 5 seeds", () => {
+test("FR-2.3: the two windows hold over 3 years and 5 seeds", () => {
   for (const seed of [1, 2, 3, 4, 5]) {
     const s = generate({ ...base, seed, days: 3 * 365 });
-    assert.ok(minRepeatGap(s) >= 180, `seed ${seed}: min gap ${minRepeatGap(s)}`);
+    assert.ok(minRepeatGap(s) >= KIND_WINDOW, `seed ${seed}: same kind again after ${minRepeatGap(s)} days`);
+    assert.ok(minDayGap(s) >= DAY_WINDOW, `seed ${seed}: asked again after ${minDayGap(s)} days`);
   }
 });
 
 test("FR-2.3 across runs: history from the previous year is honoured", () => {
   const y1 = generate({ ...base, days: 365 });
   const y2 = generate({ ...base, seed: 99, start: "2027-09-15", history: y1 });
-  assert.ok(minRepeatGap([...y1, ...y2]) >= 180);
+  assert.ok(minRepeatGap([...y1, ...y2]) >= KIND_WINDOW);
+  assert.ok(minDayGap([...y1, ...y2]) >= DAY_WINDOW);
   assert.throws(() => generate({ ...base, start: "2027-01-01", history: y1 }), /not before start/);
 });
 
-test("FR-2.4: tier mix over a year is within 5 points of 50/35/15", () => {
-  const mix = tierMix(generate({ ...base, days: 365 }));
-  const pct = (t) => Math.round((mix[t] ?? 0) * 100);
-  assert.ok(Math.abs(pct(1) - 50) <= 5, `tier 1 ${pct(1)}%`);
-  assert.ok(Math.abs(pct(2) - 35) <= 5, `tier 2 ${pct(2)}%`);
-  assert.ok(Math.abs(pct(3) - 15) <= 5, `tier 3 ${pct(3)}%`);
+test("D-52: a pre-D-52 schedule is readable as history, one silhouette a day", () => {
+  const legacy = [{ puzzleId: "2026-09-14", countryCode: "PY" }];
+  assert.deepEqual(itemsOf(legacy[0]), [{ kind: "shape", subject: "PY" }]);
+  const s = generate({ ...base, days: 30, history: legacy });
+  const firstShape = s.find((d) => d.items.some((i) => i.kind === "shape" && i.subject === "PY"));
+  assert.equal(firstShape, undefined, "PY was the silhouette yesterday, so not again inside the window");
+});
+
+test("FR-2.4: every kind's tier mix over a year is within 8 points of 50/35/15", () => {
+  const s = generate({ ...base, days: 365 });
+  for (const kind of KINDS) {
+    const mix = tierMix(s, tierOf, kind);
+    const pct = (t) => Math.round((mix[t] ?? 0) * 100);
+    // Wider than the old ±5: a kind's pool is not the whole world (172 flags),
+    // so its tier proportions cannot match the full pool's exactly.
+    assert.ok(Math.abs(pct(1) - 50) <= 8, `${kind} tier 1 ${pct(1)}%`);
+    assert.ok(Math.abs(pct(2) - 35) <= 8, `${kind} tier 2 ${pct(2)}%`);
+    assert.ok(Math.abs(pct(3) - 15) <= 8, `${kind} tier 3 ${pct(3)}%`);
+  }
 });
 
 test("OQ-2: every puzzle opens at 12:00 São Paulo, i.e. 15:00Z (no DST in Brazil since 2019)", () => {
@@ -59,9 +108,9 @@ test("opensAt handles a zone with DST on both sides of the change", () => {
   assert.equal(opensAt("2026-01-15", "America/New_York").toISOString(), "2026-01-15T17:00:00.000Z");
 });
 
-test("a pool too small for the window fails loudly instead of looping", () => {
-  const tiny = pool.slice(0, 40);
-  assert.throws(() => generate({ ...base, countries: tiny }), /too small/);
+test("a pool too small for its window fails loudly instead of looping", () => {
+  assert.throws(() => generate({ ...base, pools: { ...pools, flag: pools.flag.slice(0, 40) } }), /too small/);
+  assert.throws(() => generate({ ...base, pools: { ...pools, capital: [] } }), /no pool for kind/);
 });
 
 test("prng is deterministic and in [0, 1)", () => {

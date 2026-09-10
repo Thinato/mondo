@@ -50,8 +50,10 @@ for (let i = 0; i < puzzles.length; i += BATCH) {
   for (const p of puzzles.slice(i, i + BATCH)) {
     batch.set(db.collection("puzzles").doc(p.puzzleId), {
       puzzleId: p.puzzleId,
-      countryCode: p.countryCode,
-      tier: p.tier,
+      // D-52: a day is a list of challenges. `countryCode` and `tier` are NOT
+      // written any more; days seeded before the switch keep theirs and still
+      // play, as one silhouette (lib/round.ts `puzzleItems`).
+      items: p.items,
       opensAt: Timestamp.fromDate(new Date(p.opensAt)),
     });
   }
