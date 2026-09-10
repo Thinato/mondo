@@ -4,13 +4,13 @@
 // (?g=), one tournament (?t=), and playing its card (?t=…&jogar=1).
 //
 // Like groups.js, this file renders what the server sent and computes nothing.
-// It cannot know an answer: the card's prompt is one SVG path or one city name,
+// It cannot know an answer: the card's prompt is one SVG path, one flag or one city name,
 // and an item's answer arrives only once that item is over (SEC-1).
 
 import { ask, watchAuth } from "./auth-ui.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
-import { arrow, band, formatKm, formatPercent, renderShape } from "./geo.js";
+import { arrow, band, formatKm, formatPercent, renderFlag, renderShape } from "./geo.js";
 import { errorMessage, t } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -26,6 +26,7 @@ const el = {
   fixtures: $("fixtures"), fixtureRounds: $("fixture-rounds"),
   card: $("card"), backFromCard: $("back-from-card"), cardProgress: $("card-progress"),
   cardShapeWrap: $("card-shape-wrap"), cardShape: $("card-shape"), cardCapital: $("card-capital"),
+  cardFlagWrap: $("card-flag-wrap"), cardFlag: $("card-flag"),
   cardGuesses: $("card-guesses"), cardForm: $("card-form"), cardInput: $("card-input"), cardList: $("card-datalist"),
   cardSubmit: $("card-submit"), cardLeft: $("card-left"), cardItems: $("card-items"), cardDone: $("card-done"),
   confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
@@ -501,8 +502,10 @@ function renderCard() {
   const kind = card.prompt?.kind ?? null;
   el.cardShapeWrap.hidden = kind !== "shape";
   el.cardCapital.hidden = kind !== "capital";
+  el.cardFlagWrap.hidden = kind !== "flag";
   if (kind === "shape") renderShape(el.cardShape, card.prompt.shape);
   else if (kind === "capital") el.cardCapital.textContent = t("capitalPrompt", { city: card.prompt.capital });
+  else if (kind === "flag") renderFlag(el.cardFlag, card.prompt.flag);
   else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
 
   el.cardGuesses.replaceChildren(...card.guesses.map(guessRow));

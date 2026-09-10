@@ -18,6 +18,9 @@ the browser.
 | `d3-geo` (npm, dev only) | Spherical area/centroid, azimuthal projection, fit-to-extent | ISC |
 | `simplify-js` (npm, dev only) | Douglas-Peucker simplification in pixel space | BSD-2 |
 
+Flag artwork is **not** part of this pipeline. It has its own offline build,
+`tools/build-flags.mjs`, over a separate vendored source; see 06-tournaments.md §5.3.
+
 `world-atlas` is a versioned npm artifact of Natural Earth — prefer it over crawling the site.
 **10m, not 50m:** the 50m set is missing Tuvalu entirely, and every microstate is better at 10m.
 Since we simplify to a pixel tolerance anyway, the extra source detail costs nothing.

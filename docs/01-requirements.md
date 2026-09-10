@@ -164,8 +164,9 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   be excluded from the `capital` kind's pool.
 - **FR-8.5** The manager MUST be able to specify a card as a multiset of kinds and choose whether
   the order is as listed or shuffled. A card MAY be several challenges of one kind.
-- **FR-8.6** Shipped kinds: `shape` (the daily's question) and `capital`. Planned: `flag` (from a
-  vendored public-domain SVG set, OQ-11) and `gdp`, pending OQ-12.
+- **FR-8.6** Shipped kinds: `shape` (the daily's question), `capital` and `flag` (a vendored
+  public-domain SVG set, flattened offline to filled paths; 24 countries have no flag and cannot
+  be asked that way). Planned: `gdp`, pending OQ-12.
 
 ## FR-6 — Client experience
 

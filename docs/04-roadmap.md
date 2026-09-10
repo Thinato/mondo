@@ -143,10 +143,17 @@ never from client-supplied settings (D-48).
    **Built 2026-09-10.** The `suico` preset. The pairing search is exhaustive rather than the
    sketched swap-and-retry: at ≤ 12 players the worst case is 11!! = 10,395 candidate pairings, and
    enumeration cannot fail to find a repeat-free draw that exists — which is precisely risk T-3.
-6. **Double elimination** — losers-bracket mapping and the grand final. Last, deliberately: it is
-   more work than the other four together.
-7. **`flag` and `gdp` kinds** — `flag` from a vendored public-domain SVG set with a `NOTICE` entry
-   (OQ-11, answered); `gdp` still blocked on OQ-12 (source and vintage).
+6. ~~**Double elimination** — losers-bracket mapping and the grand final. Last, deliberately: it is
+   more work than the other four together.~~ **Built 2026-09-10.** The `chave-dupla` preset. Both
+   brackets run in the same tournament round, because one card is shared by everyone still in
+   (D-38), which makes the format 2·log₂(S) rounds rather than 3·log₂(S)−1; the losers draw is
+   chosen by search rather than a fixed reversal, which is risk T-2.
+7. **`flag` and `gdp` kinds** — `flag` is **built 2026-09-10**: `tools/build-flags.mjs` flattens a
+   vendored public-domain SVG set to filled paths in `flags.json`, with a `NOTICE` entry and the
+   `bandeiras` preset. 24 of 196 countries have no flag, and the per-flag byte budget turns out to
+   drop nearly every flag that spells its own country's name (06-tournaments.md §5.3). `gdp` is
+   **still blocked on OQ-12** — source, vintage, and nominal vs PPP are Paulo's call, and the
+   answer has to be on `regras.html` before anybody plays it.
 
 **Acceptance for what is built:**
 - Create a `mistura` from `torneios.html`, have two accounts play it, close the round early, and

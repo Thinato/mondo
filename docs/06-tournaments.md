@@ -314,7 +314,7 @@ duplicates about fifteen lines of glue. That is the cheaper mistake.
 |---|---|---|---|---|---|---|
 | `shape` | one inlined SVG path (D-13) | country | 6 | km + 8-point compass + proximity | `shapes.json`, `countries.json` | **exists** |
 | `capital` | a capital city name | country | 3 | km + compass from the guess (reuses geo) | `world-countries.capital` | **free** — already a dependency |
-| `flag` | one inlined flag SVG | country | 3 | km + compass | a vendored public-domain SVG set — **not in the repo yet** | decided (OQ-11), needs the vendoring |
+| `flag` | one inlined flag, as filled paths | country | 3 | km + compass | `flags.json`, built from a vendored public-domain SVG set | **exists** (§5.3) |
 | `gdp` | a country name (public) | a number | 3 | higher / lower + how close | GDP per country, with a vintage | blocked, OQ-12 |
 
 **Not every country can be asked as a `capital`.** Fifteen name themselves in their own capital
@@ -329,6 +329,49 @@ its folded country name. Found by the security review; `test/kinds.test.ts` pins
 distance-feedback machinery with `shape`. An interface with one implementation is a fiction; two
 implementations that share their feedback path prove the seam is in the right place before three
 more formats get built on top of it.
+
+### 5.3 The flag build (OQ-11)
+
+`flag` is the only kind whose data is not simply "a field of `countries.json`", so it has its
+own offline build: `tools/build-flags.mjs` reads the vendored `svg-country-flags` set (public
+domain, Wikimedia-derived) and writes `backend/functions/src/data/flags.json`. Same shape as the
+geo build: deterministic, committed, server-only, with a gitignored preview grid for a human to
+eyeball. The dependency is pinned to an exact version rather than a caret range, because a bump
+would silently redraw the pool; `flags.json` records the version it was built from.
+
+**The wire format is data, not markup.** A flag is `{ viewBox, paths[] }`, where each path is a
+`d` string plus a closed list of paint attributes, an optional `transform` and an optional
+`clip`. `renderFlag` builds one `<path>` per entry and sets those attributes. The alternative —
+shipping sanitised SVG source and parsing it in the browser — costs no flags and a client-side
+allowlist, and the allowlist is where a mistake is a live XSS. Paying for it in a build script
+instead is the trade this makes.
+
+The converter flattens `<g>`, resolves `<use>` (which is how fifty identical stars are drawn
+once) and folds a `<clipPath>` into the path that references it. It **refuses** what the flat
+format cannot carry — a gradient, a filter, `<text>`, a clip inherited across a transform — and
+the country is dropped with the reason printed. `<title>` is dropped rather than refused: in
+this dataset it reads "Flag of Brazil", which is the answer (SEC-1).
+
+**24 of the 196 countries have no flag**, and `flag.pool()` is what that means for play:
+
+| why | countries |
+|---|---|
+| over the 40 KB per-flag budget | AD AF BT BZ DO ES HR HT ME OM PE RS SM SV TM |
+| needs a gradient or a nested clip | BO CR EC GT MX NI |
+| excluded by hand (SEC-1, `tools/flags.json`) | BN EG PY |
+
+The budget is a per-response cap, since a card serves one item at a time, and it sits in the gap
+the data itself leaves: Portugal's armillary sphere is the last flag under it at 36 KB, Oman's is
+the first over it at 47 KB.
+
+**That budget does most of the SEC-1 work by itself**, which was not the plan and is worth
+recording. FR-8.4 says a prompt must not name its own answer, and a flag whose coat of arms
+reads REPÚBLICA DOMINICANA does name it — an inlined SVG can be zoomed. Every such flag is a
+coat-of-arms flag, and the emblem detail *is* the weight: Bolivia, Costa Rica, the Dominican
+Republic, El Salvador, Guatemala, Nicaragua and Peru all fall out on size or on a gradient before
+anyone judges their lettering. Three were small enough to slip through — Brunei, Egypt and
+Paraguay — and those are the whole hand-maintained exclusion list, each with its reason, the
+same shape as `tools/overrides.json` (D-14). Brazil stays: ORDEM E PROGRESSO is not its name.
 
 `gdp` is the one that stresses the interface hardest — a numeric answer, error-band scoring, no
 country to reveal — and it is the reason the interface is generic over the answer, the guess and
@@ -497,7 +540,7 @@ Two things follow, and both are why this is the right shape rather than a shortc
 | `mata-mata` | `single_elim` | `match` | 5 × `shape` | ⌈log₂ n⌉ | points → **sudden death** | byes to top seeds, `consolation` on |
 | `liga` | `round_robin` | `match` (3/1/0) | 3 × `shape` | n−1 or n | points → time → draw | the classic table; one round per day |
 | `suíço` | `swiss` | `match` | 3 × `shape` | 4 | points → time → draw | pairs by standing, no repeats |
-| `bandeiras` | `free_for_all` | `aggregate` | 5 × `flag` | 1 | points → time | one-kind tournament, the thing Paulo asked for by name; gated on OQ-11 |
+| `bandeiras` | `free_for_all` | `aggregate` | 5 × `flag` | 1 | points → time | one-kind tournament, the thing Paulo asked for by name |
 
 Preset ids are stable and are referenced in tests. `quintal` is the one built in slice 1; the rest
 land with the format that carries them.
@@ -695,9 +738,10 @@ Each slice ends in something playable, and the risk rises monotonically.
      table shows two survivors and no champion. A property check over every field size caught it.
    - **`Pairing` carries a `bracket` field** (`w` / `l` / `gf`), because "who dropped out of
      winners round r" is only answerable if the fixtures remember which half they were.
-7. **`flag` and `gdp` kinds** — `flag` per OQ-11's answer (vendored public-domain SVG set with a
-   `NOTICE` entry), which also unlocks the `bandeiras` preset; `gdp` gated on OQ-12. Independent of
-   everything above.
+7. **`flag` and `gdp` kinds** — `flag` is **built** (§5.3): a vendored public-domain SVG set,
+   flattened offline to filled paths, with a `NOTICE` entry and the `bandeiras` preset. `gdp` is
+   **not**, and stays blocked on OQ-12: the source, the vintage and nominal-vs-PPP are a
+   game-design decision, and the answer has to be on `regras.html` before anybody plays it.
 
 Tests: every format is a pure fold, so each gets a hand-checkable fixture in the style of
 `test/standings.test.ts` — including one odd-count fixture per format, which is where these
@@ -749,7 +793,8 @@ committed e2e (D-33) gains a full free-for-all and one bracket run with a manual
 
 - **OQ-11 — Flag artwork: where from, and under what licence?** → **A vendored public-domain SVG
   set** (Wikimedia-derived), held server-side like `shapes.json`, inlined one per challenge, with a
-  `NOTICE` entry. D-15 and D-16 are the precedent. Emoji flags were considered and are disqualified
+  `NOTICE` entry. Built in slice 7 from `svg-country-flags`; see §5.3 for what the answer turned
+  into, including the 24 countries it costs. D-15 and D-16 are the precedent. Emoji flags were considered and are disqualified
   on SEC-1 grounds rather than aesthetic ones: `world-countries` already carries `flag: "🇧🇷"`, but
   Windows Chrome renders the pair as the two letters `BR`, which spells the answer.
 - **OQ-13 — What default does the create form offer?** → **None. Presets, not a default** (D-48).

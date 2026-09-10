@@ -93,6 +93,19 @@ button:disabled { opacity: .5; cursor: default; }
 .silhouette svg { display: block; width: 100%; aspect-ratio: 1; background: var(--card); border-radius: .75rem; }
 .silhouette svg path { fill: var(--ink); }
 
+/* A flag brings its own colours, so nothing here paints its paths. The box takes
+   the flag's own proportions (renderFlag sets aspect-ratio), so the border marks
+   where the artwork ends — Yemen's black band and Poland's white one otherwise
+   run into the page. */
+.flag { margin: 0 0 1rem; }
+.flag svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border: 1px solid var(--line);
+  border-radius: .25rem;
+}
+
 /* Guess rows: name · distance · arrow · percent. Colour is never alone (FR-6.7). */
 .guesses { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .4rem; }
 .guess {
