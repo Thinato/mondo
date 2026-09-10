@@ -103,6 +103,7 @@ const PT_BR = {
   colGuesses: "Chutes",
   colTime: "Tempo",
   roundOpen: "em aberto",
+  drawn: "empate",
   colPhase: "Fase",
   // Knockout: how far each player got, and what a tiebreak is doing.
   phaseChampion: "campeão",

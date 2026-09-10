@@ -366,7 +366,11 @@ function renderFixtures() {
       }
       // The winner is marked rather than the score being shown: under `match`
       // the score does not carry, so leading with it would mislead.
-      const mark = (side) => (p.outcome === null ? "" : p.outcome === side ? " ✓" : p.outcome === "draw" ? " =" : "");
+      if (p.outcome === "draw") {
+        li.textContent = `${nameOf(p.a)} × ${nameOf(p.b)} · ${t("drawn")}`;
+        return li;
+      }
+      const mark = (side) => (p.outcome === side ? " ✓" : "");
       li.textContent = `${nameOf(p.a)}${mark("a")} × ${nameOf(p.b)}${mark("b")}`;
       return li;
     }));
