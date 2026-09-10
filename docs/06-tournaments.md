@@ -659,8 +659,12 @@ Each slice ends in something playable, and the risk rises monotonically.
    two implementations before anything is built on top of them, and finishes `quintal`. Shuffled
    order.
 3. **Round robin** — the circle method, byes for free, match points, draws. The first `match`
-   regime and the first pairings, so it is where the `core.ts` primitives (`cardWinner`, match
-   points, `assignBye`) all get written and fixtured. The `liga` preset.
+   regime and the first pairings, so it is where the shared primitives (`cardWinner`, match
+   points, the bye credit) all get written and fixtured. The `liga` preset. **Built 2026-09-09**
+   in `lib/tournament-core.ts` — flat, not `lib/tournament/core.ts` as sketched above, because
+   `lib/` has sixteen flat siblings and no directories. `assignBye` was not written: the circle
+   method's ghost hands out byes on its own, so a policy only becomes real in slice 5 (Swiss),
+   which is the first format that has to *choose* who sits out.
 4. **Single elimination, plus the tie policies** — seeding, bracket order, first-round byes,
    `consolation`, and sudden death (§6.4), which is the first place a tie cannot be waved away by
    the clock. The `mata-mata` preset.

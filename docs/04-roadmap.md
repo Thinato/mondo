@@ -114,7 +114,7 @@ you share the link.** Talk to whoever owns security policy first.
 ---
 
 ## Phase 3 — Tournaments
-*Slices 1–2 built 2026-09-09. Slices 3–7 designed, not built.*
+*Slices 1–3 built 2026-09-09. Slices 4–7 designed, not built.*
 
 Design: **`docs/06-tournaments.md`**, written before any code and confirmed with Paulo. The
 spine is **D-38**: any two scores that are ever compared come from the same card, which normally
@@ -130,8 +130,11 @@ never from client-supplied settings (D-48).
    to it.
 2. ~~N challenges per round, the `capital` kind, shuffled order; the `quintal`, `capitais` and
    `mistura` presets; `torneios.html` and the card player.~~ **Built 2026-09-09.**
-3. **Round robin** — the circle method (byes fall out for free), match points, draws. The first
-   `match` regime and the first pairings, so `core.ts`'s shared primitives get written here.
+3. ~~**Round robin** — the circle method (byes fall out for free), match points, draws. The first
+   `match` regime and the first pairings, so `core.ts`'s shared primitives get written here.~~
+   **Built 2026-09-09** as `lib/tournament-core.ts` (flat, like the rest of `lib/`): `cardWinner`,
+   `competitionRanks`, the circle method, `resolvePairings`, `matchRecords`. The `liga` preset,
+   capped at 12 players because n−1 rounds at group scale is a year-long tournament.
 4. **Single elimination** — seeding, bracket order, first-round byes, `consolation`, and the tie
    policies (§6.4), which is the first place a tie cannot be waved away by the clock.
 5. **Swiss** — the pairing engine; the only genuinely fiddly pure algorithm in the phase.
@@ -143,11 +146,14 @@ never from client-supplied settings (D-48).
 **Acceptance for what is built:**
 - Create a `mistura` from `torneios.html`, have two accounts play it, close the round early, and
   the standings rank by points then time with the open round contributing nothing.
+- Create a `liga` with an odd field: every pair meets exactly once, everybody sits out exactly
+  once, the table ranks on match points, and a player can top the card-points column while
+  finishing last.
 - Nothing from a tournament appears on any daily board (FR-5.9 — enforced by D-40, not by a
   filter).
 - A non-member gets `permission-denied` on every tournament callable; a member who leaves the
   group stops being served cards but keeps their standings slot.
-- 154 unit, 24 rules and 36 e2e tests pass.
+- 178 unit, 24 rules and 42 e2e tests pass.
 
 **Before slice 3:** read `06-tournaments.md` §16. Slices 1–2 went through an independent code
 review and security review that found a live production hole older than this phase (D-51), a
