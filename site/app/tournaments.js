@@ -241,16 +241,28 @@ function renderRound() {
     if (view.status === "draft") el.roundHint.textContent = t("drafting", { n: view.participantCount });
     return;
   }
-  el.roundTitle.textContent = t("roundOf", { n: cur.n, max: view.rounds });
+  const tie = cur.tie;
+  el.roundTitle.textContent = tie
+    ? `${t("roundOf", { n: cur.n, max: view.rounds })} · ${t("suddenDeath", { k: tie.k })}`
+    : t("roundOf", { n: cur.n, max: view.rounds });
   el.roundCloses.textContent = t("closesAt", { when: formatWhen(cur.closesAt) });
 
-  el.playBtn.hidden = !view.isParticipant || cur.myState === "finished";
+  // During a tiebreak only the tied players have anything to play.
+  const canPlay = tie ? tie.amIn : view.isParticipant;
+  el.playBtn.hidden = !canPlay || cur.myState === "finished";
   el.playBtn.textContent = cur.myState === "in_progress" ? t("continueCard") : t("playCard");
 
   // FR-5.6: states for everyone, scores for nobody until the round closes.
-  el.roundHint.textContent = view.isParticipant
-    ? (cur.myState === "finished" ? `${t("cardDone", { points: cur.myPoints ?? 0 })} ${t("waitingForOthers")}` : t("waitingForOthers"))
-    : t("notPlaying");
+  if (tie && !tie.amIn) {
+    const names = tie.uids.map(nameOf).join(" e ");
+    el.roundHint.textContent = t("suddenDeathTheirs", { names });
+  } else if (tie) {
+    el.roundHint.textContent = cur.myState === "finished" ? t("waitingForOthers") : t("suddenDeathMine");
+  } else {
+    el.roundHint.textContent = view.isParticipant
+      ? (cur.myState === "finished" ? `${t("cardDone", { points: cur.myPoints ?? 0 })} ${t("waitingForOthers")}` : t("waitingForOthers"))
+      : t("notPlaying");
+  }
 
   const by = (state) => cur.players.filter((p) => p.state === state).map(playerItem);
   el.roundFinished.replaceChildren(...by("finished"));
@@ -272,11 +284,20 @@ function playerItem(p) {
  * shown and the points column is NOT the one that ranks — labelling them apart
  * is the whole reason this varies by regime (D-49).
  */
+/** Display name for a uid, from the participant list the view already carries. */
+function nameOf(uid) {
+  const p = view.participants.find((x) => x.uid === uid);
+  return p ? p.displayName : "";
+}
+
 function renderStandings() {
+  const isKnockout = view.format === "single_elim" || view.format === "double_elim";
   const isMatch = view.regime === "match";
-  const heads = isMatch
-    ? ["#", t("colName"), t("colMatchPoints"), t("colRecord"), t("colCards"), t("colGuesses"), t("colTime")]
-    : ["#", t("colName"), t("colPoints"), t("colRounds"), t("colGuesses"), t("colTime")];
+  const heads = isKnockout
+    ? ["#", t("colName"), t("colPhase"), t("colRecord"), t("colCards"), t("colGuesses"), t("colTime")]
+    : isMatch
+      ? ["#", t("colName"), t("colMatchPoints"), t("colRecord"), t("colCards"), t("colGuesses"), t("colTime")]
+      : ["#", t("colName"), t("colPoints"), t("colRounds"), t("colGuesses"), t("colTime")];
   el.tHead.replaceChildren(...heads.map((h) => {
     const th = document.createElement("th");
     th.textContent = h;
@@ -287,9 +308,12 @@ function renderStandings() {
     const tr = document.createElement("tr");
     if (r.isMe) tr.className = "me";
     const rec = r.record;
-    const cells = isMatch
-      ? [r.rank, r.displayName, rec ? rec.matchPoints : 0, recordText(rec), r.points, r.totalGuesses, formatDuration(r.totalElapsedMs)]
-      : [r.rank, r.displayName, r.points, r.played, r.totalGuesses, formatDuration(r.totalElapsedMs)];
+    if (isKnockout && r.eliminated) tr.className = `${tr.className} out`.trim();
+    const cells = isKnockout
+      ? [r.rank, r.displayName, phaseText(r), recordText(rec), r.points, r.totalGuesses, formatDuration(r.totalElapsedMs)]
+      : isMatch
+        ? [r.rank, r.displayName, rec ? rec.matchPoints : 0, recordText(rec), r.points, r.totalGuesses, formatDuration(r.totalElapsedMs)]
+        : [r.rank, r.displayName, r.points, r.played, r.totalGuesses, formatDuration(r.totalElapsedMs)];
     cells.forEach((v, i) => {
       const td = document.createElement("td");
       if (i === 1) td.className = "name";
@@ -299,6 +323,16 @@ function renderStandings() {
     return tr;
   }));
   el.standingsNote.textContent = view.closedRounds === 0 ? t("standingsPending") : "";
+}
+
+/**
+ * How far a player got. "Still in" is only "champion" once the tournament is
+ * actually over — calling a semifinalist champion is the sort of thing a table
+ * does when nobody checks the status.
+ */
+function phaseText(r) {
+  if (!r.eliminated) return view.status === "finished" ? t("phaseChampion") : t("phaseAlive");
+  return r.survived === 0 ? t("phaseOutFirst") : t("phaseOut", { n: r.survived + 1 });
 }
 
 /** "3-1-0" wins-draws-losses, with the byes named rather than folded in silently. */
@@ -317,11 +351,6 @@ function renderFixtures() {
   const rounds = view.fixtures || [];
   el.fixtures.hidden = rounds.length === 0;
   if (rounds.length === 0) return;
-
-  const nameOf = (uid) => {
-    const p = view.participants.find((x) => x.uid === uid);
-    return p ? p.displayName : "";
-  };
 
   el.fixtureRounds.replaceChildren(...[...rounds].reverse().map((r) => {
     const wrap = document.createElement("div");

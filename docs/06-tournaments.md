@@ -667,7 +667,11 @@ Each slice ends in something playable, and the risk rises monotonically.
    which is the first format that has to *choose* who sits out.
 4. **Single elimination, plus the tie policies** — seeding, bracket order, first-round byes,
    `consolation`, and sudden death (§6.4), which is the first place a tie cannot be waved away by
-   the clock. The `mata-mata` preset.
+   the clock. The `mata-mata` preset. **Built 2026-09-10.** Two corrections to §4.2 came out of
+   it: `tie.pairs` is a list of `{a, b}` **objects**, not `[a, b]` tuples, because Firestore
+   rejects an array whose elements are arrays ("invalid nested entity") and only the emulator
+   catches that; and one sub-round serves every level fixture at once rather than one tied pair,
+   because resolving them one at a time would cost a day each.
 5. **Swiss** — the pairing engine; the only genuinely fiddly pure algorithm here.
 6. **Double elimination** — bracket plumbing, grand final. Last, deliberately.
 7. **`flag` and `gdp` kinds** — `flag` per OQ-11's answer (vendored public-domain SVG set with a

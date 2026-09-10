@@ -114,7 +114,7 @@ you share the link.** Talk to whoever owns security policy first.
 ---
 
 ## Phase 3 — Tournaments
-*Slices 1–3 built 2026-09-09. Slices 4–7 designed, not built.*
+*Slices 1–4 built 2026-09-09/10. Slices 5–7 designed, not built.*
 
 Design: **`docs/06-tournaments.md`**, written before any code and confirmed with Paulo. The
 spine is **D-38**: any two scores that are ever compared come from the same card, which normally
@@ -135,8 +135,10 @@ never from client-supplied settings (D-48).
    **Built 2026-09-09** as `lib/tournament-core.ts` (flat, like the rest of `lib/`): `cardWinner`,
    `competitionRanks`, the circle method, `resolvePairings`, `matchRecords`. The `liga` preset,
    capped at 12 players because n−1 rounds at group scale is a year-long tournament.
-4. **Single elimination** — seeding, bracket order, first-round byes, `consolation`, and the tie
-   policies (§6.4), which is the first place a tie cannot be waved away by the clock.
+4. ~~**Single elimination** — seeding, bracket order, first-round byes, `consolation`, and the tie
+   policies (§6.4), which is the first place a tie cannot be waved away by the clock.~~
+   **Built 2026-09-10.** The `mata-mata` preset. Sudden death is a sub-round that holds the round
+   open: the round's own `closedAt` is set, but the next round is not paired until it resolves.
 5. **Swiss** — the pairing engine; the only genuinely fiddly pure algorithm in the phase.
 6. **Double elimination** — losers-bracket mapping and the grand final. Last, deliberately: it is
    more work than the other four together.
@@ -149,11 +151,14 @@ never from client-supplied settings (D-48).
 - Create a `liga` with an odd field: every pair meets exactly once, everybody sits out exactly
   once, the table ranks on match points, and a player can top the card-points column while
   finishing last.
+- Create a `mata-mata` with a field that is not a power of two: the spare slots go to the top
+  seeds, two perfect cards trigger sudden death rather than a coin toss, and an eliminated player
+  keeps playing without ever climbing back above someone still in the bracket.
 - Nothing from a tournament appears on any daily board (FR-5.9 — enforced by D-40, not by a
   filter).
 - A non-member gets `permission-denied` on every tournament callable; a member who leaves the
   group stops being served cards but keeps their standings slot.
-- 178 unit, 24 rules and 42 e2e tests pass.
+- 198 unit, 24 rules and 48 e2e tests pass.
 
 **Before slice 3:** read `06-tournaments.md` §16. Slices 1–2 went through an independent code
 review and security review that found a live production hole older than this phase (D-51), a

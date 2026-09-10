@@ -224,3 +224,6 @@ h2.title { font-size: 1.25rem; margin: 0 0 .25rem; }
 .fixtures { list-style: none; margin: 0 0 .8rem; padding: 0; }
 .fixtures li { padding: .3rem 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 #fixture-rounds h4 { margin: .8rem 0 .2rem; color: var(--muted); font-size: .85rem; font-weight: 600; }
+/* A knocked-out player stays in the table (consolation, D-47) but should not
+   read as if they were still in the bracket. */
+.board tr.out td { color: var(--muted); }
