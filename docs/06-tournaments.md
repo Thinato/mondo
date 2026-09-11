@@ -383,7 +383,10 @@ same shape as `tools/overrides.json` (D-14). Brazil stays: ORDEM E PROGRESSO is 
 this document expected.
 
 **What it asks.** GDP **per capita**, **PPP**, current international dollars, for one pinned year
-shown in the prompt, from the World Bank (`NY.GDP.PCAP.PP.CD`, CC BY 4.0, `NOTICE`). Built offline
+shown in the prompt, from the World Bank (`NY.GDP.PCAP.PP.CD`, CC BY 4.0, `NOTICE`). **The prompt,
+the guess field, the guess rows and the reveal all say `US$`** — added 2026-09-11 after the first
+session with real players read the bare number as reais and guessed five times high (D-54, FR-6.8).
+The figure never changed; only the label did. Built offline
 by `tools/build-gdp.mjs` into `backend/functions/src/data/gdp.json`; 186 of 196 countries have a
 figure, and the ten that do not — Cuba, Eritreia, Coreia do Norte, Liechtenstein, Mônaco, Sudão do
 Sul, Síria, Taiwan, Venezuela, Iêmen — are simply not in the pool.

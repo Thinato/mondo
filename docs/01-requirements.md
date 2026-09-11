@@ -205,6 +205,17 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   `theme.js` toggle.
 - **FR-6.7** Colour MUST NOT be the only channel conveying proximity — always pair with the
   number and the arrow.
+- **FR-6.8** *(added 2026-09-11, D-54)* Every place a `gdp` figure is shown or asked for — the
+  prompt, the guess field, a guess row, the reveal — MUST state the unit. The figure is in
+  international dollars and a Brazilian player reading a bare number assumes reais.
+- **FR-6.9** *(added 2026-09-11, D-56)* A player MUST be able to read what the hints mean without
+  leaving the game, from a control beside the challenge. That explanation MUST open itself the
+  first time the player meets each hint vocabulary (country hints; number hints) and MUST be
+  dismissed deliberately. Having been read once, it MUST NOT reappear unasked.
+- **FR-6.10** *(added 2026-09-11, D-55)* A finished challenge MUST hold the screen — its outcome,
+  its answer and the guesses that got there — until the player chooses to go on. The next prompt
+  MUST NOT be rendered before that choice. A solve MAY be celebrated; any such animation MUST be
+  suppressed under `prefers-reduced-motion`.
 
 ---
 

@@ -373,9 +373,16 @@ time** — the current challenge's — plus a status line per challenge.
                                     // a gdp guess reads { kind: "number", value, higher, proximity }
   "items": [                        // one per challenge, in play order
     { "kind": "shape", "status": "solved", "guessCount": 2,
-      "points": 5, "answer": { "code": "PY", "name": "Paraguai" } },
-    { "kind": "flag",  "status": "current", "guessCount": 2, "points": null, "answer": null },
-    { "kind": "capital", "status": "pending", "guessCount": 0, "points": null, "answer": null }
+      "points": 5, "answer": { "code": "PY", "name": "Paraguai" },
+      "guesses": [ … ] },           // D-55: a FINISHED challenge carries its whole guess list,
+                                    //   including the one that ended it — which is exactly the
+                                    //   one `guesses` above has already moved past. The reveal
+                                    //   screen draws from here; the client cannot rebuild that
+                                    //   last row, having never seen that guess graded.
+    { "kind": "flag",  "status": "current", "guessCount": 2, "points": null, "answer": null,
+      "guesses": null },            // open: its guesses are the top-level `guesses`
+    { "kind": "capital", "status": "pending", "guessCount": 0, "points": null, "answer": null,
+      "guesses": null }
   ],
   "status": "in_progress",          // in_progress | solved | failed; solved = every challenge fell
   "points": null,                   // the day's total, set when the day ends
@@ -388,7 +395,9 @@ time** — the current challenge's — plus a status line per challenge.
 
 **An answer appears only on a challenge that is already over**, never on the ones ahead of the
 cursor (SEC-1). That is the same line `getCard` draws for tournaments, and the reason both are
-projected by one function each rather than by the client.
+projected by one function each rather than by the client. `items[i].guesses` follows the same
+line exactly: it is the player's own guesses, and it is non-null under precisely the condition
+that already reveals the answer.
 
 Side effect: creates the attempt document with a server `startedAt` on first call. This is
 what makes the timer un-spoofable (SEC-3).
