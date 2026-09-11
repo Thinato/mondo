@@ -140,9 +140,15 @@ button:disabled { opacity: .5; cursor: default; }
   color: inherit;
 }
 #guess-input:focus { outline: 2px solid var(--fg); outline-offset: 1px; }
-/* The number field stands in for the whole combo, so it takes the same room. */
-#guess-number, #card-number { flex: 1; font: inherit; padding: .6rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); color: inherit; }
-#guess-number:focus, #card-number:focus { outline: 2px solid var(--fg); outline-offset: 1px; }
+/* The number field stands in for the whole combo, so it takes the same room —
+   and since D-54 it carries "US$" inside its own border, because the figure was
+   always in dollars and nothing on screen said so. `min-width: 0` is what keeps
+   the digits from pushing the unit off a 360px viewport (FR-6.1). */
+.money { flex: 1; display: flex; align-items: center; gap: .4rem; padding: 0 .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); }
+.money:focus-within { outline: 2px solid var(--fg); outline-offset: 1px; }
+.money > span { color: var(--muted); }
+.money input { flex: 1; min-width: 0; font: inherit; padding: .6rem 0; border: 0; background: transparent; color: inherit; }
+.money input:focus { outline: none; }
 #guess-list {
   position: absolute; left: 0; right: 0; top: calc(100% + .25rem); z-index: 2;
   margin: 0; padding: .25rem; list-style: none;
@@ -163,6 +169,28 @@ button:disabled { opacity: .5; cursor: default; }
 .result { padding: 1rem; background: var(--card); border-radius: .75rem; }
 .result p:first-child { margin-top: 0; font-size: 1.1rem; }
 
+/* The reveal between challenges (D-55) and the "?" beside the counter (D-56). */
+.prompt-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.prompt-head p { margin: 0; }
+.help-btn {
+  flex: none; width: 1.6rem; height: 1.6rem; padding: 0; cursor: pointer;
+  font: inherit; font-weight: 600; line-height: 1;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: transparent; color: var(--muted);
+}
+.help-btn:hover, .help-btn:focus-visible { color: var(--fg); border-color: var(--fg); }
+.reveal { padding: 1rem; margin-bottom: 1rem; background: var(--card); border-radius: .75rem; }
+.reveal p { margin: 0 0 .75rem; font-size: 1.1rem; }
+
+/* Purely decorative, so reduced motion removes it rather than slowing it. */
+.confetti { position: fixed; inset: 0; z-index: 10; overflow: hidden; pointer-events: none; }
+.confetti i { position: absolute; top: -5vh; width: .5rem; height: .75rem; border-radius: 1px; animation: confetti-fall linear forwards; }
+@keyframes confetti-fall {
+  from { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  to { transform: translate3d(var(--drift), 105vh, 0) rotate(var(--spin)); opacity: .25; }
+}
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
+
 footer { margin-top: 2rem; font-size: .85rem; color: var(--muted); }
 
 /* Profile dialog (FR-1.3). */
@@ -172,6 +200,18 @@ dialog h2 { margin: 0 0 .75rem; font-size: 1.1rem; }
 dialog label { display: block; font-size: .9rem; margin-bottom: .25rem; }
 dialog input { width: 100%; font: inherit; padding: .5rem .6rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); color: inherit; }
 dialog .actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem; align-items: center; }
+
+/* Help dialog (FR-6.9). Wider than the profile one because it is prose, and the
+   only way out is the × — which is the point (D-56). */
+dialog.help { width: min(92vw, 32rem); }
+dialog.help h2 { padding-right: 1.5rem; }
+dialog .close {
+  position: absolute; top: .5rem; right: .6rem; cursor: pointer;
+  font: inherit; font-size: 1.4rem; line-height: 1; padding: .1rem .4rem;
+  border: 0; border-radius: .35rem; background: transparent; color: var(--muted);
+}
+dialog .close:hover, dialog .close:focus-visible { color: var(--fg); background: var(--card); }
+#help-body { margin: 0; white-space: pre-wrap; }
 
 /* Prose pages (regras, privacidade). */
 main.prose h2 { font-size: 1.15rem; margin-top: 1.75rem; }

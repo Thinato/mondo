@@ -21,6 +21,33 @@ const PT_BR = {
   dayPerfect: "Dia perfeito! {points} de {max} pontos.",
   kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita" },
   answerWas: "Era {answer}.",
+  // D-55: a challenge ends on its own screen, dismissed by hand. The old flow
+  // swapped the next prompt in on the same frame and nobody saw the answer.
+  revealSolved: "Acertou! +{points} pontos.",
+  revealFailed: "Era {answer}.",
+  continueChallenge: "Próximo desafio",
+  seeResult: "Ver o resultado",
+  // FR-6.9 / D-56 — "?" explains the hints of the challenge on screen. Two
+  // texts, because the four kinds have two hint vocabularies between them.
+  // Neither names a real country's figure: a static string that did would be
+  // the answer to that country's `gdp` challenge (SEC-1).
+  help: {
+    title: "Como ler as pistas",
+    close: "Fechar",
+    country:
+      "A resposta é um país.\n\n" +
+      "A cada chute errado você ganha três pistas:\n\n" +
+      "↔  a DISTÂNCIA em quilômetros entre o país que você chutou e a resposta.\n\n" +
+      "↗  a SETA, apontando a direção da resposta a partir do seu chute: ↑ norte, → leste, ↓ sul, ← oeste e as diagonais.\n\n" +
+      "%  a PROXIMIDADE: 100% é a própria resposta, 0% é o outro lado do mundo (20.000 km). É a mesma distância dita de outro jeito, e é ela que pinta a barra colorida à esquerda de cada chute.",
+    gdp:
+      "Aqui é ao contrário: o país está na pergunta e a resposta é um NÚMERO — o PIB per capita, em dólares.\n\n" +
+      "Você não precisa acertar na mosca: vale se o seu chute e a resposta estiverem a 10% um do outro. Para uma resposta de 21.500, chutar 20.000 acerta; chutar 19.000 não.\n\n" +
+      "A cada chute errado você ganha duas pistas:\n\n" +
+      "↕  a SETA: ↑ quer dizer que a resposta é MAIOR que o seu chute, ↓ que é MENOR.\n\n" +
+      "%  a PROXIMIDADE: o menor dos dois números dividido pelo maior. 50% quer dizer que você errou pelo dobro ou pela metade.\n\n" +
+      "O valor é o PPP (paridade de poder de compra) do Banco Mundial, não o nominal que costuma aparecer primeiro numa busca — os dois são bem diferentes para quase todo país.",
+  },
   share: "Compartilhar",
   copied: "Copiado!",
   nextPuzzle: "Novo país todo dia ao meio-dia.",
@@ -98,7 +125,10 @@ const PT_BR = {
   // D-53: the country is the question here, and the figure is the answer.
   // The country leads, so the sentence needs no article — "de Vietnã" and
   // "de Itália" are both wrong, and 186 countries is too many to inflect.
-  gdpPrompt: "{country} — qual o PIB per capita (PPP) em {year}?",
+  // D-54: the figure was always in dollars — only regras.html said so, and
+  // nobody reads the rules before the first question. Players read the bare
+  // number as reais and guessed five times high.
+  gdpPrompt: "{country} — qual o PIB per capita em {year}, em dólares (PPP)?",
   needNumber: "Digite um número.",
   higher: "é mais",
   lower: "é menos",

@@ -2,22 +2,32 @@
 // State comes from the server on every step; this file only renders it and
 // never computes anything about the answer.
 //
-// D-52: a day is three challenges played in order, so this renders a cursor and
+// D-52: a day is four challenges played in order, so this renders a cursor and
 // one prompt at a time. It cannot know an answer it has not been sent: the
 // server reveals a challenge only once that challenge is over.
+//
+// D-55: and when it does, that challenge keeps the screen until the player
+// dismisses it. The old flow swapped the next prompt in on the same frame, so
+// the answer to the one just played went past unread.
 
 import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import { auth, googleProvider } from "./firebase.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
+import { confetti } from "./confetti.js";
 import { guessRow, renderFlag, renderShape } from "./geo.js";
+import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { share } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), game: $("game"), signIn: $("sign-in"), signOut: $("sign-out"),
-  progress: $("progress"), items: $("items"), combo: $("guess-combo"), number: $("guess-number"),
+  progress: $("progress"), items: $("items"), combo: $("guess-combo"),
+  money: $("guess-money"), number: $("guess-number"),
+  helpBtn: $("help-btn"), helpDialog: $("help-dialog"), helpTitle: $("help-title"),
+  helpBody: $("help-body"), helpClose: $("help-close"),
+  reveal: $("reveal"), revealText: $("reveal-text"), revealNext: $("reveal-next"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
   guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
@@ -32,6 +42,13 @@ let displayName = null;
 let picked = null;
 let ac = null;
 let busy = false;
+/** D-55: the challenge that just ended, held until the player moves on. */
+let reveal = null;
+
+const help = attachHelp({
+  button: el.helpBtn, dialog: el.helpDialog,
+  title: el.helpTitle, body: el.helpBody, close: el.helpClose,
+});
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -47,7 +64,7 @@ el.signIn.addEventListener("click", async () => {
 
 el.signOut.addEventListener("click", async () => {
   await signOut(auth);
-  round = null; picked = null; // FR-1.6: nothing survives sign-out
+  round = null; picked = null; reveal = null; // FR-1.6: nothing survives sign-out
   el.input.value = "";
   el.guesses.replaceChildren();
 });
@@ -101,6 +118,7 @@ async function load() {
 
 /** Focus only works once the input is enabled again, so call this after setBusy(false). */
 function focusInput() {
+  if (reveal) return el.revealNext.focus();
   if (round?.status !== "in_progress") return;
   const field = round.prompt?.kind === "gdp" ? el.number : el.input;
   if (!field.disabled) field.focus();
@@ -118,16 +136,25 @@ el.form.addEventListener("submit", (ev) => {
 el.input.addEventListener("input", () => { picked = null; });
 
 async function submit(numberGuess) {
-  if (busy || !round || round.status !== "in_progress") return;
+  if (busy || reveal || !round || round.status !== "in_progress") return;
   if (numberGuess === undefined && !picked) return;
   const guess = numberGuess ?? picked.code;
   picked = null;
   setBusy(true);
   setStatus("");
   try {
+    const before = round.cursor;
     round = await api.submitGuess({ puzzleId: round.puzzleId, guess });
     el.input.value = "";
     el.number.value = "";
+    // A cursor that moved means that challenge is over — including the last
+    // one, where it moves past the end. A finished item carries its answer and
+    // its whole guess list, so the reveal is just that item; the top-level
+    // `guesses` has already moved on to the challenge nobody has started.
+    if (round.cursor > before) {
+      reveal = round.items[before];
+      if (reveal.status === "solved") confetti();
+    }
     render();
   } catch (err) {
     // FR-6.5: a failed submission consumes nothing; the text stays so they can retry.
@@ -142,14 +169,19 @@ async function submit(numberGuess) {
 
 function render() {
   const inProgress = round.status === "in_progress";
-  // Once the day is done the counter would read "Desafio 3 de 3" for ever, and
-  // the result block below says everything it said.
-  el.progress.hidden = !inProgress;
+  const revealing = reveal !== null;
+  // Once the day is done the counter would read "Desafio 4 de 4" for ever, and
+  // the result block below says everything it said. During a reveal it would be
+  // counting the challenge behind the panel, which nobody is playing yet.
+  el.progress.hidden = !inProgress || revealing;
+  el.helpBtn.hidden = !inProgress || revealing;
   el.progress.textContent = inProgress ? t("challengeOf", { n: round.cursor + 1, max: round.itemCount }) : "";
 
   // One prompt shape per kind. An unknown kind means the client is older than
-  // the server: say so rather than rendering nothing.
-  const kind = round.prompt?.kind ?? null;
+  // the server: say so rather than rendering nothing. A reveal holds the next
+  // prompt back rather than hiding it after the fact, so nothing about the
+  // challenge to come reaches the DOM early.
+  const kind = revealing ? null : round.prompt?.kind ?? null;
   el.shapeWrap.hidden = kind !== "shape";
   el.flagWrap.hidden = kind !== "flag";
   el.capital.hidden = kind !== "capital" && kind !== "gdp";
@@ -161,11 +193,16 @@ function render() {
 
   // Two inputs, one visible: a country autocomplete, or a number field (D-53).
   el.combo.hidden = kind === "gdp";
-  el.number.hidden = kind !== "gdp";
+  el.money.hidden = kind !== "gdp";
 
-  el.guesses.replaceChildren(...round.guesses.map(guessRow));
-  el.form.hidden = !inProgress;
-  el.left.textContent = inProgress ? t("guessesLeft", { n: round.guessesUsed, max: round.guessesMax }) : "";
+  // `?? []` is the deploy window, not paranoia: GitHub Pages publishes on push
+  // and the functions deploy separately, so for a few minutes this file can be
+  // newer than the server that feeds it. A finished item from the old server
+  // has no `guesses`, and without this the reveal would throw instead of
+  // showing the answer with an empty list. D-52 shipped exactly this bug once.
+  el.guesses.replaceChildren(...(revealing ? reveal.guesses ?? [] : round.guesses).map(guessRow));
+  el.form.hidden = !inProgress || revealing;
+  el.left.textContent = inProgress && !revealing ? t("guessesLeft", { n: round.guessesUsed, max: round.guessesMax }) : "";
 
   el.items.replaceChildren(...round.items.map((it, i) => {
     const li = document.createElement("li");
@@ -183,8 +220,19 @@ function render() {
     return li;
   }));
 
-  el.result.hidden = inProgress;
-  if (!inProgress) {
+  el.reveal.hidden = !revealing;
+  if (revealing) {
+    el.revealText.textContent = reveal.status === "solved"
+      ? t("revealSolved", { points: reveal.points })
+      : t("revealFailed", { answer: reveal.answer.name });
+    el.revealNext.textContent = inProgress ? t("continueChallenge") : t("seeResult");
+  } else {
+    // FR-6.9 — the first challenge of each hint vocabulary explains itself.
+    help(kind);
+  }
+
+  el.result.hidden = inProgress || revealing;
+  if (!inProgress && !revealing) {
     el.resultText.textContent =
       round.points === round.maxPoints
         ? t("dayPerfect", { points: round.points, max: round.maxPoints })
@@ -193,6 +241,11 @@ function render() {
   }
 }
 
+el.revealNext.addEventListener("click", () => {
+  reveal = null;
+  render();
+  focusInput();
+});
 
 el.shareBtn.addEventListener("click", async () => {
   const outcome = await share(round.shareGrid);

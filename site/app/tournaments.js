@@ -10,7 +10,9 @@
 import { ask, watchAuth } from "./auth-ui.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
+import { confetti } from "./confetti.js";
 import { guessRow, renderFlag, renderShape } from "./geo.js";
+import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -29,7 +31,10 @@ const el = {
   cardFlagWrap: $("card-flag-wrap"), cardFlag: $("card-flag"),
   cardGuesses: $("card-guesses"), cardForm: $("card-form"), cardInput: $("card-input"), cardList: $("card-datalist"),
   cardSubmit: $("card-submit"), cardLeft: $("card-left"), cardItems: $("card-items"), cardDone: $("card-done"),
-  cardCombo: $("card-combo"), cardNumber: $("card-number"),
+  cardCombo: $("card-combo"), cardMoney: $("card-money"), cardNumber: $("card-number"),
+  helpBtn: $("help-btn"), helpDialog: $("help-dialog"), helpTitle: $("help-title"),
+  helpBody: $("help-body"), helpClose: $("help-close"),
+  cardReveal: $("card-reveal"), cardRevealText: $("card-reveal-text"), cardRevealNext: $("card-reveal-next"),
   confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
 
@@ -43,12 +48,19 @@ let card = null;    // last getCard / submitCardGuess response
 let ac = null;
 let picked = null;
 let busy = false;
+/** D-55, as on the daily: the challenge that just ended, held until dismissed. */
+let reveal = null;
+
+const help = attachHelp({
+  button: el.helpBtn, dialog: el.helpDialog,
+  title: el.helpTitle, body: el.helpBody, close: el.helpClose,
+});
 
 watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, setStatus,
   onUser: (u) => {
     el.pick.hidden = el.list.hidden = el.detail.hidden = el.card.hidden = true;
-    if (!u) { view = null; card = null; return; }
+    if (!u) { view = null; card = null; reveal = null; return; }
     route();
   },
 });
@@ -443,6 +455,7 @@ async function cancel() {
 async function openCard() {
   el.pick.hidden = el.list.hidden = el.detail.hidden = true;
   el.card.hidden = false;
+  reveal = null;
   el.backFromCard.href = `./torneios.html?g=${gid}&t=${tid}`;
   setBusy(true);
   try {
@@ -481,16 +494,23 @@ el.cardForm.addEventListener("submit", (ev) => {
 el.cardInput.addEventListener("input", () => { picked = null; });
 
 async function submit(numberGuess) {
-  if (busy || !card || card.status !== "in_progress") return;
+  if (busy || reveal || !card || card.status !== "in_progress") return;
   if (numberGuess === undefined && !picked) return;
   const guess = numberGuess ?? picked.code;
   picked = null;
   setBusy(true);
   setStatus("");
   try {
+    const before = card.cursor;
     card = await api.submitCardGuess({ tournamentId: tid, guess });
     el.cardInput.value = "";
     el.cardNumber.value = "";
+    // D-55: a cursor that moved means that challenge is over, and a finished
+    // item carries both its answer and the guesses that got there.
+    if (card.cursor > before) {
+      reveal = card.items[before];
+      if (reveal.status === "solved") confetti();
+    }
     renderCard();
   } catch (err) {
     // FR-6.5: a failed submission consumes nothing and stays retryable.
@@ -503,11 +523,19 @@ async function submit(numberGuess) {
 
 function renderCard() {
   const done = card.status === "finished";
-  el.cardProgress.textContent = t("challengeOf", { n: Math.min(card.cursor + 1, card.itemCount), max: card.itemCount });
+  const revealing = reveal !== null;
+  // Once the card is done the counter would read "Desafio 5 de 5" for ever, and
+  // the result line below says everything it said — the same call the daily
+  // makes. During a reveal it would be counting the challenge behind the panel,
+  // which nobody has started.
+  el.cardProgress.hidden = done || revealing;
+  el.helpBtn.hidden = done || revealing;
+  el.cardProgress.textContent = done ? "" : t("challengeOf", { n: Math.min(card.cursor + 1, card.itemCount), max: card.itemCount });
 
   // One prompt shape per kind. An unknown kind means the client is older than
-  // the server: say so rather than rendering nothing.
-  const kind = card.prompt?.kind ?? null;
+  // the server: say so rather than rendering nothing. A reveal holds the next
+  // prompt back, so nothing about the challenge to come reaches the DOM early.
+  const kind = revealing ? null : card.prompt?.kind ?? null;
   el.cardShapeWrap.hidden = kind !== "shape";
   el.cardCapital.hidden = kind !== "capital" && kind !== "gdp";
   el.cardFlagWrap.hidden = kind !== "flag";
@@ -519,11 +547,12 @@ function renderCard() {
 
   // Two inputs, one visible: a country autocomplete, or a number field (D-53).
   el.cardCombo.hidden = kind === "gdp";
-  el.cardNumber.hidden = kind !== "gdp";
+  el.cardMoney.hidden = kind !== "gdp";
 
-  el.cardGuesses.replaceChildren(...card.guesses.map(guessRow));
-  el.cardForm.hidden = done;
-  el.cardLeft.textContent = done ? "" : t("guessesLeft", { n: card.guessesUsed, max: card.guessesMax });
+  // `?? []` for the same deploy window game.js documents.
+  el.cardGuesses.replaceChildren(...(revealing ? reveal.guesses ?? [] : card.guesses).map(guessRow));
+  el.cardForm.hidden = done || revealing;
+  el.cardLeft.textContent = done || revealing ? "" : t("guessesLeft", { n: card.guessesUsed, max: card.guessesMax });
 
   el.cardItems.replaceChildren(...card.items.map((it, i) => {
     const li = document.createElement("li");
@@ -541,12 +570,29 @@ function renderCard() {
     return li;
   }));
 
-  el.cardDone.hidden = !done;
-  if (done) el.cardDone.textContent = t("cardDone", { points: card.points });
+  el.cardReveal.hidden = !revealing;
+  if (revealing) {
+    el.cardRevealText.textContent = reveal.status === "solved"
+      ? t("revealSolved", { points: reveal.points })
+      : t("revealFailed", { answer: reveal.answer.name });
+    el.cardRevealNext.textContent = done ? t("seeResult") : t("continueChallenge");
+  } else {
+    help(kind);
+  }
+
+  el.cardDone.hidden = !done || revealing;
+  if (done && !revealing) el.cardDone.textContent = t("cardDone", { points: card.points });
 }
+
+el.cardRevealNext.addEventListener("click", () => {
+  reveal = null;
+  renderCard();
+  focusInput();
+});
 
 
 function focusInput() {
+  if (reveal) return el.cardRevealNext.focus();
   if (card?.status !== "in_progress") return;
   const field = card.prompt?.kind === "gdp" ? el.cardNumber : el.cardInput;
   if (!field.disabled) field.focus();

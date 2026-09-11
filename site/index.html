@@ -44,7 +44,11 @@
   </section>
 
   <section id="game" hidden>
-    <p id="progress" class="fine" aria-live="polite"></p>
+    <div class="prompt-head">
+      <p id="progress" class="fine" aria-live="polite"></p>
+      <button id="help-btn" type="button" class="help-btn" title="Como ler as pistas"
+              aria-label="Como ler as pistas" aria-haspopup="dialog">?</button>
+    </div>
 
     <!-- One prompt per kind; exactly one is visible at a time (D-52). -->
     <figure class="silhouette" id="shape-wrap" hidden>
@@ -57,6 +61,13 @@
 
     <ol id="guesses" class="guesses" aria-label="Tentativas"></ol>
 
+    <!-- D-55: a finished challenge gets its own screen, dismissed by hand. The
+         guess list above it stays frozen on the challenge that just ended. -->
+    <section id="reveal" class="reveal" hidden aria-live="polite">
+      <p id="reveal-text"></p>
+      <button id="reveal-next" type="button" class="primary"></button>
+    </section>
+
     <form id="guess-form" autocomplete="off">
       <div class="combo" id="guess-combo">
         <input id="guess-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
@@ -65,9 +76,14 @@
         <ul id="guess-list" role="listbox" aria-label="Países" hidden></ul>
       </div>
       <!-- D-53: `gdp` asks for a number, so it gets its own field rather than a
-           country autocomplete that would pop a list over every digit. -->
-      <input id="guess-number" type="number" inputmode="numeric" min="1" step="1"
-             aria-label="PIB per capita" placeholder="Digite um valor…" hidden>
+           country autocomplete that would pop a list over every digit.
+           D-54: the unit sits inside the field's border, because the figure was
+           always in dollars and the first players read it as reais. -->
+      <div class="money" id="guess-money" hidden>
+        <span aria-hidden="true">US$</span>
+        <input id="guess-number" type="number" inputmode="numeric" min="1" step="1"
+               aria-label="PIB per capita em dólares" placeholder="20.000" enterkeyhint="go">
+      </div>
       <button id="guess-submit" type="submit" class="primary">Chutar</button>
     </form>
 
@@ -115,6 +131,14 @@
       <button type="submit" value="ok" class="primary">Excluir tudo</button>
     </div>
   </form>
+</dialog>
+
+<!-- FR-6.9 / D-56 — what the hints mean. Opens itself the first time a player
+     meets each of the two hint vocabularies; the "?" reopens it after that. -->
+<dialog id="help-dialog" class="help">
+  <button type="button" id="help-close" class="close" aria-label="Fechar">&times;</button>
+  <h2 id="help-title"></h2>
+  <p id="help-body"></p>
 </dialog>
 
 <script type="module" src="./app/game.js"></script>

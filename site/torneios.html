@@ -95,7 +95,11 @@
   <!-- Playing a card -->
   <section id="card" hidden>
     <p class="fine"><a id="back-from-card" href="./torneios.html">← Torneio</a></p>
-    <p id="card-progress" class="fine" aria-live="polite"></p>
+    <div class="prompt-head">
+      <p id="card-progress" class="fine" aria-live="polite"></p>
+      <button id="help-btn" type="button" class="help-btn" title="Como ler as pistas"
+              aria-label="Como ler as pistas" aria-haspopup="dialog">?</button>
+    </div>
 
     <figure class="silhouette" id="card-shape-wrap" hidden>
       <svg id="card-shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
@@ -107,6 +111,13 @@
 
     <ol id="card-guesses" class="guesses" aria-label="Tentativas"></ol>
 
+    <!-- D-55, as on the daily: the challenge that just ended keeps the screen
+         until the player moves on. -->
+    <section id="card-reveal" class="reveal" hidden aria-live="polite">
+      <p id="card-reveal-text"></p>
+      <button id="card-reveal-next" type="button" class="primary"></button>
+    </section>
+
     <form id="card-form" autocomplete="off">
       <div class="combo" id="card-combo">
         <input id="card-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
@@ -115,9 +126,13 @@
         <ul id="card-datalist" role="listbox" aria-label="Países" hidden></ul>
       </div>
       <!-- D-53: `gdp` asks for a number, so it gets its own field rather than a
-           country autocomplete that would pop a list over every digit. -->
-      <input id="card-number" type="number" inputmode="numeric" min="1" step="1"
-             aria-label="PIB per capita" placeholder="Digite um valor…" hidden>
+           country autocomplete that would pop a list over every digit.
+           D-54: the unit sits inside the field's border. -->
+      <div class="money" id="card-money" hidden>
+        <span aria-hidden="true">US$</span>
+        <input id="card-number" type="number" inputmode="numeric" min="1" step="1"
+               aria-label="PIB per capita em dólares" placeholder="20.000" enterkeyhint="go">
+      </div>
       <button id="card-submit" type="submit" class="primary">Chutar</button>
     </form>
 
@@ -140,6 +155,14 @@
       <button type="submit" value="ok" class="primary">Confirmar</button>
     </div>
   </form>
+</dialog>
+
+<!-- FR-6.9 / D-56 — what the hints mean. Opens itself the first time a player
+     meets each of the two hint vocabularies; the "?" reopens it after that. -->
+<dialog id="help-dialog" class="help">
+  <button type="button" id="help-close" class="close" aria-label="Fechar">&times;</button>
+  <h2 id="help-title"></h2>
+  <p id="help-body"></p>
 </dialog>
 
 <script type="module" src="./app/tournaments.js"></script>

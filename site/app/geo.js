@@ -102,7 +102,7 @@ export function guessRow(g) {
   const span = (cls, text) => { const e = document.createElement("span"); e.className = cls; e.textContent = text; return e; };
   const correct = g.kind === "number" ? g.proximity >= 0.9 : g.distanceKm === 0;
 
-  const name = span("name", g.kind === "number" ? formatNumber(g.value) : g.name);
+  const name = span("name", g.kind === "number" ? formatUsd(g.value) : g.name);
   const dist = span("dist", correct ? "🎉" : g.kind === "number" ? "" : formatKm(g.distanceKm));
   const dir = span("dir", "");
   if (!correct) {
@@ -116,4 +116,10 @@ export function guessRow(g) {
 }
 
 const nf = new Intl.NumberFormat("pt-BR");
-export const formatNumber = (n) => nf.format(n);
+/**
+ * A `gdp` figure, with its unit. D-54: the number was always in international
+ * dollars and nothing outside regras.html said so, so the first players read it
+ * as reais — which is off by roughly five times and makes the question
+ * unanswerable rather than merely hard.
+ */
+export const formatUsd = (n) => `US$ ${nf.format(n)}`;
