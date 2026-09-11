@@ -200,6 +200,20 @@ test("SEC-1: a solved challenge reveals its own answer and still says nothing ab
   assert.ok(!JSON.stringify(view).includes("Brasil"), "the flag's answer is not out yet");
 });
 
+// D-55: the reveal screen shows the guesses of the challenge just played,
+// including the one that ended it — which is precisely the one the top-level
+// `guesses` has moved past, and which the client never saw graded.
+test("D-55: a finished challenge carries its whole guess list; an open one carries none", () => {
+  const view = roundView(play(["AR", "PY"]), puzzle, at(2000));
+  assert.equal(view.cursor, 1, "two guesses, the second of which solved it");
+  assert.equal(view.guesses.length, 0, "the challenge now open has had no guesses");
+  const done = view.items[0]!.guesses;
+  assert.equal(done?.length, 2);
+  assert.deepEqual(done?.map((g) => (g.kind === "country" ? g.code : null)), ["AR", "PY"]);
+  assert.equal(view.items[1]!.guesses, null, "an open challenge reveals nothing through this door");
+  assert.equal(view.items[2]!.guesses, null, "nor does one nobody has reached");
+});
+
 test("the view after the day reveals every answer, the total and the share grid", () => {
   const view = roundView(play(["AR", "PY", "BR", "IT"]), puzzle, at(4000));
   assert.equal(view.status, "solved");
@@ -263,7 +277,7 @@ test("D-53: a four-kind day is worth 24, and the number challenge plays like the
 
   const view = roundView(a, p, at(6000));
   assert.equal(view.maxPoints, 24);
-  assert.equal(view.items[1]!.answer?.name, `Brasil: ${answer.toLocaleString("pt-BR")}`);
+  assert.equal(view.items[1]!.answer?.name, `Brasil: US$ ${answer.toLocaleString("pt-BR")}`);
   const rows = view.shareGrid!.split("\n");
   assert.equal(rows[0], "Mondo 2026-09-15 22/24");
   assert.equal(rows.length, 5);

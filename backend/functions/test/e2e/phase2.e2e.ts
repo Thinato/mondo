@@ -164,7 +164,7 @@ test("3. FR-4.3: invite link → accept → the player can play", async () => {
   assert.equal(done.status, "solved");
   assert.equal(done.points, 24);
   assert.equal(done.maxPoints, 24);
-  assert.deepEqual(done.items.map((i: Any) => i.answer.name), ["Paraguai", "Brasil", "Itália", `Japão: ${jp.toLocaleString("pt-BR")}`]);
+  assert.deepEqual(done.items.map((i: Any) => i.answer.name), ["Paraguai", "Brasil", "Itália", `Japão: US$ ${jp.toLocaleString("pt-BR")}`]);
 
   const list = ok(await player.call("listGroups", {}), "listGroups");
   assert.deepEqual(list.groups, [{ groupId: gid, name: "Almoço", memberCount: 2, isOwner: false }]);

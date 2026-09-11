@@ -249,6 +249,9 @@ test("a finished item reveals its own answer; a pending one still hides its kind
   assert.equal(v.items[1]!.answer, null);
   assert.equal(v.prompt?.kind, "capital");
   assert.ok(!JSON.stringify(v).includes("Itália"));
+  // D-55: and it carries the guesses that got there, for the reveal screen.
+  assert.equal(v.items[0]!.guesses?.length, 1);
+  assert.equal(v.items[1]!.guesses, null, "an open item's guesses are `guesses`, not this");
 });
 
 test("D-36: the view gives the compass, never the exact bearing", () => {
