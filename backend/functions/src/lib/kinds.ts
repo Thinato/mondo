@@ -10,9 +10,10 @@
  * the answer. What differs between kinds is only how *hard the answer is to
  * look up elsewhere* (SEC-13) — that is never treated as a security control.
  *
- * The shipped daily is deliberately NOT built on this (D-45). `lib/round.ts` is
- * live, tested and playing; the `shape` kind reuses the same pure geo and
- * scoring helpers instead, which duplicates a dozen lines and no logic.
+ * The daily is built on this too, since D-52 reversed D-45: a day is a card of
+ * one challenge per kind, so `lib/round.ts` composes these through `lib/card.ts`
+ * exactly as a tournament round does and keeps only what a *day* has — the
+ * schedule, the streak, the share grid and the `puzzleId`.
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
@@ -258,7 +259,12 @@ const gdp: Kind = {
   // The country was never secret here, so the reveal is the figure — with the
   // country beside it, because the finished list shows one row per challenge
   // and a bare number there says nothing.
-  reveal: (subject) => ({ code: subject, name: `${mustCountry(subject).names["pt-BR"]}: ${mustGdp(subject).toLocaleString("pt-BR")}` }),
+  //
+  // D-54: and with its unit. The figure was always in international dollars and
+  // only regras.html said so, so the first players read both the prompt and this
+  // as reais — roughly five times out, which does not make the question hard, it
+  // makes it unanswerable.
+  reveal: (subject) => ({ code: subject, name: `${mustCountry(subject).names["pt-BR"]}: US$ ${mustGdp(subject).toLocaleString("pt-BR")}` }),
 };
 
 export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag, gdp };

@@ -295,6 +295,14 @@ export interface CardItemView {
   /** Both only once the item itself is over. */
   points: number | null;
   answer: { code: string; name: string } | null;
+  /**
+   * Once the item is over, the guesses that got there — including the one that
+   * finished it, which is exactly the one `guesses` above has already moved
+   * past (D-55). The reveal screen needs the whole list and the client cannot
+   * rebuild the last row: it never saw that guess graded. Null while the item
+   * is open, where the open item's guesses are `guesses` above.
+   */
+  guesses: GuessView[] | null;
 }
 
 export interface CardView {
@@ -349,6 +357,7 @@ export function cardView(play: CardPlay, card: readonly CardItem[], now: Timesta
         guessCount: it.guesses.length,
         points: over ? it.points : null,
         answer: over ? kindById(it.kind).reveal(card[i]!.subject) : null,
+        guesses: over ? it.guesses.map(guessView) : null,
       };
     }),
     points: finished ? play.points : null,
