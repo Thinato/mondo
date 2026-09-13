@@ -217,6 +217,30 @@ test("D-60: the session is dealt the schedule's withheld list, and honours it", 
   assert.ok(new Set(seen).size >= 15, "the picker is barely varying");
 });
 
+test("FR-2.13: giving up ends the challenge at zero and hands over the answer", async () => {
+  ok(await ana.call("startPractice", { kind: "capital" }), "startPractice");
+  const subject = (await doc(`practice/${ana.uid}`)).subject;
+
+  const v = ok(await ana.call("giveUpPractice", {}), "giveUpPractice");
+  assert.equal(v.item.status, "failed");
+  assert.equal(v.item.points, 0);
+  assert.equal(v.item.answer.code, subject);
+  assert.equal(v.item.prompt, null, "the prompt outlived the challenge");
+  assert.deepEqual(v.item.guesses, [], "giving up invented a guess");
+
+  // Over, and counted once the player moves on.
+  assert.equal(code(await ana.call("giveUpPractice", {})), "already-completed");
+  assert.equal(code(await ana.call("submitPracticeGuess", { guess: subject })), "already-completed");
+  const next = ok(await ana.call("nextPractice", {}), "nextPractice");
+  assert.equal(next.totals.played, 1);
+  assert.equal(next.totals.solved, 0);
+  assert.equal(next.totals.points, 0);
+
+  // And it is refused to someone who was never let in (FR-1.7).
+  assert.equal(code(await carla.call("giveUpPractice", {})), "not-invited");
+  ok(await ana.call("endPractice", {}), "endPractice");
+});
+
 test("FR-1.5: deleting the account takes the practice session with it", async () => {
   const gone = await newAccount("pr-gone");
   const owner = await newAccount("pr-owner2");

@@ -16,7 +16,7 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { gdpFor } from "../src/lib/countries";
 import { MAX_ITEM_POINTS, KINDS, type KindId } from "../src/lib/kinds";
 import {
-  applyPracticeGuess, endSession, newSession, practiceView, serveNext,
+  applyPracticeGuess, endSession, giveUpPractice, newSession, practiceView, serveNext,
   type PracticeSession,
 } from "../src/lib/practice";
 
@@ -211,4 +211,39 @@ test("every shipped kind can be practised", () => {
     assert.equal(practiceView(s, T0).item?.prompt?.kind, id, `${id} served no prompt`);
     assert.equal(solve(s, 1000).item.points, MAX_ITEM_POINTS, `${id} did not score a first-guess solve`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Giving up (FR-2.13, D-61)
+// ---------------------------------------------------------------------------
+
+test("giving up in practice scores zero and reveals the answer", () => {
+  const s = giveUpPractice(newSession(UID, "flag", [], T0), at(2000));
+  assert.equal(s.item.solved, false);
+  assert.equal(s.item.points, 0);
+  assert.deepEqual(s.item.guesses, []);
+  assert.ok(s.item.finishedAt !== null);
+
+  const v = practiceView(s, at(2000));
+  assert.equal(v.item?.status, "failed");
+  assert.equal(v.item?.answer?.code, s.subject);
+  assert.equal(v.item?.prompt, null);
+});
+
+test("a challenge given up on still counts as played, at zero", () => {
+  const s = serveNext(giveUpPractice(newSession(UID, "shape", [], T0), at(2000)), at(3000));
+  assert.deepEqual(s.totals, { played: 1, solved: 0, points: 0 });
+});
+
+test("giving up keeps the guesses already spent", () => {
+  const s = giveUpPractice(missOnce(newSession(UID, "shape", [], T0), 1000), at(2000));
+  assert.equal(s.item.guesses.length, 1);
+  assert.equal(s.item.points, 0);
+});
+
+test("a challenge already over, and an ended session, both refuse a give-up", () => {
+  const solved = solve(newSession(UID, "shape", [], T0), 1000);
+  rejects(() => giveUpPractice(solved, at(2000)), "already-completed");
+  const over = endSession(newSession(UID, "shape", [], T0), at(5000));
+  rejects(() => giveUpPractice(over, at(6000)), "already-completed");
 });

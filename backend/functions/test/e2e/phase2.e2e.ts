@@ -424,3 +424,42 @@ test("9. FR-1.5: deleteAccount removes the user everywhere and hands the group o
   });
   assert.ok(!lookup.ok || ((await lookup.json()) as Any).users === undefined, "Auth record gone");
 });
+
+test("10. FR-2.13 / D-61: giving up scores zero, hands over the answer, and still finishes the day", async () => {
+  // Its own group, so nothing here moves a board another test asserts on.
+  const owner = await withRole("owner4", "organizer");
+  const quitter = await newAccount("quitter");
+  const g4 = ok(await owner.call("createGroup", { name: "Desistentes" }), "createGroup").groupId;
+  ok(await quitter.call("acceptInvite", { token: ok(await owner.call("createInvite", { groupId: g4 }), "inv").token }), "join");
+
+  const first = ok(await quitter.call("getRound", {}), "getRound");
+  assert.equal(first.items[0].answer, null, "SEC-1");
+  const itemCount = first.itemCount;
+
+  const after = ok(await quitter.call("giveUp", { puzzleId: TODAY }), "giveUp");
+  assert.equal(after.items[0].status, "failed");
+  assert.ok(after.items[0].answer.code, "the answer was not handed over");
+  assert.equal(after.items[0].points, 0);
+  assert.deepEqual(after.items[0].guesses, [], "giving up invented a guess");
+  assert.equal(after.cursor, 1, "the next challenge was not served");
+  assert.equal(after.items[1].answer, null, "SEC-1: the next challenge leaked");
+
+  // Give up on the rest: the day finishes at zero, and the profile that comes
+  // back is the one this call just wrote (D-58) — not the one it replaced.
+  let view = after;
+  for (let i = 1; i < itemCount; i++) view = ok(await quitter.call("giveUp", { puzzleId: TODAY }), `giveUp ${i}`);
+  assert.equal(view.status, "failed");
+  assert.equal(view.points, 0);
+  assert.equal(view.me.currentStreak, 1, "a day given up on did not count as played");
+  assert.equal(view.me.totalSolved, 0);
+  assert.ok(view.shareGrid.includes("0/"), "the share grid disagrees with the score");
+
+  const stored = await doc(`attempts/${quitter.uid}_${TODAY}`);
+  assert.equal(stored.guessCount, 0);
+  assert.equal(stored.solved, false);
+  assert.ok(stored.finishedAt, "the attempt was never closed");
+
+  assert.equal(code(await quitter.call("giveUp", { puzzleId: TODAY })), "already-completed");
+  // FR-1.7 applies here as everywhere else.
+  assert.equal(code(await third.call("giveUp", { puzzleId: TODAY })), "not-invited");
+});

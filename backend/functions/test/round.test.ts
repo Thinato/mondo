@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
-  applyGuess, intervalsMs, maxPointsFor, newAttempt, newProfile, previousDay, puzzleItems, randomHandle,
+  applyGuess, giveUp, intervalsMs, maxPointsFor, newAttempt, newProfile, previousDay, puzzleItems, randomHandle,
   recordCompletion, resetAttempt, roundView, statusOf, upgradeAttempt,
   type Attempt, type CountryGuessView, type GuessView, type Puzzle, type StoredCountryGuess, type StoredGuess,
 } from "../src/lib/round";
@@ -501,4 +501,61 @@ test("intervalsMs still reads an attempt written before D-52", () => {
     guesses: [{ code: "AR", distanceKm: 1, bearingDeg: 1, proximity: 1, at: at(1500) }, { code: "PY", distanceKm: 0, bearingDeg: 0, proximity: 1, at: at(4000) }],
   } as unknown as Attempt;
   assert.deepEqual(intervalsMs(legacy), [1500, 2500]);
+});
+
+// ---------------------------------------------------------------------------
+// Giving up (FR-2.13, D-61)
+// ---------------------------------------------------------------------------
+
+test("giving up on a day's challenge scores zero and keeps the day going", () => {
+  const after = giveUp(start(), CARD, at(4000));
+  assert.equal(after.cursor, 1);
+  assert.equal(after.items[0]!.points, 0);
+  assert.equal(after.items[0]!.solved, false);
+  assert.equal(after.guessCount, 0, "the day's guess count counted a guess nobody made");
+  assert.equal(after.solved, false);
+  assert.equal(after.finishedAt, null);
+  assert.equal(statusOf(after), "in_progress");
+});
+
+test("giving up on every challenge finishes the day at zero, and the streak still counts it", () => {
+  let a = start();
+  for (let i = 0; i < CARD.length; i++) a = giveUp(a, CARD, at(1000 * (i + 1)));
+  assert.equal(a.points, 0);
+  assert.equal(a.solved, false);
+  assert.equal(a.guessCount, 0);
+  assert.equal(statusOf(a), "failed");
+
+  // A day given up on is still a day FINISHED. The streak measures turning up,
+  // and fifteen wrong guesses would already have reached the same place.
+  const profile = recordCompletion({ ...newProfile(T0), lastPlayedOn: previousDay("2026-09-15"), currentStreak: 3, totalPlayed: 3 }, a);
+  assert.equal(profile.currentStreak, 4);
+  assert.equal(profile.totalPlayed, 4);
+  assert.equal(profile.totalSolved, 0, "a day given up on counted as solved");
+});
+
+test("the share grid of a day given up on is all blanks, and leaks nothing", () => {
+  let a = start();
+  for (let i = 0; i < CARD.length; i++) a = giveUp(a, CARD, at(1000 * (i + 1)));
+  const grid = roundView(a, puzzle, at(9000)).shareGrid!;
+  assert.match(grid, /^Mondo 2026-09-15 0\/18$/m);
+  assert.equal(grid.includes("🎉"), false);
+  for (const code of CARD.map((c) => c.subject)) assert.equal(grid.includes(code), false);
+  // Six blanks for the silhouette, three each for flag and capital.
+  assert.equal((grid.match(/⬛/g) ?? []).length, 12);
+});
+
+test("a challenge given up on reveals its answer, and the ones after it do not", () => {
+  const view = roundView(giveUp(start(), CARD, at(4000)), puzzle, at(4000));
+  assert.equal(view.items[0]!.status, "failed");
+  assert.equal(view.items[0]!.answer?.code, "PY");
+  assert.deepEqual(view.items[0]!.guesses, [], "the reveal invented a guess");
+  assert.equal(view.items[1]!.answer, null, "SEC-1: the next challenge leaked");
+  assert.equal(view.prompt?.kind, "flag", "the next challenge was not served");
+});
+
+test("a finished day refuses a give-up", () => {
+  let a = start();
+  for (let i = 0; i < CARD.length; i++) a = giveUp(a, CARD, at(1000 * (i + 1)));
+  rejects(() => giveUp(a, CARD, at(9000)), "already-completed");
 });

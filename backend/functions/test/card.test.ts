@@ -16,10 +16,11 @@ const asCountryView = (g: GuessView): CountryGuessView => g as CountryGuessView;
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
-  applyCardGuess, buildCard, cardIntervalsMs, cardView, newCardPlay, totalGuesses,
+  applyCardGuess, buildCard, cardIntervalsMs, cardView, giveUpCard, newCardPlay, totalGuesses,
   type CardItem, type CardPlay, type CardSpec,
 } from "../src/lib/card";
 import { COUNTRIES } from "../src/lib/countries";
+import { KINDS } from "../src/lib/kinds";
 import { SUSPICIOUS_SOLVE_MS } from "../src/lib/config";
 
 const T0 = Timestamp.fromMillis(Date.parse("2026-09-15T15:30:00Z"));
@@ -291,4 +292,53 @@ test("D-40: a card play carries no puzzleId, at any point in its life", () => {
   // Verified against the emulator 2026-09-09; this test is the cheap guard that
   // the field never creeps back in.
   assert.equal(states[0]!.mode, "match");
+});
+
+// ---------------------------------------------------------------------------
+// Giving up (FR-2.13, D-61)
+// ---------------------------------------------------------------------------
+
+test("giving up closes the item at zero and moves on", () => {
+  const card = buildCard({ items: [{ kind: "shape", count: 2 }], order: "as_listed" }, NONE, seeded([0.2, 0.7]));
+  const play = newCardPlay("u1", "t1", "t1_r1", card, T0);
+
+  const after = giveUpCard(play, card, at(3000));
+  assert.equal(after.cursor, 1, "the cursor did not move on");
+  assert.equal(after.items[0]!.solved, false);
+  assert.equal(after.items[0]!.points, 0);
+  assert.deepEqual(after.items[0]!.guesses, [], "giving up invented a guess");
+  assert.equal(after.items[0]!.elapsedMs, 3000, "the clock was not closed");
+  assert.equal(after.items[1]!.startedAt?.toMillis(), at(3000).toMillis(), "the next item's clock did not start");
+  assert.equal(after.finishedAt, null, "the card ended a challenge early");
+});
+
+test("giving up keeps the guesses already spent, and scores them at zero", () => {
+  const card = buildCard({ items: [{ kind: "shape", count: 1 }], order: "as_listed" }, NONE, seeded([0.2]));
+  const wrong = KINDS[card[0]!.kind].pool().find((c) => c.code !== card[0]!.subject)!.code;
+  let play: CardPlay = { ...newCardPlay("u1", "t1", "t1_r1", card, T0), ...applyCardGuess(newCardPlay("u1", "t1", "t1_r1", card, T0), card, wrong, at(1000)) };
+
+  const after = giveUpCard(play, card, at(2000));
+  assert.equal(after.items[0]!.guesses.length, 1, "the spent guess was dropped");
+  assert.equal(after.items[0]!.points, 0);
+  assert.equal(after.finishedAt?.toMillis(), at(2000).toMillis(), "giving up on the last item did not finish the card");
+  assert.equal(after.points, 0);
+});
+
+test("giving up on the last item finishes the card, and a finished card refuses it", () => {
+  const card = buildCard({ items: [{ kind: "capital", count: 1 }], order: "as_listed" }, NONE, seeded([0.4]));
+  const play = newCardPlay("u1", "t1", "t1_r1", card, T0);
+  const after = giveUpCard(play, card, at(5000));
+  assert.equal(after.finishedAt?.toMillis(), at(5000).toMillis());
+  assert.equal(after.elapsedMs, 5000);
+  assert.equal(after.suspicious, false);
+  rejects(() => giveUpCard(after, card, at(6000)), "already-completed");
+});
+
+test("giving up is not throttled: it can only happen once per challenge", () => {
+  const card = buildCard({ items: [{ kind: "shape", count: 2 }], order: "as_listed" }, NONE, seeded([0.2, 0.7]));
+  const wrong = KINDS[card[0]!.kind].pool().find((c) => c.code !== card[0]!.subject)!.code;
+  const play = applyCardGuess(newCardPlay("u1", "t1", "t1_r1", card, T0), card, wrong, at(1000));
+  // 100 ms after a guess, well inside SEC-5's floor for another guess.
+  const after = giveUpCard({ ...play }, card, at(1100));
+  assert.equal(after.cursor, 1);
 });
