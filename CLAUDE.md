@@ -72,6 +72,11 @@ for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages
   a shape or centroid into `site/`, stop.
 - D-8 exceptions (archipelagos that keep more than one island) live in `tools/overrides.json`
   with a reason each (D-14). Do not add distance heuristics to the pipeline instead.
+- **The compass arrow is a rhumb bearing, not a great-circle one** (FR-2.7, D-62). It is the
+  direction on a *map*, and the property that matters is that it can never point north at an
+  answer that lies south — the great-circle bearing did exactly that for 8.3 % of country pairs.
+  `test/geo.test.ts` checks it over the whole pool. Distance stays great-circle; that mismatch is
+  deliberate and is explained in the in-game help.
 - **Giving up is a challenge ending with no guess** (FR-2.13, D-61). `giveUpCard` and
   `applyCardGuess` share `closeItem`, so there is exactly one way an item ends; do not add a
   second path that "skips" an item. `scoreItem` already returns 0 for anything unsolved, so

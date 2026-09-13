@@ -268,7 +268,11 @@ open-sourcing the project would leak the answers.
 Pure functions in `backend/functions/src/lib/geo.ts`, unit tested (NFR-8).
 
 - **Distance**: haversine, earth radius 6371 km, rounded to the nearest km.
-- **Bearing**: initial great-circle bearing from guess centroid to answer centroid, in degrees.
+- **Bearing**: **rhumb** bearing from guess centroid to answer centroid, in degrees — the constant
+  heading, which is the direction on a map (D-62). It was the initial great-circle bearing until
+  2026-09-13; over long distances a great circle arcs poleward, so the arrow pointed north at
+  countries to the south for 8.3 % of pairs in the pool (15.2 % of pairs over 7000 km). Distance
+  stays great-circle: "how far" and "which way on the map" are two questions.
   Snap to 8 buckets of 45° for the arrow (`N NE E SE S SW W NW`), but return the raw degrees too
   so the UI can rotate an arrow smoothly if you want.
 - **Proximity**: `max(0, (20000 - distanceKm) / 20000)`, rendered as a rounded percentage.

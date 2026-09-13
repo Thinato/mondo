@@ -60,7 +60,9 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-2.6** Each guess MUST be a country from the canonical list, selected via autocomplete.
   Free-text that does not resolve to a country MUST be rejected client-side before submission.
 - **FR-2.7** After each incorrect guess the player MUST receive: great-circle distance in km,
-  direction as one of 8 compass arrows, and proximity as a percentage.
+  direction as one of 8 compass arrows, and proximity as a percentage. The direction MUST be the
+  direction **on a map** — the rhumb bearing (D-62) — so that it can never point north at an answer
+  that lies south. The exact bearing is never sent, only the 8-point arrow (D-36).
 - **FR-2.8** A challenge ends on a correct guess or once its guesses are spent, and its answer
   is revealed then — never the answers of the challenges still to come (SEC-1). The **day** ends
   when its last challenge does.
