@@ -12,6 +12,8 @@
  * Scheduled jobs (D-11, NFR-6): standings.ts, health.ts.
  * Tournaments are Phase 3 (FR-5 as rewritten, FR-8); see tournaments.ts and
  * docs/06-tournaments.md. Slices 1-2: free-for-all, shape and capital kinds.
+ * Practice is FR-9: one kind, one challenge at a time, scored for nobody but
+ * the player; see practice.ts.
  */
 
 import { initializeApp } from "firebase-admin/app";
@@ -32,6 +34,7 @@ export {
   createTournament, setParticipation, startTournament, advanceTournament, cancelTournament,
   listTournaments, getTournament, getCard, submitCardGuess,
 } from "./tournaments";
+export { startPractice, nextPractice, submitPracticeGuess, endPractice } from "./practice";
 export { rebuildStandings } from "./standings";
 export { scheduleHealthCheck } from "./health";
 

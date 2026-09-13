@@ -6,7 +6,7 @@
 
 import { getAuth } from "firebase-admin/auth";
 import { type Query } from "firebase-admin/firestore";
-import { db, invitesCol, tournamentsCol, userRef } from "./db";
+import { db, invitesCol, practiceRef, tournamentsCol, userRef } from "./db";
 import { leaveTx } from "./groups";
 import { groupsOf } from "./lib/authz";
 import { callable } from "./lib/callable";
@@ -56,6 +56,10 @@ export const deleteAccount = callable<unknown, { ok: true }>(async (uid) => {
   //    tournament plays are caught by the same query because a card play still
   //    carries `uid`; only `puzzleId` is absent (D-40).
   await deleteAll(db().collection("attempts").where("uid", "==", uid));
+
+  // c2. their practice session (FR-9). It holds the subject of whatever
+  //     challenge they left on screen, so it goes with the rest of their play.
+  await practiceRef(uid).delete();
 
   // d. the name snapshot in every tournament they entered (D-46).
   //

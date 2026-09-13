@@ -119,6 +119,14 @@ service cloud.firestore {
     // the 8-point compass and never the degrees.
     match /attempts/{attemptId} { allow read, write: if false; }
 
+    // A practice session (FR-9) carries the subject of the challenge on screen,
+    // which is the answer to it — so it is closed to its owner for exactly the
+    // reason above, and the same one-guess-then-read attack would work on it.
+    // Nothing here is scored or shared; the player sees it through
+    // startPractice / nextPractice / submitPracticeGuess / endPractice, which
+    // project it the way cardView does.
+    match /practice/{uid} { allow read, write: if false; }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

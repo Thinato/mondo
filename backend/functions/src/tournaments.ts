@@ -13,7 +13,7 @@
 import { Timestamp, type Transaction } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import {
-  cardRef, db, groupRef, memberRef, playRef, roundRef, roundsCol,
+  cardRef, dailySubjects, db, groupRef, memberRef, playRef, roundRef, roundsCol,
   runningTournaments, tournamentRef, tournamentsCol, tournamentsOf, userRef,
 } from "./db";
 import { isAdmin, requireCanPlay, requireOwner } from "./lib/authz";
@@ -25,7 +25,7 @@ import {
 import { mondoError } from "./lib/errors";
 import type { Group } from "./lib/groups";
 import { puzzleIdAt } from "./lib/puzzle-day";
-import { previousDay, puzzleItems, type Profile, type Puzzle } from "./lib/round";
+import { previousDay, type Profile } from "./lib/round";
 import { nextDay } from "./lib/standings";
 import {
   MAX_ACTIVE_PER_GROUP, MIN_PARTICIPANTS, newTournament, playId, presetById,
@@ -76,11 +76,10 @@ async function scheduledSubjects(now: Timestamp): Promise<Set<string>> {
     from = previousDay(from);
     to = nextDay(to);
   }
-  const snap = await db().collection("puzzles").where("puzzleId", ">=", from).where("puzzleId", "<=", to).get();
-  // A day is three challenges since D-52, so every subject on it is excluded —
+  // A day is four challenges since D-52, so every subject on it is excluded —
   // being asked Paraguay in a tournament the week the daily asks for its flag
   // is the thing FR-5.2 exists to stop, whichever kind each of them uses.
-  return new Set(snap.docs.flatMap((d) => puzzleItems(d.data() as Puzzle).map((it) => it.subject)));
+  return dailySubjects(from, to);
 }
 
 /** Subjects this tournament has already used, so a card never repeats one (FR-5.2). */
