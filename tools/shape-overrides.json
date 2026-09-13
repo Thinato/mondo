@@ -1,0 +1,13 @@
+{
+  "//": "Exceptions to 'every country's silhouette comes from Natural Earth' (D-59). Both lists carry a reason each, like overrides.json and flags.json: a bare list of country codes is a list nobody can audit later.",
+  "icons": {
+    "MC": "12 vertices in ne_10m — a heptagon, indistinguishable from SM and NR. mapsicon: 285.",
+    "SM": "19 vertices in ne_10m. mapsicon: 229, and the notch at Serravalle is back.",
+    "LI": "26 vertices in ne_10m — readable, but the Rhine border is a straight line. mapsicon: 166.",
+    "NR": "9 vertices in ne_10m, the coarsest country in the pool. mapsicon: 103."
+  },
+  "noShape": {
+    "TV": "Nine atolls over 676 km of ocean; D-8 keeps the largest, which is a 13-vertex sliver of Funafuti. Not in mapsicon either. Keeps its flag, capital and GDP challenges.",
+    "MH": "Same shape of problem as TV: 29 atolls, and D-8 leaves a 17-vertex speck. Not in mapsicon. Keeps its other three kinds."
+  }
+}

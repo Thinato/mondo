@@ -21,6 +21,7 @@ import { dirname, join } from "node:path";
 import { feature } from "topojson-client";
 import wc from "world-countries";
 import { buildShape, VIEW_BOX } from "./lib/shape.mjs";
+import { buildIcon } from "./lib/icon.mjs";
 import { normalize } from "../site/app/normalize.js";
 
 const TOOLS = dirname(fileURLToPath(import.meta.url));
@@ -51,6 +52,8 @@ const tiers = read("tools/tiers.json").tiers;
 const { names: nameOverrides = {}, aliases: curatedAliases = {} } = read("tools/aliases.json");
 const keepOverrides = read("tools/overrides.json").keep;
 const capitalOverrides = read("tools/capitals.json").capitals;
+// D-59 — the two exceptions to "every silhouette is projected Natural Earth".
+const { icons: iconOverrides, noShape } = read("tools/shape-overrides.json");
 const topo = read("tools/node_modules/world-atlas/countries-10m.json");
 const sources = {
   "world-atlas": read("tools/node_modules/world-atlas/package.json").version,
@@ -116,6 +119,24 @@ for (const code of codes) {
     errors.push(`${code}: ${e.message}`);
     continue;
   }
+  // D-59 — four microstates take their OUTLINE from vendored mapsicon artwork,
+  // because ne_10m has nothing to project: Nauru is nine vertices there. The
+  // centroid is deliberately NOT replaced. It still comes from Natural Earth,
+  // which is accurate about where a country is even when it is useless about
+  // what shape it is — and the centroid is what the distance and compass hints
+  // are computed from, so hand-drawn art must not reach it.
+  if (iconOverrides[code]) {
+    try {
+      const icon = buildIcon(readFileSync(join(ROOT, `tools/mapsicon/${code.toLowerCase()}.svg`), "utf8"), {
+        maxBytes: MAX_SHAPE_BYTES,
+      });
+      shape = { ...shape, path: icon.path, points: icon.points, tolerance: 0, source: "mapsicon" };
+    } catch (e) {
+      errors.push(`${code}: mapsicon override failed: ${e.message}`);
+      continue;
+    }
+  }
+
   const [lon, lat] = shape.centroid;
   if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
     errors.push(`${code}: centroid out of range [${lon}, ${lat}]`);
@@ -162,7 +183,12 @@ for (const code of codes) {
     tolerance: shape.tolerance,
     bytes: Buffer.byteLength(shape.path),
   });
-  shapes[code] = shape.path;
+  // D-59 — a country on the noShape list keeps its centroid, its names and its
+  // place in the pool; it just has no silhouette, so `kindById("shape").pool()`
+  // drops it and the other three kinds never notice. The Vatican has been
+  // handled this way since D-20, by buildShape refusing degenerate geometry;
+  // this is the same outcome reached deliberately rather than by exception.
+  if (!noShape[code]) shapes[code] = shape.path;
 }
 
 // ---------------------------------------------------------------------------

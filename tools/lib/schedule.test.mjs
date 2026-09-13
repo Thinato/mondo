@@ -8,14 +8,21 @@ import { generate, itemsOf, minDayGap, minRepeatGap, opensAt, poolsFrom, prng, t
 const countriesJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/countries.json", import.meta.url)));
 const flagsJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/flags.json", import.meta.url)));
 const gdpJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/gdp.json", import.meta.url)));
-const pools = poolsFrom(countriesJson, flagsJson, gdpJson);
+const shapesJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/shapes.json", import.meta.url)));
+const pools = poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson);
 const tierOf = new Map(countriesJson.countries.map((c) => [c.code, c.tier]));
 const base = { pools, seed: 20260908, start: "2026-09-15" };
 
 test("the pools match what the server's kinds allow (kinds.ts is the authority)", () => {
   // Duplicated rules, pinned on both sides: backend test/kinds.test.ts asserts
   // the same three numbers, so a change to either rule fails one of them.
-  assert.equal(pools.shape.length, 196);
+  // D-59: 196 countries, 194 silhouettes. Tuvalu and the Marshall Islands are
+  // atoll nations whose largest landmass is a speck; they keep every other kind.
+  assert.equal(pools.shape.length, 194);
+  for (const code of ["TV", "MH"]) {
+    assert.ok(!pools.shape.some((c) => c.code === code), `${code} has no silhouette worth asking about`);
+    assert.ok(pools.gdp.some((c) => c.code === code), `${code} is still in the game`);
+  }
   assert.equal(pools.capital.length, 181);
   assert.equal(pools.flag.length, 172);
   assert.equal(pools.gdp.length, 186);

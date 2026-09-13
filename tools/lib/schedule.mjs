@@ -48,13 +48,16 @@ export function prng(seed) {
  * Pool membership per kind, derived from the same two data files the server
  * reads.
  *
+ * Every kind is now derived from the same data file the server reads, rather
+ * than from a rule restated here — which is why `shape` takes shapesJson.
+ *
  * **This duplicates the rules in backend/functions/src/lib/kinds.ts**, which is
  * the authority — a generator that cannot import the server's TypeScript is the
  * price of keeping the schedule an offline artefact (FR-2.2). The guard against
  * drift is that both sides pin their pool sizes in tests, so a change to either
  * rule fails one of them loudly.
  */
-export function poolsFrom(countriesJson, flagsJson, gdpJson) {
+export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson) {
   const fold = (x) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const namesItsCapital = (c) => {
     const cap = fold(c.capital?.["pt-BR"] ?? "");
@@ -64,8 +67,14 @@ export function poolsFrom(countriesJson, flagsJson, gdpJson) {
   const withTier = (list) => list.map((c) => ({ code: c.code, tier: c.tier }));
   const hasFlag = new Set(Object.keys(flagsJson.flags));
   const hasGdp = new Set(Object.keys(gdpJson.values));
+  // D-59 — `shape` is no longer every country. Two atoll nations have no
+  // silhouette worth asking about and are not in shapes.json, so this pool is
+  // built from the data file rather than assumed to be the whole world. It was
+  // assumed before, which would have scheduled Tuvalu and then thrown
+  // "No silhouette for this challenge" at whoever opened the day.
+  const hasShape = new Set(Object.keys(shapesJson.shapes));
   return {
-    shape: withTier(countriesJson.countries),
+    shape: withTier(countriesJson.countries.filter((c) => hasShape.has(c.code))),
     capital: withTier(countriesJson.countries.filter((c) => c.capital?.["pt-BR"] && !namesItsCapital(c))),
     flag: withTier(countriesJson.countries.filter((c) => hasFlag.has(c.code))),
     gdp: withTier(countriesJson.countries.filter((c) => hasGdp.has(c.code))),
