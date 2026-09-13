@@ -89,7 +89,13 @@ test("the capitals file is wired up and pt-BR wins over world-countries' form", 
 });
 
 test("every country can be asked about by shape; capital drops the self-naming ones", () => {
-  assert.equal(KINDS.shape.pool().length, COUNTRIES.size);
+  // D-59: every country has a silhouette except the two atoll nations whose
+  // largest landmass is a speck. They keep flag, capital and gdp.
+  assert.equal(KINDS.shape.pool().length, COUNTRIES.size - 2);
+  for (const code of ["TV", "MH"]) {
+    assert.ok(!KINDS.shape.pool().some((c) => c.code === code), `${code} must not be a silhouette`);
+    assert.ok(KINDS.gdp.pool().some((c) => c.code === code), `${code} is still in the game`);
+  }
   assert.ok(KINDS.capital.pool().length < COUNTRIES.size);
   assert.ok(KINDS.capital.pool().length > 150, "the exclusion must be a trim, not a cull");
 });

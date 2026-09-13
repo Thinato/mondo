@@ -18,7 +18,7 @@ import {
   type Attempt, type CountryGuessView, type GuessView, type Puzzle, type StoredCountryGuess, type StoredGuess,
 } from "../src/lib/round";
 import type { CardItem } from "../src/lib/card";
-import { COUNTRIES, gdpFor } from "../src/lib/countries";
+import { COUNTRIES, gdpFor, shapeFor } from "../src/lib/countries";
 import { distanceKm } from "../src/lib/geo";
 
 const T0 = Timestamp.fromMillis(Date.parse("2026-09-15T15:30:00Z"));
@@ -170,6 +170,7 @@ test("unknown codes are rejected as invalid-argument", () => {
 
 test("SEC-1: while a challenge is open the view names nothing, for every country", () => {
   for (const answer of COUNTRIES.values()) {
+    if (!shapeFor(answer.code)) continue;   // D-59: TV and MH have no silhouette to ask about
     const card: CardItem[] = [{ kind: "shape", subject: answer.code }, ...CARD.slice(1)];
     const p: Puzzle = { ...puzzle, items: card };
     const guess = answer.code === "AR" ? "BO" : "AR";
