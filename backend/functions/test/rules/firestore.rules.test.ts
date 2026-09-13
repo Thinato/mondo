@@ -56,6 +56,8 @@ before(async () => {
     await db.doc(`cards/${TOURNAMENT}_r1`).set({ tournamentId: TOURNAMENT, round: 1, items: [{ kind: "shape", subject: "PY" }] });
     await db.doc(`attempts/${ALICE}_${TOURNAMENT}_r1`).set({ uid: ALICE, tournamentId: TOURNAMENT, roundId: `${TOURNAMENT}_r1`, mode: "match", items: [], cursor: 0 });
     await db.doc(`attempts/${BOB}_${TOURNAMENT}_r1`).set({ uid: BOB, tournamentId: TOURNAMENT, roundId: `${TOURNAMENT}_r1`, mode: "match", items: [], cursor: 0 });
+    // FR-9: a practice session, whose `subject` is the answer on alice's screen.
+    await db.doc(`practice/${ALICE}`).set({ uid: ALICE, kind: "shape", subject: "PY", asked: ["PY"], blocked: [], totals: { played: 0, solved: 0, points: 0 } });
   });
 });
 after(async () => {
@@ -105,6 +107,19 @@ test("D-51: no attempt is client-readable — not another player's, not the coll
   await assertFails(alice().doc(`attempts/${BOB}_${PUZZLE}`).get());
   await assertFails(alice().collection("attempts").get());
   await assertFails(anon().doc(`attempts/${ALICE}_${PUZZLE}`).get());
+});
+
+test("FR-9: a practice session is closed to its own player — `subject` is the answer", async () => {
+  // The one field that matters is `subject`. A player who could read their own
+  // session document would read the answer to the challenge on their screen,
+  // which makes the whole of practice a lookup table. Same rule as `attempts`,
+  // same reason (D-51), and the client never reads Firestore anyway.
+  await assertFails(alice().doc(`practice/${ALICE}`).get());
+  await assertFails(alice().doc(`practice/${BOB}`).get());
+  await assertFails(alice().collection("practice").get());
+  await assertFails(anon().doc(`practice/${ALICE}`).get());
+  await assertFails(alice().doc(`practice/${ALICE}`).update({ totals: { played: 99, solved: 99, points: 999 } }));
+  await assertFails(alice().doc(`practice/${ALICE}`).delete());
 });
 
 // --- users ------------------------------------------------------------------
