@@ -324,8 +324,23 @@ export interface RoundView {
   elapsedMs: number | null;
   shareGrid: string | null;
   serverTime: string;
-  /** The caller's own profile bits the UI needs (FR-1.2, FR-1.3, FR-7). Never anyone else's. */
-  me: { displayName: string; role: Role; groupCount: number } | null;
+  /**
+   * The caller's own profile bits the UI needs (FR-1.2, FR-1.3, FR-7). Never
+   * anyone else's.
+   *
+   * The four counters are what the desktop panel puts beside the game (D-57).
+   * They cost nothing: the profile is already read on both doors into a day,
+   * and these are four fields off the document that is already in hand.
+   */
+  me: {
+    displayName: string;
+    role: Role;
+    groupCount: number;
+    currentStreak: number;
+    longestStreak: number;
+    totalPlayed: number;
+    totalSolved: number;
+  } | null;
 }
 
 export function statusOf(attempt: Attempt): RoundStatus {
@@ -375,7 +390,17 @@ export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timesta
     elapsedMs: finished ? attempt.elapsedMs : null,
     shareGrid: finished ? shareGrid(puzzle.puzzleId, shareItems(attempt, card), attempt.points, maxPointsFor(card)) : null,
     serverTime: now.toDate().toISOString(),
-    me: profile ? { displayName: profile.displayName, role: profile.role ?? "player", groupCount: profile.groups?.length ?? 0 } : null,
+    me: profile
+      ? {
+          displayName: profile.displayName,
+          role: profile.role ?? "player",
+          groupCount: profile.groups?.length ?? 0,
+          currentStreak: profile.currentStreak,
+          longestStreak: profile.longestStreak,
+          totalPlayed: profile.totalPlayed,
+          totalSolved: profile.totalSolved,
+        }
+      : null,
   };
 }
 

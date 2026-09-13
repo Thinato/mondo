@@ -92,20 +92,26 @@ export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?:
   const now = Timestamp.now();
   const puzzle = await loadOpenPuzzle(puzzleId, now);
 
-  const attempt = await db().runTransaction(async (tx) => {
+  const { attempt, profile } = await db().runTransaction(async (tx) => {
     // Every read before the first write (Firestore transaction rule).
     const [snap, profileSnap] = await Promise.all([tx.get(attemptRef(uid, puzzleId)), tx.get(userRef(uid))]);
     // The invitation is checked before the attempt lookup, so an uninvited
     // caller hears `not-invited` rather than `not-found` (FR-1.7, D-28).
-    const profile = profileSnap.exists ? (profileSnap.data() as Profile) : null;
-    requireCanPlay(profile); // losing your last group closes the round too
+    const before = profileSnap.exists ? (profileSnap.data() as Profile) : null;
+    requireCanPlay(before); // losing your last group closes the round too
     if (!snap.exists) throw mondoError("not-found", "Call getRound before guessing.");
-    const before = snap.data() as Attempt;
-    const after = applyGuess(before, puzzleItems(puzzle), raw, now);
-    tx.set(attemptRef(uid, puzzleId), after);
-    if (after.finishedAt !== null && profile !== null) tx.set(userRef(uid), recordCompletion(profile, after));
-    return after;
+    const attempt = applyGuess(snap.data() as Attempt, puzzleItems(puzzle), raw, now);
+    tx.set(attemptRef(uid, puzzleId), attempt);
+    // The streak the caller is told about must be the one this guess just
+    // wrote, not the one it replaced (D-57). The guess that ends a day is
+    // exactly the moment the panel beside the game should tick over, and
+    // returning the stale profile would make it tick on the next reload
+    // instead — which reads as a bug even though nothing is wrong.
+    const done = attempt.finishedAt !== null && before !== null;
+    const profile = done ? recordCompletion(before!, attempt) : before;
+    if (done) tx.set(userRef(uid), profile!);
+    return { attempt, profile };
   });
 
-  return roundView(attempt, puzzle, now);
+  return roundView(attempt, puzzle, now, profile);
 });
