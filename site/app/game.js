@@ -13,6 +13,7 @@
 import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import { auth, googleProvider } from "./firebase.js";
 import * as api from "./api.js";
+import { ask } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, renderFlag, renderShape } from "./geo.js";
@@ -28,6 +29,7 @@ const el = {
   money: $("guess-money"), number: $("guess-number"),
   helpBtn: $("help-btn"), helpDialog: $("help-dialog"), helpTitle: $("help-title"),
   helpBody: $("help-body"), helpClose: $("help-close"),
+  giveUpBtn: $("giveup-btn"), giveUpDialog: $("giveup-dialog"), giveUpText: $("giveup-text"),
   reveal: $("reveal"), revealText: $("reveal-text"), revealNext: $("reveal-next"),
   side: $("side"), sideTitle: $("side-title"), sideGroup: $("side-group"), sideToday: $("side-today"),
   sideFinished: $("side-finished"), sidePlaying: $("side-playing"), sideWaiting: $("side-waiting"),
@@ -149,16 +151,28 @@ el.form.addEventListener("submit", (ev) => {
 el.input.addEventListener("input", () => { picked = null; });
 
 async function submit(numberGuess) {
-  if (busy || reveal || !round || round.status !== "in_progress") return;
+  // `advance` guards too, but the pick is consumed below and a click while busy
+  // would otherwise throw it away.
+  if (busy || reveal) return;
   if (numberGuess === undefined && !picked) return;
   const guess = numberGuess ?? picked.code;
   picked = null;
+  await advance(() => api.submitGuess({ puzzleId: round.puzzleId, guess }));
+}
+
+/**
+ * Both ways a challenge can move: a guess, and giving up (FR-2.13). What
+ * happens afterwards is identical and is written once — the reveal, the
+ * confetti, and re-reading the panel on the move that ends the day. The one
+ * time this was two copies, one of them showed the wrong guess list (D-55).
+ */
+async function advance(call) {
+  if (busy || reveal || !round || round.status !== "in_progress") return;
   setBusy(true);
   setStatus("");
   try {
     const before = round.cursor;
-    const wasOpen = round.status === "in_progress";
-    round = await api.submitGuess({ puzzleId: round.puzzleId, guess });
+    round = await call();
     el.input.value = "";
     el.number.value = "";
     // A cursor that moved means that challenge is over — including the last
@@ -172,7 +186,7 @@ async function submit(numberGuess) {
     render();
     // FR-4.11 unlocks everyone else's score the moment YOUR day is done, so
     // that is the one time the panel is worth re-reading.
-    if (wasOpen && round.status !== "in_progress") refreshBoard();
+    if (round.status !== "in_progress") refreshBoard();
   } catch (err) {
     // FR-6.5: a failed submission consumes nothing; the text stays so they can retry.
     const code = err?.details?.code;
@@ -184,6 +198,15 @@ async function submit(numberGuess) {
   }
 }
 
+// FR-2.13 — zero points and the answer. It asks first: unlike in practice, this
+// zero is permanent and lands on the group's ranking, so a mis-tap beside the
+// "?" would cost something real.
+el.giveUpBtn.addEventListener("click", async () => {
+  if (busy || reveal || round?.status !== "in_progress") return;
+  if (!(await ask(el.giveUpDialog, el.giveUpText, t("confirmGiveUp")))) return focusInput();
+  await advance(() => api.giveUp({ puzzleId: round.puzzleId }));
+});
+
 function render() {
   const inProgress = round.status === "in_progress";
   const revealing = reveal !== null;
@@ -192,6 +215,7 @@ function render() {
   // counting the challenge behind the panel, which nobody is playing yet.
   el.progress.hidden = !inProgress || revealing;
   el.helpBtn.hidden = !inProgress || revealing;
+  el.giveUpBtn.hidden = !inProgress || revealing;
   el.progress.textContent = inProgress ? t("challengeOf", { n: round.cursor + 1, max: round.itemCount }) : "";
 
   // One prompt shape per kind. An unknown kind means the client is older than

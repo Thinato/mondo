@@ -48,6 +48,8 @@ const PT_BR = {
       "%  a PROXIMIDADE: o menor dos dois números dividido pelo maior. 50% quer dizer que você errou pelo dobro ou pela metade.\n\n" +
       "O valor é o PPP (paridade de poder de compra) do Banco Mundial, não o nominal que costuma aparecer primeiro numa busca — os dois são bem diferentes para quase todo país.",
   },
+  // FR-2.13 / D-61 — zero points, and the answer.
+  confirmGiveUp: "Desistir deste desafio? Ele fica com 0 pontos e você vê a resposta.",
   share: "Compartilhar",
   copied: "Copiado!",
   nextPuzzle: "Novo país todo dia ao meio-dia.",

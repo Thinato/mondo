@@ -48,8 +48,13 @@
     <div class="play-col">
       <div class="prompt-head">
         <p id="progress" class="fine" aria-live="polite"></p>
-        <button id="help-btn" type="button" class="help-btn" title="Como ler as pistas"
-                aria-label="Como ler as pistas" aria-haspopup="dialog">?</button>
+        <div class="head-actions">
+          <button id="help-btn" type="button" class="help-btn" title="Como ler as pistas"
+                  aria-label="Como ler as pistas" aria-haspopup="dialog">?</button>
+          <!-- FR-2.13 / D-61: zero points and the answer. It asks first, because
+               here the zero is permanent and lands on the group's ranking. -->
+          <button id="giveup-btn" type="button" class="link">Desistir</button>
+        </div>
       </div>
 
       <!-- One prompt per kind; exactly one is visible at a time (D-52). -->
@@ -151,6 +156,17 @@
     <div class="actions">
       <button type="submit" value="cancel" class="link">Cancelar</button>
       <button type="submit" value="ok" class="primary">Excluir tudo</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="giveup-dialog">
+  <form id="giveup-form" method="dialog">
+    <h2>Desistir do desafio</h2>
+    <p id="giveup-text"></p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Continuar tentando</button>
+      <button type="submit" value="ok" class="primary">Desistir e ver a resposta</button>
     </div>
   </form>
 </dialog>

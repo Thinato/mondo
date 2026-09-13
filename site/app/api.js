@@ -11,6 +11,8 @@ const call = (name) => {
 
 export const getRound = call("getRound");
 export const submitGuess = call("submitGuess");
+// FR-2.13 — end the current challenge at zero and see the answer (D-61).
+export const giveUp = call("giveUp");
 export const updateProfile = call("updateProfile");
 
 // Phase 2 — groups, invites, boards (FR-4), admin (FR-7.2), account (FR-1.5).
@@ -48,4 +50,5 @@ export const submitCardGuess = call("submitCardGuess");
 export const startPractice = call("startPractice");
 export const nextPractice = call("nextPractice");
 export const submitPracticeGuess = call("submitPracticeGuess");
+export const giveUpPractice = call("giveUpPractice");
 export const endPractice = call("endPractice");

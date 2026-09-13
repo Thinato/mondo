@@ -23,7 +23,7 @@ const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"),
   pick: $("pick"), picker: $("picker"), train: $("train"),
-  progress: $("progress"), helpBtn: $("help-btn"), leaveBtn: $("leave-btn"),
+  progress: $("progress"), helpBtn: $("help-btn"), leaveBtn: $("leave-btn"), giveUpBtn: $("giveup-btn"),
   helpDialog: $("help-dialog"), helpTitle: $("help-title"), helpBody: $("help-body"), helpClose: $("help-close"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
   guesses: $("guesses"), reveal: $("reveal"), revealText: $("reveal-text"), revealNext: $("reveal-next"),
@@ -131,10 +131,19 @@ async function submit(numberGuess) {
   if (numberGuess === undefined && !picked) return;
   const guess = numberGuess ?? picked.code;
   picked = null;
+  await advance(() => api.submitPracticeGuess({ guess }));
+}
+
+/**
+ * Both ways a challenge can end: a guess, and giving up (FR-2.13). The run list
+ * and the confetti hang off the end of it once, not once per caller.
+ */
+async function advance(call) {
+  if (busy || !challengeOpen()) return;
   setBusy(true);
   setStatus("");
   try {
-    view = await api.submitPracticeGuess({ guess });
+    view = await call();
     el.input.value = "";
     el.number.value = "";
     if (view.item.status !== "current") {
@@ -152,6 +161,11 @@ async function submit(numberGuess) {
     focusInput();
   }
 }
+
+// FR-2.13 — zero points and the answer, with no confirmation: nothing in a
+// practice run is permanent or shared, and "I just want to see it" is half the
+// reason the button is there. The daily asks first, because its zero is real.
+el.giveUpBtn.addEventListener("click", () => advance(() => api.giveUpPractice({})));
 
 el.revealNext.addEventListener("click", async () => {
   if (busy) return;
@@ -214,6 +228,7 @@ function renderChallenge() {
   const points = view.totals.points + (revealing ? item.points : 0);
   el.progress.textContent = t("practice.counter", { n: view.totals.played + 1, points });
   el.helpBtn.hidden = revealing;
+  el.giveUpBtn.hidden = revealing;
 
   // One prompt shape per kind, and none at all during a reveal — the next
   // challenge has not been served yet, so there is nothing to hold back.
