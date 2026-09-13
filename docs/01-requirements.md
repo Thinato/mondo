@@ -71,6 +71,14 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   that does **not** encode any answer, plus a link to the game. One row per challenge (D-52).
 - **FR-2.12** Past puzzles MUST be viewable in an archive after their day has ended. Archive
   play SHOULD be permitted but MUST NOT count toward any leaderboard.
+- **FR-2.13** *(added 2026-09-13, D-61)* A player MUST be able to **give up** on the challenge in
+  front of them. Giving up ends that challenge at **zero points** and reveals its answer through
+  the same reveal a challenge whose guesses ran out gets (FR-6.10); the day then continues to its
+  next challenge, and giving up on the last one ends the day like any other last challenge. Guesses
+  already spent are kept. The control MUST be present in **both** the daily and practice (FR-9).
+  In the daily it MUST ask for confirmation, because the zero is permanent and reaches the group's
+  ranking; in practice it MUST NOT, because nothing there is permanent or shared and "I just want
+  to see the answer" is half of why it exists.
 
 ## FR-3 — Scoring
 
@@ -239,8 +247,8 @@ to test new challenges."*
   practisable.
 - **FR-9.2** A practice challenge MUST behave exactly as the same kind behaves in the daily and
   in a tournament: the same guess budget, the same hints, the same 0–6 score (FR-8.2), the same
-  reveal (FR-6.10). It follows that a new kind is playable in practice on the day it ships,
-  which is the point of the mode as a test bench.
+  reveal (FR-6.10), and the same way out of it (FR-2.13). It follows that a new kind is playable
+  in practice on the day it ships, which is the point of the mode as a test bench.
 - **FR-9.3** A practice result MUST NOT be shared, ranked or counted. It MUST NOT reach any
   board, any streak, any profile counter, or any other player's screen — not even as a state.
   A player's own total for the session in progress is the only place it appears.

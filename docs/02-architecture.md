@@ -447,6 +447,13 @@ advances the cursor and starts the next challenge's clock in the same write, so 
 elapsed times are contiguous and the day's total is honest. On completion of the *day*, updates
 the profile's streak and counters. Nothing is fanned out (D-21); the nightly job reads attempts.
 
+### `giveUp({ puzzleId })` (FR-2.13, D-61)
+
+Ends today's current challenge at zero and reveals its answer. The `submitGuess` transaction
+minus the guess — same gate, same attempt document, same `recordCompletion` when it is the
+challenge that ends the day, so the profile in the response is the one this call just wrote
+(D-58). Not rate-limited: it can happen once per challenge.
+
 ### Play gate (FR-1.7)
 `getRound` and `submitGuess` throw `not-invited` for a `player` with no groups, before any attempt
 document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
@@ -521,6 +528,8 @@ document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
 - `nextPractice({})` → the next challenge, **and** the moment the one on screen is counted
 - `submitPracticeGuess({ guess })` → the `submitGuess` analogue, one challenge deep. `guess` is
   untyped for the same reason it is there (SEC-8)
+- `giveUpPractice({})` → the `giveUp` analogue (FR-2.13). The session runs on and `nextPractice`
+  counts the challenge like any other finished one
 - `endPractice({})` → ends the session and returns the total. Idempotent, so a double-tap on
   "sair" cannot count the last challenge twice
 

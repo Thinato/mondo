@@ -72,6 +72,11 @@ for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages
   a shape or centroid into `site/`, stop.
 - D-8 exceptions (archipelagos that keep more than one island) live in `tools/overrides.json`
   with a reason each (D-14). Do not add distance heuristics to the pipeline instead.
+- **Giving up is a challenge ending with no guess** (FR-2.13, D-61). `giveUpCard` and
+  `applyCardGuess` share `closeItem`, so there is exactly one way an item ends; do not add a
+  second path that "skips" an item. `scoreItem` already returns 0 for anything unsolved, so
+  there is nothing to special-case. The daily confirms before giving up and practice does not,
+  and that asymmetry is the point: the daily's zero is permanent and shared.
 - **Practice is a card of one item** (FR-9, D-60). `lib/practice.ts` owns only the sequence, the
   totals and the subject picker; the guess budget, the throttle, the score and the reveal are
   `lib/card.ts`'s, unchanged. Two things there are load-bearing. The session lives in
