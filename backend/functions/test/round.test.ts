@@ -224,10 +224,34 @@ test("the view after the day reveals every answer, the total and the share grid"
   assert.deepEqual(view.items.map((it) => it.status), ["solved", "solved", "solved"]);
   assert.equal(view.serverTime, "2026-09-15T15:30:04.000Z");
   assert.equal(view.me, null, "no profile passed → no me");
+  // D-57: the four counters the desktop panel puts beside the game ride along
+  // on a profile that was already read, so `me` carries them or nothing does.
   assert.deepEqual(
     roundView(play(["AR"]), puzzle, at(1000), newProfile(T0, "tatu-alegre-0001")).me,
-    { displayName: "tatu-alegre-0001", role: "player", groupCount: 0 },
+    {
+      displayName: "tatu-alegre-0001", role: "player", groupCount: 0,
+      currentStreak: 0, longestStreak: 0, totalPlayed: 0, totalSolved: 0,
+    },
   );
+});
+
+test("D-57: `me` reports the streak the finished day just earned, not the one before it", () => {
+  // Yesterday counted, so today continues the streak rather than restarting it.
+  const before = {
+    ...newProfile(T0, "tatu-alegre-0001"),
+    lastPlayedOn: "2026-09-14", currentStreak: 3, longestStreak: 5, totalPlayed: 9, totalSolved: 7,
+  };
+  const done = play(["AR", "PY", "BR", "IT"]);
+  const after = recordCompletion(before, done);
+
+  // What `submitGuess` returned before D-57: the pre-guess profile, so the
+  // panel showed yesterday's streak on the day it ticked over.
+  assert.equal(roundView(done, puzzle, at(4000), before).me?.currentStreak, 3);
+  // What it returns now.
+  const me = roundView(done, puzzle, at(4000), after).me;
+  assert.equal(me?.currentStreak, 4);
+  assert.equal(me?.totalPlayed, 10);
+  assert.equal(me?.longestStreak, 5, "a streak of 4 does not beat a best of 5");
 });
 
 test("FR-2.11: the share grid is one row per challenge, with the score out of 18", () => {

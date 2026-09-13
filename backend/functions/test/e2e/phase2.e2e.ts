@@ -157,11 +157,18 @@ test("3. FR-4.3: invite link → accept → the player can play", async () => {
 
   const round = ok(await player.call("getRound", {}), "getRound after invite");
   assert.equal(round.status, "in_progress");
-  assert.deepEqual(round.me, { displayName: (await doc(`users/${player.uid}`)).displayName, role: "player", groupCount: 1 });
+  assert.deepEqual(round.me, {
+    displayName: (await doc(`users/${player.uid}`)).displayName, role: "player", groupCount: 1,
+    currentStreak: 0, longestStreak: 0, totalPlayed: 0, totalSolved: 0,
+  });
   assert.equal(round.itemCount, 4, "D-52/D-53: a day is one challenge of every kind");
   const jp = gdpFor("JP")!;
   const done = ok(await play(player, ["PY", "BR", "IT", jp]), "solve the day");
   assert.equal(done.status, "solved");
+  // D-57: the guess that ends the day reports the profile that guess just
+  // wrote. Before it, `submitGuess` returned no `me` at all.
+  assert.equal(done.me.currentStreak, 1, "the streak ticks on the last guess, not the next load");
+  assert.equal(done.me.totalPlayed, 1);
   assert.equal(done.points, 24);
   assert.equal(done.maxPoints, 24);
   assert.deepEqual(done.items.map((i: Any) => i.answer.name), ["Paraguai", "Brasil", "Itália", `Japão: US$ ${jp.toLocaleString("pt-BR")}`]);
