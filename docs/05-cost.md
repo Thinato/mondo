@@ -82,6 +82,15 @@ only; the ceiling is marked in `backend/functions/src/standings.ts`.
 
 Keep that in mind before "just querying attempts directly" from a per-viewer path.
 
+**Practice (FR-9) is the one path with no upper bound on how often a player can
+use it.** One session costs 8 reads once (the withheld window, D-60) plus 2 reads
+and 1 write per guess and per "next" — so a determined 50-challenge run is roughly
+250 reads and 150 writes for one player. Twenty such runs a day is ~5,000 reads and
+~3,000 writes, which doubles the daily read line above and is still inside both
+allowances. It is worth knowing that this is the line that moves if practice
+becomes popular, and that the cheap lever is the withheld window: it is read once
+per session precisely so it is not read once per challenge.
+
 ## 3. The four things that would actually charge you
 
 None of them are the region.

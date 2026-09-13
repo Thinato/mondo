@@ -228,6 +228,33 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
 
 ---
 
+## FR-9 — Practice *(added 2026-09-13)*
+
+Paulo, 2026-09-13: *"players can choose a challenge to practice on … practice scores are not
+shared, they can practice as much as they want privately … this will also be a good way for us
+to test new challenges."*
+
+- **FR-9.1** A player MUST be able to choose **one challenge kind** and play challenges of that
+  kind one after another, for as long as they like. Every kind listed in FR-8.6 MUST be
+  practisable.
+- **FR-9.2** A practice challenge MUST behave exactly as the same kind behaves in the daily and
+  in a tournament: the same guess budget, the same hints, the same 0–6 score (FR-8.2), the same
+  reveal (FR-6.10). It follows that a new kind is playable in practice on the day it ships,
+  which is the point of the mode as a test bench.
+- **FR-9.3** A practice result MUST NOT be shared, ranked or counted. It MUST NOT reach any
+  board, any streak, any profile counter, or any other player's screen — not even as a state.
+  A player's own total for the session in progress is the only place it appears.
+- **FR-9.4** Every practice challenge MUST offer a way out, and leaving MUST ask first. On
+  leaving, the session's total MUST be shown. A challenge abandoned mid-way counts for nothing
+  and MUST NOT reveal its answer.
+- **FR-9.5** Practice MUST NOT ask about a country the daily schedule is about to use
+  (D-60). Without this, practising `gdp` is a way to look up today's answer: that prompt names
+  its own country, so a player could click through the pool until it came up.
+- **FR-9.6** Practice is **invite-only**, on the same gate as the daily (FR-1.7).
+- **FR-9.7** A session need not survive a reload. Reopening the page MAY start over.
+
+---
+
 ## FR-7 — Roles *(added 2026-09-09)*
 
 - **FR-7.1** Every user has exactly one role: `admin` > `organizer` > `player`. Roles are stored
@@ -239,8 +266,8 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   MUST ever expose an e-mail address (FR-1.4 applies to the admin too).
 - **FR-7.3** `organizer` MAY create groups and manage the groups they own; in Phase 3, create
   tournaments in them.
-- **FR-7.4** `player` MAY play the daily once invited, view the boards of their groups, and take
-  part in tournaments of their groups.
+- **FR-7.4** `player` MAY play the daily once invited, practise (FR-9), view the boards of their
+  groups, and take part in tournaments of their groups.
 - **FR-7.5** Group **management** rights come from owning the group, not from the role: an admin
   sees every group but manages only the ones they own.
 - **FR-7.6** `admin` is granted only out of band (a maintainer script with ADC, D-29). The API

@@ -67,6 +67,7 @@ never reach the published site — the Pages workflow uploads the `site/` direct
   grupos.html             group list + leaderboards + invite acceptance
   admin.html              admin dashboard (FR-7.2)
   torneios.html           tournaments: list, create, bracket, card player
+  praticar.html           practice: pick a kind, play it as long as you like (FR-9)
   arquivo.html            past puzzles (Phase 4)
   regras.html             scoring rules (FR-3.7)
   privacidade.html        LGPD note
@@ -77,6 +78,7 @@ never reach the published site — the Pages workflow uploads the `site/` direct
     groups.js             grupos.html
     admin.js              admin.html
     tournaments.js        torneios.html
+    practice.js           praticar.html
     geo.js                render silhouette, format distance/arrow
     autocomplete.js       country search (FR-6.3)
     share.js              emoji share text
@@ -331,6 +333,29 @@ items        [{ kind, guesses[], solved, points, startedAt, finishedAt, elapsedM
 points, elapsedMs, suspicious
 ```
 
+### 3.16 `practice/{uid}` — **no client access, ever** (FR-9, D-60)
+
+One session per player, overwritten by the next `startPractice`. A sibling of `puzzles` and
+`cards` for the reason they are: `subject` **is** the answer to the challenge on screen, so the
+rules deny this collection to everyone including its owner, exactly as they deny `attempts`
+(D-51). Deliberately **not** in `attempts` — nothing here is scored, ranked, counted or shared,
+so there is no board for it to stay off and no reason for a sweep to find it. `deleteAccount`
+deletes it by id.
+
+```
+uid, kind, startedAt, endedAt
+subject      "PY"                        THE ANSWER
+item         { kind, guesses[], solved, points, startedAt, finishedAt, elapsedMs }
+asked        ["PY", ...]                 no repeats until the pool runs dry, then it starts over
+blocked      ["BR", ...]                 D-60: the daily's subjects, today to +7 days
+totals       { played, solved, points }  finished challenges only
+```
+
+`item` is a `CardPlayItem`: a practice challenge is **a card of exactly one item**, so
+`lib/card.ts`'s transitions do the guessing, scoring and revealing unchanged (`lib/practice.ts`
+adds only the sequence, the totals and the picker). `maxPoints` is not stored — it is
+`played × 6` and the view computes it.
+
 ### 3.15 Required composite indexes
 
 None. Every query is a single-field range or equality (`attempts.puzzleId`, `attempts.uid`,
@@ -489,10 +514,25 @@ document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
 `getCard` and `submitCardGuess` re-check group membership and the play gate on every call
 (FR-5.13), so a removed member keeps their standings slot but stops being served cards.
 
+### Practice (FR-9; nothing here is scored, shared or counted)
+- `startPractice({ kind })` → a new session of that kind, showing its first challenge. Replaces
+  whatever session the player had. Invite-gated like the daily (FR-1.7); reads the schedule's
+  next 8 days once to build the withheld list (D-60)
+- `nextPractice({})` → the next challenge, **and** the moment the one on screen is counted
+- `submitPracticeGuess({ guess })` → the `submitGuess` analogue, one challenge deep. `guess` is
+  untyped for the same reason it is there (SEC-8)
+- `endPractice({})` → ends the session and returns the total. Idempotent, so a double-tap on
+  "sair" cannot count the last challenge twice
+
+There is no `getPractice` and no resume: reopening the page shows the picker, and starting
+overwrites. A lost practice run costs a player nothing, and resuming would be a second entry
+path into a screen with no state worth defending.
+
 ### Account
 - `updateProfile({ displayName, locale })` — also copies the name to the caller's member docs (D-26)
 - `deleteAccount({})` → FR-1.5; leaves every group (D-23), **deletes** every invite naming the user in
-  either `createdBy` or `usedBy`, deletes attempts and profile, then the auth user last; every step idempotent
+  either `createdBy` or `usedBy`, deletes attempts, the practice session and the profile, then the auth
+  user last; every step idempotent
 
 ### Error codes
 `unauthenticated`, `invalid-argument`, `not-found`, `permission-denied`, `not-invited`,
@@ -531,6 +571,7 @@ service cloud.firestore {
     // bearingDeg beside distanceKm, and the two solve for the answer's centroid
     // in closed form (D-36). Every read the game does goes through a callable.
     match /attempts/{attemptId} { allow read, write: if false; }
+    match /practice/{uid}       { allow read, write: if false; }  // FR-9: `subject` is the answer
 
     match /tournaments/{tid} {                  // D-39
       allow read, write: if false;

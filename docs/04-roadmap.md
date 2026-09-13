@@ -204,10 +204,17 @@ switch is deployed. Done for D-52 on 2026-09-10 (seed 20260911, days 2026-09-11 
 **and owed again for D-53**, because those days hold three challenges and not four. Re-seed from
 tomorrow, never over a day already being played.
 
+**Done 2026-09-13 — practice mode (FR-9, D-60), answering OQ-7.** One kind, one challenge at a
+time, for as long as you like, scored for nobody. It was deferred from Phase 1 as "a whole second
+round lifecycle" and by now it is not one: a practice challenge is a card of exactly one item, so
+`lib/card.ts` does all of it and `lib/practice.ts` adds the sequence, the totals and the picker.
+What it did cost is the picker: without withholding the daily's next eight days, practising `gdp`
+is a way to look up today's answer, because that prompt names its own country (D-60). It also
+gives the next kind a place to be played before it is scheduled, which is what Paulo asked for.
+
 - Archive of past puzzles (FR-2.12), unranked
 - Streak display and personal stats page
 - pt-BR / en toggle (FR-6.6, OQ-6)
-- Practice mode (OQ-7)
 - Better share cards
 - Autocomplete miss-log review, alias expansion
 - `minInstances` tuning against real p95 latency (NFR-2)

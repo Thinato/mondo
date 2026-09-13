@@ -7,7 +7,8 @@ Context for AI coding agents working in this repo. Read `docs/00-brief.md` throu
 
 A daily country-guessing game served at `lisecki.dev/mondo/`, built for a small competitive
 group. A day is four challenges — silhouette, flag, capital, GDP per capita — played in order
-(D-52, D-53). Vanilla frontend published from `site/` by GitHub Pages, Firebase backend.
+(D-52, D-53). There is also a practice mode: one kind, as many challenges as you like, scored
+for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages, Firebase backend.
 
 ## Invariants — never violate these
 
@@ -18,7 +19,7 @@ group. A day is four challenges — silhouette, flag, capital, GDP per capita �
    alongside the exact distance (D-36), because the two solve for the answer's centroid from a
    single guess. The client gets `compass`, the 8-point arrow.
 2. **No client writes to score-bearing or membership-bearing data.** `puzzles`, `attempts`,
-   `challenges`, `groups/**`, `invites`, and the `role`/`groups` fields on `users` are
+   `practice`, `challenges`, `groups/**`, `invites`, and the `role`/`groups` fields on `users` are
    Admin-SDK-only. Firestore rules default-deny. The client never loads the Firestore SDK;
    every read goes through a callable.
 3. **Server timestamps only.** Never trust client-supplied time for anything scored.
@@ -71,6 +72,14 @@ group. A day is four challenges — silhouette, flag, capital, GDP per capita �
   a shape or centroid into `site/`, stop.
 - D-8 exceptions (archipelagos that keep more than one island) live in `tools/overrides.json`
   with a reason each (D-14). Do not add distance heuristics to the pipeline instead.
+- **Practice is a card of one item** (FR-9, D-60). `lib/practice.ts` owns only the sequence, the
+  totals and the subject picker; the guess budget, the throttle, the score and the reveal are
+  `lib/card.ts`'s, unchanged. Two things there are load-bearing. The session lives in
+  **`practice/{uid}`, never in `attempts`** — a document that is not in `attempts` cannot reach a
+  board at all, which is a stronger guarantee than remembering to filter it out. And the picker
+  **withholds the daily's subjects from today to +7 days**: without that, practising `gdp` is a
+  way to look up today's answer, because that prompt names its own country. Do not widen the
+  window to FR-5.2's ±60 — that withholds more than half the pool from the drill it exists to be.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).
