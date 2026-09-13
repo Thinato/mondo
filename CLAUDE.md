@@ -58,6 +58,14 @@ group. A day is four challenges — silhouette, flag, capital, GDP per capita �
 
 - Only the largest landmass of each country is rendered. France is metropolitan France. This is
   decision D-8; see `docs/03-geo-data-pipeline.md` §3.1.
+- **Four silhouettes are not Natural Earth** (D-59). Monaco, San Marino, Liechtenstein and
+  Nauru come from vendored mapsicon artwork in `tools/mapsicon/`, because ne_10m gives Monaco
+  12 vertices and Nauru 9 and they all render as the same blob. Only the OUTLINE is borrowed —
+  centroids, and so every distance and compass hint, stay Natural Earth. **Tuvalu and the
+  Marshall Islands have no silhouette at all** and are absent from `shapes.json`; they keep
+  their other three kinds. Exceptions live in `tools/shape-overrides.json` with a reason each.
+  mapsicon has no formal licence, only a written grant requiring attribution and forbidding
+  resale — it is in `NOTICE`, and it is the only such source in the build.
 - There are **no shape keys and no public shape files**. Shapes and centroids exist only in
   `backend/functions/src/data/`; `getRound` inlines one path per round (D-13). If a change puts
   a shape or centroid into `site/`, stop.
@@ -68,6 +76,8 @@ group. A day is four challenges — silhouette, flag, capital, GDP per capita �
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).
 - `assets/` is gitignored reference material of unknown license (D-15, D-16). Nothing under
   `site/`, `backend/` or the build may read it; only `tools/preview.html` shows it, locally.
+  It is **not** mapsicon — that was checked on 2026-09-13, the files differ — so D-59 changes
+  nothing here.
 - Local runs use the `demo-mondo` project id and `npx firebase-tools`, not the Homebrew
   `firebase` binary. See `docs/02-architecture.md` §8.
 - **Playing is invite-only** (FR-1.7, D-28): a `player` with no group gets `not-invited`. Groups

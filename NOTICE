@@ -104,3 +104,36 @@ https://github.com/firebase/firebase-js-sdk
 
 Loaded as ES modules from Google's CDN (gstatic.com). Not vendored into this
 repository.
+
+
+-------------------------------------------------------------------------------
+mapsicon  —  silhouettes for four microstates
+-------------------------------------------------------------------------------
+Author:    Régis Freyd
+Source:    https://github.com/djaiss/mapsicon
+Retrieved: 2026-09-13, all/<cc>/vector.svg at master
+License:   None stated. The project's README grants, verbatim:
+
+               Do what you want with them as long as you mention me in your
+               project. Please don't resell them - I forbid it!
+
+    Mondo is free to play and sells nothing, so the second condition is met.
+    This entry, and tools/mapsicon/README.md, are how the first is met.
+
+    Four countries take their silhouette from this artwork instead of from
+    Natural Earth: Monaco, San Marino, Liechtenstein and Nauru (D-59). Natural
+    Earth's 10m dataset does not resolve a country of a few square kilometres —
+    Nauru is nine vertices there, Monaco twelve — and the three of them rendered
+    as the same blob, which makes a question unanswerable rather than hard.
+
+    Only the OUTLINE comes from here. Every centroid, and therefore every
+    distance and compass hint the game gives, still comes from Natural Earth.
+    tools/lib/icon.mjs applies the file's own transform and fits the result into
+    the same 500x500 box the projected shapes use; the drawings are not modified
+    beyond that and coordinate rounding.
+
+    This is the only artwork in the build from a source without a formal
+    licence. It is committed under tools/mapsicon/ rather than fetched, so its
+    provenance stays legible. It is unrelated to the gitignored assets/
+    directory, which is reference material of unknown origin (D-15, D-16) and
+    remains barred from the build.

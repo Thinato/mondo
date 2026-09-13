@@ -125,6 +125,51 @@ Per country: project with `d3.geoAzimuthalEqualArea` centred on that country's c
 `fitExtent` into a fixed 500×500 viewBox with 24px padding. Every silhouette then occupies
 similar screen area regardless of real size, satisfying FR-6.2 (area must not be a free hint).
 
+### 3.5a Where Natural Earth runs out (D-59)
+
+10m is the finest resolution `world-atlas` ships, and it is not fine enough for a country of a
+few square kilometres. Vertex counts straight out of `ne_10m_admin_0_countries`, against a pool
+median of **210**:
+
+| | vertices in ne_10m | after D-59 |
+|---|---|---|
+| Nauru | 9 | 103 (mapsicon) |
+| Monaco | 12 | 285 (mapsicon) |
+| Tuvalu | 13 | **no silhouette** |
+| Marshall Islands | 17 | **no silhouette** |
+| San Marino | 19 | 229 (mapsicon) |
+| Liechtenstein | 26 | 166 (mapsicon) |
+
+The failure was not that these looked crude. It was that Monaco, Nauru and San Marino looked
+like **the same blob as each other**, so the question had no answer a player could reach.
+
+**Four take their outline from [mapsicon](https://github.com/djaiss/mapsicon)**, vendored under
+`tools/mapsicon/` and converted by `tools/lib/icon.mjs`: parse the path, apply the file's own
+potrace `translate/scale` transform, fit into the same 500×500 box §3.4 uses. Curves survive the
+trip — an affine map takes Béziers to Béziers, control points included — so there is no
+flatten-then-re-approximate step, and the result is both smoother and smaller.
+
+Three boundaries keep this from spreading:
+
+1. **Outline only.** The centroid still comes from Natural Earth (§3.2), so every distance and
+   compass hint is computed from surveyed geometry. mapsicon is hand-drawn art and must not
+   reach the scoring path.
+2. **Single-landmass countries only.** mapsicon draws every island, which contradicts D-8.
+   Maldives, São Vicente and São Cristóvão stay on Natural Earth rather than become a vertical
+   line of specks. `backend/functions/test/countries.test.ts` pins the list of four.
+3. **Refuse, never guess.** `icon.mjs` throws `UnsupportedIcon` on any command it does not
+   understand, on more than one `<path>`, and on a missing group transform. An arc quietly
+   dropped is a country with a bite out of it and no error anywhere.
+
+**Two get no silhouette at all.** Tuvalu and the Marshall Islands are atoll nations: D-8 keeps
+the largest landmass, which is a speck, and mapsicon does not have them. They are absent from
+`shapes.json`, so `KINDS.shape.pool()` drops them, and they keep their flag, capital and GDP
+challenges. This is D-20's treatment of the Vatican, reached deliberately instead of by
+`buildShape` refusing degenerate input.
+
+Both lists live in `tools/shape-overrides.json` with a reason per country. mapsicon's terms —
+attribution, no resale, no formal licence — are in `NOTICE` and `tools/mapsicon/README.md`.
+
 ### 3.5 Optional rotation
 
 Generate a fixed random rotation (0–359°) per `shapeKey` at build time and bake it into the
