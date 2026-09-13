@@ -42,3 +42,10 @@ export const listTournaments = call("listTournaments");
 export const getTournament = call("getTournament");
 export const getCard = call("getCard");
 export const submitCardGuess = call("submitCardGuess");
+
+// FR-9 — practice. Four calls around one session document; nothing here is
+// scored, shared or counted, and the answer still never leaves the server.
+export const startPractice = call("startPractice");
+export const nextPractice = call("nextPractice");
+export const submitPracticeGuess = call("submitPracticeGuess");
+export const endPractice = call("endPractice");

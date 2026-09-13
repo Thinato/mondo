@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo — treino</title>
+<meta name="description" content="Treine um tipo de desafio de cada vez. Nada daqui conta para o ranking.">
+<link rel="stylesheet" href="./mondo.css">
+<script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+<!-- D-37: no referrer policy on any page. The Firebase web API key is referrer-restricted
+     (SEC-9), so no-referrer would have the key rejected and break sign-in. -->
+</head>
+<body>
+<header>
+  <h1><a href="./">Mondo</a></h1>
+  <nav aria-label="Principal">
+    <a href="./">Jogar</a>
+    <a href="./grupos.html">Grupos</a>
+    <a href="./torneios.html">Torneios</a>
+    <a href="./regras.html">Regras</a>
+    <button id="sign-out" type="button" class="link" hidden>Sair</button>
+  </nav>
+</header>
+
+<main>
+  <section id="signed-out">
+    <p class="sub">Entre para treinar.</p>
+    <button id="sign-in" type="button" class="primary">Entrar com Google</button>
+  </section>
+
+  <!-- FR-9.1 — choose a kind, then play it until you are bored. -->
+  <section id="pick" hidden>
+    <p class="sub">Treine um tipo de desafio de cada vez, quantas vezes quiser.
+    Nada daqui conta para o ranking nem aparece para o seu grupo.</p>
+    <h2 class="title">O que você quer treinar?</h2>
+    <ul id="picker" class="picker"></ul>
+  </section>
+
+  <!-- The challenge itself. Same elements, same ids and therefore the same CSS
+       as the daily: a practice challenge IS a daily challenge with nothing at
+       stake, and the moment the two screens diverge one of them starts lying. -->
+  <section id="train" hidden>
+    <div class="prompt-head">
+      <p id="progress" class="fine" aria-live="polite"></p>
+      <div class="head-actions">
+        <button id="help-btn" type="button" class="help-btn" title="Como ler as pistas"
+                aria-label="Como ler as pistas" aria-haspopup="dialog">?</button>
+        <button id="leave-btn" type="button" class="link">Sair do treino</button>
+      </div>
+    </div>
+
+    <figure class="silhouette" id="shape-wrap" hidden>
+      <svg id="shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
+    </figure>
+    <figure class="flag" id="flag-wrap" hidden>
+      <svg id="flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
+    </figure>
+    <p id="capital" class="capital-prompt" hidden></p>
+
+    <ol id="guesses" class="guesses" aria-label="Tentativas"></ol>
+
+    <!-- FR-6.10 / D-55: a finished challenge holds the screen until dismissed. -->
+    <section id="reveal" class="reveal" hidden aria-live="polite">
+      <p id="reveal-text"></p>
+      <button id="reveal-next" type="button" class="primary">Próximo desafio</button>
+    </section>
+
+    <form id="guess-form" autocomplete="off">
+      <div class="combo" id="guess-combo">
+        <input id="guess-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+               aria-controls="guess-list" aria-label="País" placeholder="Digite um país…"
+               autocapitalize="off" spellcheck="false" enterkeyhint="go">
+        <ul id="guess-list" role="listbox" aria-label="Países" hidden></ul>
+      </div>
+      <div class="money" id="guess-money" hidden>
+        <span aria-hidden="true">US$</span>
+        <input id="guess-number" type="number" inputmode="numeric" min="1" step="1"
+               aria-label="PIB per capita em dólares" placeholder="20.000" enterkeyhint="go">
+      </div>
+      <button id="guess-submit" type="submit" class="primary">Chutar</button>
+    </form>
+
+    <p id="left" class="fine" aria-live="polite"></p>
+  </section>
+
+  <p id="status" aria-live="polite"></p>
+
+  <!-- FR-9.4 — what the run came to, shown after leaving. The list above it is
+       the same one the run was building; leaving does not erase it. -->
+  <section id="summary" class="result" hidden>
+    <p id="summary-text"></p>
+    <div class="row">
+      <button id="again" type="button" class="primary">Treinar de novo</button>
+      <a href="./" class="link">Voltar ao jogo de hoje</a>
+    </div>
+  </section>
+
+  <!-- The run so far: one line per finished challenge, built from the reveals
+       the player has already been shown. Nothing here was ever secret. -->
+  <ol id="items" class="card-items" aria-label="Desafios deste treino"></ol>
+</main>
+
+<footer>
+  <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> ·
+  <a href="https://github.com/Thinato/mondo">Código</a>
+</footer>
+
+<dialog id="leave-dialog">
+  <form id="leave-form" method="dialog">
+    <h2>Sair do treino</h2>
+    <p id="leave-text"></p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Continuar treinando</button>
+      <button type="submit" value="ok" class="primary">Sair e ver o total</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- FR-6.9 / D-56 — the same "?" the daily has, reading the same "already seen"
+     flag, so nobody is shown the same explanation twice on two screens. -->
+<dialog id="help-dialog" class="help">
+  <button type="button" id="help-close" class="close" aria-label="Fechar">&times;</button>
+  <h2 id="help-title"></h2>
+  <p id="help-body"></p>
+</dialog>
+
+<script type="module" src="./app/practice.js"></script>
+</body>
+</html>

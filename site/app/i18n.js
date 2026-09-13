@@ -172,6 +172,24 @@ const PT_BR = {
   itemState: { solved: "acertou", failed: "errou", current: "agora", pending: "a seguir" },
   drafting: "{n} inscritos. O organizador começa quando quiser.",
   notPlaying: "Você não está neste torneio.",
+  // practice (FR-9). The whole point of the screen is that nothing on it is
+  // shared, so the copy says so twice: once before you start and once in the
+  // total. The per-kind lines describe the QUESTION and never the guess budget,
+  // which belongs to the kind and would go stale here the day one changed.
+  practice: {
+    about: {
+      shape: "Que país tem esta silhueta?",
+      flag: "Que país tem esta bandeira?",
+      capital: "Que país tem esta capital?",
+      gdp: "Qual o PIB per capita deste país?",
+    },
+    counter: "Desafio {n} · {points} pts",
+    next: "Próximo desafio",
+    confirmLeave: "Sair do treino? Você vai ver o total do que fez até agora.",
+    done: "{points} de {max} pontos em {n} desafio, {solved}.|{points} de {max} pontos em {n} desafios, {solved}.",
+    doneNone: "Você saiu antes de terminar um desafio. Nada para somar.",
+    solvedCount: "{n} acerto|{n} acertos",
+  },
   // account (FR-1.5)
   deleted: "Conta apagada.",
   compass: { N: "norte", NE: "nordeste", E: "leste", SE: "sudeste", S: "sul", SW: "sudoeste", W: "oeste", NW: "noroeste" },
