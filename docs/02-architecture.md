@@ -389,9 +389,16 @@ time** — the current challenge's — plus a status line per challenge.
   "maxPoints": 24,
   "elapsedMs": null,
   "shareGrid": null,                // set when the day ends
-  "serverTime": "2026-09-14T15:02:11.482Z"
+  "serverTime": "2026-09-14T15:02:11.482Z",
+  "me": { "displayName": "capivara-veloz-0417", "role": "player", "groupCount": 1,
+          "currentStreak": 12, "longestStreak": 19,      // D-57: four counters off a profile
+          "totalPlayed": 34, "totalSolved": 28 }         //   both doors already read
 }
 ```
+
+`me` is present on **both** `getRound` and `submitGuess`. It used to be null on the latter, which
+meant the streak beside the game only ticked on the next reload — right in the data and wrong on
+screen, since the guess that ends the day is the streak's whole moment (D-58).
 
 **An answer appears only on a challenge that is already over**, never on the ones ahead of the
 cursor (SEC-1). That is the same line `getCard` draws for tournaments, and the reason both are

@@ -192,7 +192,11 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
 
 ## FR-6 — Client experience
 
-- **FR-6.1** The game MUST work on mobile viewports down to 360px wide.
+- **FR-6.1** The game MUST work on mobile viewports down to 360px wide, and no page MUST scroll
+  horizontally at any width from 360px up. Wide content — a ranking table, the scoring table —
+  MUST scroll inside its own box instead. *(The second clause was added 2026-09-12 with D-57, and
+  four pages were failing it: see the `nav`, `.cards li a`, `.cards .meta` and `main.prose
+  .table-wrap` rules in `mondo.css`.)*
 - **FR-6.2** The silhouette MUST render as inline SVG, scaled to fit, with a consistent visual
   size regardless of the country's real area (so area is not a free hint).
 - **FR-6.3** Autocomplete MUST match on: canonical English name, pt-BR name, ISO alpha-2 and
@@ -212,6 +216,11 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   leaving the game, from a control beside the challenge. That explanation MUST open itself the
   first time the player meets each hint vocabulary (country hints; number hints) and MUST be
   dismissed deliberately. Having been read once, it MUST NOT reappear unasked.
+- **FR-6.11** *(added 2026-09-12, D-57)* From 960px up the game MUST use the extra width to show
+  context beside the challenge — who else is playing today, and the player's own streak — WITHOUT
+  changing the challenge's own layout. Below 960px the layout MUST be unchanged from the phone
+  layout. Context MUST NOT delay or block the game: its requests are never awaited by the game and
+  its failures are never shown to the player.
 - **FR-6.10** *(added 2026-09-11, D-55)* A finished challenge MUST hold the screen — its outcome,
   its answer and the guesses that got there — until the player chooses to go on. The next prompt
   MUST NOT be rendered before that choice. A solve MAY be celebrated; any such animation MUST be
