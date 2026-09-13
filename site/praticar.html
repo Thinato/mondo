@@ -36,6 +36,12 @@
     <ul id="picker" class="picker"></ul>
   </section>
 
+  <!-- Two columns on a desktop, one on a phone (FR-9.8, D-63). The wrapper exists
+       only for the grid: below 60rem it is an ordinary block and everything
+       inside it stacks in document order, which is the phone view unchanged. -->
+  <div id="run-cols">
+  <div class="play-col">
+
   <!-- The challenge itself. Same elements, same ids and therefore the same CSS
        as the daily: a practice challenge IS a daily challenge with nothing at
        stake, and the moment the two screens diverge one of them starts lying. -->
@@ -89,7 +95,7 @@
 
   <p id="status" aria-live="polite"></p>
 
-  <!-- FR-9.4 — what the run came to, shown after leaving. The list above it is
+  <!-- FR-9.4 — what the run came to, shown after leaving. The list beside it is
        the same one the run was building; leaving does not erase it. -->
   <section id="summary" class="result" hidden>
     <p id="summary-text"></p>
@@ -99,9 +105,19 @@
     </div>
   </section>
 
+  </div>
+
   <!-- The run so far: one line per finished challenge, built from the reveals
-       the player has already been shown. Nothing here was ever secret. -->
-  <ol id="items" class="card-items" aria-label="Desafios deste treino"></ol>
+       the player has already been shown, plus what they add up to. Nothing here
+       was ever secret. On a phone this is simply the block under the game, where
+       it has always been, and the totals are hidden — the counter above the
+       challenge already carries the score, and there is no room for the rest. -->
+  <aside id="run-side">
+    <dl id="run-stats" class="stats"></dl>
+    <ol id="items" class="card-items" aria-label="Desafios deste treino"></ol>
+  </aside>
+
+  </div>
 </main>
 
 <footer>

@@ -191,6 +191,13 @@ const PT_BR = {
     done: "{points} de {max} pontos em {n} desafio, {solved}.|{points} de {max} pontos em {n} desafios, {solved}.",
     doneNone: "Você saiu antes de terminar um desafio. Nada para somar.",
     solvedCount: "{n} acerto|{n} acertos",
+    // The desktop panel (FR-6.11). "Taxa de acerto" is desafios acertados sobre
+    // desafios terminados — not points over the maximum, which is a different
+    // number and would disagree with "Acertos" sitting directly above it.
+    statPoints: "Pontos",
+    statPlayed: "Desafios",
+    statSolved: "Acertos",
+    statRate: "Taxa de acerto",
   },
   // account (FR-1.5)
   deleted: "Conta apagada.",

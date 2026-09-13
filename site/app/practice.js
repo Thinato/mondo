@@ -29,7 +29,7 @@ const el = {
   guesses: $("guesses"), reveal: $("reveal"), revealText: $("reveal-text"), revealNext: $("reveal-next"),
   form: $("guess-form"), combo: $("guess-combo"), input: $("guess-input"), list: $("guess-list"),
   money: $("guess-money"), number: $("guess-number"), submit: $("guess-submit"),
-  left: $("left"), status: $("status"), items: $("items"),
+  left: $("left"), status: $("status"), items: $("items"), stats: $("run-stats"),
   summary: $("summary"), summaryText: $("summary-text"), again: $("again"),
   leaveDialog: $("leave-dialog"), leaveText: $("leave-text"),
 };
@@ -214,6 +214,25 @@ function render() {
       : t("practice.done", { n: played, points, max: maxPoints, solved: t("practice.solvedCount", { n: solved }) });
   }
   renderRun();
+  renderStats();
+}
+
+/**
+ * The totals as they should read right now, which is not always what the server
+ * last said: while a finished challenge is being revealed, `totals` has not been
+ * told about it yet (the server counts it on `next`). A reveal saying "+5
+ * pontos" beside a total that still says 0 reads as the 5 not having counted,
+ * so the challenge on screen is folded in here — once, for every readout.
+ */
+function totalsNow() {
+  const base = view?.totals ?? { played: 0, solved: 0, points: 0 };
+  if (view?.status !== "in_progress" || view.item.status === "current") return base;
+  const item = view.item;
+  return {
+    played: base.played + 1,
+    solved: base.solved + (item.status === "solved" ? 1 : 0),
+    points: base.points + item.points,
+  };
 }
 
 function renderChallenge() {
@@ -222,11 +241,12 @@ function renderChallenge() {
   const kind = revealing ? null : item.prompt?.kind ?? null;
 
   // The counter counts the challenge on screen, including while it is being
-  // revealed — `totals` has not been told about that one yet (the server counts
-  // it on `next`), and a reveal saying "+5 pontos" beside a total that still
-  // says 0 reads as the 5 not having counted.
-  const points = view.totals.points + (revealing ? item.points : 0);
-  el.progress.textContent = t("practice.counter", { n: view.totals.played + 1, points });
+  // revealed — see totalsNow.
+  const now = totalsNow();
+  el.progress.textContent = t("practice.counter", {
+    n: revealing ? now.played : now.played + 1,
+    points: now.points,
+  });
   el.helpBtn.hidden = revealing;
   el.giveUpBtn.hidden = revealing;
 
@@ -277,6 +297,26 @@ function renderRun() {
     pts.textContent = `${it.points} pts`;
     li.append(n, label, pts);
     return li;
+  }));
+}
+
+/**
+ * The run's totals, for the desktop panel (FR-6.11). Hidden below 60rem by
+ * mondo.css, where the counter above the challenge already carries the score
+ * and there is no room for anything else.
+ */
+function renderStats() {
+  if (!view) return el.stats.replaceChildren();
+  const { played, solved, points } = totalsNow();
+  el.stats.replaceChildren(...[
+    ["practice.statPoints", String(points)],
+    ["practice.statPlayed", String(played)],
+    ["practice.statSolved", String(solved)],
+    ["practice.statRate", played === 0 ? "—" : `${Math.round((solved / played) * 100)}%`],
+  ].flatMap(([key, value]) => {
+    const dt = document.createElement("dt"); dt.textContent = t(key);
+    const dd = document.createElement("dd"); dd.textContent = value;
+    return [dt, dd];
   }));
 }
 

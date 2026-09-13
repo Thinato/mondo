@@ -364,17 +364,26 @@ h2.title { font-size: 1.25rem; margin: 0 0 .25rem; }
   body:has(#card:not([hidden])) main,
   body:has(#card:not([hidden])) footer { max-width: 54rem; }
   #game, #card { max-width: 54rem; }
-  /* FR-9 is the one game screen with no context to put beside it: a practice
-     run is shared with nobody, so there is no "Hoje" and no board to show. It
-     gets the narrow shell instead of a two-column grid with an empty half. */
+  /* FR-9.8 / D-63 — practice has no board to put beside it, because a run is
+     shared with nobody, and D-60 read that as having no context at all. It has
+     a history: every challenge already revealed, and what they add up to. So
+     the same shell and the same grid as the daily, for the same reason. */
   body:has(#train) header,
   body:has(#train) main,
-  body:has(#train) footer { max-width: 34rem; }
+  body:has(#train) footer { max-width: 54rem; }
+  /* …except while the picker is up. Four buttons and nothing beside them do not
+     fill 54rem, and a nav whose right edge lands a column away from the widest
+     thing under it reads as something missing. Same `:not([hidden])` trick as
+     torneios.html, driven by the same attribute the page already toggles. */
+  body:has(#pick:not([hidden])) header,
+  body:has(#pick:not([hidden])) main,
+  body:has(#pick:not([hidden])) footer { max-width: 34rem; }
+  #run-side { min-width: 0; position: sticky; top: 1rem; }
 
   /* The game, unchanged, with context beside it. Exactly two grid children —
      the play column and the panel — so placement is deterministic and nothing
      auto-flows into the wrong column. */
-  #game, #card {
+  #game, #card, #run-cols {
     display: grid;
     grid-template-columns: minmax(0, 30rem) minmax(17rem, 21rem);
     gap: 2.5rem;
