@@ -262,6 +262,10 @@ to test new challenges."*
   its own country, so a player could click through the pool until it came up.
 - **FR-9.6** Practice is **invite-only**, on the same gate as the daily (FR-1.7).
 - **FR-9.7** A session need not survive a reload. Reopening the page MAY start over.
+- **FR-9.8** *(added 2026-09-13, D-63)* From 960px up, practice MUST show the run beside the
+  challenge — the challenges already finished, and the totals they add up to: points, challenges,
+  solves, and the share of challenges solved. Below 960px the layout MUST be unchanged from the
+  phone layout. This is FR-6.11 applied to a run rather than to a group.
 
 ---
 
