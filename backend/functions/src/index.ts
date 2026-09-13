@@ -22,7 +22,7 @@ import { REGION } from "./lib/config";
 
 initializeApp();
 
-export { getRound, submitGuess } from "./round";
+export { getRound, submitGuess, giveUp } from "./round";
 export { updateProfile } from "./profile";
 export {
   createGroup, createInvite, listInvites, revokeInvite, acceptInvite, leaveGroup, removeMember, renameGroup, listGroups,
@@ -34,7 +34,7 @@ export {
   createTournament, setParticipation, startTournament, advanceTournament, cancelTournament,
   listTournaments, getTournament, getCard, submitCardGuess,
 } from "./tournaments";
-export { startPractice, nextPractice, submitPracticeGuess, endPractice } from "./practice";
+export { startPractice, nextPractice, submitPracticeGuess, giveUpPractice, endPractice } from "./practice";
 export { rebuildStandings } from "./standings";
 export { scheduleHealthCheck } from "./health";
 

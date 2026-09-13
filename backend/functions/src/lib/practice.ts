@@ -16,7 +16,7 @@
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
-import { applyCardGuess, buildCard, newCardCore, type CardCore, type CardPlayItem } from "./card";
+import { applyCardGuess, buildCard, giveUpCard, newCardCore, type CardCore, type CardPlayItem } from "./card";
 import { mondoError } from "./errors";
 import { kindById, MAX_ITEM_POINTS, type KindId, type Prompt } from "./kinds";
 import { guessView, type GuessView } from "./round";
@@ -107,6 +107,18 @@ export function applyPracticeGuess(s: PracticeSession, raw: unknown, now: Timest
   if (s.endedAt !== null) throw mondoError("already-completed", "This practice session is over.");
   if (s.item.finishedAt !== null) throw mondoError("already-completed", "This challenge is over.");
   const after = applyCardGuess(coreOf(s), [{ kind: s.kind, subject: s.subject }], raw, now);
+  return { ...s, item: after.items[0]! };
+}
+
+/**
+ * Give up on the challenge on screen (FR-2.13, D-61): zero points, and the
+ * answer arrives through the same reveal a challenge with no guesses left gets.
+ * The session runs on; `next` counts this one like any other finished challenge.
+ */
+export function giveUpPractice(s: PracticeSession, now: Timestamp): PracticeSession {
+  if (s.endedAt !== null) throw mondoError("already-completed", "This practice session is over.");
+  if (s.item.finishedAt !== null) throw mondoError("already-completed", "This challenge is over.");
+  const after = giveUpCard(coreOf(s), [{ kind: s.kind, subject: s.subject }], now);
   return { ...s, item: after.items[0]! };
 }
 

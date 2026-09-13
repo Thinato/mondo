@@ -221,21 +221,51 @@ export function applyCardGuess(play: CardCore, card: readonly CardItem[], raw: u
 
   const { guess, correct } = kind.grade(cardItem.subject, raw, now);
   const guesses = [...item.guesses, guess];
-  const items = [...play.items];
 
   if (!correct && guesses.length < kind.maxGuesses) {
+    const items = [...play.items];
     items[i] = { ...item, guesses };
     return { ...play, items };
   }
+  return closeItem(play, i, guesses, correct, now);
+}
 
-  // The item is over: score it, and start the next one's clock now so that
-  // per-item elapsed time is contiguous and the total is honest.
+/**
+ * Give up on the current item (FR-2.13, D-61): it is over, it is worth nothing,
+ * and the answer is revealed by the same projection that reveals a challenge
+ * whose guesses ran out.
+ *
+ * It closes the item exactly as a final wrong guess would, minus the guess — so
+ * the clock, the cursor, the card's own finish and the share grid all behave
+ * without knowing this exists. `scoreItem` returns 0 for anything unsolved
+ * whatever the guess count, including none, so there is no score to special-case.
+ *
+ * Deliberately not rate-limited: unlike a guess, this can happen only once per
+ * item, so SEC-5 has nothing to protect here.
+ */
+export function giveUpCard(play: CardCore, card: readonly CardItem[], now: Timestamp): CardCore {
+  if (play.finishedAt !== null) throw mondoError("already-completed", "This card is finished.");
+  if (play.items.length !== card.length) throw mondoError("not-found", "This round is not ready.");
+  const item = play.items[play.cursor];
+  if (!item || !card[play.cursor]) throw mondoError("already-completed", "This card is finished.");
+  return closeItem(play, play.cursor, item.guesses, false, now);
+}
+
+/**
+ * The item at `i` is over: score it, and start the next one's clock now so that
+ * per-item elapsed time is contiguous and the total is honest. Shared by the
+ * two ways an item can end — a guess that settles it, and giving up — so that
+ * neither can drift from the other.
+ */
+function closeItem(play: CardCore, i: number, guesses: StoredGuess[], solved: boolean, now: Timestamp): CardCore {
+  const item = play.items[i]!;
+  const items = [...play.items];
   const startedAt = item.startedAt ?? play.startedAt;
   items[i] = {
     ...item,
     guesses,
-    solved: correct,
-    points: scoreItem(kind, correct, guesses.length),
+    solved,
+    points: scoreItem(kindById(item.kind), solved, guesses.length),
     startedAt,
     finishedAt: now,
     elapsedMs: now.toMillis() - startedAt.toMillis(),

@@ -18,7 +18,7 @@
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
-import { applyCardGuess, newCardCore, cardIntervalsMs, totalGuesses, type CardCore, type CardItem } from "./card";
+import { applyCardGuess, giveUpCard, newCardCore, cardIntervalsMs, totalGuesses, type CardCore, type CardItem } from "./card";
 import { countryByCode, type Country } from "./countries";
 import { mondoError } from "./errors";
 import { compass8, type Compass } from "./geo";
@@ -226,6 +226,21 @@ export function applyGuess(legacyOrCurrent: Attempt, card: readonly CardItem[], 
     // points are the honest measure, and they are separate.
     solved: core.items.every((it) => it.solved),
   };
+}
+
+/**
+ * Give up on today's current challenge (FR-2.13, D-61). The same three
+ * derived fields `applyGuess` maintains, because it ends an item the same way.
+ *
+ * A day given up on is still a day *finished*: it carries a score of zero for
+ * that challenge, `solved` goes false, and the streak counts it like any other
+ * completed round. That is deliberate — the streak measures turning up, and a
+ * player could already reach the same place by spending fifteen wrong guesses.
+ */
+export function giveUp(legacyOrCurrent: Attempt, card: readonly CardItem[], now: Timestamp): Attempt {
+  const attempt = upgradeAttempt(legacyOrCurrent);
+  const core = giveUpCard(attempt, card, now);
+  return { ...attempt, ...core, guessCount: totalGuesses(core), solved: core.items.every((it) => it.solved) };
 }
 
 /** Profile after a round completes (FR-3.6, §3.1 counters). */

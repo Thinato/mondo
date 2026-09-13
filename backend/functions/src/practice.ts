@@ -23,7 +23,7 @@ import { callable } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { kindById } from "./lib/kinds";
 import {
-  applyPracticeGuess, endSession, newSession, practiceView, serveNext,
+  applyPracticeGuess, endSession, giveUpPractice as giveUpSession, newSession, practiceView, serveNext,
   PRACTICE_EXCLUSION_DAYS, type PracticeSession, type PracticeView,
 } from "./lib/practice";
 import { puzzleIdAt } from "./lib/puzzle-day";
@@ -110,6 +110,24 @@ export const submitPracticeGuess = callable<{ guess: unknown }, PracticeView>(as
     requireCanPlay(profileSnap.exists ? (profileSnap.data() as Profile) : null);
     if (!snap.exists) throw mondoError("not-found", "Start a practice session first.");
     const after = applyPracticeGuess(snap.data() as PracticeSession, raw, now);
+    tx.set(practiceRef(uid), after);
+    return after;
+  });
+  return practiceView(session, now);
+});
+
+/**
+ * giveUpPractice({}) — end the challenge on screen at zero and see the answer
+ * (FR-2.13, D-61). The session runs on; `nextPractice` counts this challenge
+ * like any other finished one.
+ */
+export const giveUpPractice = callable<unknown, PracticeView>(async (uid) => {
+  const now = Timestamp.now();
+  const session = await db().runTransaction(async (tx) => {
+    const [snap, profileSnap] = await Promise.all([tx.get(practiceRef(uid)), tx.get(userRef(uid))]);
+    requireCanPlay(profileSnap.exists ? (profileSnap.data() as Profile) : null);
+    if (!snap.exists) throw mondoError("not-found", "Start a practice session first.");
+    const after = giveUpSession(snap.data() as PracticeSession, now);
     tx.set(practiceRef(uid), after);
     return after;
   });

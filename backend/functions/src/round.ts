@@ -20,7 +20,7 @@ import { callable } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { puzzleIdAt } from "./lib/puzzle-day";
 import {
-  applyGuess, newAttempt, puzzleItems, recordCompletion, roundView,
+  applyGuess, giveUp as giveUpAttempt, newAttempt, puzzleItems, recordCompletion, roundView,
   type Attempt, type Profile, type Puzzle, type RoundView,
 } from "./lib/round";
 import { requireObject, requirePuzzleId } from "./lib/validate";
@@ -107,6 +107,37 @@ export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?:
     // exactly the moment the panel beside the game should tick over, and
     // returning the stale profile would make it tick on the next reload
     // instead — which reads as a bug even though nothing is wrong.
+    const done = attempt.finishedAt !== null && before !== null;
+    const profile = done ? recordCompletion(before!, attempt) : before;
+    if (done) tx.set(userRef(uid), profile!);
+    return { attempt, profile };
+  });
+
+  return roundView(attempt, puzzle, now, profile);
+});
+
+/**
+ * giveUp({ puzzleId }) — end today's current challenge at zero and see the
+ * answer (FR-2.13, D-61).
+ *
+ * The same transaction `submitGuess` runs, minus the guess: the same gate, the
+ * same attempt document, the same `recordCompletion` on the challenge that ends
+ * the day — because giving up on the last one finishes the day exactly as a
+ * final wrong guess does, and the profile it returns must be the one this call
+ * just wrote (D-58).
+ */
+export const giveUp = callable<{ puzzleId: unknown }, RoundView>(async (uid, data) => {
+  const puzzleId = requirePuzzleId(requireObject(data).puzzleId);
+  const now = Timestamp.now();
+  const puzzle = await loadOpenPuzzle(puzzleId, now);
+
+  const { attempt, profile } = await db().runTransaction(async (tx) => {
+    const [snap, profileSnap] = await Promise.all([tx.get(attemptRef(uid, puzzleId)), tx.get(userRef(uid))]);
+    const before = profileSnap.exists ? (profileSnap.data() as Profile) : null;
+    requireCanPlay(before);
+    if (!snap.exists) throw mondoError("not-found", "Call getRound before giving up.");
+    const attempt = giveUpAttempt(snap.data() as Attempt, puzzleItems(puzzle), now);
+    tx.set(attemptRef(uid, puzzleId), attempt);
     const done = attempt.finishedAt !== null && before !== null;
     const profile = done ? recordCompletion(before!, attempt) : before;
     if (done) tx.set(userRef(uid), profile!);
