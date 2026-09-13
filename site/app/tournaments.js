@@ -14,6 +14,7 @@ import { confetti } from "./confetti.js";
 import { guessRow, renderFlag, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
+import { fillBuckets } from "./people.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -35,6 +36,8 @@ const el = {
   helpBtn: $("help-btn"), helpDialog: $("help-dialog"), helpTitle: $("help-title"),
   helpBody: $("help-body"), helpClose: $("help-close"),
   cardReveal: $("card-reveal"), cardRevealText: $("card-reveal-text"), cardRevealNext: $("card-reveal-next"),
+  cardSide: $("card-side"), cardSideTitle: $("card-side-title"),
+  cardSideFinished: $("card-side-finished"), cardSidePlaying: $("card-side-playing"), cardSideWaiting: $("card-side-waiting"),
   confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
 
@@ -278,18 +281,11 @@ function renderRound() {
       : t("notPlaying");
   }
 
-  const by = (state) => cur.players.filter((p) => p.state === state).map(playerItem);
-  el.roundFinished.replaceChildren(...by("finished"));
-  el.roundPlaying.replaceChildren(...by("in_progress"));
-  el.roundWaiting.replaceChildren(...by("not_started"));
-}
-
-function playerItem(p) {
-  const li = document.createElement("li");
-  const name = document.createElement("span");
-  name.textContent = p.displayName;
-  li.append(name);
-  return li;
+  // FR-5.6 again: names, never scores, until the round closes.
+  fillBuckets({
+    players: cur.players,
+    finished: el.roundFinished, playing: el.roundPlaying, waiting: el.roundWaiting,
+  });
 }
 
 /**
@@ -456,6 +452,7 @@ async function openCard() {
   el.pick.hidden = el.list.hidden = el.detail.hidden = true;
   el.card.hidden = false;
   reveal = null;
+  el.cardSide.hidden = true;
   el.backFromCard.href = `./torneios.html?g=${gid}&t=${tid}`;
   setBusy(true);
   try {
@@ -467,9 +464,14 @@ async function openCard() {
         onMiss: (text) => { picked = null; if (text.trim()) setStatus(t("noMatch"), "warn"); },
       });
     }
+    // D-57: both in the same tick. The card is what the player came for; the
+    // panel beside it is context and is never waited on, never surfaced as an
+    // error, and simply stays hidden if it cannot load.
+    const tournamentSoon = api.getTournament({ tournamentId: tid }).catch(() => null);
     card = await api.getCard({ tournamentId: tid });
     setStatus("");
     renderCard();
+    loadCardSide(tournamentSoon).catch(() => { /* context only; never the player's problem */ });
   } catch (err) {
     setStatus(errorMessage(err), "err");
     el.card.hidden = true;
@@ -582,6 +584,26 @@ function renderCard() {
 
   el.cardDone.hidden = !done || revealing;
   if (done && !revealing) el.cardDone.textContent = t("cardDone", { points: card.points });
+}
+
+/**
+ * Who else is in this round, beside the card (D-57, FR-6.11).
+ *
+ * Playing a card is the loneliest screen in the app: one prompt, one clock, no
+ * sign that anyone else exists. This is the panel that makes a tournament feel
+ * live — and it is names only, because FR-5.6 keeps every score out until the
+ * round closes.
+ */
+async function loadCardSide(tournamentSoon) {
+  const t2 = await tournamentSoon;
+  const cur = t2?.current;
+  if (!cur) return;
+  el.cardSideTitle.textContent = t("roundOf", { n: cur.n, max: t2.rounds });
+  fillBuckets({
+    players: cur.players,
+    finished: el.cardSideFinished, playing: el.cardSidePlaying, waiting: el.cardSideWaiting,
+  });
+  el.cardSide.hidden = false;
 }
 
 el.cardRevealNext.addEventListener("click", () => {

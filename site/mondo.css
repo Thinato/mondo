@@ -68,7 +68,11 @@ header, main, footer { width: 100%; max-width: 30rem; margin: 0 auto; }
 header { display: flex; align-items: baseline; justify-content: space-between; padding: 1rem 0; }
 header h1 { font-size: 1.4rem; margin: 0; letter-spacing: -.01em; }
 header h1 a { color: inherit; text-decoration: none; }
-nav { display: flex; gap: 1rem; }
+/* Wrap rather than overflow: signed in as an admin the nav carries six items,
+   which is 22px wider than a 360px viewport (FR-6.1). Wrapping costs nothing
+   when there is room — this was a real horizontal scrollbar on the phone, found
+   2026-09-12 while measuring the desktop work. */
+nav { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: flex-end; }
 nav a, button.link { color: var(--muted); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: none; }
 nav a:hover, button.link:hover { color: var(--fg); text-decoration: underline; }
 
@@ -215,15 +219,26 @@ dialog .close:hover, dialog .close:focus-visible { color: var(--fg); background:
 
 /* Prose pages (regras, privacidade). */
 main.prose h2 { font-size: 1.15rem; margin-top: 1.75rem; }
+/* The scoring table is eight columns; below ~380px it does not fit and scrolled
+   the whole page sideways rather than itself (FR-6.1). The wrap is the fix the
+   boards already use. */
+main.prose .table-wrap { overflow-x: auto; }
 main.prose table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 main.prose th, main.prose td { border: 1px solid var(--line); padding: .4rem .6rem; text-align: center; }
 main.prose td:first-child, main.prose th:first-child { text-align: left; }
 
 /* Phase 2 — groups, boards, admin (FR-4.6, FR-4.11, FR-7). */
 .cards { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .5rem; }
-.cards li a { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; padding: .75rem; background: var(--card); border-radius: .5rem; text-decoration: none; }
+/* Wrap rather than overflow, like the nav: a tournament called "Almoço de
+   terça" beside "em andamento · 3 jogadores · Rodada 1 de 3" is wider than a
+   375px card, and `.meta` cannot break (FR-6.1). Found 2026-09-12 — it needed a
+   tournament to exist before it showed. */
+.cards li a { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; flex-wrap: wrap; padding: .75rem; background: var(--card); border-radius: .5rem; text-decoration: none; }
 .cards li a:hover { outline: 1px solid var(--fg); }
-.cards .meta { color: var(--muted); font-size: .9rem; white-space: nowrap; }
+/* `nowrap` kept "3 jogadores" from breaking mid-phrase, but a running
+   tournament's meta is three phrases and does not fit a 375px card on one line.
+   Breaking at a "·" is better than a horizontal scrollbar (FR-6.1). */
+.cards .meta { color: var(--muted); font-size: .9rem; }
 .badge { font-size: .75rem; padding: .1rem .4rem; border-radius: .3rem; background: var(--line); color: var(--fg); vertical-align: middle; }
 .badge.warn { background: var(--band-1); color: #16171a; }
 .row { display: flex; gap: .5rem; align-items: stretch; margin: .5rem 0; flex-wrap: wrap; }
@@ -287,3 +302,107 @@ h2.title { font-size: 1.25rem; margin: 0 0 .25rem; }
    read as if they were still in the bracket. */
 .board tr.out td { color: var(--muted); }
 .bracket-tag { display: inline-block; min-width: 7.5rem; color: var(--muted); font-size: .8rem; }
+
+
+/* ---------------------------------------------------------------------------
+   Desktop (D-57, FR-6.11)
+   ---------------------------------------------------------------------------
+   Everything that changes a LAYOUT lives inside the media query below. Under
+   60rem the computed style is what it was before this file grew a second half,
+   which is the point: the phone view tested well with real players on
+   2026-09-11 and there was no reason to move it.
+
+   The two components the panels need are declared outside the query only to be
+   turned OFF; they turn on inside it. */
+
+.side { display: none; }
+.stats { display: none; }
+
+@media (min-width: 60rem) {
+  /* One wider shell. Prose keeps its 30rem measure — a 480px line length is
+     good for reading, and widening it would be the one change here that makes
+     something worse. */
+  header, main:not(.prose), footer { max-width: 68rem; }
+
+  /* The admin panel is four tables of timing data read by one person on a
+     desktop, so it gets the widest shell in the app. `:has()` is the whole
+     mechanism; where it is unsupported the page falls back to 68rem, which is
+     degradation rather than breakage. */
+  body:has(#panel) header,
+  body:has(#panel) main,
+  body:has(#panel) footer { max-width: 84rem; }
+
+  /* A sign-in box stretched to 68rem reads as a bug. */
+  #signed-out, #not-invited { max-width: 34rem; }
+
+  /* The game is 30rem of column plus 21rem of panel: 53.5rem, not 68. Left to
+     itself inside a 68rem shell it ends a long way short of the nav's right
+     edge, which reads as a missing third column. So the daily — the one page
+     that is nothing but the game — gets a shell the width of its own content,
+     and the header, the game and the footer line up on both edges. */
+  body:has(#game) header,
+  body:has(#game) main,
+  body:has(#game) footer { max-width: 54rem; }
+  /* torneios.html is two pages in one: the card wants the game's narrow shell
+     and the detail view wants the wide one. `:not([hidden])` is what makes that
+     live — the same attribute the page already toggles picks the shell. */
+  body:has(#card:not([hidden])) header,
+  body:has(#card:not([hidden])) main,
+  body:has(#card:not([hidden])) footer { max-width: 54rem; }
+  #game, #card { max-width: 54rem; }
+
+  /* The game, unchanged, with context beside it. Exactly two grid children —
+     the play column and the panel — so placement is deterministic and nothing
+     auto-flows into the wrong column. */
+  #game, #card {
+    display: grid;
+    grid-template-columns: minmax(0, 30rem) minmax(17rem, 21rem);
+    gap: 2.5rem;
+    align-items: start;
+  }
+  .play-col { min-width: 0; }
+
+  .side { display: block; min-width: 0; position: sticky; top: 1rem; }
+  .side .title { font-size: 1rem; color: var(--muted); font-weight: 600; }
+  .side .today h3 { margin-top: .75rem; }
+  .side select {
+    font: inherit; width: 100%; margin: .25rem 0 .5rem;
+    padding: .35rem .5rem; border: 1px solid var(--line); border-radius: .5rem;
+    background: var(--bg); color: inherit;
+  }
+
+  /* Four counters, label left and number right, on the same tabular figures
+     the boards use so the column edge stays straight. */
+  .stats { display: grid; grid-template-columns: 1fr auto; gap: .25rem .5rem; margin: 1rem 0 0; }
+  .stats dt { color: var(--muted); font-size: .9rem; }
+  .stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Boards: the tables stop scrolling sideways and simply fit. */
+  .table-wrap { overflow-x: visible; margin: 0; padding: 0; }
+  table.board .name { max-width: 20rem; }
+
+  /* A group board is a table and a live panel, not a table with a panel under
+     it. Same two-column shape as the game, for the same reason. The children
+     are already in visual order, so nothing needs placing by hand. */
+  .board-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
+    gap: 2.5rem;
+    align-items: start;
+  }
+  .board-main { min-width: 0; }
+  .board-cols #today { position: sticky; top: 1rem; }
+
+  /* The tournament detail: standings wide, the open round beside them.
+     `#round` is FIRST in the DOM because that is where a phone wants it, so
+     here it is the one child that gets placed explicitly. Every rule that
+     moves it is inside this query; below 60rem the document order stands. */
+  .detail-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: 2.5rem;
+    align-items: start;
+  }
+  .detail-cols > #round { grid-column: 2; grid-row: 1; position: sticky; top: 1rem; }
+  .detail-main { grid-column: 1; grid-row: 1; min-width: 0; }
+}

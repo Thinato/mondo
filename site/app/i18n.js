@@ -84,6 +84,15 @@ const PT_BR = {
   confirmRetry: "Dar uma nova chance a {name} hoje? A tentativa atual fica guardada no histórico.",
   playFirst: "Jogue primeiro para ver os resultados de hoje.",
   todayScore: "{points} pts · {n} chutes",
+  // D-57 — the desktop panel beside the game. FR-4.11 withholds everyone's
+  // score until you have finished your own day, so the panel says why rather
+  // than looking broken. "Jogue primeiro" belongs on the board, not here: you
+  // ARE playing.
+  scoresWhenDone: "As pontuações aparecem quando você terminar o seu dia.",
+  statStreak: "Sequência",
+  statLongest: "Melhor sequência",
+  statPlayed: "Dias jogados",
+  statSolved: "Dias perfeitos",
   closedThrough: "Ranking fechado até {day}. Hoje entra amanhã ao meio-dia.",
   noPending: "Nenhum convite pendente.",
   expires: "vale até {date}",

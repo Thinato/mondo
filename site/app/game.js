@@ -18,6 +18,7 @@ import { confetti } from "./confetti.js";
 import { guessRow, renderFlag, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
+import { fillBuckets } from "./people.js";
 import { share } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +29,9 @@ const el = {
   helpBtn: $("help-btn"), helpDialog: $("help-dialog"), helpTitle: $("help-title"),
   helpBody: $("help-body"), helpClose: $("help-close"),
   reveal: $("reveal"), revealText: $("reveal-text"), revealNext: $("reveal-next"),
+  side: $("side"), sideTitle: $("side-title"), sideGroup: $("side-group"), sideToday: $("side-today"),
+  sideFinished: $("side-finished"), sidePlaying: $("side-playing"), sideWaiting: $("side-waiting"),
+  sideGated: $("side-gated"), sideStats: $("side-stats"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
   guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
@@ -44,6 +48,9 @@ let ac = null;
 let busy = false;
 /** D-55: the challenge that just ended, held until the player moves on. */
 let reveal = null;
+/** D-57: the desktop panel. Never on the critical path — see loadPanel. */
+let groups = [];
+let boardGid = null;
 
 const help = attachHelp({
   button: el.helpBtn, dialog: el.helpDialog,
@@ -65,8 +72,10 @@ el.signIn.addEventListener("click", async () => {
 el.signOut.addEventListener("click", async () => {
   await signOut(auth);
   round = null; picked = null; reveal = null; // FR-1.6: nothing survives sign-out
+  groups = []; boardGid = null;
   el.input.value = "";
   el.guesses.replaceChildren();
+  el.side.hidden = true;
 });
 
 onAuthStateChanged(auth, (user) => {
@@ -95,6 +104,9 @@ async function load() {
         onMiss: (text) => { picked = null; if (text.trim()) setStatus(t("noMatch"), "warn"); console.debug("[mondo] autocomplete miss:", text); },
       });
     }
+    // D-57: fired here, not awaited here. The panel is garnish; the game is
+    // the page, and a slow or failing `listGroups` must not hold either up.
+    const groupsSoon = api.listGroups({}).catch(() => null);
     round = await api.getRound({});
     if (round.me) {
       displayName = round.me.displayName;
@@ -102,6 +114,7 @@ async function load() {
     }
     setStatus("");
     render();
+    loadPanel(groupsSoon).catch(() => { /* garnish; never the player's problem */ });
   } catch (err) {
     if (err?.details?.code === "not-invited") {
       // FR-1.7: signed in, not let in. The game stays hidden; Perfil/Sair remain.
@@ -144,6 +157,7 @@ async function submit(numberGuess) {
   setStatus("");
   try {
     const before = round.cursor;
+    const wasOpen = round.status === "in_progress";
     round = await api.submitGuess({ puzzleId: round.puzzleId, guess });
     el.input.value = "";
     el.number.value = "";
@@ -156,6 +170,9 @@ async function submit(numberGuess) {
       if (reveal.status === "solved") confetti();
     }
     render();
+    // FR-4.11 unlocks everyone else's score the moment YOUR day is done, so
+    // that is the one time the panel is worth re-reading.
+    if (wasOpen && round.status !== "in_progress") refreshBoard();
   } catch (err) {
     // FR-6.5: a failed submission consumes nothing; the text stays so they can retry.
     const code = err?.details?.code;
@@ -231,6 +248,8 @@ function render() {
     help(kind);
   }
 
+  renderStats();
+
   el.result.hidden = inProgress || revealing;
   if (!inProgress && !revealing) {
     el.resultText.textContent =
@@ -239,6 +258,90 @@ function render() {
         : t("dayDone", { points: round.points, max: round.maxPoints });
     el.shareBtn.textContent = t("share");
   }
+}
+
+// ---------------------------------------------------------------------------
+// The desktop panel (D-57, FR-6.11). Hidden below 60rem by mondo.css, so on a
+// phone this code renders into a box nobody sees — cheap, and cheaper than a
+// second layout path that could disagree with the first.
+//
+// Nothing in here may reach `setStatus`. A panel that cannot load is a panel
+// that stays hidden; telling a player their game is broken because a side list
+// failed would be worse than the missing list.
+// ---------------------------------------------------------------------------
+
+const GROUP_KEY = "mondo.side.group";
+const remembered = () => { try { return localStorage.getItem(GROUP_KEY); } catch { return null; } };
+const remember = (gid) => { try { localStorage.setItem(GROUP_KEY, gid); } catch { /* private mode */ } };
+
+async function loadPanel(groupsSoon) {
+  const res = await groupsSoon;
+  groups = res?.groups ?? [];
+  if (groups.length === 0) return;              // no group, no "Hoje" — stats stand alone
+
+  // One group needs no picker; several are remembered, because a player who
+  // watches one group's board does not want to re-pick it every day.
+  const saved = remembered();
+  boardGid = groups.some((g) => g.groupId === saved) ? saved : groups[0].groupId;
+
+  el.sideGroup.hidden = groups.length < 2;
+  el.sideGroup.replaceChildren(...groups.map((g) => {
+    const o = document.createElement("option");
+    o.value = g.groupId; o.textContent = g.name; o.selected = g.groupId === boardGid;
+    return o;
+  }));
+
+  refreshBoard();
+}
+
+el.sideGroup.addEventListener("change", () => {
+  boardGid = el.sideGroup.value;
+  remember(boardGid);
+  refreshBoard();
+});
+
+/** Total by construction: every caller fires and forgets, so a rejection here
+ *  would be an unhandled one. The panel's whole failure mode is staying hidden. */
+async function refreshBoard() {
+  if (!boardGid) return;
+  try {
+    const board = await api.getLeaderboard({ groupId: boardGid });
+    if (board.group.groupId !== boardGid) return;   // a stale answer to an older pick
+    renderBoard(board);
+  } catch { /* hidden is the right outcome */ }
+}
+
+function renderBoard({ group, today }) {
+  el.sideTitle.textContent = group.name;
+  el.sideTitle.hidden = false;
+  fillBuckets({
+    players: today.players, withScore: today.viewerFinished,
+    finished: el.sideFinished, playing: el.sidePlaying, waiting: el.sideWaiting,
+  });
+  el.sideToday.hidden = false;
+  // FR-4.11: names now, numbers when your own day is done. Say so, or the
+  // empty right-hand column reads as a bug rather than as suspense.
+  el.sideGated.textContent = today.viewerFinished ? "" : t("scoresWhenDone");
+  el.sideGated.hidden = today.viewerFinished;
+  el.side.hidden = false;
+}
+
+/** The four counters, from `me` — which `submitGuess` now returns too, so the
+ *  streak ticks on the guess that ends the day rather than on the next load. */
+function renderStats() {
+  const me = round?.me;
+  if (!me || me.currentStreak === undefined) return;
+  el.sideStats.replaceChildren(...[
+    ["statStreak", me.currentStreak],
+    ["statLongest", me.longestStreak],
+    ["statPlayed", me.totalPlayed],
+    ["statSolved", me.totalSolved],
+  ].flatMap(([key, value]) => {
+    const dt = document.createElement("dt"); dt.textContent = t(key);
+    const dd = document.createElement("dd"); dd.textContent = String(value);
+    return [dt, dd];
+  }));
+  el.side.hidden = false;
 }
 
 el.revealNext.addEventListener("click", () => {

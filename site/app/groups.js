@@ -4,6 +4,7 @@
 import { ask, watchAuth } from "./auth-ui.js";
 import * as api from "./api.js";
 import { errorMessage, t } from "./i18n.js";
+import { fillBuckets } from "./people.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -155,22 +156,10 @@ function render() {
     const a = document.createElement("a"); a.href = "./"; a.textContent = t("playFirst");
     el.todayHint.append(a);
   }
-  const by = (state) => today.players.filter((p) => p.state === state);
-  el.todayFinished.replaceChildren(...by("finished").map((p) => todayItem(p, today.viewerFinished)));
-  el.todayPlaying.replaceChildren(...by("in_progress").map((p) => todayItem(p, false)));
-  el.todayWaiting.replaceChildren(...by("not_started").map((p) => todayItem(p, false)));
-}
-
-function todayItem(p, withScore) {
-  const li = document.createElement("li");
-  const name = document.createElement("span"); name.textContent = p.displayName;
-  li.append(name);
-  if (withScore && p.points !== null) {
-    const score = document.createElement("span"); score.className = "score";
-    score.textContent = t("todayScore", { points: p.points, n: p.guessCount });
-    li.append(score);
-  }
-  return li;
+  fillBuckets({
+    players: today.players, withScore: today.viewerFinished,
+    finished: el.todayFinished, playing: el.todayPlaying, waiting: el.todayWaiting,
+  });
 }
 
 el.tabs.addEventListener("click", (ev) => {

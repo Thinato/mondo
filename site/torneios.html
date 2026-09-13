@@ -62,83 +62,104 @@
 
     <div id="t-actions" class="row"></div>
 
-    <section id="round" class="today" hidden aria-label="Rodada">
-      <h3 id="round-title" class="title"></h3>
-      <p id="round-closes" class="fine"></p>
-      <div class="row"><button id="play-btn" type="button" class="primary"></button></div>
-      <p id="round-hint" class="fine"></p>
-      <h4>Terminaram</h4><ul id="round-finished"></ul>
-      <h4>Jogando</h4><ul id="round-playing"></ul>
-      <h4>Ainda não</h4><ul id="round-waiting"></ul>
-    </section>
+    <!-- D-57: at 60rem the standings take the wide column and the open round
+         sits beside them. `#round` stays first in the DOM because that is
+         where a phone wants it; the grid moves it, not the markup. -->
+    <div class="detail-cols">
+      <section id="round" class="today" hidden aria-label="Rodada">
+        <h3 id="round-title" class="title"></h3>
+        <p id="round-closes" class="fine"></p>
+        <div class="row"><button id="play-btn" type="button" class="primary"></button></div>
+        <p id="round-hint" class="fine"></p>
+        <h4>Terminaram</h4><ul id="round-finished"></ul>
+        <h4>Jogando</h4><ul id="round-playing"></ul>
+        <h4>Ainda não</h4><ul id="round-waiting"></ul>
+      </section>
 
-    <section aria-label="Classificação">
-      <h3 class="title">Classificação</h3>
-      <div class="table-wrap">
-        <table class="board">
-          <!-- Columns depend on the regime: a league needs match points and a
-               W-D-L record, a free-for-all does not. Built in tournaments.js. -->
-          <thead><tr id="t-head"></tr></thead>
-          <tbody id="t-rows"></tbody>
-        </table>
+      <div class="detail-main">
+        <section aria-label="Classificação">
+          <h3 class="title">Classificação</h3>
+          <div class="table-wrap">
+            <table class="board">
+              <!-- Columns depend on the regime: a league needs match points and a
+                   W-D-L record, a free-for-all does not. Built in tournaments.js. -->
+              <thead><tr id="t-head"></tr></thead>
+              <tbody id="t-rows"></tbody>
+            </table>
+          </div>
+          <p id="standings-note" class="fine"></p>
+        </section>
+
+        <!-- The draw. Only the pairing formats have one. -->
+        <section id="fixtures" aria-label="Confrontos" hidden>
+          <h3 class="title">Confrontos</h3>
+          <div id="fixture-rounds"></div>
+        </section>
       </div>
-      <p id="standings-note" class="fine"></p>
-    </section>
-
-    <!-- The draw. Only the pairing formats have one. -->
-    <section id="fixtures" aria-label="Confrontos" hidden>
-      <h3 class="title">Confrontos</h3>
-      <div id="fixture-rounds"></div>
-    </section>
+    </div>
   </section>
 
   <!-- Playing a card -->
   <section id="card" hidden>
-    <p class="fine"><a id="back-from-card" href="./torneios.html">← Torneio</a></p>
-    <div class="prompt-head">
-      <p id="card-progress" class="fine" aria-live="polite"></p>
-      <button id="help-btn" type="button" class="help-btn" title="Como ler as pistas"
-              aria-label="Como ler as pistas" aria-haspopup="dialog">?</button>
+    <div class="play-col">
+      <p class="fine"><a id="back-from-card" href="./torneios.html">← Torneio</a></p>
+      <div class="prompt-head">
+        <p id="card-progress" class="fine" aria-live="polite"></p>
+        <button id="help-btn" type="button" class="help-btn" title="Como ler as pistas"
+                aria-label="Como ler as pistas" aria-haspopup="dialog">?</button>
+      </div>
+
+      <figure class="silhouette" id="card-shape-wrap" hidden>
+        <svg id="card-shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
+      </figure>
+      <figure class="flag" id="card-flag-wrap" hidden>
+        <svg id="card-flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
+      </figure>
+      <p id="card-capital" class="capital-prompt" hidden></p>
+
+      <ol id="card-guesses" class="guesses" aria-label="Tentativas"></ol>
+
+      <!-- D-55, as on the daily: the challenge that just ended keeps the screen
+           until the player moves on. -->
+      <section id="card-reveal" class="reveal" hidden aria-live="polite">
+        <p id="card-reveal-text"></p>
+        <button id="card-reveal-next" type="button" class="primary"></button>
+      </section>
+
+      <form id="card-form" autocomplete="off">
+        <div class="combo" id="card-combo">
+          <input id="card-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="card-datalist" aria-label="País" placeholder="Digite um país…"
+                 autocapitalize="off" spellcheck="false" enterkeyhint="go">
+          <ul id="card-datalist" role="listbox" aria-label="Países" hidden></ul>
+        </div>
+        <!-- D-53: `gdp` asks for a number, so it gets its own field rather than a
+             country autocomplete that would pop a list over every digit.
+             D-54: the unit sits inside the field's border. -->
+        <div class="money" id="card-money" hidden>
+          <span aria-hidden="true">US$</span>
+          <input id="card-number" type="number" inputmode="numeric" min="1" step="1"
+                 aria-label="PIB per capita em dólares" placeholder="20.000" enterkeyhint="go">
+        </div>
+        <button id="card-submit" type="submit" class="primary">Chutar</button>
+      </form>
+
+      <p id="card-left" class="fine" aria-live="polite"></p>
+      <ol id="card-items" class="card-items" aria-label="Desafios da rodada"></ol>
+      <p id="card-done" class="result" hidden></p>
     </div>
 
-    <figure class="silhouette" id="card-shape-wrap" hidden>
-      <svg id="card-shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
-    </figure>
-    <figure class="flag" id="card-flag-wrap" hidden>
-      <svg id="card-flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
-    </figure>
-    <p id="card-capital" class="capital-prompt" hidden></p>
-
-    <ol id="card-guesses" class="guesses" aria-label="Tentativas"></ol>
-
-    <!-- D-55, as on the daily: the challenge that just ended keeps the screen
-         until the player moves on. -->
-    <section id="card-reveal" class="reveal" hidden aria-live="polite">
-      <p id="card-reveal-text"></p>
-      <button id="card-reveal-next" type="button" class="primary"></button>
-    </section>
-
-    <form id="card-form" autocomplete="off">
-      <div class="combo" id="card-combo">
-        <input id="card-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
-               aria-controls="card-datalist" aria-label="País" placeholder="Digite um país…"
-               autocapitalize="off" spellcheck="false" enterkeyhint="go">
-        <ul id="card-datalist" role="listbox" aria-label="Países" hidden></ul>
+    <!-- D-57: who else is in this round. FR-5.6 keeps every score out of it
+         until the round closes, so these are names only, on purpose. -->
+    <aside id="card-side" class="side" hidden>
+      <h2 id="card-side-title" class="title"></h2>
+      <div class="today">
+        <h4>Terminaram</h4><ul id="card-side-finished"></ul>
+        <h4>Jogando</h4><ul id="card-side-playing"></ul>
+        <h4>Ainda não</h4><ul id="card-side-waiting"></ul>
       </div>
-      <!-- D-53: `gdp` asks for a number, so it gets its own field rather than a
-           country autocomplete that would pop a list over every digit.
-           D-54: the unit sits inside the field's border. -->
-      <div class="money" id="card-money" hidden>
-        <span aria-hidden="true">US$</span>
-        <input id="card-number" type="number" inputmode="numeric" min="1" step="1"
-               aria-label="PIB per capita em dólares" placeholder="20.000" enterkeyhint="go">
-      </div>
-      <button id="card-submit" type="submit" class="primary">Chutar</button>
-    </form>
+    </aside>
 
-    <p id="card-left" class="fine" aria-live="polite"></p>
-    <ol id="card-items" class="card-items" aria-label="Desafios da rodada"></ol>
-    <p id="card-done" class="result" hidden></p>
   </section>
 </main>
 
