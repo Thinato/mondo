@@ -38,7 +38,7 @@ const PT_BR = {
       "A resposta é um país.\n\n" +
       "A cada chute errado você ganha três pistas:\n\n" +
       "↔  a DISTÂNCIA em quilômetros entre o país que você chutou e a resposta.\n\n" +
-      "↗  a SETA, apontando a direção da resposta a partir do seu chute: ↑ norte, → leste, ↓ sul, ← oeste e as diagonais.\n\n" +
+      "↗  a SETA, apontando onde a resposta está NO MAPA a partir do seu chute: ↑ norte, → leste, ↓ sul, ← oeste e as diagonais. É a direção que você seguiria de régua no mapa — se a resposta está mais ao sul, a seta aponta para baixo, sempre.\n\n" +
       "%  a PROXIMIDADE: 100% é a própria resposta, 0% é o outro lado do mundo (20.000 km). É a mesma distância dita de outro jeito, e é ela que pinta a barra colorida à esquerda de cada chute.",
     gdp:
       "Aqui é ao contrário: o país está na pergunta e a resposta é um NÚMERO — o PIB per capita, em dólares.\n\n" +
