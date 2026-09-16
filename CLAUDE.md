@@ -111,14 +111,16 @@ backend.
 - **A day is worth 0–30, and earlier days are worth less** (0–6 before D-52, 0–18 before D-53,
   0–24 before D-66). Do not "fix" the seams in the all-time column: leaving them is a deliberate
   call, and there are three now.
-- **The day window caps how many kinds a day can hold** (FR-2.3, D-66). Every day locks
-  `kinds × 30` countries against every kind, so the smallest pool has to outlast it: five kinds
-  is 150 against 172 flags, 22 spare. **A sixth is arithmetically impossible** without widening
-  the pool or narrowing the window, and `tools/lib/schedule.mjs` refuses up front rather than
-  throwing two hundred days into a generation run.
+- **The daily schedule has exactly one rule** (FR-2.3, D-67): the same country is not asked by
+  the **same kind** within 30 days. Nothing else. A country may be two challenges on one day, and
+  about 21 days a year it is. There is no ceiling on how many kinds a day can hold — a kind needs
+  only a pool bigger than 30.
 - **`gdp` and `flagPick` name a country in their prompts**, because in both the country is the
-  question — the figure is the answer in one, the flag in the other. What keeps that safe is
-  `buildCard` holding subjects distinct within a card — do not relax that.
+  question — the figure is the answer in one, the flag in the other. Inside a **tournament card**
+  what keeps that safe is `buildCard` holding subjects distinct; do not relax that. **The daily no
+  longer has that guarantee** (D-67): about 14 days a year a `gdp` or `flagPick` prompt names the
+  answer to another of that day's challenges. That was measured and accepted, not missed — if you
+  are asked to "fix" it, the fix is FR-2.3, not a patch in `kinds.ts`.
 - **In a multiple-choice kind the POSITION of the right option is the answer** (FR-8.7, D-64).
   Three rules follow and each has a test. An option carries artwork and nothing else — no code,
   no name, no id — so a guess is an index; **`buildCard` does the shuffling**, never the kind,

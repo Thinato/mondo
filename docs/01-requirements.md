@@ -45,18 +45,23 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   order, one at a time. The order MUST be shuffled per day, so that no kind is always first.
 - **FR-2.2** The puzzle answers MUST be selected from a pre-generated schedule, not chosen at
   request time.
-- **FR-2.3** A country MUST NOT repeat (D-52 replaces the old flat 180 days, which a
-  three-challenge day makes arithmetically impossible — 180 × 3 = 540 draws from a pool of 196):
-  - **for the same kind**, within **120 days**. Bounded by the smallest pool, 172 flags.
-  - **for any kind**, within **30 days**. Without this, Paraguay could be the silhouette on
-    Monday and the flag on Thursday, which reads as a bug even though it is two questions.
-  - **twice on the same day**, ever.
+- **FR-2.3** *(rewritten 2026-09-16, D-67)* A country MUST NOT be asked about **by the same
+  kind** within **30 days**. That is the whole rule.
 
-  The day window is what binds once a day has several kinds, and it caps how many kinds a day can
-  hold (D-66): every day locks `kinds × 30` countries against *every* kind, so the smallest pool
-  must outlast that. At five kinds it is 150 against 172 flags — 22 spare. **A sixth kind would
-  need 180 and is arithmetically impossible** without widening the pool or narrowing the window;
-  the generator refuses up front rather than failing two hundred days in.
+  Everything else is allowed, explicitly: the same country MAY be two different challenges on the
+  same day — Monday's silhouette and Monday's capital — and MAY be asked by another kind the next
+  day. This replaces D-52's pair of windows (120 days per kind, 30 days for any kind, never twice
+  in a day), which existed for a pool under pressure and had a hard consequence: every day locked
+  `kinds × 30` countries against *every* kind, capping how many kinds a day could ever hold at
+  five. The single rule removes that ceiling — a kind now needs only more than 30 countries, and
+  the smallest pool has 172.
+
+  **The cost is accepted and measured.** Two challenges share a country about **21 days a year**,
+  and on roughly 14 of those one gives the other away, because `gdp` and `flagPick` name their
+  country in the prompt: *"qual o PIB do Brasil?"* beside an unsolved silhouette of Brazil. This
+  is a knowing exception to the spirit of FR-8.4, taken by Paulo on 2026-09-16 — "it can appear
+  again in the challenge, no problem" — after the number was put in front of him. It is worth
+  revisiting if players notice.
 - **FR-2.4** Selection MUST be weighted by recognisability tier, not uniform. Target mix:
   tier 1 (well known) 50%, tier 2 (moderate) 35%, tier 3 (obscure) 15%, applied per kind over
   that kind's own pool. See `03-geo-data-pipeline.md` for tier definitions.
@@ -197,9 +202,15 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   the card MUST be recorded and is the **default** next comparator, lower first — but whether it
   is in a given tournament's chain is a preset choice, because a knockout resolving ties by
   sudden death must be able to leave it out (D-44).
-- **FR-8.4** A kind's prompt and feedback MUST NOT name or otherwise identify the answer while
-  the challenge is unsolved. A country whose capital city names the country itself MUST therefore
-  be excluded from the `capital` kind's pool.
+- **FR-8.4** A kind's prompt and feedback MUST NOT name or otherwise identify the answer to
+  **its own challenge** while that challenge is unsolved. A country whose capital city names the
+  country itself MUST therefore be excluded from the `capital` kind's pool.
+
+  It says *its own* since D-67, and that word is doing work. A prompt may now name a country that
+  is the answer to a **different** challenge on the same day — `gdp` and `flagPick` name theirs,
+  and FR-2.3 no longer keeps a day's subjects distinct. That happens about 21 days a year and is
+  a deliberate trade, not an oversight; see FR-2.3. Within a tournament card the old guarantee
+  still holds, because `buildCard` keeps subjects distinct there and FR-2.3 does not apply to it.
 - **FR-8.5** The manager MUST be able to specify a card as a multiset of kinds and choose whether
   the order is as listed or shuffled. A card MAY be several challenges of one kind.
 - **FR-8.6** *(amended 2026-09-16, D-64)* Shipped kinds: `shape`, `capital`, `flag` (a vendored

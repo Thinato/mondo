@@ -183,6 +183,14 @@ own answer. Assume slice 3 has its own.
 ## Phase 4 — Polish
 *Effort: ongoing.*
 
+**Done 2026-09-16 — one rule for the daily schedule (FR-2.3, D-67).** Not the same country, by
+the same kind, within 30 days; nothing else. D-52's cross-kind window was what capped a day at
+five kinds, and it is gone, so a kind now costs nothing but its own pool. The price is that two
+challenges share a country on about 21 days a year, and on ~14 of those one names the other's
+answer — measured, put in front of Paulo, and accepted. Worldle's single-country day was
+considered and does not fit our kinds: four of the five ask "which country is this?", so solving
+the first would give away the rest.
+
 **Done 2026-09-16 — `flagPick` joins the daily (FR-2.1a, D-66).** A day is five challenges and
 worth 0–30, three days after the kind shipped to practice. The schedule generator gained the kind
 and now imports the server's own `buildOptions` rather than restating it — the option rules are
