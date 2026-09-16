@@ -7,10 +7,10 @@ Context for AI coding agents working in this repo. Read `docs/00-brief.md` throu
 
 A daily country-guessing game served at `lisecki.dev/mondo/`, built for a small competitive
 group. A day is four challenges — silhouette, flag, capital, GDP per capita — played in order
-(D-52, D-53). A fifth kind, `flagPick`, is played in practice and tournaments but not in the
-daily (FR-8.7, D-64). There is also a practice mode: one kind, as many challenges as you like,
-scored for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages,
-Firebase backend.
+(D-52, D-53). A day is **five** challenges since D-66: `flagPick` — which of these eight flags
+— joined them. There is also a practice mode: one kind, as many challenges as you like, scored
+for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages, Firebase
+backend.
 
 ## Invariants — never violate these
 
@@ -108,8 +108,14 @@ Firebase backend.
   card of N challenges played one at a time, so the transitions live once in `lib/card.ts` and
   `lib/round.ts` keeps only what a *day* has — the schedule, the streak, the share grid, and the
   `puzzleId`. A daily attempt carries `puzzleId`; a tournament play must not (D-40).
-- **A day is worth 0–24, and earlier days are worth less** (0–6 before D-52, 0–18 before D-53).
-  Do not "fix" the seam in the all-time column: leaving it is a deliberate call.
+- **A day is worth 0–30, and earlier days are worth less** (0–6 before D-52, 0–18 before D-53,
+  0–24 before D-66). Do not "fix" the seams in the all-time column: leaving them is a deliberate
+  call, and there are three now.
+- **The day window caps how many kinds a day can hold** (FR-2.3, D-66). Every day locks
+  `kinds × 30` countries against every kind, so the smallest pool has to outlast it: five kinds
+  is 150 against 172 flags, 22 spare. **A sixth is arithmetically impossible** without widening
+  the pool or narrowing the window, and `tools/lib/schedule.mjs` refuses up front rather than
+  throwing two hundred days into a generation run.
 - **`gdp` and `flagPick` name a country in their prompts**, because in both the country is the
   question — the figure is the answer in one, the flag in the other. What keeps that safe is
   `buildCard` holding subjects distinct within a card — do not relax that.
@@ -125,10 +131,11 @@ Firebase backend.
   game knowing nothing. Geography is not in that class and is the point — **four of `flagPick`'s
   eight are the answer's nearest countries by centroid** (D-65), which is what makes the kind
   hard, and the "?" and `regras.html` both say so on purpose.
-- **`flagPick` is not in the daily** (FR-8.6). Practice serves any registered kind and a
-  tournament preset is one line, but the daily needs `tools/generate-schedule.mjs` re-run and
-  re-seeded. Adding it takes a day from 0–24 to 0–30 and opens a third seam in the all-time
-  column — a decision to take on purpose, not a side effect.
+- **`tools/generate-schedule.mjs` now needs the backend built** (D-66): it imports the server's
+  own `buildOptions` from `backend/functions/lib/` rather than restating which eight flags are on
+  offer. `poolsFrom` still duplicates the pool rules — a JSON generator cannot import TypeScript
+  — and that duplication is pinned by tests on both sides; the option rules were too much to
+  restate, because they ARE the difficulty of the kind.
 - There is **no results fan-out and no standings subcollection** (D-21, D-22): `attempts` is
   the single source of truth and the nightly job writes windows onto `groups/*/members/*`.
   Window arithmetic is D-24; do not change it without changing `regras.html` and the fixture

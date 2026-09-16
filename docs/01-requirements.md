@@ -40,9 +40,9 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-2.1** There MUST be exactly one daily puzzle, identified by `puzzleId` in `YYYY-MM-DD`
   form. The day boundary is **12:00 `America/Sao_Paulo`** (OQ-2, resolved). `puzzleId` names the
   date the puzzle *opens*; the puzzle stays live until 12:00 the following day.
-- **FR-2.1a** (D-52, D-53) A day MUST hold **one challenge of every shipped kind** — silhouette,
-  flag, capital and GDP per capita — played strictly in order, one at a time. The order MUST be
-  shuffled per day, so that no kind is always first.
+- **FR-2.1a** (D-52, D-53, D-66) A day MUST hold **one challenge of every shipped kind** —
+  silhouette, flag, capital, GDP per capita and "which of these eight flags" — played strictly in
+  order, one at a time. The order MUST be shuffled per day, so that no kind is always first.
 - **FR-2.2** The puzzle answers MUST be selected from a pre-generated schedule, not chosen at
   request time.
 - **FR-2.3** A country MUST NOT repeat (D-52 replaces the old flat 180 days, which a
@@ -51,6 +51,12 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   - **for any kind**, within **30 days**. Without this, Paraguay could be the silhouette on
     Monday and the flag on Thursday, which reads as a bug even though it is two questions.
   - **twice on the same day**, ever.
+
+  The day window is what binds once a day has several kinds, and it caps how many kinds a day can
+  hold (D-66): every day locks `kinds × 30` countries against *every* kind, so the smallest pool
+  must outlast that. At five kinds it is 150 against 172 flags — 22 spare. **A sixth kind would
+  need 180 and is arithmetically impossible** without widening the pool or narrowing the window;
+  the generator refuses up front rather than failing two hundred days in.
 - **FR-2.4** Selection MUST be weighted by recognisability tier, not uniform. Target mix:
   tier 1 (well known) 50%, tier 2 (moderate) 35%, tier 3 (obscure) 15%, applied per kind over
   that kind's own pool. See `03-geo-data-pipeline.md` for tier definitions.
@@ -95,10 +101,11 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   (`min/max >= 0.9`), which is symmetric, so there is nothing to argue about. Nothing is paid for
   a near miss, exactly as a silhouette guessed 200 km away pays what one 10 000 km away pays.
 
-  A **day** is the sum of its challenges, so it is worth **0–24** (D-52, D-53). Earlier days are
-  worth less — 0–6 before D-52, 0–18 between D-52 and D-53 — and are left alone: the 7- and
-  30-day windows heal themselves within a month, and the all-time column keeps a visible seam
-  rather than a rewrite of history.
+  A **day** is the sum of its challenges, so it is worth **0–30** (D-66). Earlier days are worth
+  less — 0–6 before D-52, 0–18 between D-52 and D-53, 0–24 between D-53 and D-66 — and are left
+  alone: the 7- and 30-day windows heal themselves within a month, and the all-time column keeps
+  its seams rather than a rewrite of history. There are three of them now, and that is the cost
+  of adding a kind: it is paid once, in a column nobody settles an argument with.
 
 - **FR-3.2** Elapsed time (server `finishedAt - startedAt`, in ms) MUST be recorded and used as
   the tiebreaker. Lower is better.
@@ -198,11 +205,10 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
 - **FR-8.6** *(amended 2026-09-16, D-64)* Shipped kinds: `shape`, `capital`, `flag` (a vendored
   public-domain SVG set, flattened offline to filled paths; 24 countries have no flag), `gdp`
   (World Bank GDP per capita PPP for one pinned year; 10 countries have no figure) and
-  `flagPick` (FR-8.7). The first four are asked every day (FR-2.1a); all five are available to
-  tournament card specs and to practice. **`flagPick` is not in the daily**, and adding it is a
-  deliberate act with a cost: a day would go from 0–24 to 0–30 and open a third seam in the
-  all-time column (FR-3.4). It reaches players through practice and a tournament preset first,
-  which is what FR-9 exists for.
+  `flagPick` (FR-8.7). **All five are asked every day** (FR-2.1a, D-66), and all five are
+  available to tournament card specs and to practice. `flagPick` reached players through practice
+  and a tournament preset first, which is what FR-9 exists for, and joined the daily three days
+  later once it had been played.
 - **FR-8.7** *(added 2026-09-16, D-64)* A kind MAY ask its question as **a set of options**, of
   which exactly one is right. For such a kind:
   - The options MUST be chosen once, when the card is built, and **stored** with the challenge.

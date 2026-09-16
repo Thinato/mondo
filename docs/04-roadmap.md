@@ -183,6 +183,14 @@ own answer. Assume slice 3 has its own.
 ## Phase 4 — Polish
 *Effort: ongoing.*
 
+**Done 2026-09-16 — `flagPick` joins the daily (FR-2.1a, D-66).** A day is five challenges and
+worth 0–30, three days after the kind shipped to practice. The schedule generator gained the kind
+and now imports the server's own `buildOptions` rather than restating it — the option rules are
+the difficulty of the kind and were not worth duplicating, unlike the pool rules, which already
+are. It also gained a feasibility guard: the day window locks `kinds × 30` countries against every
+kind, so five kinds is 150 against a smallest pool of 172 flags, and a sixth kind is
+arithmetically impossible. Ten seeds each generate a clean year.
+
 **Done 2026-09-16 — a challenge you pick rather than type (FR-8.7, D-64).** `flagPick`: which of
 eight flags belongs to a named country. Two guesses at [6, 2], because a blind player picking one
 of eight scores on 25 % of items at two guesses and 40 % at three, and FR-8.2 wants a mixed card
