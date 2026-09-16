@@ -50,13 +50,16 @@ const PT_BR = {
       "↕  a SETA: ↑ quer dizer que a resposta é MAIOR que o seu chute, ↓ que é MENOR.\n\n" +
       "%  a PROXIMIDADE: o menor dos dois números dividido pelo maior. 50% quer dizer que você errou pelo dobro ou pela metade.\n\n" +
       "O valor é o PPP (paridade de poder de compra) do Banco Mundial, não o nominal que costuma aparecer primeiro numa busca — os dois são bem diferentes para quase todo país.",
-    // FR-8.7 / D-64 — a third vocabulary, and the shortest: there is no hint
-    // here at all. Saying so IS the explanation, because a player who spent the
-    // first pick waiting for a distance would think the game was broken.
+    // FR-8.7 / D-64, D-65 — a third vocabulary, and the shortest: no hint per
+    // guess. Saying so IS the explanation, because a player who spent the first
+    // pick waiting for a distance would think the game was broken. The one
+    // thing that IS a clue is how the board is built, and hiding that would
+    // just reward whoever noticed first.
     flagPick:
       "Aqui o país está na pergunta e a resposta é uma das oito bandeiras.\n\n" +
-      "Não há pista nenhuma: ou é aquela, ou não é. A bandeira que você escolher errado sai do tabuleiro e você tem mais uma chance.\n\n" +
-      "São duas tentativas. A primeira vale 6 pontos e a segunda 2 — bem menos que nos outros desafios, porque chutar entre oito é bem mais fácil que escrever o nome de um país entre 196.",
+      "Não há pista a cada erro: ou é aquela, ou não é. A bandeira que você escolher errado sai do tabuleiro e você tem mais uma chance.\n\n" +
+      "Mas o tabuleiro não é sorteado do mundo inteiro: QUATRO das outras sete são dos países mais próximos da resposta, e três vêm de qualquer lugar. Se você reconhecer uma vizinha, já sabe em que canto do mapa procurar.\n\n" +
+      "São duas tentativas. A primeira vale 6 pontos e a segunda 2 — bem menos que nos outros desafios, porque escolher entre oito é bem mais fácil que escrever o nome de um país entre 196.",
   },
   // FR-2.13 / D-61 — zero points, and the answer.
   confirmGiveUp: "Desistir deste desafio? Ele fica com 0 pontos e você vê a resposta.",
