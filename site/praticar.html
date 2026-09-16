@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mondo — treino</title>
 <meta name="description" content="Treine um tipo de desafio de cada vez. Nada daqui conta para o ranking.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
 <link rel="stylesheet" href="./mondo.css">
 <script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
 <!-- D-37: no referrer policy on any page. The Firebase web API key is referrer-restricted
@@ -12,14 +15,25 @@
 </head>
 <body>
 <header>
-  <h1><a href="./">Mondo</a></h1>
+  <a class="wordmark" href="./">Mondo</a>
   <nav aria-label="Principal">
-    <a href="./">Jogar</a>
-    <a href="./grupos.html">Grupos</a>
-    <a href="./torneios.html">Torneios</a>
-    <a href="./regras.html">Regras</a>
-    <button id="sign-out" type="button" class="link" hidden>Sair</button>
+    <a href="./">Hoje</a>
+    <a href="./grupos.html">Grupo</a>
+    <a href="./praticar.html" aria-current="page">Treinar</a>
   </nav>
+  <div class="head-right">
+    <details class="account" id="account" hidden>
+      <summary aria-label="Conta e ajuda">?</summary>
+      <div class="account-menu">
+        <button type="button" id="profile-btn">Perfil</button>
+        <a href="./grupos.html">Grupos e torneios</a>
+        <a href="./regras.html">Regras</a>
+        <a href="./privacidade.html">Privacidade</a>
+        <hr>
+        <button type="button" id="sign-out">Sair</button>
+      </div>
+    </details>
+  </div>
 </header>
 
 <main>
@@ -28,19 +42,27 @@
     <button id="sign-in" type="button" class="primary">Entrar com Google</button>
   </section>
 
-  <!-- FR-9.1 — choose a kind, then play it until you are bored. -->
-  <section id="pick" hidden>
-    <p class="sub">Treine um tipo de desafio de cada vez, quantas vezes quiser.
-    Nada daqui conta para o ranking nem aparece para o seu grupo.</p>
-    <h2 class="title">O que você quer treinar?</h2>
-    <ul id="picker" class="picker"></ul>
-  </section>
+  <!-- Rail, game, history — the same three columns as the daily (D-57, D-63).
+       Below 60rem it is an ordinary block and everything stacks in document
+       order, which puts the kind chooser above the challenge, where a phone
+       wants it. -->
+  <div id="run-cols" hidden>
 
-  <!-- Two columns on a desktop, one on a phone (FR-9.8, D-63). The wrapper exists
-       only for the grid: below 60rem it is an ordinary block and everything
-       inside it stacks in document order, which is the phone view unchanged. -->
-  <div id="run-cols">
+  <!-- FR-9.1 — the chooser. It used to be a screen you passed through and could
+       only return to by ending the run; it is the rail now, so switching from
+       capitais to bandeiras is one click. -->
+  <aside class="rail">
+    <div class="rail-head">
+      <h1>Treinar</h1>
+      <p class="fine">Um tipo de cada vez, quantas vezes quiser. Nada daqui conta para o ranking
+      nem aparece para o seu grupo.</p>
+    </div>
+    <ul id="picker" class="picker" aria-label="Tipo de desafio"></ul>
+  </aside>
+
   <div class="play-col">
+
+  <p id="practice-hint" class="sub">Escolha um tipo de desafio para começar.</p>
 
   <!-- The challenge itself. Same elements, same ids and therefore the same CSS
        as the daily: a practice challenge IS a daily challenge with nothing at
@@ -114,9 +136,9 @@
 
   <!-- The run so far: one line per finished challenge, built from the reveals
        the player has already been shown, plus what they add up to. Nothing here
-       was ever secret. On a phone this is simply the block under the game, where
-       it has always been, and the totals are hidden — the counter above the
-       challenge already carries the score, and there is no room for the rest. -->
+       was ever secret. On a phone this is simply the block under the game, and
+       the totals are hidden — the counter above the challenge already carries
+       the score, and there is no room for the rest. -->
   <aside id="run-side">
     <dl id="run-stats" class="stats"></dl>
     <ol id="items" class="card-items" aria-label="Desafios deste treino"></ol>
@@ -129,6 +151,17 @@
   <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> ·
   <a href="https://github.com/Thinato/mondo">Código</a>
 </footer>
+
+<nav class="tabbar" aria-label="Seções">
+  <a href="./">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3.3 9.2h17.4M3.3 14.8h17.4"/></svg>
+    Hoje
+  </a>
+  <a href="./praticar.html" aria-current="page">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+    Treinar
+  </a>
+</nav>
 
 <dialog id="leave-dialog">
   <form id="leave-form" method="dialog">

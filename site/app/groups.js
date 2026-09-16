@@ -1,34 +1,57 @@
-// Groups and boards (FR-4). Everything on screen comes from getLeaderboard;
-// this file renders it and never computes a rank or a score itself.
+// Groups and boards (FR-4), and the tournaments that live inside them (FR-5).
+//
+// Everything on screen comes from getLeaderboard and listTournaments; this file
+// renders it and never computes a rank or a score itself.
+//
+// A group is one page with three sections rather than three pages. Tournaments
+// used to be a page of their own that opened by asking which group you meant —
+// a question that being on this page has already answered — and the members
+// were an extra column bolted onto the ranking table, visible only to the owner.
+// The card of a tournament round is still torneios.html: that is a game screen,
+// not a group screen.
 
 import { ask, watchAuth } from "./auth-ui.js";
 import * as api from "./api.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
+import { mountProfile } from "./profile.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"),
+  account: $("account"), profileBtn: $("profile-btn"),
   list: $("list"), cards: $("cards"), noGroups: $("no-groups"), createForm: $("create-form"), createName: $("create-name"),
   board: $("board"), groupName: $("group-name"), groupMeta: $("group-meta"),
   ownerTools: $("owner-tools"), inviteBtn: $("invite-btn"), inviteResult: $("invite-result"), inviteHint: $("invite-hint"),
   inviteUrl: $("invite-url"), copyBtn: $("copy-btn"), renameBtn: $("rename-btn"), renameForm: $("rename-form"),
-  renameName: $("rename-name"), renameCancel: $("rename-cancel"), pending: $("pending"),
-  tournamentsLink: $("tournaments-link"), tabs: $("tabs"), rows: $("rows"), actionsHead: $("actions-head"), closedThrough: $("closed-through"),
+  renameName: $("rename-name"), renameCancel: $("rename-cancel"),
+  sections: $("sections"), tabRanking: $("tab-ranking"), tabTorneios: $("tab-torneios"), tabMembros: $("tab-membros"),
+  countTournaments: $("count-tournaments"), countMembers: $("count-members"),
+  tabs: $("tabs"), rows: $("rows"), closedThrough: $("closed-through"),
   todayHint: $("today-hint"), todayFinished: $("today-finished"), todayPlaying: $("today-playing"), todayWaiting: $("today-waiting"),
+  openRound: $("open-round"), openRoundName: $("open-round-name"), openRoundMeta: $("open-round-meta"),
+  tCards: $("t-cards"), noTournaments: $("no-tournaments"),
+  tCreateForm: $("t-create-form"), tCreateName: $("t-create-name"), presets: $("presets"),
+  memberRows: $("member-rows"), memberActionsHead: $("member-actions-head"),
+  pendingWrap: $("pending-wrap"), pending: $("pending"),
   leaveBtn: $("leave-btn"), confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
 
 const params = new URLSearchParams(location.search);
 let gid = params.get("g");
 let view = null;          // last getLeaderboard response
+let tournaments = null;   // last listTournaments response
 let window_ = "last30";   // FR-4.7
+let section = "ranking";
+
+const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
 
 watchAuth({
-  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, setStatus,
+  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, account: el.account, setStatus,
   onUser: (u) => {
     el.list.hidden = el.board.hidden = true;
-    if (!u) return;
+    if (!u) { view = null; tournaments = null; return; }
+    profile.setName(u.displayName);
     const token = params.get("convite");
     if (token) return accept(token);
     if (gid) return loadBoard();
@@ -101,13 +124,17 @@ el.createForm.addEventListener("submit", async (ev) => {
 });
 
 // ---------------------------------------------------------------------------
-// Board (FR-4.6, FR-4.7, FR-4.11)
+// One group (FR-4.6, FR-4.7, FR-4.11)
 // ---------------------------------------------------------------------------
 
 async function loadBoard() {
   el.list.hidden = true;
   el.board.hidden = false;
   try {
+    // Fired here, not awaited here: the ranking is what the page is for, and a
+    // slow or failing listTournaments must not hold it up. The Torneios tab and
+    // the round card fill themselves in when it lands.
+    loadTournaments();
     view = await api.getLeaderboard({ groupId: gid });
     render();
     if (view.group.isOwner) loadPending();
@@ -122,8 +149,7 @@ function render() {
   el.groupName.textContent = group.name;
   el.groupMeta.textContent = `${t("players", { n: group.memberCount })} · ${t("owner")}: ${group.ownerDisplayName}`;
   el.ownerTools.hidden = !group.isOwner;
-  el.actionsHead.hidden = !group.isOwner;
-  el.tournamentsLink.href = `./torneios.html?g=${gid}`;
+  el.countMembers.textContent = String(group.memberCount);
 
   const sorted = [...rows].sort((a, b) => a[window_].rank - b[window_].rank || a.displayName.localeCompare(b.displayName));
   el.rows.replaceChildren(...sorted.map((r) => {
@@ -137,18 +163,11 @@ function render() {
       td.textContent = String(v);
       tr.append(td);
     });
-    if (group.isOwner) {
-      const td = document.createElement("td");
-      if (!r.isMe) {
-        const b = document.createElement("button"); b.type = "button"; b.className = "link"; b.textContent = "remover";
-        b.addEventListener("click", () => remove(r));
-        td.append(b);
-      }
-      tr.append(td);
-    }
     return tr;
   }));
   el.closedThrough.textContent = t("closedThrough", { day: formatDay(closedThrough) });
+
+  renderMembers();
 
   // FR-4.11: states always; scores only once the viewer has finished.
   el.todayHint.replaceChildren();
@@ -162,12 +181,167 @@ function render() {
   });
 }
 
+/**
+ * Which row is the owner. getLeaderboard sends `isOwner` (about the viewer) and
+ * `ownerDisplayName`, but no owner uid — so when the viewer IS the owner their
+ * own row is the answer exactly, and otherwise the name is all there is. Two
+ * members may share a display name, nothing stops them, so an ambiguous match
+ * labels nobody rather than labelling the wrong person.
+ */
+function ownerRow(rows, group) {
+  if (group.isOwner) return rows.find((r) => r.isMe) ?? null;
+  const named = rows.filter((r) => r.displayName === group.ownerDisplayName);
+  return named.length === 1 ? named[0] : null;
+}
+
+/**
+ * Who is in the group (FR-4.8). This was an extra column on the ranking table
+ * that only the owner could see, which made the ranking's own columns shift
+ * about depending on who was looking.
+ */
+function renderMembers() {
+  const { group, rows } = view;
+  el.memberActionsHead.hidden = !group.isOwner;
+  const byName = [...rows].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  const owner = ownerRow(rows, group);
+  el.memberRows.replaceChildren(...byName.map((r) => {
+    const tr = document.createElement("tr");
+    if (r.isMe) tr.className = "me";
+    const name = document.createElement("td");
+    name.className = "name";
+    name.textContent = r.displayName;
+    const role = document.createElement("td");
+    role.textContent = r === owner ? t("owner") : "";
+    tr.append(name, role);
+    if (group.isOwner) {
+      const td = document.createElement("td");
+      if (!r.isMe) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "link"; b.textContent = "remover";
+        b.addEventListener("click", () => remove(r));
+        td.append(b);
+      }
+      tr.append(td);
+    }
+    return tr;
+  }));
+}
+
+// --- the three sections ------------------------------------------------------
+
+el.sections.addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-tab]");
+  if (!b) return;
+  section = b.dataset.tab;
+  for (const x of el.sections.querySelectorAll("button")) x.setAttribute("aria-selected", String(x === b));
+  el.tabRanking.hidden = section !== "ranking";
+  el.tabTorneios.hidden = section !== "torneios";
+  el.tabMembros.hidden = section !== "membros";
+});
+
 el.tabs.addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-window]");
   if (!b) return;
   window_ = b.dataset.window;
   for (const x of el.tabs.querySelectorAll("button")) x.setAttribute("aria-selected", String(x === b));
   if (view) render(); // no network: ranks for all three windows came with the response
+});
+
+// ---------------------------------------------------------------------------
+// Tournaments, in the group they belong to (FR-5)
+// ---------------------------------------------------------------------------
+
+/** Never on the critical path: a group whose tournaments will not load is a
+ *  group with an empty Torneios tab, not a group that failed to open. */
+async function loadTournaments() {
+  try {
+    tournaments = await api.listTournaments({ groupId: gid });
+  } catch { return; }
+  renderTournaments();
+}
+
+function renderTournaments() {
+  const { tournaments: list, presets, canManage } = tournaments;
+  el.countTournaments.textContent = list.length > 0 ? String(list.length) : "";
+  el.tCards.replaceChildren(...list.map(tournamentCard));
+  el.noTournaments.hidden = list.length > 0;
+  el.noTournaments.textContent = t("noTournaments");
+  el.tCreateForm.hidden = !canManage;
+  if (canManage) renderPresets(presets);
+
+  // The one that is waiting on somebody, at the top of the panel beside the
+  // board. If there are several running, the first is the one the server
+  // listed first — picking a "most urgent" would need a round's closesAt, and
+  // fetching every tournament to sort a card is not worth a round trip.
+  const running = list.find((x) => x.status === "running");
+  el.openRound.hidden = !running;
+  if (running) {
+    el.openRound.href = `./torneios.html?g=${gid}&t=${running.tournamentId}`;
+    el.openRoundName.textContent = running.name;
+    el.openRoundMeta.textContent = running.currentRound
+      ? t("roundOf", { n: running.currentRound, max: running.rounds })
+      : t("players", { n: running.participantCount });
+  }
+}
+
+function tournamentCard(x) {
+  const li = document.createElement("li");
+  const a = document.createElement("a");
+  a.href = `./torneios.html?g=${gid}&t=${x.tournamentId}`;
+  const name = document.createElement("span");
+  name.textContent = x.name;
+  const meta = document.createElement("span");
+  meta.className = "meta";
+  const bits = [t(`statusOf.${x.status}`), t("players", { n: x.participantCount })];
+  if (x.status === "running" && x.currentRound) bits.push(t("roundOf", { n: x.currentRound, max: x.rounds }));
+  meta.textContent = bits.join(" · ");
+  if (x.isParticipant) {
+    const b = document.createElement("span");
+    b.className = "badge";
+    b.textContent = "você";
+    meta.prepend(b, " ");
+  }
+  a.append(name, meta);
+  li.append(a);
+  return li;
+}
+
+function renderPresets(presets) {
+  if (el.presets.children.length > 1) return;
+  const legend = document.createElement("legend");
+  legend.className = "fine";
+  legend.textContent = t("presetLabel");
+  el.presets.replaceChildren(legend, ...presets.map((p, i) => {
+    const label = document.createElement("label");
+    label.className = "preset";
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "preset";
+    input.value = p.id;
+    if (i === 0) input.checked = true;
+    const strong = document.createElement("strong");
+    strong.textContent = p.label;
+    const desc = document.createElement("span");
+    desc.className = "fine";
+    desc.textContent = p.description;
+    label.append(input, strong, desc);
+    return label;
+  }));
+}
+
+el.tCreateForm.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const preset = el.presets.querySelector("input[name=preset]:checked")?.value;
+  if (!preset) return;
+  const button = ev.submitter;
+  button.disabled = true;
+  try {
+    const { tournamentId } = await api.createTournament({ groupId: gid, name: el.tCreateName.value.trim(), preset });
+    location.href = `./torneios.html?g=${gid}&t=${tournamentId}`;
+  } catch (err) {
+    setStatus(errorMessage(err), "err");
+    button.disabled = false;
+  }
 });
 
 // --- owner actions (FR-4.8) --------------------------------------------------
@@ -193,6 +367,7 @@ el.copyBtn.addEventListener("click", async () => {
 async function loadPending() {
   try {
     const { invites } = await api.listInvites({ groupId: gid });
+    el.pendingWrap.hidden = false;
     el.pending.replaceChildren(...invites.map((i) => {
       const li = document.createElement("li");
       const txt = document.createElement("span"); txt.textContent = `…${i.token.slice(-4)} · ${t("expires", { date: formatDay(i.expiresAt.slice(0, 10)) })}`;

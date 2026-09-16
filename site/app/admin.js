@@ -2,12 +2,14 @@
 // and renders. A non-admin gets one sentence and nothing else.
 
 import { ask, watchAuth } from "./auth-ui.js";
+import { mountProfile } from "./profile.js";
 import * as api from "./api.js";
 import { errorMessage, t } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"), panel: $("panel"), tabs: $("tabs"),
+  account: $("account"), profileBtn: $("profile-btn"),
   usersRows: $("users-rows"), usersMore: $("users-more"), userAttempts: $("user-attempts"), userAttemptsTitle: $("user-attempts-title"), userAttemptsRows: $("user-attempts-rows"),
   groupsRows: $("groups-rows"), dayInput: $("day-input"), dayRows: $("day-rows"),
   confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
@@ -19,11 +21,13 @@ const TODAY = puzzleToday();
 
 el.usersMore.textContent = t("loadMore"); // the markup label is a fallback
 
+const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
+
 watchAuth({
-  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, setStatus,
+  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, account: el.account, setStatus,
   onUser: (u) => {
     el.panel.hidden = !u;
-    if (u) loadUsers(true);
+    if (u) { profile.setName(u.displayName); loadUsers(true); }
   },
 });
 

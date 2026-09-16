@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mondo — que país é este?</title>
 <meta name="description" content="Cinco desafios por dia: silhueta, bandeira, capital, PIB per capita e qual é a bandeira.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
 <link rel="stylesheet" href="./mondo.css">
 <script>
   // D-18: follow the parent site's theme choice (lisecki.dev/theme.js writes
@@ -18,16 +21,29 @@
 </head>
 <body>
 <header>
-  <h1><a href="./">Mondo</a></h1>
+  <a class="wordmark" href="./">Mondo</a>
+  <!-- Three destinations. Everything else moved behind the avatar: the bar
+       carried up to seven links and wrapped onto a second line on a phone. -->
   <nav aria-label="Principal">
-    <a href="./regras.html">Regras</a>
-    <a href="./grupos.html">Grupos</a>
-    <a href="./torneios.html">Torneios</a>
+    <a href="./" aria-current="page">Hoje</a>
+    <a href="./grupos.html">Grupo</a>
     <a href="./praticar.html">Treinar</a>
-    <a id="admin-link" href="./admin.html" hidden>Painel</a>
-    <button id="profile-btn" type="button" class="link" hidden>Perfil</button>
-    <button id="sign-out" type="button" class="link" hidden>Sair</button>
   </nav>
+  <div class="head-right">
+    <p id="streak" class="streak" hidden></p>
+    <details class="account" id="account" hidden>
+      <summary aria-label="Conta e ajuda">?</summary>
+      <div class="account-menu">
+        <button type="button" id="profile-btn">Perfil</button>
+        <a id="admin-link" href="./admin.html" hidden>Painel</a>
+        <a href="./grupos.html">Grupos e torneios</a>
+        <a href="./regras.html">Regras</a>
+        <a href="./privacidade.html">Privacidade</a>
+        <hr>
+        <button type="button" id="sign-out">Sair</button>
+      </div>
+    </details>
+  </div>
 </header>
 
 <main>
@@ -46,6 +62,21 @@
   </section>
 
   <section id="game" hidden>
+    <!-- The day itself, and where you are in it. FIRST in the DOM because on a
+         phone this is the strip of five boxes above the prompt; at 60rem the
+         grid turns the same markup into the left column (D-57). It used to sit
+         UNDER the guess form, which meant scrolling past the prompt to find out
+         which challenge you were on. -->
+    <aside class="rail">
+      <div class="rail-head">
+        <h1 id="day-title"></h1>
+        <p class="fine">Desafios novos ao meio-dia.</p>
+      </div>
+      <ol id="items" class="day" aria-label="Desafios de hoje"></ol>
+      <p class="rail-total"><span>Hoje</span><b id="day-total"></b></p>
+      <dl id="side-stats" class="stats"></dl>
+    </aside>
+
     <div class="play-col">
       <div class="prompt-head">
         <p id="progress" class="fine" aria-live="polite"></p>
@@ -103,10 +134,12 @@
       <p id="left" class="fine" aria-live="polite"></p>
       <p id="status" aria-live="polite"></p>
 
-      <ol id="items" class="card-items" aria-label="Desafios de hoje"></ol>
-
+      <!-- FR-2.11: the day, once it is over. The five answers are here rather
+           than in the rail, because at this point they ARE the screen — and on a
+           phone the rail has shrunk back to five small boxes. -->
       <section id="result" class="result" hidden>
         <p id="result-text"></p>
+        <ol id="recap" class="recap" aria-label="As respostas de hoje"></ol>
         <button id="share" type="button" class="primary">Compartilhar</button>
         <!-- FR-9: the day is over and there is nothing else to do here until
              noon. Practice is the answer to that, so this is where it is offered. -->
@@ -115,7 +148,7 @@
       </section>
     </div>
 
-    <!-- D-57: the game column above is untouched; the width a desktop has spare
+    <!-- D-57: the game column is untouched; the width a desktop has spare
          carries context instead. Hidden below 60rem by mondo.css, and hidden
          entirely until the panel has something real to show. -->
     <aside id="side" class="side" hidden>
@@ -127,7 +160,6 @@
         <h3>Ainda não</h3><ul id="side-waiting"></ul>
       </div>
       <p id="side-gated" class="fine"></p>
-      <dl id="side-stats" class="stats"></dl>
     </aside>
 
   </section>
@@ -138,33 +170,18 @@
   <a href="https://github.com/Thinato/mondo">Código</a>
 </footer>
 
-<dialog id="profile-dialog">
-  <form id="profile-form" method="dialog">
-    <h2>Perfil</h2>
-    <label for="profile-name">Nome de exibição</label>
-    <input id="profile-name" type="text" minlength="3" maxlength="24" required
-           pattern="[\p{L}\p{N} _\-]{3,24}" autocomplete="nickname">
-    <p class="fine">3 a 24 caracteres: letras, números, espaço, - ou _. É o que os outros veem.</p>
-    <p id="profile-error" class="err" aria-live="polite"></p>
-    <div class="actions">
-      <button type="button" id="delete-btn" class="link">Excluir conta</button>
-      <button type="submit" value="cancel" class="link">Cancelar</button>
-      <button type="submit" value="save" class="primary">Salvar</button>
-    </div>
-  </form>
-</dialog>
-
-<dialog id="delete-dialog">
-  <form id="delete-form" method="dialog">
-    <h2>Excluir conta</h2>
-    <p>Apaga na hora: seu login, seu perfil, todos os seus resultados e sua participação em todos os grupos. Não dá para desfazer.</p>
-    <p id="delete-error" class="err" aria-live="polite"></p>
-    <div class="actions">
-      <button type="submit" value="cancel" class="link">Cancelar</button>
-      <button type="submit" value="ok" class="primary">Excluir tudo</button>
-    </div>
-  </form>
-</dialog>
+<!-- The phone's two destinations (FR-6.1). Grupos, torneios and the painel are
+     behind the avatar: nobody opens Mondo on a bus to rename a group. -->
+<nav class="tabbar" aria-label="Seções">
+  <a href="./" aria-current="page">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3.3 9.2h17.4M3.3 14.8h17.4"/></svg>
+    Hoje
+  </a>
+  <a href="./praticar.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+    Treinar
+  </a>
+</nav>
 
 <dialog id="giveup-dialog">
   <form id="giveup-form" method="dialog">
