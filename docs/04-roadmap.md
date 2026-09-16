@@ -183,6 +183,17 @@ own answer. Assume slice 3 has its own.
 ## Phase 4 — Polish
 *Effort: ongoing.*
 
+**Done 2026-09-16 — a challenge you pick rather than type (FR-8.7, D-64).** `flagPick`: which of
+eight flags belongs to a named country. Two guesses at [6, 2], because a blind player picking one
+of eight scores on 25 % of items at two guesses and 40 % at three, and FR-8.2 wants a mixed card
+to stay summable. The `Kind` contract now takes the whole challenge rather than a subject string,
+so a choice kind can see the options its three siblings do not have; `CardItem` gained an optional
+`options`, stored and shuffled by `buildCard` rather than derived, because the position of the
+right option is the answer and a derived set would reshuffle under anyone holding the challenge
+open. **It is not in the daily** — practice and a tournament preset reach it for free, while the
+daily needs the schedule regenerated, and a fifth challenge would take a day from 0–24 to 0–30.
+That staging is what FR-9 was asked for: "a good way for us to test new challenges".
+
 **Done 2026-09-10 — the daily plays every kind (D-52).** A day is one silhouette, one flag and
 one capital in a shuffled order, worth 0–18. `lib/round.ts` was rebuilt on `lib/card.ts`, which
 reverses D-45: the daily and a tournament round are the same act, and were about to be two

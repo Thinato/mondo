@@ -195,10 +195,33 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   be excluded from the `capital` kind's pool.
 - **FR-8.5** The manager MUST be able to specify a card as a multiset of kinds and choose whether
   the order is as listed or shuffled. A card MAY be several challenges of one kind.
-- **FR-8.6** Shipped kinds: `shape`, `capital`, `flag` (a vendored public-domain SVG set,
-  flattened offline to filled paths; 24 countries have no flag) and `gdp` (World Bank GDP per
-  capita PPP for one pinned year; 10 countries have no figure). All four are asked every day
-  (FR-2.1a) and are available to tournament card specs. No kind is planned beyond these.
+- **FR-8.6** *(amended 2026-09-16, D-64)* Shipped kinds: `shape`, `capital`, `flag` (a vendored
+  public-domain SVG set, flattened offline to filled paths; 24 countries have no flag), `gdp`
+  (World Bank GDP per capita PPP for one pinned year; 10 countries have no figure) and
+  `flagPick` (FR-8.7). The first four are asked every day (FR-2.1a); all five are available to
+  tournament card specs and to practice. **`flagPick` is not in the daily**, and adding it is a
+  deliberate act with a cost: a day would go from 0–24 to 0–30 and open a third seam in the
+  all-time column (FR-3.4). It reaches players through practice and a tournament preset first,
+  which is what FR-9 exists for.
+- **FR-8.7** *(added 2026-09-16, D-64)* A kind MAY ask its question as **a set of options**, of
+  which exactly one is right. For such a kind:
+  - The options MUST be chosen once, when the card is built, and **stored** with the challenge.
+    They MUST NOT be derived on read: a pool that changes would reshuffle a challenge that a
+    player has open, and the picks they have already spent would point at different options.
+  - The order MUST be shuffled when the card is built, and the position of the right option MUST
+    be uniformly distributed. **The position is the answer** (SEC-1): it follows that nothing
+    identifying an option — a country code, a name in any locale, an id — may appear in the
+    prompt, in the DOM, or in a guess. A guess is an **index**.
+  - A wrong pick MUST NOT be named, in the response or on screen. Naming it teaches the player
+    that flag, and a flag taught here can answer a `flag` challenge on the same card.
+  - Distractors MUST exclude every other subject on the same card, and SHOULD exclude the
+    caller's own exclusion window (FR-5.2, FR-9.5) where the pool allows it.
+  - Distractors MUST NOT be chosen by any property that correlates with being the answer —
+    payload size included. A rule that preferred small artwork would make a complex flag rarer
+    as a distractor than as an answer, and "pick the busiest one" would beat the game.
+  - The guess budget MUST reflect that picking is easier than naming: with `n` options and `g`
+    guesses a blind player scores on `g/n` of challenges, and FR-8.2's shared 0–6 scale is only
+    honest while that stays small. `flagPick` is 8 options and 2 guesses, so 25 %.
 
 ## FR-6 — Client experience
 

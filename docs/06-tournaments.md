@@ -208,7 +208,7 @@ tie         null | { k: number, uids: [uid, uid], cardId, closesAt, kind: "sudde
 ```
 tournamentId  string
 round         number
-items         [{ kind: "shape"|"flag"|"capital"|"gdp", subject: "PY", ...kind payload }]
+items         [{ kind: "shape"|"flag"|"capital"|"gdp"|"flagPick", subject: "PY", options?: string[] }]
 createdAt     timestamp
 ```
 
@@ -278,7 +278,7 @@ Still none. `participantUids array-contains`, `tournaments where groupId ==`, `s
 
 ```ts
 export interface ChallengeKind<Answer, Guess, Feedback> {
-  id: "shape" | "flag" | "capital" | "gdp";
+  id: "shape" | "flag" | "capital" | "gdp" | "flagPick";
 
   /** Pick a subject not in `exclude` (FR-5.2). Deterministic given `rand`. */
   pick(exclude: ReadonlySet<string>, rand: () => number): Answer;
@@ -320,6 +320,7 @@ what a *day* has that a round does not: the schedule, the streak, the share grid
 | `capital` | a capital city name | country | 3 | km + compass from the guess (reuses geo) | `world-countries.capital` | **free** — already a dependency |
 | `flag` | one inlined flag, as filled paths | country | 3 | km + compass | `flags.json`, built from a vendored public-domain SVG set | **exists** (§5.3) |
 | `gdp` | a country name (public) | a number | 3 | higher / lower + how close | `gdp.json`, GDP per capita PPP for one pinned year | **exists** (§5.4) |
+| `flagPick` | a country name (public) + **eight flags, anonymous** | one of the eight | 2 | none — right or struck out | `flags.json`, the same set `flag` uses | **exists** (§5.5) |
 
 **Not every country can be asked as a `capital`.** Fifteen name themselves in their own capital
 — Brasília/Brasil, Cidade do México/México, Singapura/Singapura, Bissau/Guiné-Bissau,
@@ -416,6 +417,46 @@ in plain text. On a mixed card that would be a leak if the same country were ano
 answer — "qual o PIB do Brasil?" beside a silhouette of Brasil. `buildCard` already keeps subjects
 distinct within a card, which is exactly what stops it; `test/card.test.ts` pins it over two
 thousand generated cards.
+
+### 5.5 `flagPick`, where the position is the answer (FR-8.7, D-64)
+
+The inverse of `flag`: the country is the question, and the answer is which of eight flags is
+its. Same pool, same `flags.json`, opposite direction.
+
+**Two guesses, [6, 2].** This is the only kind whose budget is a difficulty argument rather than
+a feel. A blind player picking one of eight scores on `g/n` of challenges — 25 % at two guesses,
+40 % at three — against roughly nothing for naming a silhouette out of 196. FR-8.2 asks every
+kind to be worth the same 0–6 so a mixed card can be summed, and that is only honest while the
+blind rate stays small.
+
+**The wire format is the whole security story.** A prompt of `{code: "BR", flag: …}` would put
+the answer in the response body. So an option carries artwork and nothing else — no code, no
+name, no id — position is the client's only handle, and the guess is an index into a list whose
+order the server chose. `flags.json` is already flattened to `{viewBox, paths}` with no titles or
+ids, so there was nothing to strip; a test asserts the option keys rather than their values, so
+a field added later cannot slip through.
+
+**`buildCard` shuffles, not the kind.** The order IS the answer, so leaving it to each kind means
+the first one that forgets ships with the answer at index 0 and nothing fails. `buildOptions`
+returns a set in any order and `buildCard` shuffles it, once, for every choice kind there will
+ever be. `test/card.test.ts` checks the answer's position over 4000 cards against 3σ.
+
+**Options are stored, not derived.** Deriving them from the subject costs nothing until the pool
+changes, at which point every option set reshuffles under whoever has one open and their spent
+picks point at flags they never chose. The same reasoning as D-42, and the reason `CardItem`
+gained an optional `options` rather than the kind gaining a seed.
+
+**Two locks on the leak.** A wrong pick is never named — the response says which index, never
+which country — because a flag named here can answer the `flag` challenge beside it on the same
+card. And distractors exclude every other subject on the card, so the two challenges cannot meet
+in the first place.
+
+**Distractors are uniform.** Not tier-weighted: tiers rate how recognisable a country's *shape*
+is and are a borrowed proxy for every other kind (§5.2). And not weighted by payload size, which
+is the tempting one — eight of the largest flags is about 220 KB against a 3,4 KB mean — because
+preferring small artwork would make a busy flag rarer as a distractor than as an answer, and the
+winning move would become "pick the busiest flag on the board". The size is the cost of the
+question being fair; the test asserts the true worst case rather than sampling for it.
 
 ---
 
@@ -580,6 +621,7 @@ Two things follow, and both are why this is the right shape rather than a shortc
 | `suíço` | `swiss` | `match` | 3 × `shape` | 4 | points → time → draw | pairs by standing, no repeats |
 | `bandeiras` | `free_for_all` | `aggregate` | 5 × `flag` | 1 | points → time | one-kind tournament, the thing Paulo asked for by name |
 | `economia` | `free_for_all` | `aggregate` | 5 × `gdp` | 1 | points → time | five numbers, three guesses each; the only preset where nobody names a country |
+| `qual-bandeira` | `free_for_all` | `aggregate` | 5 × `flagPick` | 1 | points → time | ten taps end to end; the only preset where nothing is typed |
 
 Preset ids are stable and are referenced in tests. `quintal` is the one built in slice 1; the rest
 land with the format that carries them.

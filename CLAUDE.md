@@ -7,8 +7,10 @@ Context for AI coding agents working in this repo. Read `docs/00-brief.md` throu
 
 A daily country-guessing game served at `lisecki.dev/mondo/`, built for a small competitive
 group. A day is four challenges — silhouette, flag, capital, GDP per capita — played in order
-(D-52, D-53). There is also a practice mode: one kind, as many challenges as you like, scored
-for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages, Firebase backend.
+(D-52, D-53). A fifth kind, `flagPick`, is played in practice and tournaments but not in the
+daily (FR-8.7, D-64). There is also a practice mode: one kind, as many challenges as you like,
+scored for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages,
+Firebase backend.
 
 ## Invariants — never violate these
 
@@ -108,9 +110,22 @@ for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages
   `puzzleId`. A daily attempt carries `puzzleId`; a tournament play must not (D-40).
 - **A day is worth 0–24, and earlier days are worth less** (0–6 before D-52, 0–18 before D-53).
   Do not "fix" the seam in the all-time column: leaving it is a deliberate call.
-- **`gdp` is the one kind whose prompt names a country**, because there the country is the
-  question and the figure is the answer. What keeps that safe is `buildCard` holding subjects
-  distinct within a card — do not relax that.
+- **`gdp` and `flagPick` name a country in their prompts**, because in both the country is the
+  question — the figure is the answer in one, the flag in the other. What keeps that safe is
+  `buildCard` holding subjects distinct within a card — do not relax that.
+- **In a multiple-choice kind the POSITION of the right option is the answer** (FR-8.7, D-64).
+  Three rules follow and each has a test. An option carries artwork and nothing else — no code,
+  no name, no id — so a guess is an index; **`buildCard` does the shuffling**, never the kind,
+  so a new choice kind cannot ship with the answer at index 0 by forgetting; and the options are
+  **stored on the card**, never derived from the subject, or a pool change reshuffles a challenge
+  someone has open. A wrong pick is never named and distractors exclude the card's other
+  subjects — naming one would teach a flag that answers the `flag` challenge beside it. Do not
+  choose distractors by payload size: it would make a busy flag rarer as a distractor than as an
+  answer, and "pick the busiest" would beat the game.
+- **`flagPick` is not in the daily** (FR-8.6). Practice serves any registered kind and a
+  tournament preset is one line, but the daily needs `tools/generate-schedule.mjs` re-run and
+  re-seeded. Adding it takes a day from 0–24 to 0–30 and opens a third seam in the all-time
+  column — a decision to take on purpose, not a side effect.
 - There is **no results fan-out and no standings subcollection** (D-21, D-22): `attempts` is
   the single source of truth and the nightly job writes windows onto `groups/*/members/*`.
   Window arithmetic is D-24; do not change it without changing `regras.html` and the fixture
