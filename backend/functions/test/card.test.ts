@@ -426,3 +426,14 @@ test("D-64: a finished pick reveals which option was right; an open one reveals 
   assert.equal(view.items[0]!.answer?.pick, right);
   assert.deepEqual(view.items[0]!.guesses?.map((g) => g.kind), ["choice"]);
 });
+
+test("FR-2.13 on a pick: giving up closes it at zero with no guesses spent", () => {
+  const card = buildCard({ items: [{ kind: "flagPick", count: 1 }], order: "as_listed" }, NONE);
+  const open = newCardPlay("u1", "t1", "r1", card, T0);
+  const done: CardPlay = { ...open, ...giveUpCard(open, card, at(1000)) };
+  assert.equal(done.items[0]!.guesses.length, 0);
+  assert.equal(done.items[0]!.solved, false);
+  assert.equal(done.items[0]!.points, 0);
+  // The reveal still says which one it was: that is the whole reason to give up.
+  assert.equal(cardView(done, card, at(1000)).items[0]!.answer?.pick, card[0]!.options!.indexOf(card[0]!.subject));
+});
