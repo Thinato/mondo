@@ -104,7 +104,12 @@ const PT_BR = {
   // than looking broken. "Jogue primeiro" belongs on the board, not here: you
   // ARE playing.
   scoresWhenDone: "As pontuações aparecem quando você terminar o seu dia.",
-  statStreak: "Sequência",
+  // The rail's "score" slot for the challenge you are on. It is not a number,
+  // which is the point: nothing has been scored there yet.
+  stepNow: "agora",
+  // The chip in the bar. The current streak left the counters below when it
+  // moved up there, so `statStreak` is no longer rendered anywhere.
+  streakDays: "dia seguido|dias seguidos",
   statLongest: "Melhor sequência",
   statPlayed: "Dias jogados",
   statSolved: "Dias perfeitos",

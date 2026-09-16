@@ -1,9 +1,11 @@
 // Treino — FR-9. Pick a kind, play it until you are bored, leave, read the total.
 //
-// Three screens and no cleverness between them: the picker, the challenge, the
-// summary. Which one is up is decided by `view` alone — null is the picker,
-// `in_progress` is the challenge, `ended` is the summary — so there is no
-// second idea of where the player is that could drift out of step with it.
+// The chooser is the rail and never leaves the screen, so what changes is only
+// the middle column: a line telling you to pick something, the challenge, or the
+// summary. Which one is up is decided by `view` alone — null is the hint,
+// `in_progress` is the challenge, `ended` is the summary — so there is no second
+// idea of where the player is that could drift out of step with it. `kind` is
+// not that second idea: it says what the rail has selected, never what is up.
 //
 // Like game.js, this file never computes anything about an answer. It has less
 // reason to than game.js does: the server tells it outright whether the
@@ -13,6 +15,7 @@
 import { auth } from "./firebase.js";
 import * as api from "./api.js";
 import { ask, watchAuth } from "./auth-ui.js";
+import { mountProfile } from "./profile.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, renderFlag, renderOptions, renderShape } from "./geo.js";
@@ -22,7 +25,8 @@ import { errorMessage, t } from "./i18n.js";
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"),
-  pick: $("pick"), picker: $("picker"), train: $("train"),
+  account: $("account"), profileBtn: $("profile-btn"),
+  runCols: $("run-cols"), picker: $("picker"), hint: $("practice-hint"), train: $("train"),
   progress: $("progress"), helpBtn: $("help-btn"), leaveBtn: $("leave-btn"), giveUpBtn: $("giveup-btn"),
   helpDialog: $("help-dialog"), helpTitle: $("help-title"), helpBody: $("help-body"), helpClose: $("help-close"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
@@ -40,6 +44,10 @@ const el = {
 const KINDS = ["shape", "flag", "capital", "gdp", "flagPick"];
 
 let view = null;
+/** Which kind the rail has selected, so the chooser can say so and so that
+ *  "treinar de novo" starts another run of the same thing rather than sending
+ *  the player back to a screen that no longer exists. */
+let kind = null;
 let picked = null;
 let ac = null;
 let busy = false;
@@ -55,31 +63,36 @@ const help = attachHelp({
   title: el.helpTitle, body: el.helpBody, close: el.helpClose,
 });
 
+const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
+
 // ---------------------------------------------------------------------------
 
 watchAuth({
-  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, setStatus,
+  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, account: el.account, setStatus,
   onUser: (user) => {
-    if (!user) { view = null; run = []; shownPrompt = null; }   // FR-1.6: nothing survives sign-out
+    if (!user) { view = null; kind = null; run = []; shownPrompt = null; }   // FR-1.6: nothing survives sign-out
+    if (user) { profile.setName(user.displayName); buildPicker(); }
     render();
-    if (user) buildPicker();
   },
 });
 
+/** Built once; the selected one is marked on every render. */
 function buildPicker() {
   if (el.picker.children.length > 0) return;
-  el.picker.replaceChildren(...KINDS.map((kind) => {
+  el.picker.replaceChildren(...KINDS.map((k) => {
     const li = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
+    button.dataset.kind = k;
+    button.setAttribute("aria-pressed", "false");
     const name = document.createElement("span");
     name.className = "name";
-    name.textContent = t(`kindName.${kind}`);
+    name.textContent = t(`kindName.${k}`);
     const about = document.createElement("span");
     about.className = "fine";
-    about.textContent = t(`practice.about.${kind}`);
+    about.textContent = t(`practice.about.${k}`);
     button.append(name, about);
-    button.addEventListener("click", () => start(kind));
+    button.addEventListener("click", () => start(k));
     li.append(button);
     return li;
   }));
@@ -89,13 +102,16 @@ function buildPicker() {
 // The run
 // ---------------------------------------------------------------------------
 
-async function start(kind) {
+async function start(next) {
+  if (busy) return;
   setBusy(true);
   setStatus(t("loading"));
+  kind = next;
+  render();
   try {
     await countries();
     run = [];
-    view = await api.startPractice({ kind });
+    view = await api.startPractice({ kind: next });
     setStatus("");
   } catch (err) {
     setStatus(errorMessage(err), "err");
@@ -189,9 +205,10 @@ el.leaveBtn.addEventListener("click", async () => {
   finally { setBusy(false); render(); }
 });
 
-// Back to the picker. The run goes with the summary that reported it: leaving
-// it on screen under a fresh picker reads as the run still being open.
-el.again.addEventListener("click", () => { view = null; run = []; shownPrompt = null; render(); });
+// Another run of the same kind. The chooser never left the screen, so "back to
+// the picker" is not a thing that needs doing any more — and the run that just
+// ended goes with the summary that reported it.
+el.again.addEventListener("click", () => start(kind ?? KINDS[0]));
 
 // ---------------------------------------------------------------------------
 // Rendering
@@ -205,9 +222,13 @@ function render() {
   const running = signedIn && view?.status === "in_progress";
   const ended = signedIn && view?.status === "ended";
 
-  el.pick.hidden = !signedIn || running || ended;
+  el.runCols.hidden = !signedIn;
+  el.hint.hidden = running || ended;
   el.train.hidden = !running;
   el.summary.hidden = !ended;
+  for (const b of el.picker.querySelectorAll("button")) {
+    b.setAttribute("aria-pressed", String(b.dataset.kind === kind));
+  }
 
   if (running) renderChallenge();
   if (ended) {

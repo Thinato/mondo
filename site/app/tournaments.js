@@ -1,13 +1,17 @@
-// Tournaments (FR-5 as rewritten, FR-8; docs/06-tournaments.md §9).
+// One tournament (FR-5 as rewritten, FR-8; docs/06-tournaments.md §9).
 //
-// Three views on one page, chosen by the query string: a group's tournaments
-// (?g=), one tournament (?t=), and playing its card (?t=…&jogar=1).
+// Two views on one page, chosen by the query string: the tournament (?t=) and
+// playing its card (?t=…&jogar=1). The LIST of a group's tournaments is a
+// section of grupos.html — a tournament lives inside a group, so the screen
+// that used to open here by asking which group you meant was asking a question
+// its own entry point had already answered.
 //
 // Like groups.js, this file renders what the server sent and computes nothing.
 // It cannot know an answer: the card's prompt is one SVG path, one flag or one city name,
 // and an item's answer arrives only once that item is over (SEC-1).
 
 import { ask, watchAuth } from "./auth-ui.js";
+import { mountProfile } from "./profile.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
@@ -19,9 +23,7 @@ import { fillBuckets } from "./people.js";
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"),
-  pick: $("pick"), pickCards: $("pick-cards"), pickEmpty: $("pick-empty"),
-  list: $("list"), cards: $("cards"), noTournaments: $("no-tournaments"),
-  backToGroup: $("back-to-group"), createForm: $("create-form"), createName: $("create-name"), presets: $("presets"),
+  account: $("account"), profileBtn: $("profile-btn"),
   detail: $("detail"), backToList: $("back-to-list"), tName: $("t-name"), tMeta: $("t-meta"), tActions: $("t-actions"),
   round: $("round"), roundTitle: $("round-title"), roundCloses: $("round-closes"), playBtn: $("play-btn"),
   roundHint: $("round-hint"), roundFinished: $("round-finished"), roundPlaying: $("round-playing"), roundWaiting: $("round-waiting"),
@@ -32,6 +34,7 @@ const el = {
   cardFlagWrap: $("card-flag-wrap"), cardFlag: $("card-flag"),
   cardGuesses: $("card-guesses"), cardForm: $("card-form"), cardInput: $("card-input"), cardList: $("card-datalist"),
   cardSubmit: $("card-submit"), cardLeft: $("card-left"), cardItems: $("card-items"), cardDone: $("card-done"),
+  cardRoundTitle: $("card-round-title"), cardTotal: $("card-total"),
   cardCombo: $("card-combo"), cardMoney: $("card-money"), cardNumber: $("card-number"),
   helpBtn: $("help-btn"), helpDialog: $("help-dialog"), helpTitle: $("help-title"),
   helpBody: $("help-body"), helpClose: $("help-close"),
@@ -60,11 +63,14 @@ const help = attachHelp({
   title: el.helpTitle, body: el.helpBody, close: el.helpClose,
 });
 
+const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
+
 watchAuth({
-  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, setStatus,
+  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, account: el.account, setStatus,
   onUser: (u) => {
-    el.pick.hidden = el.list.hidden = el.detail.hidden = el.card.hidden = true;
+    el.detail.hidden = el.card.hidden = true;
     if (!u) { view = null; card = null; reveal = null; return; }
+    profile.setName(u.displayName);
     route();
   },
 });
@@ -72,138 +78,22 @@ watchAuth({
 function route() {
   if (tid && playing) return openCard();
   if (tid) return loadTournament();
-  if (gid) return loadList();
-  // The nav links carry no ?g=, so this is the front door, not an error state.
-  return loadGroups();
+  // Nothing named. Every link into this page carries a ?t=, so arriving without
+  // one means a stale bookmark from when the list lived here.
+  location.replace(gid ? `./grupos.html?g=${gid}` : "./grupos.html");
 }
-
-/** No group chosen yet: list the caller's groups and let them pick one. */
-async function loadGroups() {
-  el.list.hidden = el.detail.hidden = el.card.hidden = true;
-  el.pick.hidden = false;
-  try {
-    const { groups } = await api.listGroups({});
-    el.pickCards.replaceChildren(...groups.map((g) => {
-      const li = document.createElement("li");
-      const a = document.createElement("a");
-      a.href = `./torneios.html?g=${g.groupId}`;
-      const name = document.createElement("span"); name.textContent = g.name;
-      const meta = document.createElement("span"); meta.className = "meta"; meta.textContent = t("players", { n: g.memberCount });
-      a.append(name, meta);
-      li.append(a);
-      return li;
-    }));
-    el.pickEmpty.hidden = groups.length > 0;
-    el.pickEmpty.textContent = t("noGroups");
-    // One group is the common case: skip the pick and go straight in.
-    if (groups.length === 1) {
-      gid = groups[0].groupId;
-      history.replaceState(null, "", `./torneios.html?g=${gid}`);
-      el.pick.hidden = true;
-      return loadList();
-    }
-    setStatus("");
-  } catch (err) {
-    setStatus(errorMessage(err), "err");
-  }
-}
-
-// ---------------------------------------------------------------------------
-// A group's tournaments
-// ---------------------------------------------------------------------------
-
-async function loadList() {
-  el.pick.hidden = el.detail.hidden = el.card.hidden = true;
-  el.list.hidden = false;
-  el.backToGroup.href = `./grupos.html?g=${gid}`;
-  try {
-    const { tournaments, presets, canManage } = await api.listTournaments({ groupId: gid });
-    el.cards.replaceChildren(...tournaments.map(tournamentCard));
-    el.noTournaments.hidden = tournaments.length > 0;
-    el.noTournaments.textContent = t("noTournaments");
-    el.createForm.hidden = !canManage;
-    if (canManage) renderPresets(presets);
-    setStatus("");
-  } catch (err) {
-    setStatus(errorMessage(err), "err");
-  }
-}
-
-function tournamentCard(x) {
-  const li = document.createElement("li");
-  const a = document.createElement("a");
-  a.href = `./torneios.html?g=${gid}&t=${x.tournamentId}`;
-  const name = document.createElement("span");
-  name.textContent = x.name;
-  const meta = document.createElement("span");
-  meta.className = "meta";
-  const bits = [t(`statusOf.${x.status}`), t("players", { n: x.participantCount })];
-  if (x.status === "running" && x.currentRound) bits.push(t("roundOf", { n: x.currentRound, max: x.rounds }));
-  meta.textContent = bits.join(" · ");
-  if (x.isParticipant) {
-    const b = document.createElement("span");
-    b.className = "badge";
-    b.textContent = "você";
-    meta.prepend(b, " ");
-  }
-  a.append(name, meta);
-  li.append(a);
-  return li;
-}
-
-function renderPresets(presets) {
-  const legend = document.createElement("legend");
-  legend.className = "fine";
-  legend.textContent = t("presetLabel");
-  el.presets.replaceChildren(legend, ...presets.map((p, i) => {
-    const label = document.createElement("label");
-    label.className = "preset";
-    const input = document.createElement("input");
-    input.type = "radio";
-    input.name = "preset";
-    input.value = p.id;
-    if (i === 0) input.checked = true;
-    const strong = document.createElement("strong");
-    strong.textContent = p.label;
-    const desc = document.createElement("span");
-    desc.className = "fine";
-    desc.textContent = p.description;
-    label.append(input, strong, desc);
-    return label;
-  }));
-}
-
-el.createForm.addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  const preset = el.presets.querySelector("input[name=preset]:checked")?.value;
-  if (!preset) return;
-  const button = ev.submitter;
-  button.disabled = true;
-  try {
-    const { tournamentId } = await api.createTournament({ groupId: gid, name: el.createName.value.trim(), preset });
-    el.createName.value = "";
-    tid = tournamentId;
-    history.pushState(null, "", `./torneios.html?g=${gid}&t=${tid}`);
-    setStatus(t("tournamentCreated"), "ok");
-    await loadTournament();
-  } catch (err) {
-    setStatus(errorMessage(err), "err");
-  } finally {
-    button.disabled = false;
-  }
-});
 
 // ---------------------------------------------------------------------------
 // One tournament
 // ---------------------------------------------------------------------------
 
 async function loadTournament() {
-  el.pick.hidden = el.list.hidden = el.card.hidden = true;
+  el.card.hidden = true;
   el.detail.hidden = false;
   try {
     view = await api.getTournament({ tournamentId: tid });
     gid = view.groupId;
-    el.backToList.href = `./torneios.html?g=${gid}`;
+    el.backToList.href = `./grupos.html?g=${gid}`;
     renderTournament();
     setStatus("");
   } catch (err) {
@@ -231,7 +121,9 @@ function renderActions() {
   if (view.status === "draft") {
     if (view.canJoin) actions.push(button(t("join"), "primary", () => participate(true)));
     else if (view.isParticipant) actions.push(button(t("leaveTournament"), "link", () => leave()));
-    if (view.canManage) actions.push(button(t("start"), "primary", start));
+    // Second filled button on the same row, so it takes the quieter one: one
+    // accent per screen, or the accent stops meaning anything.
+    if (view.canManage) actions.push(button(t("start"), view.canJoin ? "secondary" : "primary", start));
   }
   if (view.status === "running" && view.canManage) actions.push(button(t("closeRound"), "link", closeRound));
   if (view.canManage && (view.status === "draft" || view.status === "running")) {
@@ -450,7 +342,7 @@ async function cancel() {
 // ---------------------------------------------------------------------------
 
 async function openCard() {
-  el.pick.hidden = el.list.hidden = el.detail.hidden = true;
+  el.detail.hidden = true;
   el.card.hidden = false;
   reveal = null;
   el.cardSide.hidden = true;
@@ -579,21 +471,25 @@ function renderCard() {
   el.cardForm.hidden = done || revealing || kind === "flagPick";
   el.cardLeft.textContent = done || revealing ? "" : t("guessesLeft", { n: card.guessesUsed, max: card.guessesMax });
 
+  // The rail (FR-6.11), the same one the daily has: five boxes above the prompt
+  // on a phone, a row per challenge in the left column on a desktop.
   el.cardItems.replaceChildren(...card.items.map((it, i) => {
     const li = document.createElement("li");
-    li.className = `card-item ${it.status}`;
+    li.className = `step ${it.status}`;
     const n = document.createElement("span");
-    n.textContent = `${i + 1}.`;
+    n.className = "step-n";
+    n.textContent = String(i + 1);
     const label = document.createElement("span");
-    label.className = "name";
-    // An answer appears only for an item that is already over (SEC-1).
-    label.textContent = it.answer ? it.answer.name : t(`itemState.${it.status}`);
+    label.className = "step-name";
+    label.textContent = t(`kindName.${it.kind}`);
     const pts = document.createElement("span");
-    pts.className = "score";
-    pts.textContent = it.points === null ? "" : `${it.points} pts`;
+    pts.className = "step-score";
+    pts.textContent = it.status === "current" ? t("stepNow") : it.points === null ? "" : String(it.points);
     li.append(n, label, pts);
     return li;
   }));
+  const scored = card.items.reduce((sum, it) => sum + (it.points ?? 0), 0);
+  el.cardTotal.textContent = `${scored} / ${card.maxPoints ?? card.itemCount * 6}`;
 
   el.cardReveal.hidden = !revealing;
   if (revealing) {
@@ -624,6 +520,7 @@ async function loadCardSide(tournamentSoon) {
   const cur = t2?.current;
   if (!cur) return;
   el.cardSideTitle.textContent = t("roundOf", { n: cur.n, max: t2.rounds });
+  el.cardRoundTitle.textContent = t("roundOf", { n: cur.n, max: t2.rounds });
   fillBuckets({
     players: cur.players,
     finished: el.cardSideFinished, playing: el.cardSidePlaying, waiting: el.cardSideWaiting,

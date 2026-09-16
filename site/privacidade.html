@@ -4,13 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mondo — privacidade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
 <link rel="stylesheet" href="./mondo.css">
 <script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
 </head>
 <body>
 <header>
-  <h1><a href="./">Mondo</a></h1>
-  <nav aria-label="Principal"><a href="./">Jogar</a></nav>
+  <a class="wordmark" href="./">Mondo</a>
+  <nav aria-label="Principal">
+    <a href="./">Hoje</a>
+    <a href="./grupos.html">Grupo</a>
+    <a href="./praticar.html">Treinar</a>
+  </nav>
 </header>
 
 <main class="prose">
@@ -35,9 +42,13 @@
   <h2>Onde fica</h2>
   <p>No Google Cloud (Firebase), na região de São Paulo. Use uma conta Google <strong>pessoal</strong>; o
   jogo não pede nem precisa de e-mail corporativo.</p>
+  <p>As páginas carregam duas coisas de servidores do Google: o SDK do Firebase e as duas fontes do jogo
+  (Newsreader e IBM Plex Mono). Como qualquer arquivo baixado da internet, isso mostra o seu IP a esses
+  servidores. Nada além disso é enviado, e não há rastreador, analytics nem cookie de publicidade em
+  lugar nenhum.</p>
 
   <h2>Como apagar</h2>
-  <p>Em <strong>Perfil → Excluir conta</strong>. Apaga na hora, sem fila e sem pedir a ninguém: o registro de
+  <p>Em <strong>Perfil → Excluir conta</strong>, pelo menu da sua inicial no canto da barra. Apaga na hora, sem fila e sem pedir a ninguém: o registro de
   login no Google, o perfil, todos os resultados e a participação em todos os grupos. Se você era dono de um
   grupo, o membro mais antigo assume. Nada fica para trás nos rankings: quem saiu simplesmente não aparece.</p>
 
@@ -47,5 +58,16 @@
 </main>
 
 <footer><a href="./">Jogar</a> · <a href="./regras.html">Regras</a> · <a href="https://github.com/Thinato/mondo">Código</a></footer>
+<nav class="tabbar" aria-label="Seções">
+  <a href="./">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3.3 9.2h17.4M3.3 14.8h17.4"/></svg>
+    Hoje
+  </a>
+  <a href="./praticar.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+    Treinar
+  </a>
+</nav>
+
 </body>
 </html>

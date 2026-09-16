@@ -13,13 +13,14 @@
 import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import { auth, googleProvider } from "./firebase.js";
 import * as api from "./api.js";
-import { ask } from "./auth-ui.js";
+import { ask, attachAccount, showAccount } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, renderFlag, renderOptions, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
+import { mountProfile } from "./profile.js";
 import { share } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
@@ -38,14 +39,15 @@ const el = {
   options: $("options"),
   guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
-  shareBtn: $("share"), left: $("left"), profileBtn: $("profile-btn"), profileDialog: $("profile-dialog"),
-  profileForm: $("profile-form"), profileName: $("profile-name"), profileError: $("profile-error"),
-  notInvited: $("not-invited"), adminLink: $("admin-link"),
-  deleteBtn: $("delete-btn"), deleteDialog: $("delete-dialog"), deleteForm: $("delete-form"), deleteError: $("delete-error"),
+  shareBtn: $("share"), left: $("left"), profileBtn: $("profile-btn"),
+  notInvited: $("not-invited"), adminLink: $("admin-link"), account: $("account"),
+  streak: $("streak"), dayTitle: $("day-title"), dayTotal: $("day-total"), recap: $("recap"),
 };
 
+const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
+attachAccount(el.account);
+
 let round = null;
-let displayName = null;
 let picked = null;
 let ac = null;
 let busy = false;
@@ -86,6 +88,7 @@ el.signOut.addEventListener("click", async () => {
   el.input.value = "";
   el.guesses.replaceChildren();
   el.side.hidden = true;
+  el.streak.hidden = true;
 });
 
 onAuthStateChanged(auth, (user) => {
@@ -93,8 +96,7 @@ onAuthStateChanged(auth, (user) => {
   el.game.hidden = !user;
   el.notInvited.hidden = true;
   el.adminLink.hidden = true;
-  el.profileBtn.hidden = !user;
-  el.signOut.hidden = !user;
+  showAccount(el.account, user);
   if (user) load();
 });
 
@@ -119,7 +121,8 @@ async function load() {
     const groupsSoon = api.listGroups({}).catch(() => null);
     round = await api.getRound({});
     if (round.me) {
-      displayName = round.me.displayName;
+      profile.setName(round.me.displayName);
+      showAccount(el.account, auth.currentUser, round.me.displayName);
       el.adminLink.hidden = round.me.role !== "admin";
     }
     setStatus("");
@@ -275,21 +278,7 @@ function render() {
   el.guesses.replaceChildren(...rows.map(guessRow));
   el.left.textContent = inProgress && !revealing ? t("guessesLeft", { n: round.guessesUsed, max: round.guessesMax }) : "";
 
-  el.items.replaceChildren(...round.items.map((it, i) => {
-    const li = document.createElement("li");
-    li.className = `card-item ${it.status}`;
-    const n = document.createElement("span");
-    n.textContent = `${i + 1}.`;
-    const label = document.createElement("span");
-    label.className = "name";
-    // An answer appears only for a challenge that is already over (SEC-1).
-    label.textContent = it.answer ? it.answer.name : t(`kindName.${it.kind}`);
-    const pts = document.createElement("span");
-    pts.className = "score";
-    pts.textContent = it.points === null ? "" : `${it.points} pts`;
-    li.append(n, label, pts);
-    return li;
-  }));
+  renderDay();
 
   el.reveal.hidden = !revealing;
   if (revealing) {
@@ -305,6 +294,7 @@ function render() {
   }
 
   renderStats();
+  renderStreak();
 
   el.result.hidden = inProgress || revealing;
   if (!inProgress && !revealing) {
@@ -313,7 +303,87 @@ function render() {
         ? t("dayPerfect", { points: round.points, max: round.maxPoints })
         : t("dayDone", { points: round.points, max: round.maxPoints });
     el.shareBtn.textContent = t("share");
+    renderRecap();
   }
+}
+
+// ---------------------------------------------------------------------------
+// The rail (FR-6.11). One list, two shapes: five boxes above the prompt on a
+// phone, a row per challenge in the left column on a desktop. mondo.css decides
+// which; this only ever renders the one list.
+// ---------------------------------------------------------------------------
+
+function renderDay() {
+  el.dayTitle.textContent = formatPuzzleDay(round.puzzleId);
+  el.items.replaceChildren(...round.items.map((it, i) => {
+    const li = document.createElement("li");
+    li.className = `step ${it.status}`;
+    const n = document.createElement("span");
+    n.className = "step-n";
+    n.textContent = String(i + 1);
+    // The KIND, never the answer: the rail is where you are, and the five
+    // answers get their own list once the day is over (renderRecap). A rail
+    // that read "Peru · Gana · Capital · PIB per capita" reads as a bug.
+    const label = document.createElement("span");
+    label.className = "step-name";
+    label.textContent = t(`kindName.${it.kind}`);
+    const pts = document.createElement("span");
+    pts.className = "step-score";
+    pts.textContent = it.status === "current" ? t("stepNow") : it.points === null ? "" : String(it.points);
+    li.append(n, label, pts);
+    return li;
+  }));
+  const scored = round.items.reduce((sum, it) => sum + (it.points ?? 0), 0);
+  el.dayTotal.textContent = `${scored} / ${round.maxPoints ?? round.itemCount * 6}`;
+}
+
+/**
+ * FR-2.11 — the day, once it is over: what each challenge was and what it was
+ * worth. The answers used to be in the list the rail has taken over, where on a
+ * phone the result screen pushed them off the bottom.
+ */
+function renderRecap() {
+  el.recap.replaceChildren(...round.items.map((it) => {
+    const li = document.createElement("li");
+    li.className = it.status;
+    const left = document.createElement("span");
+    const kind = document.createElement("span");
+    kind.className = "kind";
+    kind.textContent = t(`kindName.${it.kind}`);
+    const answer = document.createElement("span");
+    answer.className = "answer";
+    // Every item is over by now, so every one of them carries its answer (SEC-1).
+    answer.textContent = it.answer ? it.answer.name : "—";
+    left.append(kind, answer);
+    const pts = document.createElement("span");
+    pts.className = "score";
+    pts.textContent = String(it.points ?? 0);
+    li.append(left, pts);
+    return li;
+  }));
+}
+
+const dayFmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+/**
+ * "Quarta-feira, 16 de setembro" from a puzzleId of 20260916. Days roll at noon
+ * São Paulo, so a player's own clock can disagree with the day they are
+ * playing — the puzzle's id is the only honest source for this line.
+ */
+function formatPuzzleDay(puzzleId) {
+  const id = String(puzzleId ?? "");
+  if (!/^\d{8}$/.test(id)) return "";
+  const text = dayFmt.format(new Date(`${id.slice(0, 4)}-${id.slice(4, 6)}-${id.slice(6)}T12:00:00Z`));
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** The streak, in the bar, where it can be read before the day is finished. */
+function renderStreak() {
+  const n = round?.me?.currentStreak;
+  el.streak.hidden = n === undefined;
+  if (n === undefined) return;
+  const b = document.createElement("b");
+  b.textContent = String(n);
+  el.streak.replaceChildren(b, document.createTextNode(t("streakDays", { n })));
 }
 
 // ---------------------------------------------------------------------------
@@ -382,13 +452,19 @@ function renderBoard({ group, today }) {
   el.side.hidden = false;
 }
 
-/** The four counters, from `me` — which `submitGuess` now returns too, so the
- *  streak ticks on the guess that ends the day rather than on the next load. */
+/**
+ * The counters, from `me` — which `submitGuess` returns too, so they tick on
+ * the guess that ends the day rather than on the next load. The current streak
+ * is not among them any more: it is the chip in the bar, readable from the
+ * first challenge rather than only once the panel beside the game appears.
+ *
+ * These live in the rail now, so nothing here touches `el.side` — revealing an
+ * empty panel because the stats arrived was the old bug in this function.
+ */
 function renderStats() {
   const me = round?.me;
   if (!me || me.currentStreak === undefined) return;
   el.sideStats.replaceChildren(...[
-    ["statStreak", me.currentStreak],
     ["statLongest", me.longestStreak],
     ["statPlayed", me.totalPlayed],
     ["statSolved", me.totalSolved],
@@ -397,7 +473,6 @@ function renderStats() {
     const dd = document.createElement("dd"); dd.textContent = String(value);
     return [dt, dd];
   }));
-  el.side.hidden = false;
 }
 
 el.revealNext.addEventListener("click", () => {
@@ -411,51 +486,6 @@ el.shareBtn.addEventListener("click", async () => {
   const outcome = await share(round.shareGrid);
   el.shareBtn.textContent = outcome === "failed" ? t("share") : t("copied");
   if (outcome === "failed") setStatus(round.shareGrid, "");
-});
-
-// ---------------------------------------------------------------------------
-// Profile (FR-1.3)
-// ---------------------------------------------------------------------------
-
-el.profileBtn.addEventListener("click", () => {
-  el.profileError.textContent = "";
-  el.profileName.value = displayName ?? "";
-  el.profileDialog.showModal();
-  el.profileName.select();
-});
-el.profileForm.addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  if (ev.submitter?.value === "cancel") return el.profileDialog.close();
-  try {
-    const saved = await api.updateProfile({ displayName: el.profileName.value });
-    displayName = saved.displayName;
-    el.profileDialog.close();
-    setStatus(t("saved"), "ok");
-  } catch (err) {
-    el.profileError.textContent = errorMessage(err);
-  }
-});
-
-// FR-1.5: delete everything, then sign out (which clears client state, FR-1.6).
-el.deleteBtn.addEventListener("click", () => {
-  el.profileDialog.close();
-  el.deleteError.textContent = "";
-  el.deleteDialog.showModal();
-});
-el.deleteForm.addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  if (ev.submitter?.value !== "ok") return el.deleteDialog.close();
-  ev.submitter.disabled = true;
-  try {
-    await api.deleteAccount({});
-    el.deleteDialog.close();
-    await signOut(auth);
-    setStatus(t("deleted"), "ok");
-  } catch (err) {
-    el.deleteError.textContent = errorMessage(err);
-  } finally {
-    ev.submitter.disabled = false;
-  }
 });
 
 // ---------------------------------------------------------------------------

@@ -92,6 +92,23 @@ backend.
   **withholds the daily's subjects from today to +7 days**: without that, practising `gdp` is a
   way to look up today's answer, because that prompt names its own country. Do not widen the
   window to FR-5.2's ±60 — that withholds more than half the pool from the drill it exists to be.
+- **A group is one page; a tournament is another** (D-68). `grupos.html` carries the ranking, the
+  group's tournaments and its members as three tabs, so the "escolha um grupo" screen that used to open
+  `torneios.html` is gone — it asked a question that being on the group page had already answered, and
+  arriving at `torneios.html` without a `?t=` now redirects there. What did NOT move is the card of a
+  round: that is a game screen, not a group screen, and it shares `.play-col` and the rail with the daily.
+- **The day's challenges are the rail, not a list under the form** (D-68). `#items` renders `.step` rows
+  in a left column at 60rem and a strip of N boxes above the prompt below it — one markup, two shapes, and
+  `mondo.css` decides which. It carries the KIND of each challenge and never the answer: the answers are
+  `#recap`, which the result screen shows once the day is over. A rail reading "Peru · Gana · Capital ·
+  PIB per capita" reads as a bug, and mid-day half of it would be blank anyway.
+- **There is exactly one accent and it is blue** (D-68). `--accent` is `#1f4e8c` light, `#7aa9e0` dark, on
+  one control per screen. It cannot be orange or green: the five `--band-*` colours already mean
+  warm-to-cold, so a green primary button beside a green "you are close" bar would be two meanings in one
+  colour. `.primary` is the filled one; what `.primary` used to look like is now `.secondary`.
+- **The phone's tab bar has two tabs** (FR-6.1, D-68). Hoje and Treinar. Grupos, torneios and the painel
+  are in the account menu and not on the bar — nobody opens Mondo on a bus to rename a group. Above 60rem
+  the bar is gone and the three destinations are back in the top bar.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).
