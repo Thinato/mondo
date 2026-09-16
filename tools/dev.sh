@@ -19,14 +19,33 @@ ROOT="$PWD"
 LOG="$(mktemp -t mondo-emulators)"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"   # the Firestore emulator needs a JRE
 
+EMU_PID=""; WEB_PID=""; GRANT_PID=""; STOPPING=""
+
 cleanup() {
+  # INT (or TERM) fires the handler and then EXIT fires it again. Everything in
+  # here is idempotent, but running the ten-second wait twice and printing
+  # "stopping" twice reads like something went wrong.
+  [ -n "$STOPPING" ] && return 0
+  STOPPING=1
   echo ""
   echo "stopping…"
-  # The whole process group: the emulators spawn a Java child that does not die
-  # with its parent, and a stale Firestore emulator holding port 8080 is an
-  # afternoon of confusion the next time someone runs the e2e suite.
-  kill 0 2>/dev/null || true
-  pkill -f "firebase-tools.*demo-mondo" 2>/dev/null || true
+  # The emulator parent first, and politely: firebase-tools takes its own Java
+  # child down on SIGTERM, but only if it is given a moment. A stale Firestore
+  # emulator holding port 8080 is an afternoon of confusion the next time
+  # someone runs the e2e suite, and it has already cost one.
+  [ -n "$EMU_PID" ] && kill "$EMU_PID" 2>/dev/null
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    pgrep -f "cloud-firestore-emulator" >/dev/null 2>&1 || break
+    sleep 1
+  done
+  # Whatever outlived that, by name. Not `kill 0`: this script is usually not
+  # its own process group leader, so that signals the caller's group — which
+  # is at best ineffective and at worst kills the terminal it was run from.
+  pkill -f "cloud-firestore-emulator" 2>/dev/null || true
+  pkill -f "emulators:start --project demo-mondo" 2>/dev/null || true
+  [ -n "$WEB_PID" ] && kill "$WEB_PID" 2>/dev/null
+  [ -n "$GRANT_PID" ] && kill "$GRANT_PID" 2>/dev/null
+  return 0
 }
 trap cleanup EXIT INT TERM
 
@@ -34,8 +53,9 @@ echo "==> building functions"
 npm --prefix backend/functions run build
 
 echo "==> starting emulators (log: $LOG)"
-(cd backend && npx --yes firebase-tools@latest emulators:start \
+(cd backend && exec npx --yes firebase-tools@latest emulators:start \
   --project demo-mondo --only auth,firestore,functions >"$LOG" 2>&1) &
+EMU_PID=$!
 
 until grep -q "All emulators ready" "$LOG" 2>/dev/null; do
   sleep 1
@@ -69,7 +89,8 @@ const db = admin.firestore();
 ' 2>/dev/null)
 
 echo "==> serving site/ on :8000"
-(cd site && python3 -m http.server 8000 >/dev/null 2>&1) &
+(cd site && exec python3 -m http.server 8000 >/dev/null 2>&1) &
+WEB_PID=$!
 
 # Grant admin to whoever signs in. Polled rather than triggered, because the
 # profile is written by the first getRound call and there is nothing to hook.
@@ -85,6 +106,7 @@ setInterval(async () => {
   }
 }, 2000);
 ' 2>/dev/null) &
+GRANT_PID=$!
 
 sleep 1
 echo ""
