@@ -45,6 +45,12 @@ cleanup() {
   pkill -f "emulators:start --project demo-mondo" 2>/dev/null || true
   [ -n "$WEB_PID" ] && kill "$WEB_PID" 2>/dev/null
   [ -n "$GRANT_PID" ] && kill "$GRANT_PID" 2>/dev/null
+  # By name as well as by PID. This loop promotes every profile it can see to
+  # admin, so an orphan of it is not untidy, it is dangerous: it reattaches to
+  # whatever comes up on 8080 next and quietly rewrites that data. It outlived
+  # its PID once — the subshell was signalled rather than node — and the next
+  # e2e run failed fourteen tests because every account in it had become admin.
+  pkill -f "mondo-dev-grant" 2>/dev/null || true
   return 0
 }
 trap cleanup EXIT INT TERM
@@ -70,12 +76,13 @@ const admin = require("firebase-admin");
 admin.initializeApp({ projectId: "demo-mondo" });
 const { puzzleIdAt, opensAt } = require("./lib/lib/puzzle-day");
 const { buildCard } = require("./lib/lib/card");
+const { KIND_IDS } = require("./lib/lib/kinds");
 const db = admin.firestore();
 (async () => {
-  // A day is the four daily kinds (D-52, D-53). `flagPick` is deliberately not
-  // among them (FR-8.6, D-64) — it is in the practice picker instead.
-  const spec = { items: [{ kind: "shape", count: 1 }, { kind: "flag", count: 1 },
-                         { kind: "capital", count: 1 }, { kind: "gdp", count: 1 }], order: "shuffled" };
+  // A day is one challenge of every shipped kind (FR-2.1a, D-66), which is five
+  // since flagPick joined. Built through buildCard rather than listed, so this
+  // cannot drift from what the server considers a day.
+  const spec = { items: KIND_IDS.map((kind) => ({ kind, count: 1 })), order: "shuffled" };
   const used = new Set();
   for (let d = 0; d < 7; d++) {
     const id = puzzleIdAt(new Date(Date.now() + d * 86400000));
@@ -94,7 +101,9 @@ WEB_PID=$!
 
 # Grant admin to whoever signs in. Polled rather than triggered, because the
 # profile is written by the first getRound call and there is nothing to hook.
-(cd backend/functions && FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 GCLOUD_PROJECT=demo-mondo node -e '
+(cd backend/functions && FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 GCLOUD_PROJECT=demo-mondo exec node -e '
+// mondo-dev-grant — the marker cleanup greps for. Do not remove: an orphan of
+// this loop grants admin to every profile in whatever is on port 8080.
 const admin = require("firebase-admin");
 admin.initializeApp({ projectId: "demo-mondo" });
 const db = admin.firestore();
