@@ -11,7 +11,7 @@ import { ask, watchAuth } from "./auth-ui.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, renderFlag, renderShape } from "./geo.js";
+import { guessRow, renderFlag, renderOptions, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
@@ -36,6 +36,7 @@ const el = {
   helpBtn: $("help-btn"), helpDialog: $("help-dialog"), helpTitle: $("help-title"),
   helpBody: $("help-body"), helpClose: $("help-close"),
   cardReveal: $("card-reveal"), cardRevealText: $("card-reveal-text"), cardRevealNext: $("card-reveal-next"),
+  cardOptions: $("card-options"),
   cardSide: $("card-side"), cardSideTitle: $("card-side-title"),
   cardSideFinished: $("card-side-finished"), cardSidePlaying: $("card-side-playing"), cardSideWaiting: $("card-side-waiting"),
   confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
@@ -483,6 +484,9 @@ async function openCard() {
   }
 }
 
+/** FR-8.7 — the prompt being revealed, kept because the server has moved on. */
+let revealPrompt = null;
+
 el.cardForm.addEventListener("submit", (ev) => {
   ev.preventDefault();
   if (card?.prompt?.kind === "gdp") {
@@ -495,15 +499,18 @@ el.cardForm.addEventListener("submit", (ev) => {
 });
 el.cardInput.addEventListener("input", () => { picked = null; });
 
-async function submit(numberGuess) {
+/** `raw` is a number for `gdp`, an index for `flagPick`, else the picked country. */
+async function submit(raw) {
   if (busy || reveal || !card || card.status !== "in_progress") return;
-  if (numberGuess === undefined && !picked) return;
-  const guess = numberGuess ?? picked.code;
+  if (raw === undefined && !picked) return;
+  const guess = raw ?? picked.code;
   picked = null;
   setBusy(true);
   setStatus("");
   try {
     const before = card.cursor;
+    // Captured before the call: after it, `card.prompt` is the NEXT challenge.
+    const shown = card.prompt;
     card = await api.submitCardGuess({ tournamentId: tid, guess });
     el.cardInput.value = "";
     el.cardNumber.value = "";
@@ -511,6 +518,7 @@ async function submit(numberGuess) {
     // item carries both its answer and the guesses that got there.
     if (card.cursor > before) {
       reveal = card.items[before];
+      revealPrompt = shown;
       if (reveal.status === "solved") confetti();
     }
     renderCard();
@@ -537,23 +545,38 @@ function renderCard() {
   // One prompt shape per kind. An unknown kind means the client is older than
   // the server: say so rather than rendering nothing. A reveal holds the next
   // prompt back, so nothing about the challenge to come reaches the DOM early.
-  const kind = revealing ? null : card.prompt?.kind ?? null;
+  // A choice challenge's prompt outlives its challenge: its reveal is which
+  // option was right (FR-8.7, D-64), so the grid stays with the answer marked.
+  const shown = revealing ? revealPrompt : card.prompt;
+  const kind = revealing ? (shown?.kind === "flagPick" ? "flagPick" : null) : card.prompt?.kind ?? null;
   el.cardShapeWrap.hidden = kind !== "shape";
-  el.cardCapital.hidden = kind !== "capital" && kind !== "gdp";
+  el.cardCapital.hidden = kind !== "capital" && kind !== "gdp" && kind !== "flagPick";
   el.cardFlagWrap.hidden = kind !== "flag";
+  el.cardOptions.hidden = kind !== "flagPick";
   if (kind === "shape") renderShape(el.cardShape, card.prompt.shape);
   else if (kind === "capital") el.cardCapital.textContent = t("capitalPrompt", { city: card.prompt.capital });
   else if (kind === "gdp") el.cardCapital.textContent = t("gdpPrompt", { country: card.prompt.country, year: card.prompt.year });
   else if (kind === "flag") renderFlag(el.cardFlag, card.prompt.flag);
-  else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
+  else if (kind === "flagPick") {
+    el.cardCapital.textContent = t("flagPickPrompt", { country: shown.country });
+    renderOptions(el.cardOptions, shown.options, {
+      guesses: revealing ? reveal.guesses ?? [] : card.guesses,
+      answer: revealing ? reveal.answer : null,
+      onPick: revealing ? null : (i) => submit(i),
+    });
+  } else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
 
-  // Two inputs, one visible: a country autocomplete, or a number field (D-53).
+  // Three inputs, at most one visible: a country autocomplete, a number field
+  // (D-53), or the grid above, which is its own input (D-64).
   el.cardCombo.hidden = kind === "gdp";
   el.cardMoney.hidden = kind !== "gdp";
 
-  // `?? []` for the same deploy window game.js documents.
-  el.cardGuesses.replaceChildren(...(revealing ? reveal.guesses ?? [] : card.guesses).map(guessRow));
-  el.cardForm.hidden = done || revealing;
+  // `?? []` for the same deploy window game.js documents. A pick has no row:
+  // it is struck out in the grid, which is the only place it could be, since
+  // the client is never told which country it was.
+  const rows = kind === "flagPick" ? [] : revealing ? reveal.guesses ?? [] : card.guesses;
+  el.cardGuesses.replaceChildren(...rows.map(guessRow));
+  el.cardForm.hidden = done || revealing || kind === "flagPick";
   el.cardLeft.textContent = done || revealing ? "" : t("guessesLeft", { n: card.guessesUsed, max: card.guessesMax });
 
   el.cardItems.replaceChildren(...card.items.map((it, i) => {
@@ -576,6 +599,8 @@ function renderCard() {
   if (revealing) {
     el.cardRevealText.textContent = reveal.status === "solved"
       ? t("revealSolved", { points: reveal.points })
+      : kind === "flagPick"
+      ? t("revealPick")
       : t("revealFailed", { answer: reveal.answer.name });
     el.cardRevealNext.textContent = done ? t("seeResult") : t("continueChallenge");
   } else {
@@ -608,6 +633,7 @@ async function loadCardSide(tournamentSoon) {
 
 el.cardRevealNext.addEventListener("click", () => {
   reveal = null;
+  revealPrompt = null;
   renderCard();
   focusInput();
 });
@@ -616,6 +642,8 @@ el.cardRevealNext.addEventListener("click", () => {
 function focusInput() {
   if (reveal) return el.cardRevealNext.focus();
   if (card?.status !== "in_progress") return;
+  // A choice challenge has no field: the grid is the input (FR-8.7).
+  if (card.prompt?.kind === "flagPick") return;
   const field = card.prompt?.kind === "gdp" ? el.cardNumber : el.cardInput;
   if (!field.disabled) field.focus();
 }

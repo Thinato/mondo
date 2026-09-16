@@ -19,12 +19,15 @@ const PT_BR = {
   // D-52: a day is three challenges, so the result talks about the day.
   dayDone: "{points} de {max} pontos hoje.",
   dayPerfect: "Dia perfeito! {points} de {max} pontos.",
-  kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita" },
+  kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita", flagPick: "qual bandeira" },
   answerWas: "Era {answer}.",
   // D-55: a challenge ends on its own screen, dismissed by hand. The old flow
   // swapped the next prompt in on the same frame and nobody saw the answer.
   revealSolved: "Acertou! +{points} pontos.",
   revealFailed: "Era {answer}.",
+  // FR-8.7: the grid below is showing which one it was, so the line does not
+  // repeat the country the prompt already named.
+  revealPick: "Era esta.",
   continueChallenge: "Próximo desafio",
   seeResult: "Ver o resultado",
   // FR-6.9 / D-56 — "?" explains the hints of the challenge on screen. Two
@@ -47,6 +50,13 @@ const PT_BR = {
       "↕  a SETA: ↑ quer dizer que a resposta é MAIOR que o seu chute, ↓ que é MENOR.\n\n" +
       "%  a PROXIMIDADE: o menor dos dois números dividido pelo maior. 50% quer dizer que você errou pelo dobro ou pela metade.\n\n" +
       "O valor é o PPP (paridade de poder de compra) do Banco Mundial, não o nominal que costuma aparecer primeiro numa busca — os dois são bem diferentes para quase todo país.",
+    // FR-8.7 / D-64 — a third vocabulary, and the shortest: there is no hint
+    // here at all. Saying so IS the explanation, because a player who spent the
+    // first pick waiting for a distance would think the game was broken.
+    flagPick:
+      "Aqui o país está na pergunta e a resposta é uma das oito bandeiras.\n\n" +
+      "Não há pista nenhuma: ou é aquela, ou não é. A bandeira que você escolher errado sai do tabuleiro e você tem mais uma chance.\n\n" +
+      "São duas tentativas. A primeira vale 6 pontos e a segunda 2 — bem menos que nos outros desafios, porque chutar entre oito é bem mais fácil que escrever o nome de um país entre 196.",
   },
   // FR-2.13 / D-61 — zero points, and the answer.
   confirmGiveUp: "Desistir deste desafio? Ele fica com 0 pontos e você vê a resposta.",
@@ -140,6 +150,12 @@ const PT_BR = {
   // nobody reads the rules before the first question. Players read the bare
   // number as reais and guessed five times high.
   gdpPrompt: "{country} — qual o PIB per capita em {year}, em dólares (PPP)?",
+  // FR-8.7 — the country is the question here, as it is for gdp. What is being
+  // asked for is which of the eight is its flag.
+  flagPickPrompt: "Qual destas é a bandeira de {country}?",
+  optionLabel: "opção {n}",
+  optionStruck: "opção {n}, já descartada",
+  optionRight: "opção {n}, a resposta certa",
   needNumber: "Digite um número.",
   higher: "é mais",
   lower: "é menos",
@@ -184,6 +200,7 @@ const PT_BR = {
       flag: "Que país tem esta bandeira?",
       capital: "Que país tem esta capital?",
       gdp: "Qual o PIB per capita deste país?",
+      flagPick: "Qual destas oito é a bandeira do país?",
     },
     counter: "Desafio {n} · {points} pts",
     next: "Próximo desafio",

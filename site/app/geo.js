@@ -123,3 +123,49 @@ const nf = new Intl.NumberFormat("pt-BR");
  * unanswerable rather than merely hard.
  */
 export const formatUsd = (n) => `US$ ${nf.format(n)}`;
+
+/**
+ * The options of a multiple-choice challenge, as a grid of buttons (FR-8.7,
+ * D-64).
+ *
+ * The client is handed artwork and nothing else — no code, no name, no id — so
+ * position is the only thing an option has, and an index is the whole guess.
+ * That is also why a wrong pick is struck out rather than named: the server
+ * could not name it without sending the mapping, and sending the mapping is
+ * the one thing that would give the answer away.
+ *
+ * `guesses` are the picks already spent, `answer` is set only once the
+ * challenge is over, and `onPick` is absent whenever the grid is a read-only
+ * reveal. Rebuilt from scratch on every render, like every other list here.
+ */
+export function renderOptions(list, options, { guesses = [], answer = null, onPick = null } = {}) {
+  const spent = new Set(guesses.filter((g) => g.kind === "choice").map((g) => g.pick));
+  list.replaceChildren(...options.map((option, i) => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    // The label is the position, never the country: a screen reader must not
+    // be told what the eyes are being asked to work out.
+    button.setAttribute("aria-label", t("optionLabel", { n: i + 1 }));
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("role", "presentation");
+    renderFlag(svg, option.flag);
+    // Every option box is the same size, so the grid does not go ragged when a
+    // 37:28 Dane sits beside a 2:1 Palauan. The artwork keeps its own shape and
+    // is letterboxed inside the box by the SVG's own preserveAspectRatio, which
+    // means dropping the aspect-ratio renderFlag sets for a lone flag.
+    svg.style.aspectRatio = "";
+    button.appendChild(svg);
+
+    const struck = spent.has(i) && !(answer && answer.pick === i);
+    const right = answer !== null && answer.pick === i;
+    button.className = `option${struck ? " struck" : ""}${right ? " right" : ""}`;
+    if (struck) button.setAttribute("aria-label", t("optionStruck", { n: i + 1 }));
+    if (right) button.setAttribute("aria-label", t("optionRight", { n: i + 1 }));
+    // A struck option is out, and once the answer is up the whole grid is.
+    button.disabled = struck || answer !== null || onPick === null;
+    if (!button.disabled) button.addEventListener("click", () => onPick(i));
+    li.appendChild(button);
+    return li;
+  }));
+}

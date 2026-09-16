@@ -15,7 +15,7 @@ import * as api from "./api.js";
 import { ask, watchAuth } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, renderFlag, renderShape } from "./geo.js";
+import { guessRow, renderFlag, renderOptions, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 
@@ -26,6 +26,7 @@ const el = {
   progress: $("progress"), helpBtn: $("help-btn"), leaveBtn: $("leave-btn"), giveUpBtn: $("giveup-btn"),
   helpDialog: $("help-dialog"), helpTitle: $("help-title"), helpBody: $("help-body"), helpClose: $("help-close"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
+  options: $("options"),
   guesses: $("guesses"), reveal: $("reveal"), revealText: $("reveal-text"), revealNext: $("reveal-next"),
   form: $("guess-form"), combo: $("guess-combo"), input: $("guess-input"), list: $("guess-list"),
   money: $("guess-money"), number: $("guess-number"), submit: $("guess-submit"),
@@ -36,12 +37,14 @@ const el = {
 
 /** The kinds on offer. A new kind joins practice by joining this list and
  *  i18n's `kindName` / `practice.about` — which it needs a label in anyway. */
-const KINDS = ["shape", "flag", "capital", "gdp"];
+const KINDS = ["shape", "flag", "capital", "gdp", "flagPick"];
 
 let view = null;
 let picked = null;
 let ac = null;
 let busy = false;
+/** FR-8.7 — the prompt of the challenge on screen, kept across its own reveal. */
+let shownPrompt = null;
 /** One line per finished challenge, kept client-side: the run's own history is
  *  nothing but the reveals the player has already read, so the server is not
  *  asked to remember it. Cleared when a new run starts, not when one ends. */
@@ -57,7 +60,7 @@ const help = attachHelp({
 watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, setStatus,
   onUser: (user) => {
-    if (!user) { view = null; run = []; }          // FR-1.6: nothing survives sign-out
+    if (!user) { view = null; run = []; shownPrompt = null; }   // FR-1.6: nothing survives sign-out
     render();
     if (user) buildPicker();
   },
@@ -188,7 +191,7 @@ el.leaveBtn.addEventListener("click", async () => {
 
 // Back to the picker. The run goes with the summary that reported it: leaving
 // it on screen under a fresh picker reads as the run still being open.
-el.again.addEventListener("click", () => { view = null; run = []; render(); });
+el.again.addEventListener("click", () => { view = null; run = []; shownPrompt = null; render(); });
 
 // ---------------------------------------------------------------------------
 // Rendering
@@ -250,29 +253,50 @@ function renderChallenge() {
   el.helpBtn.hidden = revealing;
   el.giveUpBtn.hidden = revealing;
 
-  // One prompt shape per kind, and none at all during a reveal — the next
-  // challenge has not been served yet, so there is nothing to hold back.
+  // One prompt shape per kind, and — for every kind but one — none at all
+  // during a reveal, because the next challenge has not been served yet and
+  // there is nothing to hold back.
+  //
+  // The exception is a choice challenge, whose prompt OUTLIVES its challenge:
+  // its reveal is which option was right, and the options are artwork the
+  // server does not send twice (FR-8.7, D-64). So the prompt is kept.
+  const shown = revealing ? shownPrompt : (shownPrompt = item.prompt);
+  const shownKind = revealing && shown?.kind === "flagPick" ? "flagPick" : kind;
+
   el.shapeWrap.hidden = kind !== "shape";
   el.flagWrap.hidden = kind !== "flag";
-  el.capital.hidden = kind !== "capital" && kind !== "gdp";
+  el.capital.hidden = shownKind !== "capital" && shownKind !== "gdp" && shownKind !== "flagPick";
+  el.options.hidden = shownKind !== "flagPick";
   if (kind === "shape") renderShape(el.shape, item.prompt.shape);
   else if (kind === "flag") renderFlag(el.flag, item.prompt.flag);
   else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: item.prompt.capital });
   else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: item.prompt.country, year: item.prompt.year });
-  else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
+  else if (shownKind === "flagPick") {
+    el.capital.textContent = t("flagPickPrompt", { country: shown.country });
+    renderOptions(el.options, shown.options, {
+      guesses: item.guesses,
+      answer: revealing ? item.answer : null,
+      onPick: revealing ? null : (i) => advance(() => api.submitPracticeGuess({ guess: i })),
+    });
+  } else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
 
-  // Two inputs, one visible: a country autocomplete, or a number field (D-53).
+  // Three inputs, at most one visible: a country autocomplete, a number field
+  // (D-53), or the grid above, which is its own input (D-64).
   el.combo.hidden = kind === "gdp";
   el.money.hidden = kind !== "gdp";
 
-  el.guesses.replaceChildren(...item.guesses.map(guessRow));
-  el.form.hidden = revealing;
+  // A pick is struck out in the grid, not listed as a row: the client is never
+  // told which country it was, so there is nothing to put in one.
+  el.guesses.replaceChildren(...(shownKind === "flagPick" ? [] : item.guesses).map(guessRow));
+  el.form.hidden = revealing || shownKind === "flagPick";
   el.left.textContent = revealing ? "" : t("guessesLeft", { n: item.guessesUsed, max: item.guessesMax });
 
   el.reveal.hidden = !revealing;
   if (revealing) {
     el.revealText.textContent = item.status === "solved"
       ? t("revealSolved", { points: item.points })
+      : shownKind === "flagPick"
+      ? t("revealPick")
       : t("revealFailed", { answer: item.answer.name });
     el.revealNext.textContent = t("practice.next");
   } else {
@@ -324,6 +348,8 @@ function renderStats() {
 function focusInput() {
   if (view?.status !== "in_progress") return;
   if (view.item.status !== "current") return el.revealNext.focus();
+  // A choice challenge has no field: the grid is the input (FR-8.7).
+  if (view.item.prompt?.kind === "flagPick") return;
   const field = view.item.prompt?.kind === "gdp" ? el.number : el.input;
   if (!field.disabled) field.focus();
 }

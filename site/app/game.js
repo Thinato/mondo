@@ -16,7 +16,7 @@ import * as api from "./api.js";
 import { ask } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, renderFlag, renderShape } from "./geo.js";
+import { guessRow, renderFlag, renderOptions, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
@@ -35,6 +35,7 @@ const el = {
   sideFinished: $("side-finished"), sidePlaying: $("side-playing"), sideWaiting: $("side-waiting"),
   sideGated: $("side-gated"), sideStats: $("side-stats"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
+  options: $("options"),
   guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
   shareBtn: $("share"), left: $("left"), profileBtn: $("profile-btn"), profileDialog: $("profile-dialog"),
@@ -50,6 +51,13 @@ let ac = null;
 let busy = false;
 /** D-55: the challenge that just ended, held until the player moves on. */
 let reveal = null;
+/**
+ * FR-8.7 — the prompt of the challenge being revealed, kept because the server
+ * has already moved on to the next one. Only a choice kind needs it: its reveal
+ * is *which* option was right, and the options are artwork the client is no
+ * longer being sent. Cleared with the reveal it belongs to.
+ */
+let revealPrompt = null;
 /** D-57: the desktop panel. Never on the critical path — see loadPanel. */
 let groups = [];
 let boardGid = null;
@@ -73,7 +81,7 @@ el.signIn.addEventListener("click", async () => {
 
 el.signOut.addEventListener("click", async () => {
   await signOut(auth);
-  round = null; picked = null; reveal = null; // FR-1.6: nothing survives sign-out
+  round = null; picked = null; reveal = null; revealPrompt = null; // FR-1.6: nothing survives sign-out
   groups = []; boardGid = null;
   el.input.value = "";
   el.guesses.replaceChildren();
@@ -135,6 +143,9 @@ async function load() {
 function focusInput() {
   if (reveal) return el.revealNext.focus();
   if (round?.status !== "in_progress") return;
+  // A choice challenge has no field to focus: the grid is the input, and
+  // stealing focus to an invisible textbox would strand a keyboard user.
+  if (round.prompt?.kind === "flagPick") return;
   const field = round.prompt?.kind === "gdp" ? el.number : el.input;
   if (!field.disabled) field.focus();
 }
@@ -172,6 +183,8 @@ async function advance(call) {
   setStatus("");
   try {
     const before = round.cursor;
+    // Captured before the call: after it, `round.prompt` is the NEXT challenge.
+    const shown = round.prompt;
     round = await call();
     el.input.value = "";
     el.number.value = "";
@@ -181,6 +194,7 @@ async function advance(call) {
     // `guesses` has already moved on to the challenge nobody has started.
     if (round.cursor > before) {
       reveal = round.items[before];
+      revealPrompt = shown;
       if (reveal.status === "solved") confetti();
     }
     render();
@@ -222,17 +236,31 @@ function render() {
   // the server: say so rather than rendering nothing. A reveal holds the next
   // prompt back rather than hiding it after the fact, so nothing about the
   // challenge to come reaches the DOM early.
-  const kind = revealing ? null : round.prompt?.kind ?? null;
+  // A choice challenge is the one prompt that OUTLIVES its own challenge: the
+  // reveal is which option was right, so the grid stays up with the answer
+  // marked while every other kind's prompt goes away (FR-8.7, D-64).
+  const shownPrompt = revealing ? revealPrompt : round.prompt;
+  const kind = revealing ? (shownPrompt?.kind === "flagPick" ? "flagPick" : null) : round.prompt?.kind ?? null;
   el.shapeWrap.hidden = kind !== "shape";
   el.flagWrap.hidden = kind !== "flag";
-  el.capital.hidden = kind !== "capital" && kind !== "gdp";
+  el.capital.hidden = kind !== "capital" && kind !== "gdp" && kind !== "flagPick";
+  el.options.hidden = kind !== "flagPick";
   if (kind === "shape") renderShape(el.shape, round.prompt.shape);
   else if (kind === "flag") renderFlag(el.flag, round.prompt.flag);
   else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: round.prompt.capital });
   else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: round.prompt.country, year: round.prompt.year });
-  else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
+  else if (kind === "flagPick") {
+    el.capital.textContent = t("flagPickPrompt", { country: shownPrompt.country });
+    renderOptions(el.options, shownPrompt.options, {
+      guesses: revealing ? reveal.guesses ?? [] : round.guesses,
+      answer: revealing ? reveal.answer : null,
+      onPick: revealing ? null : (i) => advance(() => api.submitGuess({ puzzleId: round.puzzleId, guess: i })),
+    });
+  } else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
 
-  // Two inputs, one visible: a country autocomplete, or a number field (D-53).
+  // Three inputs, at most one visible: a country autocomplete, a number field
+  // (D-53), or the grid above, which is its own input (D-64).
+  el.form.hidden = !inProgress || revealing || kind === "flagPick";
   el.combo.hidden = kind === "gdp";
   el.money.hidden = kind !== "gdp";
 
@@ -241,8 +269,10 @@ function render() {
   // newer than the server that feeds it. A finished item from the old server
   // has no `guesses`, and without this the reveal would throw instead of
   // showing the answer with an empty list. D-52 shipped exactly this bug once.
-  el.guesses.replaceChildren(...(revealing ? reveal.guesses ?? [] : round.guesses).map(guessRow));
-  el.form.hidden = !inProgress || revealing;
+  // A pick has no row: it is struck out in the grid instead, which is also the
+  // only honest place for it — the client is never told which country it was.
+  const rows = kind === "flagPick" ? [] : revealing ? reveal.guesses ?? [] : round.guesses;
+  el.guesses.replaceChildren(...rows.map(guessRow));
   el.left.textContent = inProgress && !revealing ? t("guessesLeft", { n: round.guessesUsed, max: round.guessesMax }) : "";
 
   el.items.replaceChildren(...round.items.map((it, i) => {
@@ -265,6 +295,8 @@ function render() {
   if (revealing) {
     el.revealText.textContent = reveal.status === "solved"
       ? t("revealSolved", { points: reveal.points })
+      : kind === "flagPick"
+      ? t("revealPick")
       : t("revealFailed", { answer: reveal.answer.name });
     el.revealNext.textContent = inProgress ? t("continueChallenge") : t("seeResult");
   } else {
@@ -370,6 +402,7 @@ function renderStats() {
 
 el.revealNext.addEventListener("click", () => {
   reveal = null;
+  revealPrompt = null;
   render();
   focusInput();
 });

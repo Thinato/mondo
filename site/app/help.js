@@ -1,10 +1,12 @@
 // "?" — what the hints mean (FR-6.9, D-56).
 //
-// **Two topics, not four.** The four kinds share exactly two hint vocabularies
+// **Three topics, not five.** The five kinds share three hint vocabularies
 // between them: shape, flag and capital all answer with a country, so they all
 // give kilometres, a compass arrow and a proximity percentage; `gdp` answers
-// with a number, so it gives higher/lower and a ratio. Four popups to teach two
-// vocabularies is three too many.
+// with a number, so it gives higher/lower and a ratio; `flagPick` answers with
+// a pick and gives no hint at all (D-64), which needs saying precisely because
+// a player waiting for one would think the game was broken. Five popups to
+// teach three vocabularies is two too many.
 //
 // **The first one opens itself.** The feedback that prompted this was "I didn't
 // understand the percentage", from players who had the guess rows in front of
@@ -16,7 +18,7 @@
 import { t } from "./i18n.js";
 
 const key = (topic) => `mondo.help.${topic}`;
-const topicOf = (kind) => (kind === "gdp" ? "gdp" : "country");
+const topicOf = (kind) => (kind === "gdp" || kind === "flagPick" ? kind : "country");
 
 /**
  * Wire a page's help button and dialog. Returns the function to call on every

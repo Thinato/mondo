@@ -110,6 +110,40 @@ button:disabled { opacity: .5; cursor: default; }
   border-radius: .25rem;
 }
 
+/* FR-8.7 / D-64 — the eight flags of a multiple-choice challenge.
+
+   Two columns on a phone and four on a desktop: eight flags in one row would be
+   under 7rem each at 360px, which is too small to tell Chad from Romania, and
+   telling them apart IS the question. The aspect box is the flag's own
+   (renderFlag sets it), so a 2:3 vertical flag does not get stretched into the
+   shape of its neighbours.
+
+   A struck option keeps its artwork and loses its colour: the player needs to
+   remember what they already ruled out, and greying it is how every other
+   eliminated thing on a screen looks. The ✗ is there because colour is never
+   the only channel (FR-6.7). */
+.options { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .5rem; grid-template-columns: repeat(2, 1fr); }
+.option {
+  display: block; width: 100%; aspect-ratio: 3 / 2; padding: .4rem;
+  background: var(--card); border: 1px solid var(--line); border-radius: .5rem;
+  cursor: pointer; font: inherit; color: inherit;
+  position: relative;
+}
+.option svg { display: block; width: 100%; height: 100%; border-radius: .2rem; }
+.option:not(:disabled):hover, .option:not(:disabled):focus-visible { outline: 2px solid var(--fg); }
+/* The artwork dims, the ✗ does not: opacity on the button would fade the mark
+   along with the flag under it, and the mark is the part that has to read. */
+.option.struck { cursor: default; }
+.option.struck svg { opacity: .25; }
+.option.struck::after {
+  content: "✗"; position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 2rem; color: var(--fg);
+}
+/* The reveal: the one that was right, marked the way a solved challenge is. */
+.option.right { outline: 2px solid var(--ok); opacity: 1; }
+.option:disabled:not(.struck):not(.right) { cursor: default; opacity: .55; }
+
 /* Guess rows: name · distance · arrow · percent. Colour is never alone (FR-6.7). */
 .guesses { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .4rem; }
 .guess {
@@ -390,6 +424,9 @@ h2.title { font-size: 1.25rem; margin: 0 0 .25rem; }
     align-items: start;
   }
   .play-col { min-width: 0; }
+  /* FR-8.7: four across rather than two. The column is 30rem, so each flag is
+     about 7rem — the size the phone gives them at two across. */
+  .options { grid-template-columns: repeat(4, 1fr); }
 
   .side { display: block; min-width: 0; position: sticky; top: 1rem; }
   .side .title { font-size: 1rem; color: var(--muted); font-weight: 600; }
