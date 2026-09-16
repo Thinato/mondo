@@ -14,7 +14,8 @@ export interface GuessForShare {
   correct: boolean;
   /** 0..1, from geo.proximity */
   proximity: number;
-  compass: Compass;
+  /** Null for a kind with no direction to point in — a pick (FR-8.7). */
+  compass: Compass | null;
 }
 
 /** One challenge of a day, as the share text sees it. No name, no code. */
@@ -44,7 +45,7 @@ export interface ItemForShare {
  */
 export function shareGrid(puzzleId: string, items: readonly ItemForShare[], points: number, maxPoints: number): string {
   const rows = items.map((it) => {
-    const played = it.guesses.map((g) => `${band(g.proximity)}${g.correct ? "🎉" : ARROW[g.compass]}`);
+    const played = it.guesses.map((g) => `${band(g.proximity)}${g.correct ? "🎉" : g.compass ? ARROW[g.compass] : "❌"}`);
     const unused = Array(Math.max(0, it.maxGuesses - it.guesses.length)).fill("⬛");
     return [ICON[it.kind], ...played, ...unused].join(" ");
   });
@@ -52,7 +53,7 @@ export function shareGrid(puzzleId: string, items: readonly ItemForShare[], poin
 }
 
 /** What kind of question it was — never which question. */
-const ICON: Record<KindId, string> = { shape: "🗺️", capital: "🏙️", flag: "🏳️", gdp: "💰" };
+const ICON: Record<KindId, string> = { shape: "🗺️", capital: "🏙️", flag: "🏳️", gdp: "💰", flagPick: "🚩" };
 
 /** One square for how close a guess landed: the five-square bar, collapsed. */
 export function band(proximity: number): string {

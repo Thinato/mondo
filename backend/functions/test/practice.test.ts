@@ -31,12 +31,17 @@ const rejects = (fn: () => unknown, code: string) =>
     return true;
   });
 
-// Three of the four kinds take a country code and `gdp` takes a number (D-53),
-// so the tests ask the kind what a right and a wrong answer look like rather
-// than assuming the guess is always a country.
-const right = (s: PracticeSession) => (s.kind === "gdp" ? gdpFor(s.subject)! : s.subject);
+// A guess is a country code for three kinds, a number for `gdp` (D-53) and an
+// index for `flagPick` (D-64), so the tests ask the kind what a right and a
+// wrong answer look like rather than assuming the guess is always a country.
+const right = (s: PracticeSession) =>
+  s.kind === "gdp" ? gdpFor(s.subject)! : s.kind === "flagPick" ? s.options!.indexOf(s.subject) : s.subject;
 const wrong = (s: PracticeSession) =>
-  s.kind === "gdp" ? gdpFor(s.subject)! * 10 : KINDS[s.kind].pool().find((c) => c.code !== s.subject)!.code;
+  s.kind === "gdp"
+    ? gdpFor(s.subject)! * 10
+    : s.kind === "flagPick"
+    ? (s.options!.indexOf(s.subject) + 1) % s.options!.length
+    : KINDS[s.kind].pool().find((c) => c.code !== s.subject)!.code;
 
 /** Guess the answer, then look at what came back. */
 const solve = (s: PracticeSession, ms: number) => applyPracticeGuess(s, right(s), at(ms));

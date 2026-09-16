@@ -16,7 +16,7 @@
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
-import { applyCardGuess, buildCard, giveUpCard, newCardCore, type CardCore, type CardPlayItem } from "./card";
+import { applyCardGuess, buildCard, giveUpCard, newCardCore, type CardCore, type CardItem, type CardPlayItem } from "./card";
 import { mondoError } from "./errors";
 import { kindById, MAX_ITEM_POINTS, type KindId, type Prompt } from "./kinds";
 import { guessView, type GuessView } from "./round";
@@ -45,6 +45,13 @@ export interface PracticeSession {
   startedAt: Timestamp;
   endedAt: Timestamp | null;
   subject: string;
+  /**
+   * FR-8.7 — the options, in display order, for a choice kind. Present for a
+   * whole session or for none of it, because the kind is fixed when the session
+   * starts; that is what lets the two writers below use a conditional spread
+   * rather than having to clear a stale field.
+   */
+  options?: readonly string[];
   item: CardPlayItem;
   /** Subjects already asked this session; emptied when the pool runs dry. */
   asked: string[];
@@ -65,14 +72,15 @@ export function newSession(
   now: Timestamp,
   rand: () => number = Math.random,
 ): PracticeSession {
-  const { subject, asked } = pick(kind, blocked, [], rand);
+  const { challenge, asked } = pick(kind, blocked, [], rand);
   return {
     uid,
     kind,
     startedAt: now,
     endedAt: null,
-    subject,
-    item: freshItem(uid, kind, subject, now),
+    subject: challenge.subject,
+    ...optionsOf(challenge),
+    item: freshItem(uid, kind, challenge.subject, now),
     asked,
     blocked: [...blocked],
     totals: { played: 0, solved: 0, points: 0 },
@@ -86,11 +94,12 @@ export function newSession(
  */
 export function serveNext(s: PracticeSession, now: Timestamp, rand: () => number = Math.random): PracticeSession {
   if (s.endedAt !== null) throw mondoError("already-completed", "This practice session is over.");
-  const { subject, asked } = pick(s.kind, s.blocked, s.asked, rand);
+  const { challenge, asked } = pick(s.kind, s.blocked, s.asked, rand);
   return {
     ...s,
-    subject,
-    item: freshItem(s.uid, s.kind, subject, now),
+    subject: challenge.subject,
+    ...optionsOf(challenge),
+    item: freshItem(s.uid, s.kind, challenge.subject, now),
     asked,
     totals: rolled(s),
   };
@@ -106,7 +115,7 @@ export function serveNext(s: PracticeSession, now: Timestamp, rand: () => number
 export function applyPracticeGuess(s: PracticeSession, raw: unknown, now: Timestamp): PracticeSession {
   if (s.endedAt !== null) throw mondoError("already-completed", "This practice session is over.");
   if (s.item.finishedAt !== null) throw mondoError("already-completed", "This challenge is over.");
-  const after = applyCardGuess(coreOf(s), [{ kind: s.kind, subject: s.subject }], raw, now);
+  const after = applyCardGuess(coreOf(s), [challengeOf(s)], raw, now);
   return { ...s, item: after.items[0]! };
 }
 
@@ -118,7 +127,7 @@ export function applyPracticeGuess(s: PracticeSession, raw: unknown, now: Timest
 export function giveUpPractice(s: PracticeSession, now: Timestamp): PracticeSession {
   if (s.endedAt !== null) throw mondoError("already-completed", "This practice session is over.");
   if (s.item.finishedAt !== null) throw mondoError("already-completed", "This challenge is over.");
-  const after = giveUpCard(coreOf(s), [{ kind: s.kind, subject: s.subject }], now);
+  const after = giveUpCard(coreOf(s), [challengeOf(s)], now);
   return { ...s, item: after.items[0]! };
 }
 
@@ -153,6 +162,17 @@ const coreOf = (s: PracticeSession): CardCore => ({
   suspicious: false,
 });
 
+/**
+ * The challenge on screen, as `lib/card.ts` and `lib/kinds.ts` want it. A
+ * session is a card of one item (D-60), and this is that item's other half —
+ * the part that says what the question was rather than how it is going.
+ */
+const challengeOf = (s: PracticeSession): CardItem =>
+  ({ kind: s.kind, subject: s.subject, ...(s.options ? { options: s.options } : {}) });
+
+/** Firestore rejects an explicit `undefined`, so an absent field stays absent. */
+const optionsOf = (c: CardItem) => (c.options ? { options: c.options } : {});
+
 /** Built through `newCardCore` so a new field on a card item cannot be missed here. */
 const freshItem = (uid: string, kind: KindId, subject: string, now: Timestamp): CardPlayItem =>
   newCardCore(uid, [{ kind, subject }], now).items[0]!;
@@ -171,12 +191,14 @@ function pick(
   blocked: readonly string[],
   asked: readonly string[],
   rand: () => number,
-): { subject: string; asked: string[] } {
+): { challenge: CardItem; asked: string[] } {
   const block = new Set(blocked);
   const exhausted = !kindById(kind).pool().some((c) => !block.has(c.code) && !asked.includes(c.code));
   const memory = exhausted ? [] : asked;
-  const subject = buildCard({ items: [{ kind, count: 1 }], order: "as_listed" }, new Set([...memory, ...block]), rand)[0]!.subject;
-  return { subject, asked: [...memory, subject] };
+  // The whole item, not just its subject: for a choice kind `buildCard` also
+  // chose the options and shuffled them, and that order is the answer (FR-8.7).
+  const challenge = buildCard({ items: [{ kind, count: 1 }], order: "as_listed" }, new Set([...memory, ...block]), rand)[0]!;
+  return { challenge, asked: [...memory, challenge.subject] };
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +215,8 @@ export interface PracticeItemView {
   guesses: GuessView[];
   /** Both only once the challenge is over (SEC-1). */
   points: number | null;
-  answer: { code: string; name: string } | null;
+  /** `pick` only for a choice kind: which option was the right one (FR-8.7). */
+  answer: { code: string; name: string; pick?: number } | null;
 }
 
 export interface PracticeView {
@@ -217,12 +240,12 @@ export function practiceView(s: PracticeSession, now: Timestamp): PracticeView {
         : {
             kind: s.kind,
             status: over ? (s.item.solved ? "solved" : "failed") : "current",
-            prompt: over ? null : kind.prompt(s.subject),
+            prompt: over ? null : kind.prompt(challengeOf(s)),
             guessesUsed: s.item.guesses.length,
             guessesMax: kind.maxGuesses,
             guesses: s.item.guesses.map(guessView),
             points: over ? s.item.points : null,
-            answer: over ? kind.reveal(s.subject) : null,
+            answer: over ? kind.reveal(challengeOf(s)) : null,
           },
     // Computed, never stored: the denominator is "six a challenge" (D-44) and
     // storing it would be one more thing that could disagree with the score.

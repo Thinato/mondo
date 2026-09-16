@@ -21,10 +21,34 @@ import { MAX_GUESSES } from "./config";
 import { COUNTRIES, countryByCode, flagFor, gdpFor, shapeFor, GDP_YEAR, type Country, type Flag, type Shape } from "./countries";
 import { mondoError } from "./errors";
 import { bearingDeg, distanceKm, proximity } from "./geo";
-import { isNumberGuess, type StoredGuess } from "./round";
+import { isChoiceGuess, isCountryGuess, isNumberGuess, type StoredGuess } from "./round";
 
-export const KIND_IDS = ["shape", "capital", "flag", "gdp"] as const;
+export const KIND_IDS = ["shape", "capital", "flag", "gdp", "flagPick"] as const;
 export type KindId = (typeof KIND_IDS)[number];
+
+/**
+ * One resolved challenge: the kind, the answer, and — for a multiple-choice
+ * kind — the options (FR-8.7). Server-only: `subject` IS the answer (SEC-1),
+ * and for a choice kind so is the *position* of `subject` inside `options`.
+ *
+ * Defined here rather than in `card.ts` because every `Kind` method takes one,
+ * and `card.ts` already imports this module. It is re-exported there as
+ * `CardItem`, which is what the rest of the codebase calls it.
+ */
+export interface Challenge {
+  kind: KindId;
+  subject: string;
+  /**
+   * The options in **display order**, one of which is `subject`. Absent for
+   * every kind whose answer is typed rather than picked.
+   *
+   * The order is the answer, so it is fixed when the card is built and stored
+   * (D-42, D-64): deriving it on read would reshuffle a challenge that someone
+   * has open the moment the pool changes, and their struck-out picks would then
+   * point at flags they never chose.
+   */
+  options?: readonly string[];
+}
 
 /** FR-8.2 / D-44 — every kind scores one challenge on the same 0..6 scale, so a
  *  card of mixed kinds is summable and a first-guess solve is worth what a
@@ -45,7 +69,15 @@ export type Prompt =
    * keeps subjects distinct within a card, which is what stops a `gdp` prompt
    * from naming the answer to the silhouette sitting next to it.
    */
-  | { kind: "gdp"; country: string; year: number };
+  | { kind: "gdp"; country: string; year: number }
+  /**
+   * FR-8.7 — the question is a set of options and the answer is *which one*.
+   * The country is named, like `gdp`'s, because here the country is the
+   * question; what must not appear is any hint of which option is its flag.
+   * So the options carry artwork and nothing else — no code, no name, no id.
+   * Position is the only handle the client has, and the guess is an index.
+   */
+  | { kind: "flagPick"; country: string; options: { flag: Flag }[] };
 
 export interface Graded {
   guess: StoredGuess;
@@ -64,18 +96,37 @@ export interface Kind {
   pointsByGuess: readonly number[];
   /** The countries this kind can ask about. */
   pool(): readonly Country[];
-  prompt(subject: string): Prompt;
+  /**
+   * FR-8.7 — a multiple-choice kind chooses its options here, once, when the
+   * card is built. `exclude` holds every other subject on the same card plus
+   * the caller's own exclusion window, so a distractor is never something the
+   * player is about to be asked about: without that, a flag named by a struck
+   * out pick could answer the `flag` challenge sitting next to it.
+   *
+   * **Return them in any order.** `buildCard` shuffles the result, so no kind
+   * can put the answer at a predictable index and none has to remember not to.
+   *
+   * Absent on kinds whose answer is typed.
+   */
+  buildOptions?(subject: string, exclude: ReadonlySet<string>, rand: () => number): string[];
+  prompt(item: Challenge): Prompt;
   /** Validate and grade one raw guess from the client (SEC-8). */
-  grade(subject: string, raw: unknown, now: Timestamp): Graded;
+  grade(item: Challenge, raw: unknown, now: Timestamp): Graded;
   /**
    * Was this stored guess the right one? Read back out of a finished item, by
    * the share grid — which cannot ask `grade` again because grading needs the
-   * clock. Only the kind knows what right means: the same country code, or a
-   * number inside D-53's tolerance.
+   * clock. Only the kind knows what right means: the same country code, a
+   * number inside D-53's tolerance, or the index the answer happens to sit at.
    */
-  wasCorrect(subject: string, guess: StoredGuess): boolean;
-  /** Shown once the item is over, never before. */
-  reveal(subject: string): { code: string; name: string };
+  wasCorrect(item: Challenge, guess: StoredGuess): boolean;
+  /**
+   * Shown once the item is over, never before.
+   *
+   * `pick` is the index of the right option, for a choice kind only. The
+   * country name alone would be no reveal at all there: the prompt already
+   * named it, and what the player does not know is which flag was its.
+   */
+  reveal(item: Challenge): { code: string; name: string; pick?: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -96,8 +147,8 @@ export interface Kind {
  * kind rather than in card.ts: this function is a shared implementation, not
  * the interface.
  */
-export function gradeCountryGuess(subject: string, raw: unknown, now: Timestamp): Graded {
-  const answer = mustCountry(subject);
+export function gradeCountryGuess(item: Challenge, raw: unknown, now: Timestamp): Graded {
+  const answer = mustCountry(item.subject);
   const guessed = requireGuessCode(raw);
   const correct = guessed.code === answer.code;
   const km = correct ? 0 : distanceKm(guessed.centroid, answer.centroid);
@@ -113,7 +164,8 @@ export function gradeCountryGuess(subject: string, raw: unknown, now: Timestamp)
   };
 }
 
-const countryWasCorrect = (subject: string, guess: StoredGuess): boolean => !isNumberGuess(guess) && guess.code === subject;
+const countryWasCorrect = (item: Challenge, guess: StoredGuess): boolean =>
+  isCountryGuess(guess) && guess.code === item.subject;
 
 function requireGuessCode(raw: unknown): Country {
   if (typeof raw !== "string") throw mondoError("invalid-argument", "A guess must be a country code.");
@@ -167,14 +219,14 @@ const shape: Kind = {
   maxGuesses: MAX_GUESSES,
   pointsByGuess: [6, 5, 4, 3, 2, 1],
   pool: () => ALL().filter((c) => shapeFor(c.code) !== undefined),
-  prompt: (subject) => {
+  prompt: ({ subject }) => {
     const s = shapeFor(subject);
     if (!s) throw mondoError("not-found", "No silhouette for this challenge.");
     return { kind: "shape", shape: s };
   },
   grade: gradeCountryGuess,
   wasCorrect: countryWasCorrect,
-  reveal: (subject) => nameOf(subject),
+  reveal: ({ subject }) => nameOf(subject),
 };
 
 /**
@@ -191,10 +243,10 @@ const capital: Kind = {
   maxGuesses: 3,
   pointsByGuess: [6, 4, 2],
   pool: () => ALL().filter((c) => c.capital?.["pt-BR"] && !capitalNamesItsCountry(c)),
-  prompt: (subject) => ({ kind: "capital", capital: mustCountry(subject).capital["pt-BR"] }),
+  prompt: ({ subject }) => ({ kind: "capital", capital: mustCountry(subject).capital["pt-BR"] }),
   grade: gradeCountryGuess,
   wasCorrect: countryWasCorrect,
-  reveal: (subject) => nameOf(subject),
+  reveal: ({ subject }) => nameOf(subject),
 };
 
 /**
@@ -221,14 +273,10 @@ const flag: Kind = {
   maxGuesses: 3,
   pointsByGuess: [6, 4, 2],
   pool: () => ALL().filter((c) => flagFor(c.code) !== undefined),
-  prompt: (subject) => {
-    const f = flagFor(subject);
-    if (!f) throw mondoError("not-found", "No flag for this challenge.");
-    return { kind: "flag", flag: f };
-  },
+  prompt: ({ subject }) => ({ kind: "flag", flag: mustFlag(subject) }),
   grade: gradeCountryGuess,
   wasCorrect: countryWasCorrect,
-  reveal: (subject) => nameOf(subject),
+  reveal: ({ subject }) => nameOf(subject),
 };
 
 /**
@@ -253,9 +301,9 @@ const gdp: Kind = {
   maxGuesses: 3,
   pointsByGuess: [6, 4, 2],
   pool: () => ALL().filter((c) => gdpFor(c.code) !== undefined),
-  prompt: (subject) => ({ kind: "gdp", country: mustCountry(subject).names["pt-BR"], year: GDP_YEAR }),
+  prompt: ({ subject }) => ({ kind: "gdp", country: mustCountry(subject).names["pt-BR"], year: GDP_YEAR }),
   grade: gradeNumberGuess,
-  wasCorrect: (_subject, guess) => isNumberGuess(guess) && guess.proximity >= GDP_CORRECT_WITHIN,
+  wasCorrect: (_item, guess) => isNumberGuess(guess) && guess.proximity >= GDP_CORRECT_WITHIN,
   // The country was never secret here, so the reveal is the figure — with the
   // country beside it, because the finished list shows one row per challenge
   // and a bare number there says nothing.
@@ -264,10 +312,106 @@ const gdp: Kind = {
   // only regras.html said so, so the first players read both the prompt and this
   // as reais — roughly five times out, which does not make the question hard, it
   // makes it unanswerable.
-  reveal: (subject) => ({ code: subject, name: `${mustCountry(subject).names["pt-BR"]}: US$ ${mustGdp(subject).toLocaleString("pt-BR")}` }),
+  reveal: ({ subject }) => ({ code: subject, name: `${mustCountry(subject).names["pt-BR"]}: US$ ${mustGdp(subject).toLocaleString("pt-BR")}` }),
 };
 
-export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag, gdp };
+/** FR-8.7 — how many flags are on offer. */
+export const FLAG_PICK_OPTIONS = 8;
+
+/**
+ * `flagPick` — "which of these eight is the flag of X?". The inverse of `flag`:
+ * same pool, same artwork, opposite direction (D-64).
+ *
+ * **Two guesses, [6, 2], and that is the whole difficulty model.** Picking one
+ * of eight is nothing like naming one of 196: at three guesses a player who
+ * knows nothing at all scores on 40 % of items, which would make a mixed card
+ * unsummable in the sense FR-8.2 means. At two it is 25 % — still generous, and
+ * the second pick at least costs two thirds of the points.
+ *
+ * The country is named in the prompt, as `gdp`'s is and for the same reason:
+ * here the country is the question. What is secret is only *which option* is
+ * its flag, which is why `prompt` sends artwork with no code and no name beside
+ * it and the guess is an index into a list the server chose the order of.
+ *
+ * SEC-13 applies exactly as it does to `flag`, and a little more sharply: eight
+ * flags in front of you is eight image searches rather than one. Time is the
+ * cost of a cheat (FR-8.3) and the admin timing surface is the detection story.
+ */
+const flagPick: Kind = {
+  id: "flagPick",
+  maxGuesses: 2,
+  pointsByGuess: [6, 2],
+  // Exactly `flag`'s pool: a country needs artwork to be the answer here, and
+  // the same artwork is what makes it usable as a distractor.
+  pool: () => flag.pool(),
+  buildOptions: (subject, exclude, rand) => {
+    const others = flag.pool().filter((c) => c.code !== subject);
+    // Prefer distractors from outside the exclusion window; fall back to the
+    // rest of the pool if that leaves too few. A tournament excludes ±60 days
+    // of daily subjects (FR-5.2) — 120 codes out of a pool of about 170 — so
+    // "too few" is a real case and not a defensive flourish.
+    const free = others.filter((c) => !exclude.has(c.code));
+    const bag = free.length >= FLAG_PICK_OPTIONS - 1 ? free : others;
+    const picked = [subject];
+    const rest = [...bag];
+    while (picked.length < FLAG_PICK_OPTIONS && rest.length > 0) {
+      picked.push(rest.splice(Math.floor(rand() * rest.length), 1)[0]!.code);
+    }
+    // Deliberately NOT shuffled here: `buildCard` does that for every choice
+    // kind, so the answer cannot sit at a fixed index even if a kind forgets.
+    return picked;
+  },
+  prompt: (item) => ({
+    kind: "flagPick",
+    country: mustCountry(item.subject).names["pt-BR"],
+    options: mustOptions(item).map((code) => ({ flag: mustFlag(code) })),
+  }),
+  grade: gradeChoiceGuess,
+  wasCorrect: (item, guess) => isChoiceGuess(guess) && mustOptions(item)[guess.pick] === item.subject,
+  // The name is for the finished list, which shows one row per challenge; the
+  // index is what the reveal actually needs, because the prompt already named
+  // the country and "Era Brasil" answers a question nobody asked.
+  reveal: (item) => ({ ...nameOf(item.subject), pick: mustOptions(item).indexOf(item.subject) }),
+};
+
+export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag, gdp, flagPick };
+
+/**
+ * Grade a pick: which option, and whether it was the right one.
+ *
+ * `proximity` is 0 or 1 rather than a scale, because there is no such thing as
+ * nearly picking the right flag. The share grid and the colour bands read that
+ * field without knowing this kind exists, so a wrong pick is a red square and a
+ * right one is green — which is exactly what happened.
+ */
+export function gradeChoiceGuess(item: Challenge, raw: unknown, now: Timestamp): Graded {
+  const options = mustOptions(item);
+  const pick = requirePick(raw, options.length);
+  const correct = options[pick] === item.subject;
+  return { correct, guess: { pick, proximity: correct ? 1 : 0, at: now } };
+}
+
+function requirePick(raw: unknown, count: number): number {
+  if (typeof raw !== "number" || !Number.isInteger(raw)) throw mondoError("invalid-argument", "A guess must be one of the options.");
+  if (raw < 0 || raw >= count) throw mondoError("invalid-argument", "That is not one of the options.");
+  return raw;
+}
+
+/**
+ * The stored options, or a typed error. A choice item without them is a card
+ * built by code that did not know this kind existed — which is a bug, but one
+ * the player should hear as "this challenge is broken" rather than as INTERNAL.
+ */
+function mustOptions(item: Challenge): readonly string[] {
+  if (!item.options || item.options.length === 0) throw mondoError("not-found", "This challenge has no options.");
+  return item.options;
+}
+
+function mustFlag(code: string): Flag {
+  const f = flagFor(code);
+  if (!f) throw mondoError("not-found", "No flag for this challenge.");
+  return f;
+}
 
 /**
  * A guess is right when it and the answer are within 10 % of each other. Stated
@@ -288,8 +432,8 @@ const MAX_GDP_GUESS = 1e9;
  * spanning two orders of magnitude: being 2x out reads as 50 %, not as 99.99 %
  * of the way from zero.
  */
-export function gradeNumberGuess(subject: string, raw: unknown, now: Timestamp): Graded {
-  const answer = mustGdp(subject);
+export function gradeNumberGuess(item: Challenge, raw: unknown, now: Timestamp): Graded {
+  const answer = mustGdp(item.subject);
   const value = requireGuessNumber(raw);
   const proximity = Math.min(value, answer) / Math.max(value, answer);
   return {

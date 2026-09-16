@@ -58,7 +58,7 @@ export function puzzleItems(puzzle: Puzzle): CardItem[] {
  * and every timing surface read only those two, so they work for both without
  * knowing which is which.
  */
-export type StoredGuess = StoredCountryGuess | StoredNumberGuess;
+export type StoredGuess = StoredCountryGuess | StoredNumberGuess | StoredChoiceGuess;
 
 export interface StoredCountryGuess {
   code: string;
@@ -76,7 +76,23 @@ export interface StoredNumberGuess {
   at: Timestamp;
 }
 
+/**
+ * FR-8.7 — one pick at a multiple-choice challenge (D-64). The index is into
+ * the item's stored `options`, which is the only place the codes live: a guess
+ * that recorded the country would put the answer in the attempt document, where
+ * the admin dashboard and every later read would carry it around.
+ *
+ * `proximity` is 0 or 1. There is no nearly.
+ */
+export interface StoredChoiceGuess {
+  pick: number;
+  proximity: number;
+  at: Timestamp;
+}
+
 export const isNumberGuess = (g: StoredGuess): g is StoredNumberGuess => "value" in g;
+export const isChoiceGuess = (g: StoredGuess): g is StoredChoiceGuess => "pick" in g;
+export const isCountryGuess = (g: StoredGuess): g is StoredCountryGuess => "code" in g;
 
 /**
  * One player's day. A card play (D-52) that additionally carries `puzzleId` —
@@ -270,7 +286,7 @@ export function recordCompletion(profile: Profile, attempt: Attempt): Profile {
 // ---------------------------------------------------------------------------
 
 /** What the client is told about one guess. Discriminated, like the stored form. */
-export type GuessView = CountryGuessView | NumberGuessView;
+export type GuessView = CountryGuessView | NumberGuessView | ChoiceGuessView;
 
 export interface CountryGuessView {
   kind: "country";
@@ -300,6 +316,20 @@ export interface NumberGuessView {
   proximity: number;
 }
 
+/**
+ * A pick, for a kind whose options the client is already holding (FR-8.7). It
+ * carries the index and nothing else: the client strikes that option out, and
+ * is never told which country it was. Naming it would teach the player a flag —
+ * and if that flag is the subject of the `flag` challenge beside it, teaching
+ * them is handing them the answer. `buildOptions` keeps the two apart as well,
+ * so this is the second of two locks on the same door.
+ */
+export interface ChoiceGuessView {
+  kind: "choice";
+  pick: number;
+  proximity: number;
+}
+
 export type RoundItemStatus = "pending" | "current" | "solved" | "failed";
 
 export interface RoundItemView {
@@ -308,7 +338,8 @@ export interface RoundItemView {
   guessCount: number;
   /** Both only once the challenge itself is over (SEC-1). */
   points: number | null;
-  answer: { code: string; name: string } | null;
+  /** `pick` only for a choice kind: which option was the right one (FR-8.7). */
+  answer: { code: string; name: string; pick?: number } | null;
   /**
    * Once the item is over, the guesses that got there — including the one that
    * finished it, which is exactly the one `guesses` above has already moved
@@ -384,7 +415,7 @@ export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timesta
     mode: "daily",
     itemCount: attempt.items.length,
     cursor: attempt.cursor,
-    prompt: kind && currentCard && !finished ? kind.prompt(currentCard.subject) : null,
+    prompt: kind && currentCard && !finished ? kind.prompt(currentCard) : null,
     guessesUsed: current?.guesses.length ?? 0,
     guessesMax: kind?.maxGuesses ?? 0,
     guesses: (current?.guesses ?? []).map(guessView),
@@ -395,7 +426,7 @@ export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timesta
         status: over ? (it.solved ? "solved" : "failed") : i === attempt.cursor && !finished ? "current" : "pending",
         guessCount: it.guesses.length,
         points: over ? it.points : null,
-        answer: over ? kindById(it.kind).reveal(card[i]!.subject) : null,
+        answer: over ? kindById(it.kind).reveal(card[i]!) : null,
         guesses: over ? it.guesses.map(guessView) : null,
       };
     }),
@@ -433,14 +464,17 @@ function shareItems(attempt: Attempt, card: readonly CardItem[]): ItemForShare[]
     guesses: it.guesses.map((g) => ({
       // `wasCorrect` lives on the kind because only the kind knows what right
       // means — the same country code, or a number inside D-53's tolerance.
-      correct: kindById(it.kind).wasCorrect(card[i]!.subject, g),
+      correct: kindById(it.kind).wasCorrect(card[i]!, g),
       proximity: g.proximity,
-      compass: isNumberGuess(g) ? (g.higher ? "N" : "S") : compass8(g.bearingDeg),
+      // A pick has no direction to point in, so the grid draws the outcome
+      // alone (scoring.ts). "Higher" is `gdp`'s analogue of north.
+      compass: isChoiceGuess(g) ? null : isNumberGuess(g) ? (g.higher ? "N" : "S") : compass8(g.bearingDeg),
     })),
   }));
 }
 
 export function guessView(g: StoredGuess): GuessView {
+  if (isChoiceGuess(g)) return { kind: "choice", pick: g.pick, proximity: g.proximity };
   if (isNumberGuess(g)) return { kind: "number", value: g.value, higher: g.higher, proximity: g.proximity };
   return {
     kind: "country",

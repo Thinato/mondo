@@ -17,7 +17,7 @@ import type { Timestamp } from "firebase-admin/firestore";
 import { GUESS_MIN_INTERVAL_MS, SUSPICIOUS_SOLVE_MS } from "./config";
 import type { Country } from "./countries";
 import { mondoError } from "./errors";
-import { kindById, scoreItem, type KindId, type Prompt } from "./kinds";
+import { kindById, scoreItem, type Challenge, type KindId, type Prompt } from "./kinds";
 import { guessView, type GuessView, type StoredGuess } from "./round";
 
 export const MAX_CARD_ITEMS = 10;
@@ -32,11 +32,14 @@ export interface CardSpec {
   order: "as_listed" | "shuffled";
 }
 
-/** One resolved challenge. Server-only: `subject` IS the answer (SEC-1). */
-export interface CardItem {
-  kind: KindId;
-  subject: string;
-}
+/**
+ * One resolved challenge. Server-only: `subject` IS the answer (SEC-1).
+ *
+ * Defined in `kinds.ts` as `Challenge`, because every `Kind` method takes one
+ * and a kind must not have to import the thing that composes it. This is the
+ * name the rest of the codebase uses.
+ */
+export type CardItem = Challenge;
 
 /**
  * FR-2.4's recognisability mix, reused so a tournament card feels like the
@@ -66,10 +69,23 @@ export function buildCard(spec: CardSpec, exclude: ReadonlySet<string>, rand: ()
   if (spec.order === "shuffled") shuffle(kinds, rand);
 
   const used = new Set(exclude);
-  return kinds.map((kind) => {
+  const items = kinds.map((kind) => {
     const subject = pickSubject(kind, used, rand);
     used.add(subject);
     return { kind, subject };
+  });
+
+  // Options come second, when `used` holds EVERY subject on the card and not
+  // just the ones picked so far (FR-8.7): a distractor that is another
+  // challenge's answer lets a player cross off half of it for free.
+  return items.map((item) => {
+    const options = kindById(item.kind).buildOptions?.(item.subject, used, rand);
+    if (!options) return item;
+    // SEC-1: the position of the answer IS the answer, so the shuffle lives
+    // here rather than in each kind. One place to be right, and a new choice
+    // kind cannot ship with the answer at index 0 by forgetting.
+    shuffle(options, rand);
+    return { ...item, options };
   });
 }
 
@@ -219,7 +235,7 @@ export function applyCardGuess(play: CardCore, card: readonly CardItem[], raw: u
   }
   if (item.guesses.length >= kind.maxGuesses) throw mondoError("no-guesses-remaining", "No guesses left on this challenge.");
 
-  const { guess, correct } = kind.grade(cardItem.subject, raw, now);
+  const { guess, correct } = kind.grade(cardItem, raw, now);
   const guesses = [...item.guesses, guess];
 
   if (!correct && guesses.length < kind.maxGuesses) {
@@ -324,7 +340,8 @@ export interface CardItemView {
   guessCount: number;
   /** Both only once the item itself is over. */
   points: number | null;
-  answer: { code: string; name: string } | null;
+  /** `pick` only for a choice kind: which option was the right one (FR-8.7). */
+  answer: { code: string; name: string; pick?: number } | null;
   /**
    * Once the item is over, the guesses that got there — including the one that
    * finished it, which is exactly the one `guesses` above has already moved
@@ -375,7 +392,7 @@ export function cardView(play: CardPlay, card: readonly CardItem[], now: Timesta
     itemCount: play.items.length,
     cursor: play.cursor,
     status: finished ? "finished" : "in_progress",
-    prompt: kind && currentCard && !finished ? kind.prompt(currentCard.subject) : null,
+    prompt: kind && currentCard && !finished ? kind.prompt(currentCard) : null,
     guessesUsed: current?.guesses.length ?? 0,
     guessesMax: kind?.maxGuesses ?? 0,
     guesses: (current?.guesses ?? []).map(guessView),
@@ -386,7 +403,7 @@ export function cardView(play: CardPlay, card: readonly CardItem[], now: Timesta
         status: over ? (it.solved ? "solved" : "failed") : i === play.cursor && !finished ? "current" : "pending",
         guessCount: it.guesses.length,
         points: over ? it.points : null,
-        answer: over ? kindById(it.kind).reveal(card[i]!.subject) : null,
+        answer: over ? kindById(it.kind).reveal(card[i]!) : null,
         guesses: over ? it.guesses.map(guessView) : null,
       };
     }),

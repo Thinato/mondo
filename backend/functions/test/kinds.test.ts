@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { COUNTRIES, countryByCode, flagFor } from "../src/lib/countries";
-import { GDP_CORRECT_WITHIN, KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem } from "../src/lib/kinds";
+import { FLAG_PICK_OPTIONS, GDP_CORRECT_WITHIN, KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem, type Challenge, type KindId } from "../src/lib/kinds";
 import { GDP_YEAR, gdpFor } from "../src/lib/countries";
 import { isNumberGuess, type StoredNumberGuess } from "../src/lib/round";
 import { distanceKm } from "../src/lib/geo";
@@ -19,6 +19,10 @@ import type { StoredCountryGuess, StoredGuess } from "../src/lib/round";
 
 /** Narrow where the test already knows the kind stores a country guess. */
 const asCountry = (g: StoredGuess): StoredCountryGuess => g as StoredCountryGuess;
+
+/** One challenge, as every Kind method takes it since D-64. */
+const ch = (kind: KindId, subject: string, options?: string[]): Challenge =>
+  options ? { kind, subject, options } : { kind, subject };
 
 const T0 = Timestamp.fromMillis(Date.parse("2026-09-15T15:30:00Z"));
 
@@ -59,7 +63,7 @@ test("scoreItem refuses a guess count the kind cannot produce", () => {
 // --- SEC-1 / FR-8.4: prompts ------------------------------------------------
 
 test("FR-8.4: the shape prompt carries a path and nothing that names the country", () => {
-  const p = KINDS.shape.prompt("PY");
+  const p = KINDS.shape.prompt(ch("shape", "PY"));
   assert.equal(p.kind, "shape");
   const json = JSON.stringify(p);
   assert.ok(json.includes('"d"'), "expected SVG path data");
@@ -70,7 +74,7 @@ test("FR-8.4: the shape prompt carries a path and nothing that names the country
 });
 
 test("FR-8.4: the capital prompt is the city in pt-BR, and never the country or its centroid", () => {
-  const p = KINDS.capital.prompt("IT");
+  const p = KINDS.capital.prompt(ch("capital", "IT"));
   assert.deepEqual(p, { kind: "capital", capital: "Roma" });
   const json = JSON.stringify(p);
   const it = countryByCode("IT")!;
@@ -125,7 +129,7 @@ test("the countries whose capital gives the game away are the ones excluded", ()
 // --- flag (OQ-11) ----------------------------------------------------------
 
 test("FR-8.4: the flag prompt is paths and colours, and nothing that names the country", () => {
-  const p = KINDS.flag.prompt("BR");
+  const p = KINDS.flag.prompt(ch("flag", "BR"));
   assert.equal(p.kind, "flag");
   assert.ok(p.kind === "flag" && p.flag.paths.length > 0, "expected at least one path");
   const json = JSON.stringify(p);
@@ -180,11 +184,11 @@ test("FR-8.4: the flags whose artwork spells their own country's name are not as
 });
 
 test("a country the flag build dropped cannot be prompted, even if a card asks", () => {
-  rejects(() => KINDS.flag.prompt("MX"), "not-found");
+  rejects(() => KINDS.flag.prompt(ch("flag", "MX")), "not-found");
 });
 
 test("flag grades identically to shape — the answer is a country either way", () => {
-  assert.deepEqual(KINDS.flag.grade("BR", "AR", T0), KINDS.shape.grade("BR", "AR", T0));
+  assert.deepEqual(KINDS.flag.grade(ch("flag", "BR"), "AR", T0), KINDS.shape.grade(ch("shape", "BR"), "AR", T0));
 });
 
 // --- gdp (OQ-12, D-53) -----------------------------------------------------
@@ -192,7 +196,7 @@ test("flag grades identically to shape — the answer is a country either way", 
 const asNumber = (g: StoredGuess): StoredNumberGuess => g as StoredNumberGuess;
 
 test("D-53: the gdp prompt names the country, because here the country is the question", () => {
-  const p = KINDS.gdp.prompt("BR");
+  const p = KINDS.gdp.prompt(ch("gdp", "BR"));
   assert.deepEqual(p, { kind: "gdp", country: "Brasil", year: GDP_YEAR });
   // ...and the figure, which IS the answer, is nowhere in it (SEC-1).
   assert.ok(!JSON.stringify(p).includes(String(gdpFor("BR"))), "the prompt carries the figure");
@@ -200,7 +204,7 @@ test("D-53: the gdp prompt names the country, because here the country is the qu
 
 test("D-53: a guess within 10 % counts, and one just outside does not", () => {
   const answer = gdpFor("BR")!;
-  const grade = (v: number) => KINDS.gdp.grade("BR", v, T0);
+  const grade = (v: number) => KINDS.gdp.grade(ch("gdp", "BR"), v, T0);
   assert.equal(grade(answer).correct, true, "exact");
   assert.equal(grade(Math.round(answer * 0.91)).correct, true, "9 % under");
   assert.equal(grade(Math.round(answer / 0.91)).correct, true, "9 % over, symmetrically");
@@ -212,11 +216,11 @@ test("D-53: a guess within 10 % counts, and one just outside does not", () => {
 
 test("D-53: the feedback is how close as a ratio, and which way to go", () => {
   const answer = gdpFor("BR")!;
-  const half = asNumber(KINDS.gdp.grade("BR", Math.round(answer / 2), T0).guess);
+  const half = asNumber(KINDS.gdp.grade(ch("gdp", "BR"), Math.round(answer / 2), T0).guess);
   assert.ok(Math.abs(half.proximity - 0.5) < 0.01, `2x out should read ~50 %, got ${half.proximity}`);
   assert.equal(half.higher, true, "the answer is higher than half of it");
 
-  const double = asNumber(KINDS.gdp.grade("BR", answer * 2, T0).guess);
+  const double = asNumber(KINDS.gdp.grade(ch("gdp", "BR"), answer * 2, T0).guess);
   assert.ok(Math.abs(double.proximity - 0.5) < 0.01);
   assert.equal(double.higher, false);
   assert.equal(isNumberGuess(double), true);
@@ -224,13 +228,13 @@ test("D-53: the feedback is how close as a ratio, and which way to go", () => {
 
 test("SEC-8: a gdp guess must be a plausible number, and nothing else", () => {
   for (const bad of ["22000", null, {}, [], true, NaN, Infinity]) {
-    rejects(() => KINDS.gdp.grade("BR", bad, T0), "invalid-argument");
+    rejects(() => KINDS.gdp.grade(ch("gdp", "BR"), bad, T0), "invalid-argument");
   }
-  rejects(() => KINDS.gdp.grade("BR", 0, T0), "invalid-argument");
-  rejects(() => KINDS.gdp.grade("BR", -5, T0), "invalid-argument");
-  rejects(() => KINDS.gdp.grade("BR", 1e10, T0), "invalid-argument");
+  rejects(() => KINDS.gdp.grade(ch("gdp", "BR"), 0, T0), "invalid-argument");
+  rejects(() => KINDS.gdp.grade(ch("gdp", "BR"), -5, T0), "invalid-argument");
+  rejects(() => KINDS.gdp.grade(ch("gdp", "BR"), 1e10, T0), "invalid-argument");
   // A country code is a guess for the other three kinds and gibberish for this one.
-  rejects(() => KINDS.shape.grade("PY", 22000, T0), "invalid-argument");
+  rejects(() => KINDS.shape.grade(ch("shape", "PY"), 22000, T0), "invalid-argument");
 });
 
 test("D-53: the ten countries the World Bank has no figure for cannot be asked", () => {
@@ -244,7 +248,7 @@ test("D-53: the ten countries the World Bank has no figure for cannot be asked",
 });
 
 test("D-53: reveal is the figure, since the country was never the secret", () => {
-  const r = KINDS.gdp.reveal("BR");
+  const r = KINDS.gdp.reveal(ch("gdp", "BR"));
   assert.equal(r.code, "BR");
   assert.ok(r.name.startsWith("Brasil: "));
   assert.ok(r.name.includes(gdpFor("BR")!.toLocaleString("pt-BR")));
@@ -252,26 +256,26 @@ test("D-53: reveal is the figure, since the country was never the secret", () =>
 
 test("wasCorrect reads a stored guess back without a clock", () => {
   const answer = gdpFor("BR")!;
-  const near = KINDS.gdp.grade("BR", Math.round(answer * 0.95), T0).guess;
-  const far = KINDS.gdp.grade("BR", Math.round(answer * 0.5), T0).guess;
-  assert.equal(KINDS.gdp.wasCorrect("BR", near), true);
-  assert.equal(KINDS.gdp.wasCorrect("BR", far), false);
+  const near = KINDS.gdp.grade(ch("gdp", "BR"), Math.round(answer * 0.95), T0).guess;
+  const far = KINDS.gdp.grade(ch("gdp", "BR"), Math.round(answer * 0.5), T0).guess;
+  assert.equal(KINDS.gdp.wasCorrect(ch("gdp", "BR"), near), true);
+  assert.equal(KINDS.gdp.wasCorrect(ch("gdp", "BR"), far), false);
   // And a country kind still answers on the code it stored.
-  assert.equal(KINDS.shape.wasCorrect("PY", KINDS.shape.grade("PY", "PY", T0).guess), true);
-  assert.equal(KINDS.shape.wasCorrect("PY", KINDS.shape.grade("PY", "AR", T0).guess), false);
-  assert.equal(KINDS.shape.wasCorrect("PY", near), false, "a number is never a country");
+  assert.equal(KINDS.shape.wasCorrect(ch("shape", "PY"), KINDS.shape.grade(ch("shape", "PY"), "PY", T0).guess), true);
+  assert.equal(KINDS.shape.wasCorrect(ch("shape", "PY"), KINDS.shape.grade(ch("shape", "PY"), "AR", T0).guess), false);
+  assert.equal(KINDS.shape.wasCorrect(ch("shape", "PY"), near), false, "a number is never a country");
 });
 
 // --- grading ---------------------------------------------------------------
 
 test("a wrong guess grades to distance, bearing and proximity; a right one to zero distance", () => {
-  const wrong = KINDS.shape.grade("PY", "AR", T0);
+  const wrong = KINDS.shape.grade(ch("shape", "PY"), "AR", T0);
   assert.equal(wrong.correct, false);
   assert.equal(asCountry(wrong.guess).code, "AR");
   assert.equal(asCountry(wrong.guess).distanceKm, distanceKm(COUNTRIES.get("AR")!.centroid, COUNTRIES.get("PY")!.centroid));
   assert.ok(asCountry(wrong.guess).bearingDeg > 0);
 
-  const right = KINDS.shape.grade("PY", "PY", T0);
+  const right = KINDS.shape.grade(ch("shape", "PY"), "PY", T0);
   assert.equal(right.correct, true);
   assert.equal(asCountry(right.guess).distanceKm, 0);
   assert.equal(asCountry(right.guess).bearingDeg, 0);
@@ -279,16 +283,16 @@ test("a wrong guess grades to distance, bearing and proximity; a right one to ze
 });
 
 test("capital grades identically to shape — the answer is a country either way", () => {
-  const a = KINDS.capital.grade("IT", "FR", T0);
-  const b = KINDS.shape.grade("IT", "FR", T0);
+  const a = KINDS.capital.grade(ch("capital", "IT"), "FR", T0);
+  const b = KINDS.shape.grade(ch("shape", "IT"), "FR", T0);
   assert.deepEqual(a, b);
 });
 
 test("SEC-8: a guess that is not a known country code is rejected by the kind itself", () => {
-  rejects(() => KINDS.shape.grade("PY", "ZZ", T0), "invalid-argument");
-  rejects(() => KINDS.capital.grade("PY", 42, T0), "invalid-argument");
-  rejects(() => KINDS.capital.grade("PY", null, T0), "invalid-argument");
-  rejects(() => KINDS.shape.grade("PY", { code: "AR" }, T0), "invalid-argument");
+  rejects(() => KINDS.shape.grade(ch("shape", "PY"), "ZZ", T0), "invalid-argument");
+  rejects(() => KINDS.capital.grade(ch("capital", "PY"), 42, T0), "invalid-argument");
+  rejects(() => KINDS.capital.grade(ch("capital", "PY"), null, T0), "invalid-argument");
+  rejects(() => KINDS.shape.grade(ch("shape", "PY"), { code: "AR" }, T0), "invalid-argument");
 });
 
 test("kindById rejects anything not registered", () => {
@@ -298,5 +302,161 @@ test("kindById rejects anything not registered", () => {
 });
 
 test("reveal names the country in pt-BR, and only once the caller asks for it", () => {
-  assert.deepEqual(KINDS.capital.reveal("BR"), { code: "BR", name: "Brasil" });
+  assert.deepEqual(KINDS.capital.reveal(ch("capital", "BR")), { code: "BR", name: "Brasil" });
+});
+
+// --- FR-8.7 / D-64: flagPick ------------------------------------------------
+
+/** A flagPick challenge with real options, built the way `buildCard` builds one. */
+function pickItem(subject: string, exclude: ReadonlySet<string> = new Set(), rand = mulberry(7)): Challenge {
+  const options = KINDS.flagPick.buildOptions!(subject, exclude, rand);
+  return { kind: "flagPick", subject, options };
+}
+
+/** A deterministic PRNG, so "shuffled" is testable rather than hopeful. */
+function mulberry(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+test("FR-8.7: eight options, the answer among them exactly once", () => {
+  const rand = mulberry(1);
+  for (const c of KINDS.flagPick.pool()) {
+    const options = KINDS.flagPick.buildOptions!(c.code, new Set(), rand);
+    assert.equal(options.length, FLAG_PICK_OPTIONS, `${c.code}: wrong option count`);
+    assert.equal(options.filter((o) => o === c.code).length, 1, `${c.code}: the answer must appear once`);
+    assert.equal(new Set(options).size, FLAG_PICK_OPTIONS, `${c.code}: options must be distinct`);
+    for (const o of options) assert.ok(flagFor(o), `${o} has no flag and cannot be an option`);
+  }
+});
+
+test("FR-8.7: distractors avoid the exclusion window, and never drop below eight to do it", () => {
+  const pool = KINDS.flagPick.pool().map((c) => c.code);
+  const exclude = new Set(pool.filter((c) => c !== "BR").slice(0, 40));
+  const options = KINDS.flagPick.buildOptions!("BR", exclude, mulberry(3));
+  assert.equal(options.length, FLAG_PICK_OPTIONS);
+  for (const o of options) assert.ok(o === "BR" || !exclude.has(o), `${o} is excluded and was offered anyway`);
+
+  // Exclude all but four: the window has to give way rather than deal a short
+  // hand, because a card of eight options with five in it is a different game.
+  const nearlyAll = new Set(pool.filter((c) => c !== "BR").slice(4));
+  const squeezed = KINDS.flagPick.buildOptions!("BR", nearlyAll, mulberry(4));
+  assert.equal(squeezed.length, FLAG_PICK_OPTIONS, "a tight window must not shrink the question");
+  assert.ok(squeezed.includes("BR"));
+});
+
+test("SEC-1: the flagPick prompt names the country it ASKS about and nothing that identifies the answer", () => {
+  const item = pickItem("BR");
+  const p = KINDS.flagPick.prompt(item);
+  assert.equal(p.kind, "flagPick");
+  assert.equal(p.kind === "flagPick" && p.country, "Brasil");
+  assert.equal(p.kind === "flagPick" ? p.options.length : 0, FLAG_PICK_OPTIONS);
+
+  // The options carry artwork and nothing else: no code, no name, no id, in any
+  // locale. Position is the only handle, and the guess is an index.
+  const json = JSON.stringify(p.kind === "flagPick" ? p.options : []);
+  for (const code of item.options!) {
+    const c = countryByCode(code)!;
+    for (const term of [`"${c.code}"`, c.code3, c.names.en, c.names["pt-BR"]]) {
+      assert.ok(!json.includes(term), `the options leak ${term}`);
+    }
+  }
+});
+
+test("SEC-1: no option in the whole pool ever carries a country's name or code", () => {
+  const rand = mulberry(11);
+  for (const c of KINDS.flagPick.pool()) {
+    const p = KINDS.flagPick.prompt(pickItem(c.code, new Set(), rand));
+    const json = JSON.stringify(p.kind === "flagPick" ? p.options : []);
+    // Only the keys a flag is made of, and the values are paths and colours.
+    for (const key of Object.keys(JSON.parse(json)[0].flag)) {
+      assert.ok(["viewBox", "paths"].includes(key), `${c.code}: unexpected option field ${key}`);
+    }
+  }
+});
+
+test("FR-8.7: a pick is graded by index, and only an index in range is a guess", () => {
+  const item = pickItem("BR");
+  const right = item.options!.indexOf("BR");
+  const wrong = (right + 1) % FLAG_PICK_OPTIONS;
+
+  assert.equal(KINDS.flagPick.grade(item, right, T0).correct, true);
+  assert.equal(KINDS.flagPick.grade(item, wrong, T0).correct, false);
+  assert.deepEqual(KINDS.flagPick.grade(item, right, T0).guess, { pick: right, proximity: 1, at: T0 });
+  assert.equal(KINDS.flagPick.grade(item, wrong, T0).guess.proximity, 0, "there is no nearly");
+
+  for (const bad of ["0", null, {}, [], true, NaN, Infinity, 1.5, -1, FLAG_PICK_OPTIONS, "BR"]) {
+    rejects(() => KINDS.flagPick.grade(item, bad, T0), "invalid-argument");
+  }
+});
+
+test("FR-8.7: a choice item with no options is a broken challenge, not a crash", () => {
+  const bare: Challenge = { kind: "flagPick", subject: "BR" };
+  rejects(() => KINDS.flagPick.prompt(bare), "not-found");
+  rejects(() => KINDS.flagPick.grade(bare, 0, T0), "not-found");
+});
+
+test("FR-8.7: wasCorrect reads a stored pick back, for the share grid", () => {
+  const item = pickItem("BR");
+  const right = item.options!.indexOf("BR");
+  assert.equal(KINDS.flagPick.wasCorrect(item, KINDS.flagPick.grade(item, right, T0).guess), true);
+  assert.equal(
+    KINDS.flagPick.wasCorrect(item, KINDS.flagPick.grade(item, (right + 3) % FLAG_PICK_OPTIONS, T0).guess),
+    false,
+  );
+  // A country guess belongs to another kind and is never this one's answer.
+  assert.equal(KINDS.flagPick.wasCorrect(item, KINDS.shape.grade(ch("shape", "BR"), "BR", T0).guess), false);
+});
+
+test("D-64: the reveal is WHICH option, because the prompt already named the country", () => {
+  const item = pickItem("BR");
+  const r = KINDS.flagPick.reveal(item);
+  assert.equal(r.name, "Brasil");
+  assert.equal(r.pick, item.options!.indexOf("BR"));
+  assert.ok(r.pick! >= 0 && r.pick! < FLAG_PICK_OPTIONS);
+  // Every other kind still reveals a name and no index.
+  assert.equal(KINDS.shape.reveal(ch("shape", "BR")).pick, undefined);
+});
+
+test("D-64: two guesses at [6, 2] — a blind picker scores on a quarter of items, not two fifths", () => {
+  assert.equal(KINDS.flagPick.maxGuesses, 2);
+  assert.deepEqual([...KINDS.flagPick.pointsByGuess], [6, 2]);
+  // 1/8 + 7/8 × 1/7. At three guesses this would be 0.40, which is what the
+  // budget is for: FR-8.2 asks a card of mixed kinds to be summable.
+  const blind = 1 / 8 + (7 / 8) * (1 / 7);
+  assert.ok(Math.abs(blind - 0.25) < 1e-9);
+});
+
+test("flagPick asks about exactly what flag asks about", () => {
+  assert.deepEqual(KINDS.flagPick.pool().map((c) => c.code), KINDS.flag.pool().map((c) => c.code));
+});
+
+test("D-64: eight flags is a bigger prompt than one, and bounded", () => {
+  const rand = mulberry(13);
+  const pool = KINDS.flagPick.pool();
+  const sizes = pool
+    .map((c) => JSON.stringify(KINDS.flag.prompt(ch("flag", c.code))).length)
+    .sort((a, b) => b - a);
+
+  // The real bound, not a sampled one: the eight largest flags in the pool, all
+  // in one question. Median artwork is about 0.5 KB and the mean about 3.4 KB,
+  // but the tail runs to 34 KB — Portugal, Brazil and Fiji carry whole coats of
+  // arms — so a sampled worst case understates it by a factor of three.
+  const worstPossible = sizes.slice(0, FLAG_PICK_OPTIONS).reduce((n, b) => n + b, 0);
+  assert.ok(worstPossible < 256_000, `eight of the largest flags would be ${worstPossible} bytes`);
+
+  // What a question actually weighs, over the whole pool.
+  let total = 0;
+  for (const c of pool) total += JSON.stringify(KINDS.flagPick.prompt(pickItem(c.code, new Set(), rand))).length;
+  assert.ok(total / pool.length < 60_000, `the average flagPick prompt is ${Math.round(total / pool.length)} bytes`);
+
+  // NOT a licence to pick small distractors. Choosing options by weight would
+  // make a complex flag rarer as a distractor than as an answer, and a player
+  // who noticed would take the busiest flag on the board every time. The size
+  // is the cost of the question being fair.
 });

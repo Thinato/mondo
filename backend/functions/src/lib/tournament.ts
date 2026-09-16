@@ -148,6 +148,12 @@ export const PRESETS: readonly Preset[] = [
     items: [{ kind: "gdp", count: 5 }],
     order: "as_listed",
   }),
+  // FR-8.7 / D-64. Five picks is a short card on purpose: two guesses each, so
+  // the whole thing is ten taps and reads as a warm-up rather than a sitting.
+  freeForAll("qual-bandeira", "Qual é a bandeira?", "Cinco países, oito bandeiras cada. Duas tentativas.", {
+    items: [{ kind: "flagPick", count: 5 }],
+    order: "as_listed",
+  }),
   {
     id: "liga",
     label: "Liga",

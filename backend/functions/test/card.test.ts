@@ -342,3 +342,87 @@ test("giving up is not throttled: it can only happen once per challenge", () => 
   const after = giveUpCard({ ...play }, card, at(1100));
   assert.equal(after.cursor, 1);
 });
+
+// --- FR-8.7 / D-64: multiple-choice options ---------------------------------
+
+test("FR-8.7: buildCard fills a choice kind's options and leaves every other kind's absent", () => {
+  const card = buildCard({ items: [{ kind: "flagPick", count: 1 }, { kind: "shape", count: 1 }], order: "as_listed" }, NONE);
+  assert.equal(card[0]!.options?.length, 8);
+  assert.ok(card[0]!.options!.includes(card[0]!.subject), "the answer must be on offer");
+  assert.equal(card[1]!.options, undefined, "a typed kind carries no options");
+});
+
+test("SEC-1: the answer's position is not predictable — over 4000 cards it is uniform", () => {
+  const counts = new Array(8).fill(0);
+  let rand = 0;
+  // A linear congruential generator rather than Math.random, so a failure here
+  // is reproducible and someone can find out which index was favoured.
+  const lcg = () => ((rand = (rand * 1103515245 + 12345) % 2147483648) / 2147483648);
+  for (let i = 0; i < 4000; i++) {
+    const item = buildCard({ items: [{ kind: "flagPick", count: 1 }], order: "as_listed" }, NONE, lcg)[0]!;
+    counts[item.options!.indexOf(item.subject)]!++;
+  }
+  const expected = 4000 / 8;
+  // 3σ on a binomial with p = 1/8 over 4000 draws is about 63; anything outside
+  // that is a bias, not a run of luck. A kind that forgot to shuffle would land
+  // 4000 in one bucket and 0 in the others.
+  const sigma3 = 3 * Math.sqrt(4000 * (1 / 8) * (7 / 8));
+  for (const [i, n] of counts.entries()) {
+    assert.ok(Math.abs(n - expected) < sigma3, `index ${i} came up ${n} times, expected about ${expected}`);
+  }
+});
+
+test("FR-8.7: a distractor is never another challenge's answer on the same card", () => {
+  const spec: CardSpec = { items: [{ kind: "flagPick", count: 2 }, { kind: "flag", count: 1 }, { kind: "shape", count: 1 }], order: "as_listed" };
+  for (let i = 0; i < 200; i++) {
+    const card = buildCard(spec, NONE);
+    const subjects = new Set(card.map((it) => it.subject));
+    for (const item of card.filter((it) => it.options)) {
+      for (const o of item.options!) {
+        assert.ok(o === item.subject || !subjects.has(o), `${o} answers another challenge on this card`);
+      }
+    }
+  }
+});
+
+test("FR-8.7: the caller's exclusion window keeps out of the options too", () => {
+  const pool = KINDS.flagPick.pool().map((c) => c.code);
+  const exclude = new Set(pool.slice(0, 30));
+  for (let i = 0; i < 100; i++) {
+    const item = buildCard({ items: [{ kind: "flagPick", count: 1 }], order: "as_listed" }, exclude)[0]!;
+    assert.ok(!exclude.has(item.subject));
+    for (const o of item.options!) assert.ok(!exclude.has(o), `${o} is inside the window and was offered`);
+  }
+});
+
+test("FR-8.7: a pick plays like any other guess — two wrong and the item is over", () => {
+  const card = buildCard({ items: [{ kind: "flagPick", count: 1 }], order: "as_listed" }, NONE);
+  const right = card[0]!.options!.indexOf(card[0]!.subject);
+  let play: CardPlay = newCardPlay("u1", "t1", "r1", card, T0);
+
+  play = { ...play, ...applyCardGuess(play, card, (right + 1) % 8, at(1000)) };
+  assert.equal(play.items[0]!.finishedAt, null, "one wrong pick leaves it open");
+  play = { ...play, ...applyCardGuess(play, card, (right + 2) % 8, at(2000)) };
+  assert.equal(play.items[0]!.solved, false);
+  assert.equal(play.items[0]!.points, 0);
+  assert.equal(play.finishedAt !== null, true);
+
+  // And the same card solved on the second pick is worth 2 (D-64).
+  let second: CardPlay = newCardPlay("u2", "t1", "r1", card, T0);
+  second = { ...second, ...applyCardGuess(second, card, (right + 1) % 8, at(1000)) };
+  second = { ...second, ...applyCardGuess(second, card, right, at(2000)) };
+  assert.equal(second.items[0]!.solved, true);
+  assert.equal(second.items[0]!.points, 2);
+});
+
+test("D-64: a finished pick reveals which option was right; an open one reveals nothing", () => {
+  const card = buildCard({ items: [{ kind: "flagPick", count: 1 }], order: "as_listed" }, NONE);
+  const right = card[0]!.options!.indexOf(card[0]!.subject);
+  const open = newCardPlay("u1", "t1", "r1", card, T0);
+  assert.equal(cardView(open, card, T0).items[0]!.answer, null);
+
+  const done: CardPlay = { ...open, ...applyCardGuess(open, card, right, at(1000)) };
+  const view = cardView(done, card, at(1000));
+  assert.equal(view.items[0]!.answer?.pick, right);
+  assert.deepEqual(view.items[0]!.guesses?.map((g) => g.kind), ["choice"]);
+});
