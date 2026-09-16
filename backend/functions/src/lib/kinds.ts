@@ -319,6 +319,20 @@ const gdp: Kind = {
 export const FLAG_PICK_OPTIONS = 8;
 
 /**
+ * How many of the eight are the answer's own neighbourhood, **the answer
+ * included** — so four neighbours and four strangers (D-65).
+ *
+ * Uniform distractors made the question easier than it looks: seven countries
+ * drawn from the whole world are seven different design traditions, and the
+ * answer usually stood out by elimination. Flags cluster regionally — the Arab
+ * tricolours, the Nordic crosses, the blue-and-white of Central America, the
+ * pan-African palette — so the near half is where the confusion lives, and the
+ * far half keeps a card from being a geography lesson with one plausible
+ * answer.
+ */
+export const FLAG_PICK_NEAR = 5;
+
+/**
  * `flagPick` — "which of these eight is the flag of X?". The inverse of `flag`:
  * same pool, same artwork, opposite direction (D-64).
  *
@@ -345,6 +359,7 @@ const flagPick: Kind = {
   // the same artwork is what makes it usable as a distractor.
   pool: () => flag.pool(),
   buildOptions: (subject, exclude, rand) => {
+    const answer = mustCountry(subject);
     const others = flag.pool().filter((c) => c.code !== subject);
     // Prefer distractors from outside the exclusion window; fall back to the
     // rest of the pool if that leaves too few. A tournament excludes ±60 days
@@ -352,8 +367,19 @@ const flagPick: Kind = {
     // "too few" is a real case and not a defensive flourish.
     const free = others.filter((c) => !exclude.has(c.code));
     const bag = free.length >= FLAG_PICK_OPTIONS - 1 ? free : others;
-    const picked = [subject];
-    const rest = [...bag];
+
+    // The neighbourhood (D-65): the nearest by centroid, which is the same
+    // measure the compass hint uses. Not "shares a border" — that would need
+    // adjacency data the pipeline does not carry, and it would leave an island
+    // nation with no neighbours at all, which is exactly the case that most
+    // needs company.
+    const near = [...bag]
+      .sort((a, b) => distanceKm(answer.centroid, a.centroid) - distanceKm(answer.centroid, b.centroid))
+      .slice(0, FLAG_PICK_NEAR - 1);
+
+    const nearby = new Set(near.map((c) => c.code));
+    const picked = [subject, ...nearby];
+    const rest = bag.filter((c) => !nearby.has(c.code));
     while (picked.length < FLAG_PICK_OPTIONS && rest.length > 0) {
       picked.push(rest.splice(Math.floor(rand() * rest.length), 1)[0]!.code);
     }

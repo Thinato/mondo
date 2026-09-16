@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { COUNTRIES, countryByCode, flagFor } from "../src/lib/countries";
-import { FLAG_PICK_OPTIONS, GDP_CORRECT_WITHIN, KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem, type Challenge, type KindId } from "../src/lib/kinds";
+import { FLAG_PICK_NEAR, FLAG_PICK_OPTIONS, GDP_CORRECT_WITHIN, KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem, type Challenge, type KindId } from "../src/lib/kinds";
 import { GDP_YEAR, gdpFor } from "../src/lib/countries";
 import { isNumberGuess, type StoredNumberGuess } from "../src/lib/round";
 import { distanceKm } from "../src/lib/geo";
@@ -323,6 +323,45 @@ function mulberry(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+test("D-65: four of the eight are the answer's nearest, and the rest are strangers", () => {
+  const rand = mulberry(5);
+  const pool = KINDS.flagPick.pool();
+  for (const c of pool) {
+    const options = KINDS.flagPick.buildOptions!(c.code, new Set(), rand);
+    // The nearest four by centroid — the same measure the compass hint uses.
+    const nearest = pool
+      .filter((o) => o.code !== c.code)
+      .sort((a, b) => distanceKm(c.centroid, a.centroid) - distanceKm(c.centroid, b.centroid))
+      .slice(0, FLAG_PICK_NEAR - 1)
+      .map((o) => o.code);
+    for (const n of nearest) assert.ok(options.includes(n), `${c.code}: ${n} is a neighbour and was left out`);
+    // And the other three are NOT the next-nearest: they are drawn at random
+    // from the rest, which is what keeps a card from being a geography lesson.
+    assert.equal(options.length, FLAG_PICK_OPTIONS);
+    assert.equal(new Set(options).size, FLAG_PICK_OPTIONS);
+  }
+});
+
+test("D-65: the neighbourhood is measurably closer than the strangers", () => {
+  const rand = mulberry(9);
+  const pool = KINDS.flagPick.pool();
+  let nearTotal = 0;
+  let farTotal = 0;
+  for (const c of pool) {
+    const options = KINDS.flagPick.buildOptions!(c.code, new Set(), rand);
+    const km = options.filter((o) => o !== c.code).map((o) => distanceKm(c.centroid, countryByCode(o)!.centroid));
+    km.sort((a, b) => a - b);
+    nearTotal += km.slice(0, FLAG_PICK_NEAR - 1).reduce((n, d) => n + d, 0) / (FLAG_PICK_NEAR - 1);
+    farTotal += km.slice(FLAG_PICK_NEAR - 1).reduce((n, d) => n + d, 0) / (FLAG_PICK_OPTIONS - FLAG_PICK_NEAR);
+  }
+  const near = nearTotal / pool.length;
+  const far = farTotal / pool.length;
+  // Uniform distractors averaged about 9000 km from the answer. The point of
+  // D-65 is that half the board is now regional, so the near four must be a
+  // different order of magnitude, not merely a bit closer.
+  assert.ok(near < far / 4, `near ${Math.round(near)} km vs far ${Math.round(far)} km`);
+});
 
 test("FR-8.7: eight options, the answer among them exactly once", () => {
   const rand = mulberry(1);
