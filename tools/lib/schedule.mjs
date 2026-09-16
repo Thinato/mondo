@@ -30,7 +30,7 @@ export const DEFAULT_WEIGHTS = { 1: 0.5, 2: 0.35, 3: 0.15 };
 export const KIND_WINDOW = 120;
 export const DAY_WINDOW = 30;
 /** The order challenges are drawn in. The order they are PLAYED in is shuffled. */
-export const KINDS = ["shape", "flag", "capital", "gdp"];
+export const KINDS = ["shape", "flag", "capital", "gdp", "flagPick"];
 
 /** mulberry32 — small, seedable, good enough for shuffling countries. */
 export function prng(seed) {
@@ -73,11 +73,15 @@ export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson) {
   // assumed before, which would have scheduled Tuvalu and then thrown
   // "No silhouette for this challenge" at whoever opened the day.
   const hasShape = new Set(Object.keys(shapesJson.shapes));
+  const flag = withTier(countriesJson.countries.filter((c) => hasFlag.has(c.code)));
   return {
     shape: withTier(countriesJson.countries.filter((c) => hasShape.has(c.code))),
     capital: withTier(countriesJson.countries.filter((c) => c.capital?.["pt-BR"] && !namesItsCapital(c))),
-    flag: withTier(countriesJson.countries.filter((c) => hasFlag.has(c.code))),
+    flag,
     gdp: withTier(countriesJson.countries.filter((c) => hasGdp.has(c.code))),
+    // D-64: `flagPick` asks about exactly what `flag` asks about — it needs the
+    // artwork to be an answer, and the same artwork to be a distractor.
+    flagPick: flag,
   };
 }
 
@@ -92,9 +96,16 @@ export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson) {
  * @param {Record<number,number>} [o.weights]         FR-2.4
  * @param {{puzzleId:string,items:{kind:string,subject:string}[]}[]} [o.history]  earlier
  *        schedule, so an annual re-run still honours the windows across the boundary
+ * @param {(kind:string,subject:string,exclude:Set<string>,rand:()=>number)=>string[]|undefined} [o.buildOptions]
+ *        FR-8.7 — the options of a multiple-choice challenge. **Injected, not
+ *        imported**: this module is pure and unit-tested, and the authority on
+ *        what a kind's options are is `backend/functions/src/lib/kinds.ts`. The
+ *        CLI wires in the real one so there is no second implementation to
+ *        drift; `rand` is this generator's seeded stream, so the schedule stays
+ *        byte-reproducible from its seed.
  * @returns {{puzzleId:string,items:{kind:string,subject:string}[],opensAt:string}[]}
  */
-export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WINDOW, dayWindow = DAY_WINDOW, weights = DEFAULT_WEIGHTS, history = [] }) {
+export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WINDOW, dayWindow = DAY_WINDOW, weights = DEFAULT_WEIGHTS, history = [], buildOptions = null }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) throw new Error(`start must be YYYY-MM-DD, got ${start}`);
   for (const kind of KINDS) {
     const pool = pools[kind];
@@ -103,6 +114,22 @@ export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WIN
     // cannot be honoured and the generator would loop or repeat silently.
     if (pool.length <= kindWindow) {
       throw new Error(`${kind}: pool of ${pool.length} is too small for a ${kindWindow}-day window`);
+    }
+    // The day window is the binding constraint once a day has several kinds:
+    // every day spends KINDS.length countries and locks them for dayWindow
+    // days, so at any moment KINDS.length * dayWindow of them are unavailable
+    // TO EVERY KIND. A pool smaller than that cannot fill its slot, and the
+    // generator would run for two hundred days and then throw.
+    //
+    // At five kinds and a 30-day window that is 150 blocked against a smallest
+    // pool of 172 flags: 22 spare. A sixth kind would need 180 and is therefore
+    // impossible without widening the pool or narrowing the window (FR-2.3).
+    const locked = KINDS.length * dayWindow;
+    if (pool.length <= locked) {
+      throw new Error(
+        `${kind}: pool of ${pool.length} cannot survive ${KINDS.length} kinds × a ${dayWindow}-day window ` +
+        `(${locked} countries are locked at any moment). Widen the pool or narrow the window.`,
+      );
     }
   }
 
@@ -159,6 +186,16 @@ export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WIN
       bump(`${kind}:${subject}`, i);
       return { kind, subject };
     });
+
+    // Options come second, when `today` holds EVERY subject of the day: a
+    // distractor that is another challenge's answer would let a player cross
+    // off half of it for free (FR-8.7). Same two-pass shape as buildCard.
+    if (buildOptions) {
+      for (const item of items) {
+        const options = buildOptions(item.kind, item.subject, today, rand);
+        if (options) item.options = options;
+      }
+    }
 
     // Drawing order is fixed so the tier weighting is reproducible; PLAY order
     // is shuffled, so nobody learns "the silhouette is always first".

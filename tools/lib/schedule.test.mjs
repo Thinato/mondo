@@ -134,3 +134,48 @@ test("prng is deterministic and in [0, 1)", () => {
     assert.ok(x >= 0 && x < 1);
   }
 });
+
+// --- FR-8.7 / D-66: the daily's fifth challenge -----------------------------
+
+test("D-66: a day is five challenges and flagPick is one of them", () => {
+  assert.deepEqual(KINDS, ["shape", "flag", "capital", "gdp", "flagPick"]);
+  assert.deepEqual(pools.flagPick, pools.flag, "flagPick asks about exactly what flag asks about");
+});
+
+test("D-66: the generator fills a choice kind's options, and only that kind's", () => {
+  // A stand-in for the server's buildOptions: the real one is injected by the
+  // CLI, so what this pins is the CONTRACT — called once per choice item, with
+  // every subject of the day already in `exclude`.
+  const seen = [];
+  const buildOptions = (kind, subject, exclude) => {
+    if (kind !== "flagPick") return undefined;
+    seen.push({ subject, exclude: [...exclude] });
+    return ["A", "B", subject];
+  };
+  const days = generate({ pools, seed: 3, start: "2026-01-01", days: 5, buildOptions });
+  for (const day of days) {
+    const subjects = day.items.map((i) => i.subject);
+    for (const it of day.items) {
+      if (it.kind === "flagPick") {
+        assert.deepEqual(it.options, ["A", "B", it.subject]);
+      } else {
+        assert.equal(it.options, undefined, `${it.kind} must carry no options`);
+      }
+    }
+    // Every subject of the day was already excluded when the options were
+    // chosen — including the ones drawn after it (FR-8.7).
+    const call = seen.find((c) => subjects.includes(c.subject) && day.items.some((i) => i.kind === "flagPick" && i.subject === c.subject));
+    for (const s of subjects) assert.ok(call.exclude.includes(s), `${s} was not excluded`);
+  }
+});
+
+test("D-66: a sixth kind would be arithmetically impossible, and says so", () => {
+  // The day window locks KINDS.length countries per day for its whole length,
+  // so the smallest pool has to outlast that. Five kinds × 30 days is 150
+  // against 172 flags. Simulated here by widening the window rather than by
+  // inventing a kind, which is the same arithmetic from the other side.
+  assert.throws(
+    () => generate({ pools, seed: 1, start: "2026-01-01", days: 10, dayWindow: 40 }),
+    /cannot survive 5 kinds/,
+  );
+});

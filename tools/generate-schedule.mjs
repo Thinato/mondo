@@ -8,6 +8,7 @@
 // Seed it into Firestore with seed-schedule.mjs.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -35,8 +36,33 @@ const pools = poolsFrom(data, flags, gdp, shapes);
 const tierOf = new Map(data.countries.map((c) => [c.code, c.tier]));
 const history = args.history ? JSON.parse(readFileSync(args.history, "utf8")).puzzles : [];
 
+/**
+ * FR-8.7 — the options of a multiple-choice challenge, from the SERVER's own
+ * `buildOptions` rather than a copy of it here.
+ *
+ * `poolsFrom` above restates the server's pool rules because a JSON generator
+ * cannot import TypeScript, and that duplication is paid for by tests on both
+ * sides. Restating the option rules too would be a much worse bargain: which
+ * eight flags are on offer, and which four of them are the answer's neighbours
+ * (D-65), is the entire difficulty of the kind. So this reaches into the
+ * compiled backend, which means `npm --prefix backend/functions run build` has
+ * to have been run — hence the message rather than a stack trace.
+ *
+ * The generator's own seeded stream is passed in, so the schedule stays
+ * byte-reproducible from seed + start + history.
+ */
+const require = createRequire(import.meta.url);
+let KINDS_IMPL;
+try {
+  KINDS_IMPL = require(join(TOOLS, "../backend/functions/lib/lib/kinds.js")).KINDS;
+} catch {
+  console.error("build the backend first: npm --prefix backend/functions run build");
+  process.exit(2);
+}
+const buildOptions = (kind, subject, exclude, rand) => KINDS_IMPL[kind]?.buildOptions?.(subject, exclude, rand);
+
 const seed = Number(args.seed);
-const puzzles = generate({ pools, seed, start: args.start, days: Number(args.days), history });
+const puzzles = generate({ pools, seed, start: args.start, days: Number(args.days), history, buildOptions });
 
 const outPath = join(TOOLS, "out", `schedule-${seed}.json`);
 mkdirSync(dirname(outPath), { recursive: true });
