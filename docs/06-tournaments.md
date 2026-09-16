@@ -451,12 +451,27 @@ which country — because a flag named here can answer the `flag` challenge besi
 card. And distractors exclude every other subject on the card, so the two challenges cannot meet
 in the first place.
 
-**Distractors are uniform.** Not tier-weighted: tiers rate how recognisable a country's *shape*
-is and are a borrowed proxy for every other kind (§5.2). And not weighted by payload size, which
-is the tempting one — eight of the largest flags is about 220 KB against a 3,4 KB mean — because
-preferring small artwork would make a busy flag rarer as a distractor than as an answer, and the
-winning move would become "pick the busiest flag on the board". The size is the cost of the
-question being fair; the test asserts the true worst case rather than sampling for it.
+**Half the board is the answer's neighbourhood (D-65).** Four of the eight are the nearest
+countries by centroid, three are drawn at random, and the answer makes five. Uniform distractors
+— what this shipped with for a day — made the question easier than it looked: seven countries
+from the whole world are seven design traditions, and the answer stood out by elimination. Flags
+cluster regionally, so the near four are where the confusion lives. Nearest by *centroid*, not by
+shared border: the pipeline carries no adjacency data, and an island nation would otherwise have
+no neighbours at all, which is the case that most needs company.
+
+That looks like a violation of the rule below and is not, but the rule needed sharpening. **What
+distractors must never be chosen by is anything readable off the artwork** — payload size above
+all, which is the tempting one, since eight of the largest flags is about 220 KB against a 3,4 KB
+mean. Preferring small artwork would make a busy flag rarer as a distractor than as an answer and
+"pick the busiest flag on the board" would beat the game knowing nothing. Proximity cannot be
+read without already knowing which country each flag belongs to, which is the question. The size
+is the cost of the question being fair; the test asserts the true worst case rather than sampling.
+
+**The structure is a hint, and the game says so.** The answer is always the centre of its own
+cluster, so recognising one neighbour tells a player roughly where to look. For a kind that gives
+no feedback per guess that is worth having — and it is in the "?" and in `regras.html`, because a
+mechanic that rewards only the players who worked it out is a worse game than one that explains
+itself.
 
 ---
 

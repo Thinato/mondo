@@ -120,8 +120,11 @@ Firebase backend.
   **stored on the card**, never derived from the subject, or a pool change reshuffles a challenge
   someone has open. A wrong pick is never named and distractors exclude the card's other
   subjects — naming one would teach a flag that answers the `flag` challenge beside it. Do not
-  choose distractors by payload size: it would make a busy flag rarer as a distractor than as an
-  answer, and "pick the busiest" would beat the game.
+  choose distractors by anything readable **off the artwork**: weighting by payload size would
+  make a busy flag rarer as a distractor than as an answer, and "pick the busiest" would beat the
+  game knowing nothing. Geography is not in that class and is the point — **four of `flagPick`'s
+  eight are the answer's nearest countries by centroid** (D-65), which is what makes the kind
+  hard, and the "?" and `regras.html` both say so on purpose.
 - **`flagPick` is not in the daily** (FR-8.6). Practice serves any registered kind and a
   tournament preset is one line, but the daily needs `tools/generate-schedule.mjs` re-run and
   re-seeded. Adding it takes a day from 0–24 to 0–30 and opens a third seam in the all-time

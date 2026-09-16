@@ -216,9 +216,15 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
     that flag, and a flag taught here can answer a `flag` challenge on the same card.
   - Distractors MUST exclude every other subject on the same card, and SHOULD exclude the
     caller's own exclusion window (FR-5.2, FR-9.5) where the pool allows it.
-  - Distractors MUST NOT be chosen by any property that correlates with being the answer —
-    payload size included. A rule that preferred small artwork would make a complex flag rarer
-    as a distractor than as an answer, and "pick the busiest one" would beat the game.
+  - Distractors MUST NOT be chosen by any property a player can read **off the artwork itself** —
+    payload size, visual complexity, palette. A rule that preferred small artwork would make a
+    complex flag rarer as a distractor than as an answer, and "pick the busiest one" would beat
+    the game without knowing anything.
+  - A property that requires *already knowing what the options are* is not in that class, and MAY
+    be used (D-65): `flagPick` draws four of its eight from the answer's nearest countries, which
+    is the whole difficulty of the kind, and reading it needs exactly the knowledge being asked
+    for. Where such a structure exists the in-game help MUST say so — a mechanic that only
+    rewards the players who noticed it is a worse game than one that explains itself.
   - The guess budget MUST reflect that picking is easier than naming: with `n` options and `g`
     guesses a blind player scores on `g/n` of challenges, and FR-8.2's shared 0–6 scale is only
     honest while that stays small. `flagPick` is 8 options and 2 guesses, so 25 %.
