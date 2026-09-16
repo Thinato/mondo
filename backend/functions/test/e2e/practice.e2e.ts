@@ -255,3 +255,45 @@ test("FR-1.5: deleting the account takes the practice session with it", async ()
   ok(await gone.call("deleteAccount", {}), "deleteAccount");
   assert.equal((await db.doc(`practice/${gone.uid}`).get()).exists, false);
 });
+
+test("FR-8.7: a pick crosses the wire as an index, and the options carry no country", async () => {
+  const start = ok(await ana.call("startPractice", { kind: "flagPick" }), "startPractice");
+  assert.equal(start.item.prompt.kind, "flagPick");
+  assert.equal(start.item.prompt.options.length, 8);
+  assert.equal(start.item.guessesMax, 2);
+
+  // SEC-1, over the wire rather than in a unit test: the response holds eight
+  // flags and nothing that says which is whose. The subject is server-side, so
+  // the check is against the stored session rather than against a guess.
+  const session = await doc(`practice/${ana.uid}`);
+  assert.equal(session.options.length, 8);
+  assert.ok(session.options.includes(session.subject));
+  const wire = JSON.stringify(start.item.prompt.options);
+  for (const c of session.options) assert.ok(!wire.includes(`"${c}"`), `the wire leaks ${c}`);
+  // Only artwork: every option is exactly a flag and nothing else.
+  for (const o of start.item.prompt.options) assert.deepEqual(Object.keys(o), ["flag"]);
+
+  const right = session.options.indexOf(session.subject);
+  const wrong = (right + 1) % 8;
+
+  // A guess that is not an index is refused and spends nothing.
+  assert.equal(code(await ana.call("submitPracticeGuess", { guess: session.subject })), "invalid-argument");
+  assert.equal(code(await ana.call("submitPracticeGuess", { guess: 8 })), "invalid-argument");
+  assert.equal((await doc(`practice/${ana.uid}`)).item.guesses.length, 0);
+
+  await sleep(450);
+  const missed = ok(await ana.call("submitPracticeGuess", { guess: wrong }), "wrong pick");
+  assert.equal(missed.item.status, "current");
+  assert.equal(missed.item.guesses.length, 1);
+  assert.deepEqual(missed.item.guesses[0], { kind: "choice", pick: wrong, proximity: 0 });
+  assert.equal(missed.item.answer, null, "a wrong pick must not reveal the answer");
+
+  await sleep(450);
+  const done = ok(await ana.call("submitPracticeGuess", { guess: right }), "right pick");
+  assert.equal(done.item.status, "solved");
+  // D-64: six for the first pick, two for the second.
+  assert.equal(done.item.points, 2);
+  assert.equal(done.item.answer.pick, right, "the reveal says which option it was");
+
+  ok(await ana.call("endPractice", {}), "endPractice");
+});

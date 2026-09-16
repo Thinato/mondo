@@ -371,7 +371,7 @@ test("listTournaments shows the group's tournaments and the presets the form nee
   assert.equal(row.status, "finished");
   assert.equal(row.participantCount, 3);
   assert.equal(row.isParticipant, true);
-  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "bandeiras", "economia", "liga", "mata-mata", "suico", "chave-dupla"]);
+  assert.deepEqual(v.presets.map((p: Any) => p.id), ["quintal", "capitais", "mistura", "bandeiras", "economia", "qual-bandeira", "liga", "mata-mata", "suico", "chave-dupla"]);
   for (const p of v.presets) assert.ok(p.label && p.description, "the create form needs pt-BR copy");
   assert.equal(ok(await ana.call("listTournaments", { groupId: gid }), "as member").canManage, false);
 });
