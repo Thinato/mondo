@@ -12,7 +12,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { generate, poolsFrom, tierMix, minRepeatGap, minDayGap, DEFAULT_WEIGHTS, KINDS, KIND_WINDOW, DAY_WINDOW } from "./lib/schedule.mjs";
+import { generate, poolsFrom, tierMix, minRepeatGap, minDayGap, DEFAULT_WEIGHTS, KINDS, KIND_WINDOW } from "./lib/schedule.mjs";
 
 const TOOLS = dirname(fileURLToPath(import.meta.url));
 const { values: args } = parseArgs({
@@ -75,7 +75,6 @@ writeFileSync(
       start: args.start,
       days: puzzles.length,
       kindWindow: KIND_WINDOW,
-      dayWindow: DAY_WINDOW,
       kinds: KINDS,
       weights: DEFAULT_WEIGHTS,
       countriesSource: data.sources,
@@ -95,5 +94,10 @@ for (const kind of KINDS) {
   console.log(`  ${kind.padEnd(7)} tier mix ${pct(1)}% /${pct(2)}% /${pct(3)}%   ${used.size} of ${pools[kind].length} countries used`);
 }
 console.log(`  shortest gap, same kind: ${minRepeatGap(puzzles)} days (needs ≥ ${KIND_WINDOW})`);
-console.log(`  shortest gap, any kind:  ${minDayGap(puzzles)} days (needs ≥ ${DAY_WINDOW})`);
+// D-67: no rule governs this one any more. 0 means two kinds shared a country
+// on one day, which is allowed and is the cost of the single rule — reported so
+// it can be read rather than guessed at.
+const sameDay = puzzles.filter((p) => new Set(p.items.map((i) => i.subject)).size < p.items.length).length;
+console.log(`  shortest gap, any kind:  ${minDayGap(puzzles)} days (no rule; 0 is allowed since D-67)`);
+console.log(`  days where two challenges share a country: ${sameDay} of ${puzzles.length}`);
 console.log(`  written: ${outPath}  — do not commit, do not share`);

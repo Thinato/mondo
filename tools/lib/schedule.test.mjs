@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { generate, itemsOf, minDayGap, minRepeatGap, opensAt, poolsFrom, prng, tierMix, DAY_WINDOW, KINDS, KIND_WINDOW } from "./schedule.mjs";
+import { generate, itemsOf, minDayGap, minRepeatGap, opensAt, poolsFrom, prng, tierMix, KINDS, KIND_WINDOW } from "./schedule.mjs";
 
 // The real pools, so the tests exercise the real tension: the flag pool is the
 // tight one at 172 countries against a 120-day window.
@@ -42,11 +42,12 @@ test("D-52: every day is one challenge of every kind, in a shuffled order", () =
   const orders = new Set();
   for (const d of s) {
     assert.deepEqual([...d.items.map((i) => i.kind)].sort(), [...KINDS].sort(), d.puzzleId);
-    assert.equal(new Set(d.items.map((i) => i.subject)).size, KINDS.length, `${d.puzzleId} asks the same country twice`);
     orders.add(d.items.map((i) => i.kind).join(">"));
   }
-  // 4! = 24 orderings; over 365 days most should turn up.
-  assert.ok(orders.size >= 20, `only ${orders.size} of 24 orderings appeared`);
+  // Distinct countries within a day is NOT asserted: D-67 allows a day to ask
+  // about one country twice, and the test above pins that it actually happens.
+  // 5! = 120 orderings; over 365 days a good share should turn up.
+  assert.ok(orders.size >= 80, `only ${orders.size} of 120 orderings appeared`);
 });
 
 test("D-52: every subject is in its own kind's pool", () => {
@@ -72,19 +73,31 @@ test("FR-2.1: 365 consecutive puzzleIds starting at start", () => {
   }
 });
 
-test("FR-2.3: the two windows hold over 3 years and 5 seeds", () => {
+test("FR-2.3 / D-67: the one window holds over 3 years and 5 seeds", () => {
   for (const seed of [1, 2, 3, 4, 5]) {
     const s = generate({ ...base, seed, days: 3 * 365 });
     assert.ok(minRepeatGap(s) >= KIND_WINDOW, `seed ${seed}: same kind again after ${minRepeatGap(s)} days`);
-    assert.ok(minDayGap(s) >= DAY_WINDOW, `seed ${seed}: asked again after ${minDayGap(s)} days`);
   }
+});
+
+test("D-67: and nothing stops two kinds sharing a country, including on one day", () => {
+  // The rule that was dropped, asserted as dropped rather than merely absent:
+  // over three years there IS a day where two challenges are the same country.
+  // If this ever passes trivially, the constraint has crept back in.
+  const s = generate({ ...base, days: 3 * 365 });
+  const sameDay = s.filter((d) => new Set(d.items.map((i) => i.subject)).size < d.items.length);
+  assert.ok(sameDay.length > 0, "no day shared a country — is the old day window back?");
+  assert.equal(minDayGap(s), 0, "a shared day is a gap of zero");
+  // About 5 % of days, which is the measured cost of D-67 — a bound rather than
+  // an exact figure, so a reasonable change to the pools does not fail it.
+  const share = sameDay.length / s.length;
+  assert.ok(share > 0.01 && share < 0.12, `${(share * 100).toFixed(1)} % of days share a country`);
 });
 
 test("FR-2.3 across runs: history from the previous year is honoured", () => {
   const y1 = generate({ ...base, days: 365 });
   const y2 = generate({ ...base, seed: 99, start: "2027-09-15", history: y1 });
   assert.ok(minRepeatGap([...y1, ...y2]) >= KIND_WINDOW);
-  assert.ok(minDayGap([...y1, ...y2]) >= DAY_WINDOW);
   assert.throws(() => generate({ ...base, start: "2027-01-01", history: y1 }), /not before start/);
 });
 
@@ -122,7 +135,8 @@ test("opensAt handles a zone with DST on both sides of the change", () => {
 });
 
 test("a pool too small for its window fails loudly instead of looping", () => {
-  assert.throws(() => generate({ ...base, pools: { ...pools, flag: pools.flag.slice(0, 40) } }), /too small/);
+  // Under the window, which is 30 days since D-67.
+  assert.throws(() => generate({ ...base, pools: { ...pools, flag: pools.flag.slice(0, 25) } }), /too small/);
   assert.throws(() => generate({ ...base, pools: { ...pools, capital: [] } }), /no pool for kind/);
 });
 
@@ -169,13 +183,18 @@ test("D-66: the generator fills a choice kind's options, and only that kind's", 
   }
 });
 
-test("D-66: a sixth kind would be arithmetically impossible, and says so", () => {
-  // The day window locks KINDS.length countries per day for its whole length,
-  // so the smallest pool has to outlast that. Five kinds × 30 days is 150
-  // against 172 flags. Simulated here by widening the window rather than by
-  // inventing a kind, which is the same arithmetic from the other side.
+test("D-67: a kind only has to outlast its OWN window, so there is no ceiling", () => {
+  // What D-66 recorded as impossible — a sixth kind — is now free, because a
+  // day no longer locks its countries against the other kinds. Simulated with
+  // six pools rather than by shipping a sixth kind.
+  const six = { ...pools, sixth: pools.flag };
+  const gen = () => generate({ pools: six, seed: 1, start: "2026-01-01", days: 365 });
+  assert.doesNotThrow(gen, "a sixth kind must cost nothing but its own pool");
+
+  // The one feasibility rule left: a pool has to be bigger than its window.
+  const tiny = { ...pools, flag: pools.flag.slice(0, 20) };
   assert.throws(
-    () => generate({ pools, seed: 1, start: "2026-01-01", days: 10, dayWindow: 40 }),
-    /cannot survive 5 kinds/,
+    () => generate({ pools: tiny, seed: 1, start: "2026-01-01", days: 10 }),
+    /pool of 20 is too small/,
   );
 });

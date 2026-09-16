@@ -5,21 +5,22 @@
 // FR-2.3  no country repeats: see the two windows below (D-52)
 // FR-2.4  tier mix targets 50 / 35 / 15
 //
-// D-52 — a day is one challenge of every kind, so a day spends one country per
-// kind (four since D-53 added `gdp`). The old "no repeat within 180 days" is
-// arithmetically impossible at that rate: 180 days × 4 = 720 draws from a pool
-// of 196. It is replaced by two windows, which together say what the old one
-// meant:
+// D-67 — there is exactly ONE rule: a country is not asked about BY THE SAME
+// KIND again within 30 days. Nothing else. Paraguay may be Monday's silhouette
+// and Thursday's flag; it may even be today's silhouette AND today's capital.
 //
-//   KIND_WINDOW (120 days)  the same country is not asked BY THE SAME KIND again.
-//                           Bounded by the smallest pool: 172 flags, so 120 days
-//                           leaves 52 spare rather than forcing every flag in.
-//   DAY_WINDOW   (30 days)  the same country is not asked AT ALL again, by any
-//                           kind. Without it Paraguay could be the silhouette on
-//                           Monday and the flag on Thursday, which reads as a
-//                           bug even though it is two different questions.
+// This replaces the pair of windows D-52 introduced (120 days per kind, 30 days
+// for any kind, never twice on one day). Those were built for a pool under
+// pressure — a day spends one country per kind, and five kinds locked 150 of
+// the 172 flags at any moment, which put a hard ceiling on how many kinds a day
+// could ever hold. The single rule removes the ceiling: a kind now needs only
+// more than 30 countries, and the smallest pool has 172.
 //
-// And a country is never used twice on the same day.
+// **What it costs is real and was accepted knowingly.** Two challenges on one
+// day now share a country about 19 days a year, and on about 14 of those one of
+// them gives the other away, because `gdp` and `flagPick` name their country in
+// the prompt: "qual o PIB do Brasil?" beside an unsolved silhouette of Brazil.
+// Paulo, 2026-09-16: "it can appear again in the challenge, no problem".
 //
 // Determinism: same inputs + same seed → byte-identical output, so the schedule
 // can be regenerated from its seed rather than backed up (05-cost.md).
@@ -27,8 +28,8 @@
 export const PUZZLE_TIMEZONE = "America/Sao_Paulo";
 export const PUZZLE_ROLLOVER_HOUR = 12;
 export const DEFAULT_WEIGHTS = { 1: 0.5, 2: 0.35, 3: 0.15 };
-export const KIND_WINDOW = 120;
-export const DAY_WINDOW = 30;
+/** FR-2.3 as amended (D-67): the same country, by the same kind, not within 30 days. */
+export const KIND_WINDOW = 30;
 /** The order challenges are drawn in. The order they are PLAYED in is shuffled. */
 export const KINDS = ["shape", "flag", "capital", "gdp", "flagPick"];
 
@@ -91,8 +92,7 @@ export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson) {
  * @param {number} o.seed
  * @param {string} o.start        "YYYY-MM-DD", first puzzleId
  * @param {number} [o.days=365]
- * @param {number} [o.kindWindow=120]                 FR-2.3, per kind
- * @param {number} [o.dayWindow=30]                   FR-2.3, any kind
+ * @param {number} [o.kindWindow=30]                  FR-2.3, per kind — the only window
  * @param {Record<number,number>} [o.weights]         FR-2.4
  * @param {{puzzleId:string,items:{kind:string,subject:string}[]}[]} [o.history]  earlier
  *        schedule, so an annual re-run still honours the windows across the boundary
@@ -105,31 +105,20 @@ export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson) {
  *        byte-reproducible from its seed.
  * @returns {{puzzleId:string,items:{kind:string,subject:string}[],opensAt:string}[]}
  */
-export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WINDOW, dayWindow = DAY_WINDOW, weights = DEFAULT_WEIGHTS, history = [], buildOptions = null }) {
+export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WINDOW, weights = DEFAULT_WEIGHTS, history = [], buildOptions = null }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) throw new Error(`start must be YYYY-MM-DD, got ${start}`);
   for (const kind of KINDS) {
     const pool = pools[kind];
     if (!pool || pool.length === 0) throw new Error(`no pool for kind ${kind}`);
     // A kind must have more countries than its window has days, or the window
     // cannot be honoured and the generator would loop or repeat silently.
+    //
+    // Since D-67 this is the ONLY feasibility question, and it is per kind
+    // rather than across them: a day no longer locks its countries against the
+    // other kinds, so adding a kind costs nothing but its own pool. There is no
+    // ceiling on how many kinds a day can hold.
     if (pool.length <= kindWindow) {
       throw new Error(`${kind}: pool of ${pool.length} is too small for a ${kindWindow}-day window`);
-    }
-    // The day window is the binding constraint once a day has several kinds:
-    // every day spends KINDS.length countries and locks them for dayWindow
-    // days, so at any moment KINDS.length * dayWindow of them are unavailable
-    // TO EVERY KIND. A pool smaller than that cannot fill its slot, and the
-    // generator would run for two hundred days and then throw.
-    //
-    // At five kinds and a 30-day window that is 150 blocked against a smallest
-    // pool of 172 flags: 22 spare. A sixth kind would need 180 and is therefore
-    // impossible without widening the pool or narrowing the window (FR-2.3).
-    const locked = KINDS.length * dayWindow;
-    if (pool.length <= locked) {
-      throw new Error(
-        `${kind}: pool of ${pool.length} cannot survive ${KINDS.length} kinds × a ${dayWindow}-day window ` +
-        `(${locked} countries are locked at any moment). Widen the pool or narrow the window.`,
-      );
     }
   }
 
@@ -146,26 +135,22 @@ export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WIN
 
   const rand = prng(seed);
   const startDay = dayIndex(start);
-  /** code → last day index it was used at all; and `${kind}:${code}` → last day for that kind. */
+  /** `${kind}:${code}` → the last day index that kind asked about that country. */
   const lastUsed = new Map();
   const bump = (key, i) => lastUsed.set(key, Math.max(lastUsed.get(key) ?? -Infinity, i));
   for (const h of history) {
     const i = dayIndex(h.puzzleId) - startDay;
     if (i >= 0) throw new Error(`history entry ${h.puzzleId} is not before start ${start}`);
-    for (const it of itemsOf(h)) {
-      bump(it.subject, i);
-      bump(`${it.kind}:${it.subject}`, i);
-    }
+    for (const it of itemsOf(h)) bump(`${it.kind}:${it.subject}`, i);
   }
 
   const out = [];
   for (let i = 0; i < days; i++) {
     const today = new Set();
     const items = KINDS.map((kind) => {
-      const free = (code) =>
-        !today.has(code) &&
-        (lastUsed.get(code) ?? -Infinity) <= i - dayWindow &&
-        (lastUsed.get(`${kind}:${code}`) ?? -Infinity) <= i - kindWindow;
+      // The whole rule (D-67). Note what is NOT here: nothing stops another
+      // kind having asked about this country today or yesterday.
+      const free = (code) => (lastUsed.get(`${kind}:${code}`) ?? -Infinity) <= i - kindWindow;
 
       // Weighted tier draw over the tiers that still have an eligible country
       // (R-1: an empty tier is normal near the end of a window, not an error).
@@ -182,7 +167,6 @@ export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WIN
       }
       const subject = pick.codes[Math.floor(rand() * pick.codes.length)];
       today.add(subject);
-      bump(subject, i);
       bump(`${kind}:${subject}`, i);
       return { kind, subject };
     });
@@ -260,7 +244,14 @@ export function minRepeatGap(schedule) {
   return min;
 }
 
-/** Smallest gap in days between two uses of one country by ANY kind. */
+/**
+ * Smallest gap in days between two uses of one country by ANY kind.
+ *
+ * Since D-67 this guarantees nothing — it can legitimately be 0, when two kinds
+ * ask about the same country on the same day. It is kept because it is the
+ * number that says how often that happens, which is the cost of D-67 and worth
+ * being able to read off a generated schedule rather than argue about.
+ */
 export function minDayGap(schedule) {
   const last = new Map();
   let min = Infinity;
