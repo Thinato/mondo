@@ -87,6 +87,15 @@ backend.
   second path that "skips" an item. `scoreItem` already returns 0 for anything unsolved, so
   there is nothing to special-case. The daily confirms before giving up and practice does not,
   and that asymmetry is the point: the daily's zero is permanent and shared.
+- **The practice continent filter is an exclusion, not a second pool** (FR-9.9, D-70). Every
+  country outside the chosen continents joins the set `buildCard` already excludes, so tier
+  weighting, option-building and the empty-pool error keep working without knowing the filter
+  exists — and `flagPick`'s distractors come from the chosen continents for free, which is the
+  point: eight flags from the whole world make an Oceania question answerable by elimination. Do
+  not give a kind a second `pool()`. `buildCard` takes two sets and they are not interchangeable:
+  `exclude` is "never a subject and never a distractor" (D-60's window, FR-5.2's, the continents),
+  `notAgain` is "not a subject again" (practice's memory only). The continent lives on
+  `countries.json`, server-side with the capital and the centroid; do not put it in `site/`.
 - **Practice is a card of one item** (FR-9, D-60). `lib/practice.ts` owns only the sequence, the
   totals and the subject picker; the guess budget, the throttle, the score and the reveal are
   `lib/card.ts`'s, unchanged. Two things there are load-bearing. The session lives in

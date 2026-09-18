@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
+import { REGIONS } from "../src/lib/countries";
 import {
-  requireCountryCode, requireDisplayName, requireGroupId, requireGroupName, requireLocale, requireObject, requirePuzzleId, requireRole, requireUid,
+  requireCountryCode, requireDisplayName, requireGroupId, requireGroupName, requireLocale, requireObject, requirePuzzleId, requireRegions, requireRole, requireUid,
 } from "../src/lib/validate";
 
 const invalidArgument = (fn: () => unknown) =>
@@ -67,4 +68,13 @@ test("FR-7.2 / D-29: the API grants organizer or player, never admin", () => {
   assert.equal(requireRole("organizer"), "organizer");
   assert.equal(requireRole("player"), "player");
   for (const bad of ["admin", "owner", "", "ADMIN", null, 1]) invalidArgument(() => requireRole(bad));
+});
+
+test("FR-9.9: regions default to every continent, and an empty list is a bug, not 'all'", () => {
+  assert.deepEqual(requireRegions(undefined), [...REGIONS]);
+  assert.deepEqual(requireRegions(null), [...REGIONS]);
+  assert.deepEqual(requireRegions(["Europe", "Europe", "Asia"]), ["Europe", "Asia"]);
+  // [] is what a UI bug looks like. Reading it as "all of them" would silently
+  // widen a filter the player narrowed, which is the wrong way to be wrong.
+  for (const bad of [[], "Europe", ["europe"], ["Antarctic"], ["Europe", 1], {}, 1]) invalidArgument(() => requireRegions(bad));
 });

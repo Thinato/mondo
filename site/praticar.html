@@ -59,6 +59,18 @@
       nem aparece para o seu grupo.</p>
     </div>
     <ul id="picker" class="picker" aria-label="Tipo de desafio"></ul>
+
+    <!-- FR-9.9 — which continents to drill. Below the kinds because it is the
+         narrower question: you pick what to practise, then where. Toggling one
+         does NOT restart the run; a chip is one click of a selection that takes
+         several, and restarting on each would throw away three runs to change
+         one filter. `#continents-hint` says what to tap instead, and only once
+         the chips and the running session actually disagree. -->
+    <div class="rail-filter">
+      <p class="fine" id="continents-label"></p>
+      <ul id="continents" class="chips" aria-labelledby="continents-label"></ul>
+      <p class="fine warn" id="continents-hint" hidden></p>
+    </div>
   </aside>
 
   <div class="play-col">

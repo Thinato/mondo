@@ -397,6 +397,20 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
 .picker button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .picker .name { font-weight: inherit; }
 .picker .fine { display: none; }
+
+/* FR-9.9 — the continent chips. The same pill the kind picker is on a phone,
+   and it stays a pill at every width: five short labels are a row, not a column
+   of cards, and the kind is the question a player answers first. */
+.rail-filter { margin: 0 0 .9rem; }
+.rail-filter .fine { margin: 0 0 .4rem; }
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.chips button {
+  font: inherit; font-size: .9rem; padding: .3rem .7rem; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted);
+}
+.chips button:hover, .chips button:focus-visible { color: var(--fg); border-color: var(--fg); }
+.chips button[aria-pressed="true"] { background: var(--field); border-color: var(--fg); color: var(--fg); font-weight: 600; }
+#continents-hint { margin: .5rem 0 0; }
 /* "?" and "Sair do treino" share the right of the prompt head. */
 .head-actions { display: flex; gap: .75rem; align-items: center; }
 
@@ -610,6 +624,10 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
   .picker .name { font-weight: 600; }
   .picker .name::first-letter { text-transform: uppercase; }
   .picker .fine { display: block; font-size: .8rem; color: var(--muted); }
+
+  /* The chips keep their shape here; only the gap grows, to match the kind
+     cards above them. */
+  .rail-filter { margin: 1.1rem 0 0; }
 
   .side { display: block; min-width: 0; position: sticky; top: 1rem; }
   .side .title { font-family: inherit; font-size: .95rem; color: var(--muted); font-weight: 600; }

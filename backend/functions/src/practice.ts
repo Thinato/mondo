@@ -29,7 +29,7 @@ import {
 import { puzzleIdAt } from "./lib/puzzle-day";
 import type { Profile } from "./lib/round";
 import { nextDay } from "./lib/standings";
-import { requireObject } from "./lib/validate";
+import { requireObject, requireRegions } from "./lib/validate";
 
 /**
  * D-60 — the daily subjects a session will not ask about: today's, and the
@@ -52,26 +52,33 @@ async function withheld(now: Timestamp): Promise<string[]> {
 }
 
 /**
- * startPractice({ kind }) — a new session of one kind, showing its first
- * challenge. Replaces whatever session the player had: one at a time, and the
- * old one was worth nothing to anyone.
+ * startPractice({ kind, regions? }) — a new session of one kind, showing its
+ * first challenge. Replaces whatever session the player had: one at a time, and
+ * the old one was worth nothing to anyone.
+ *
+ * `regions` is FR-9.9: the continents to ask about, all of them when omitted.
+ * It belongs on *start* and nowhere else because it is fixed for the life of a
+ * session, like the kind — narrowing the field half way through would make the
+ * totals beside it the sum of two different exercises (D-70).
  *
  * Invite-only, like the daily (FR-1.7, D-28). Practice is a thing the game
  * gives its players, not a demo; letting any signed-in Google account drill
  * against the pool would also let it write to Firestore for free.
  */
-export const startPractice = callable<{ kind: unknown }, PracticeView>(async (uid, data) => {
-  const raw = requireObject(data).kind;
-  if (typeof raw !== "string") throw mondoError("invalid-argument", "Choose a challenge kind.");
+export const startPractice = callable<{ kind: unknown; regions?: unknown }, PracticeView>(async (uid, data) => {
+  const body = requireObject(data);
+  if (typeof body.kind !== "string") throw mondoError("invalid-argument", "Choose a challenge kind.");
   // kindById rejects an unknown id (SEC-8), which is the whole validation a
-  // kind name needs: the set of kinds IS the schema.
-  const kind = kindById(raw).id;
+  // kind name needs: the set of kinds IS the schema. `requireRegions` is the
+  // same idea for continents.
+  const kind = kindById(body.kind).id;
+  const regions = requireRegions(body.regions);
   const now = Timestamp.now();
 
   const profile = await db().runTransaction((tx) => ensureProfile(tx, uid, now));
   requireCanPlay(profile);
 
-  const session = newSession(uid, kind, await withheld(now), now);
+  const session = newSession(uid, kind, await withheld(now), now, Math.random, regions);
   await practiceRef(uid).set(session);
   return practiceView(session, now);
 });

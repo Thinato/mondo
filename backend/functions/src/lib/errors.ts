@@ -20,6 +20,9 @@ export type MondoErrorCode =
   | "too-many-groups"
   | "invalid-invite"
   | "challenge-expired"
+  // FR-9.9 — the practice continent filter left nothing to ask about. Its own
+  // code because the player can fix it and `not-found` tells them to call Paulo.
+  | "no-countries-left"
   // Phase 3 — tournaments (docs/06-tournaments.md §9)
   | "tournament-not-open"
   | "not-a-participant";
@@ -38,6 +41,7 @@ const HTTPS_CODE: Record<MondoErrorCode, FunctionsErrorCode> = {
   "too-many-groups": "failed-precondition",
   "invalid-invite": "not-found",
   "challenge-expired": "failed-precondition",
+  "no-countries-left": "not-found",
   // Reused for a round whose deadline has passed, too: the caller can no longer
   // act, and there is nothing they can retry (FR-5.7).
   "tournament-not-open": "failed-precondition",

@@ -21,6 +21,7 @@ import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { opensAt, puzzleIdAt } from "../../src/lib/puzzle-day";
 import { KINDS } from "../../src/lib/kinds";
+import { COUNTRIES } from "../../src/lib/countries";
 
 process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
 if (getApps().length === 0) initializeApp({ projectId: "demo-mondo" });
@@ -29,6 +30,8 @@ const db = getFirestore();
 const FUNCTIONS = "http://127.0.0.1:5001/demo-mondo/southamerica-east1";
 const AUTH = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
 const TODAY = puzzleIdAt(new Date());
+/** code → continent, for checking what the wire served (FR-9.9). */
+const COUNTRY: Record<string, string> = Object.fromEntries([...COUNTRIES.values()].map((c) => [c.code, c.region]));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any;
@@ -105,6 +108,13 @@ test("FR-1.7: practice is invite-only, like the day is", async () => {
 test("a kind that does not exist is refused before anything is written", async () => {
   assert.equal(code(await ana.call("startPractice", { kind: "populacao" })), "invalid-argument");
   assert.equal(code(await ana.call("startPractice", {})), "invalid-argument");
+  assert.equal((await db.doc(`practice/${ana.uid}`).get()).exists, false);
+});
+
+test("FR-9.9: a continent that is not one is refused before anything is written", async () => {
+  for (const bad of [["Antarctica"], ["europe"], [], "Europe", ["Europe", 2]]) {
+    assert.equal(code(await ana.call("startPractice", { kind: "shape", regions: bad })), "invalid-argument", JSON.stringify(bad));
+  }
   assert.equal((await db.doc(`practice/${ana.uid}`).get()).exists, false);
 });
 
@@ -295,5 +305,27 @@ test("FR-8.7: a pick crosses the wire as an index, and the options carry no coun
   assert.equal(done.item.points, 2);
   assert.equal(done.item.answer.pick, right, "the reveal says which option it was");
 
+  ok(await ana.call("endPractice", {}), "endPractice");
+});
+
+test("FR-9.9: a filtered session stores its continents and stays inside them", async () => {
+  const v = ok(await ana.call("startPractice", { kind: "capital", regions: ["Europe"] }), "startPractice");
+  assert.equal(v.status, "in_progress");
+  const stored = await doc(`practice/${ana.uid}`);
+  assert.deepEqual(stored.regions, ["Europe"]);
+  // Ten challenges over the wire, every answer read out of Firestore rather
+  // than the response — which still must not carry it (SEC-1).
+  for (let i = 0; i < 10; i++) {
+    const s = await doc(`practice/${ana.uid}`);
+    assert.equal(COUNTRY[s.subject], "Europe", `served ${s.subject}`);
+    ok(await ana.call("giveUpPractice", {}), "giveUpPractice");
+    ok(await ana.call("nextPractice", {}), "nextPractice");
+  }
+  ok(await ana.call("endPractice", {}), "endPractice");
+});
+
+test("FR-9.9: omitting regions is every continent, as it was before the filter", async () => {
+  ok(await ana.call("startPractice", { kind: "shape" }), "startPractice");
+  assert.deepEqual((await doc(`practice/${ana.uid}`)).regions, ["Africa", "Americas", "Asia", "Europe", "Oceania"]);
   ok(await ana.call("endPractice", {}), "endPractice");
 });

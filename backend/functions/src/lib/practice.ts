@@ -12,12 +12,14 @@
  * What practice owns is only what a card has no concept of: an endless
  * sequence, running totals that belong to nobody but the player (FR-9.3), and a
  * subject picker that will not hand out an answer the player is about to be
- * asked for (D-60).
+ * asked for (D-60) and will stay inside the continents the player chose
+ * (FR-9.9, D-70).
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
 import { applyCardGuess, buildCard, giveUpCard, newCardCore, type CardCore, type CardItem, type CardPlayItem } from "./card";
 import { mondoError } from "./errors";
+import { REGIONS, type Region } from "./countries";
 import { kindById, MAX_ITEM_POINTS, type KindId, type Prompt } from "./kinds";
 import { guessView, type GuessView } from "./round";
 
@@ -53,6 +55,13 @@ export interface PracticeSession {
    */
   options?: readonly string[];
   item: CardPlayItem;
+  /**
+   * FR-9.9 — the continents this session asks about. Fixed for the life of the
+   * session, like the kind: narrowing the field mid-run would make the totals
+   * beside it the sum of two different exercises. Always the full list when the
+   * player narrowed nothing, so "all of them" needs no special case anywhere.
+   */
+  regions: Region[];
   /** Subjects already asked this session; emptied when the pool runs dry. */
   asked: string[];
   /** D-60: daily subjects this session will not ask about. Never emptied. */
@@ -71,8 +80,9 @@ export function newSession(
   blocked: readonly string[],
   now: Timestamp,
   rand: () => number = Math.random,
+  regions: readonly Region[] = REGIONS,
 ): PracticeSession {
-  const { challenge, asked } = pick(kind, blocked, [], rand);
+  const { challenge, asked } = pick(kind, blocked, [], regions, rand);
   return {
     uid,
     kind,
@@ -81,6 +91,7 @@ export function newSession(
     subject: challenge.subject,
     ...optionsOf(challenge),
     item: freshItem(uid, kind, challenge.subject, now),
+    regions: [...regions],
     asked,
     blocked: [...blocked],
     totals: { played: 0, solved: 0, points: 0 },
@@ -94,7 +105,8 @@ export function newSession(
  */
 export function serveNext(s: PracticeSession, now: Timestamp, rand: () => number = Math.random): PracticeSession {
   if (s.endedAt !== null) throw mondoError("already-completed", "This practice session is over.");
-  const { challenge, asked } = pick(s.kind, s.blocked, s.asked, rand);
+  // A session written before FR-9.9 has no `regions`; it means all of them.
+  const { challenge, asked } = pick(s.kind, s.blocked, s.asked, s.regions ?? REGIONS, rand);
   return {
     ...s,
     subject: challenge.subject,
@@ -181,23 +193,45 @@ const freshItem = (uid: string, kind: KindId, subject: string, now: Timestamp): 
  * Pick the next subject, tier-weighted by `buildCard` so practice feels like
  * the daily rather than a parade of microstates.
  *
- * Two exclusions, and only one of them recycles. `blocked` is D-60 and holds
- * for the life of the session. `asked` is only "don't repeat yourself", so when
- * the kind's pool is exhausted it starts over rather than refusing to deal —
- * a player who has been through 180 flags has earned another lap, not an error.
+ * **The continent filter is an exclusion, not a second pool** (D-70). Every
+ * country outside the chosen continents goes into the set `buildCard` already
+ * takes, so the tier weighting, the option-building and the "no country left"
+ * error all keep working without knowing FR-9.9 exists — and `flagPick`'s
+ * distractors come from the chosen continents too, which is what a player
+ * drilling Oceania actually wants.
+ *
+ * Three exclusions now, and they are not all the same kind of exclusion.
+ * `blocked` (D-60) and `outside` (the filter) both mean "do not show this
+ * country at all", so they go in `buildCard`'s `exclude` and keep distractors
+ * out too. `asked` means only "do not ask this again", so it goes in `notAgain`
+ * — a country asked about last round is a fine wrong option, and treating it
+ * otherwise is what widened Oceania's eight flags to the whole world after the
+ * seventh challenge. It is also the only one that recycles: when what is left
+ * runs dry it starts over rather than refusing to deal, because a player who
+ * has been through all 14 flags of Oceania has earned another lap, not an error.
  */
 function pick(
   kind: KindId,
   blocked: readonly string[],
   asked: readonly string[],
+  regions: readonly Region[],
   rand: () => number,
 ): { challenge: CardItem; asked: string[] } {
-  const block = new Set(blocked);
-  const exhausted = !kindById(kind).pool().some((c) => !block.has(c.code) && !asked.includes(c.code));
+  const wanted = new Set<string>(regions);
+  const pool = kindById(kind).pool();
+  const outside = pool.filter((c) => !wanted.has(c.region)).map((c) => c.code);
+  const block = new Set([...blocked, ...outside]);
+  // D-60's window is the one thing that can empty a continent: Oceania has 12
+  // silhouettes and the week ahead withholds up to eight subjects. Say so,
+  // rather than letting `pickSubject` report the pool as missing.
+  if (!pool.some((c) => !block.has(c.code))) {
+    throw mondoError("no-countries-left", "No country left to ask about in those continents.");
+  }
+  const exhausted = !pool.some((c) => !block.has(c.code) && !asked.includes(c.code));
   const memory = exhausted ? [] : asked;
   // The whole item, not just its subject: for a choice kind `buildCard` also
   // chose the options and shuffled them, and that order is the answer (FR-8.7).
-  const challenge = buildCard({ items: [{ kind, count: 1 }], order: "as_listed" }, new Set([...memory, ...block]), rand)[0]!;
+  const challenge = buildCard({ items: [{ kind, count: 1 }], order: "as_listed" }, block, rand, new Set(memory))[0]!;
   return { challenge, asked: [...memory, challenge.subject] };
 }
 

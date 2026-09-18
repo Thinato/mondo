@@ -27,6 +27,7 @@ const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"),
   account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
   runCols: $("run-cols"), picker: $("picker"), hint: $("practice-hint"), train: $("train"),
+  continents: $("continents"), continentsLabel: $("continents-label"), continentsHint: $("continents-hint"),
   progress: $("progress"), helpBtn: $("help-btn"), leaveBtn: $("leave-btn"), giveUpBtn: $("giveup-btn"),
   helpDialog: $("help-dialog"), helpTitle: $("help-title"), helpBody: $("help-body"), helpClose: $("help-close"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
@@ -43,12 +44,25 @@ const el = {
  *  i18n's `kindName` / `practice.about` — which it needs a label in anyway. */
 const KINDS = ["shape", "flag", "capital", "gdp", "flagPick"];
 
+/** FR-9.9 — the continents, in the server's own ids (`world-countries`'
+ *  `region`). Labels come from i18n; nothing here knows which country is where,
+ *  and it must not: the field a silhouette is drawn from is the server's
+ *  business (SEC-2). All five selected is "no filter", which is what the server
+ *  reads an omitted `regions` as. */
+const REGIONS = ["Africa", "Americas", "Asia", "Europe", "Oceania"];
+
 let view = null;
 /** Which kind the rail has selected, so the chooser can say so and so that
  *  "treinar de novo" starts another run of the same thing rather than sending
  *  the player back to a screen that no longer exists. */
 let kind = null;
 let picked = null;
+/** Which continents the chips have ticked. Never empty — the last one on cannot
+ *  be turned off, because "none" is not a thing to practise. */
+let regions = new Set(REGIONS);
+/** What the RUNNING session was started with, so the hint can appear exactly
+ *  when the chips and the challenges on screen have drifted apart. */
+let runRegions = null;
 let ac = null;
 let busy = false;
 /** FR-8.7 — the prompt of the challenge on screen, kept across its own reveal. */
@@ -71,8 +85,8 @@ watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
   account: el.account, adminLink: el.adminLink, profile, setStatus,
   onUser: (user) => {
-    if (!user) { view = null; kind = null; run = []; shownPrompt = null; }   // FR-1.6: nothing survives sign-out
-    if (user) buildPicker();
+    if (!user) { view = null; kind = null; run = []; shownPrompt = null; runRegions = null; }   // FR-1.6: nothing survives sign-out
+    if (user) { buildPicker(); buildChips(); }
     render();
   },
 });
@@ -99,6 +113,42 @@ function buildPicker() {
   }));
 }
 
+/**
+ * FR-9.9 — the continent chips. Built once beside the picker; which are on is
+ * marked on every render.
+ *
+ * Toggling one does not restart the run. Narrowing from five continents to one
+ * is four clicks, and a rail that threw away the run on each of them would be
+ * unusable; the hint under the chips says to tap a kind, which is the restart
+ * the rail already has.
+ */
+function buildChips() {
+  if (el.continents.children.length > 0) return;
+  el.continentsLabel.textContent = t("practice.continents");
+  el.continents.replaceChildren(...REGIONS.map((r) => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.region = r;
+    button.textContent = t(`continentName.${r}`);
+    button.addEventListener("click", () => toggleRegion(r));
+    li.append(button);
+    return li;
+  }));
+}
+
+function toggleRegion(r) {
+  // The last one on stays on. Unticking everything would be a filter that
+  // matches nothing, and the server would have to refuse it a moment later.
+  if (regions.has(r) && regions.size === 1) return;
+  if (regions.has(r)) regions.delete(r); else regions.add(r);
+  render();
+}
+
+/** The chips and the running session disagree. Null when nothing is running. */
+const regionsStale = () =>
+  runRegions !== null && (runRegions.length !== regions.size || runRegions.some((r) => !regions.has(r)));
+
 // ---------------------------------------------------------------------------
 // The run
 // ---------------------------------------------------------------------------
@@ -112,9 +162,16 @@ async function start(next) {
   try {
     await countries();
     run = [];
-    view = await api.startPractice({ kind: next });
+    // In the server's own ids, all five meaning "no filter". Sent in REGIONS
+    // order rather than click order so two identical selections are one string.
+    const chosen = REGIONS.filter((r) => regions.has(r));
+    view = await api.startPractice({ kind: next, regions: chosen });
+    runRegions = chosen;
     setStatus("");
   } catch (err) {
+    // The run did not start, so the chips have nothing to disagree with.
+    runRegions = null;
+    view = null;
     setStatus(errorMessage(err), "err");
   } finally {
     setBusy(false);
@@ -230,6 +287,14 @@ function render() {
   for (const b of el.picker.querySelectorAll("button")) {
     b.setAttribute("aria-pressed", String(b.dataset.kind === kind));
   }
+  for (const b of el.continents.querySelectorAll("button")) {
+    b.setAttribute("aria-pressed", String(regions.has(b.dataset.region)));
+  }
+  // Only once they actually disagree: a rail that nags before you have touched
+  // it is noise, and the hint is an instruction, not a label.
+  const stale = running && regionsStale();
+  el.continentsHint.hidden = !stale;
+  if (stale) el.continentsHint.textContent = t("practice.continentsHint");
 
   if (running) renderChallenge();
   if (ended) {
