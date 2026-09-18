@@ -26,7 +26,24 @@ export interface Country {
   /** [lon, lat] of the retained landmass (03-geo-data-pipeline.md §3.2) */
   centroid: LonLat;
   tier: 1 | 2 | 3;
+  /**
+   * The continent, for FR-9.9's practice filter. Server-only like the rest of
+   * this interface: the player names the continent they want, so the server
+   * already knows which one it is, and a code→continent map on the client
+   * would cut a silhouette's field from 194 to 12 in one lookup (SEC-2).
+   */
+  region: Region;
 }
+
+/**
+ * FR-9.9 — the continents practice can be narrowed to. `world-countries`'
+ * `region`, which is the pt-BR school notion of a continent exactly: América
+ * is one continent, not two, which is why this is `region` and not `subregion`.
+ * The build refuses a country whose region is not one of these, so the set is
+ * total over the pool and a filter can never match nothing by accident.
+ */
+export const REGIONS = ["Africa", "Americas", "Asia", "Europe", "Oceania"] as const;
+export type Region = (typeof REGIONS)[number];
 
 export interface Shape {
   viewBox: string;

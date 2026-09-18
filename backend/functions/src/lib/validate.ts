@@ -3,7 +3,7 @@
  * inputs are two strings. Every check throws a typed `invalid-argument`.
  */
 
-import { COUNTRIES } from "./countries";
+import { COUNTRIES, REGIONS, type Region } from "./countries";
 import { mondoError } from "./errors";
 
 const PUZZLE_ID = /^\d{4}-\d{2}-\d{2}$/;
@@ -102,6 +102,29 @@ export function requireTournamentId(v: unknown): string {
 export function requirePresetId(v: unknown): string {
   if (typeof v !== "string" || !/^[a-z][a-z0-9-]{1,23}$/.test(v)) throw mondoError("invalid-argument", "Invalid preset id.");
   return v;
+}
+
+/**
+ * FR-9.9 — which continents a practice session may ask about.
+ *
+ * Absent means all of them, which is what every client sent before the filter
+ * existed and what the page sends when nothing is unticked. An empty array is
+ * rejected rather than read as "all": it is what a UI bug looks like, and
+ * silently widening a filter the player narrowed is the wrong way to be wrong.
+ * Duplicates are collapsed, because "Europe twice" is not an error worth a
+ * message.
+ */
+export function requireRegions(v: unknown): Region[] {
+  if (v === undefined || v === null) return [...REGIONS];
+  if (!Array.isArray(v) || v.length === 0) throw mondoError("invalid-argument", "Choose at least one continent.");
+  const out = new Set<Region>();
+  for (const r of v) {
+    if (typeof r !== "string" || !(REGIONS as readonly string[]).includes(r)) {
+      throw mondoError("invalid-argument", "Unknown continent.");
+    }
+    out.add(r as Region);
+  }
+  return [...out];
 }
 
 export function requireBoolean(v: unknown, field: string): boolean {

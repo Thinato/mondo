@@ -20,6 +20,10 @@ const PT_BR = {
   dayDone: "{points} de {max} pontos hoje.",
   dayPerfect: "Dia perfeito! {points} de {max} pontos.",
   kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita", flagPick: "qual bandeira" },
+  // FR-9.9 — the five continents practice can be narrowed to. The server's own
+  // ids are English (`world-countries`' `region`); these are the labels. América
+  // is one continent here, as it is in a Brazilian classroom.
+  continentName: { Africa: "África", Americas: "América", Asia: "Ásia", Europe: "Europa", Oceania: "Oceania" },
   answerWas: "Era {answer}.",
   // D-55: a challenge ends on its own screen, dismissed by hand. The old flow
   // swapped the next prompt in on the same frame and nobody saw the answer.
@@ -211,6 +215,10 @@ const PT_BR = {
       flagPick: "Qual destas oito é a bandeira do país?",
     },
     counter: "Desafio {n} · {points} pts",
+    // FR-9.9. The hint only appears once the chips and the running session
+    // disagree — a rail that nags before you have touched it is noise.
+    continents: "Continentes",
+    continentsHint: "Toque em um tipo para recomeçar com estes continentes.",
     next: "Próximo desafio",
     confirmLeave: "Sair do treino? Você vai ver o total do que fez até agora.",
     done: "{points} de {max} pontos em {n} desafio, {solved}.|{points} de {max} pontos em {n} desafios, {solved}.",
@@ -242,6 +250,7 @@ const PT_BR = {
     "group-full": "Esse grupo está cheio.",
     "tournament-not-open": "Este torneio não tem rodada aberta agora.",
     "not-a-participant": "Você não está neste torneio.",
+    "no-countries-left": "Nenhum país sobrou nesses continentes para esse tipo. Marque outro continente ou treine outro tipo.",
     "unavailable": "Sem conexão com o servidor. Sua tentativa não foi gasta; tente de novo.",
     "internal": "Deu ruim no servidor. Sua tentativa não foi gasta; tente de novo.",
     "default": "Algo deu errado ({code}). Sua tentativa não foi gasta; tente de novo.",

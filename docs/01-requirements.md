@@ -308,6 +308,19 @@ to test new challenges."*
   its own country, so a player could click through the pool until it came up.
 - **FR-9.6** Practice is **invite-only**, on the same gate as the daily (FR-1.7).
 - **FR-9.7** A session need not survive a reload. Reopening the page MAY start over.
+- **FR-9.9** *(added 2026-09-18, D-70)* A player MUST be able to restrict a practice session to
+  **one or more continents** — África, América, Ásia, Europa, Oceania — and the session MUST then
+  ask only about countries on them. For a multiple-choice kind the **options** MUST come from the
+  chosen continents too (FR-8.7): eight flags drawn from the whole world make a question about
+  Oceania answerable by elimination, which is the opposite of what the filter is for.
+  - The selection is fixed for the life of a session, like the kind, because the totals beside it
+    are the sum of one exercise.
+  - The default is every continent, which MUST be indistinguishable from how practice behaved
+    before this requirement existed.
+  - At least one continent MUST always be selected.
+  - FR-9.5 still applies and wins: when the withheld window leaves a chosen continent with nothing
+    to ask about, the player MUST be told *that* — not "no country is scheduled" — so they know
+    which knob to turn.
 - **FR-9.8** *(added 2026-09-13, D-63)* From 960px up, practice MUST show the run beside the
   challenge — the challenges already finished, and the totals they add up to: points, challenges,
   solves, and the share of challenges solved. Below 960px the layout MUST be unchanged from the

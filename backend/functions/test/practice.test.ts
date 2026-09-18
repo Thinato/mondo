@@ -13,8 +13,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { gdpFor } from "../src/lib/countries";
-import { MAX_ITEM_POINTS, KINDS, type KindId } from "../src/lib/kinds";
+import { countryByCode, gdpFor, REGIONS } from "../src/lib/countries";
+import { MAX_ITEM_POINTS, KINDS, KIND_IDS, type KindId } from "../src/lib/kinds";
 import {
   applyPracticeGuess, endSession, giveUpPractice, newSession, practiceView, serveNext,
   type PracticeSession,
@@ -251,4 +251,61 @@ test("a challenge already over, and an ended session, both refuse a give-up", ()
   rejects(() => giveUpPractice(solved, at(2000)), "already-completed");
   const over = endSession(newSession(UID, "shape", [], T0), at(5000));
   rejects(() => giveUpPractice(over, at(6000)), "already-completed");
+});
+
+// ---------------------------------------------------------------------------
+// FR-9.9 / D-70 — the continent filter
+// ---------------------------------------------------------------------------
+
+const regionOf = (code: string) => countryByCode(code)!.region;
+const run = (s: PracticeSession, laps: number) => {
+  const out = [s];
+  for (let i = 0; i < laps; i++) out.push(serveNext(solve(out[i]!, 1000), at(2000 * (i + 1))));
+  return out;
+};
+
+test("FR-9.9: a session asks only about the continents it was given", () => {
+  // Every kind, because the filter is an exclusion `buildCard` already honours
+  // rather than a second pool each kind would have to implement (D-70).
+  for (const kind of KIND_IDS) {
+    const s = newSession(UID, kind, [], T0, Math.random, ["Europe"]);
+    for (const step of run(s, 30)) {
+      assert.equal(regionOf(step.subject), "Europe", `${kind} served ${step.subject} from outside Europe`);
+    }
+  }
+});
+
+test("FR-9.9: two continents means both, and neither of the other three", () => {
+  const seen = new Set<string>();
+  for (const step of run(newSession(UID, "capital", [], T0, Math.random, ["Oceania", "Americas"]), 60)) {
+    seen.add(regionOf(step.subject));
+  }
+  for (const r of seen) assert.ok(["Oceania", "Americas"].includes(r), `served ${r}`);
+  // 31 capitals across the two, so 61 challenges cannot have stayed on one.
+  assert.equal(seen.size, 2, "both continents were actually used");
+});
+
+test("FR-9.9: the default is every continent, and a pre-filter session is read that way", () => {
+  assert.deepEqual(newSession(UID, "shape", [], T0).regions, [...REGIONS]);
+  // A document written before the filter shipped has no `regions` field at all.
+  const legacy = { ...newSession(UID, "shape", [], T0), regions: undefined } as unknown as PracticeSession;
+  assert.ok(serveNext(solve(legacy, 1000), at(2000)).subject);
+});
+
+test("D-70: the filter narrows flagPick's distractors too, not just its answer", () => {
+  // A player drilling Oceania wants eight Oceanian flags, and gets them because
+  // `buildOptions` reads the same exclusion set the subject was picked from.
+  const s = newSession(UID, "flagPick", [], T0, Math.random, ["Oceania"]);
+  for (const step of run(s, 10)) {
+    for (const code of step.options!) assert.equal(regionOf(code), "Oceania", `${code} is not in Oceania`);
+  }
+});
+
+test("D-70: a continent the daily has emptied says so, rather than reporting the pool as missing", () => {
+  // Oceania has 12 silhouettes; block all of them and the combination has
+  // nothing left to ask. The player hears which knob to turn.
+  const oceania = KINDS.shape.pool().filter((c) => c.region === "Oceania").map((c) => c.code);
+  rejects(() => newSession(UID, "shape", oceania, T0, Math.random, ["Oceania"]), "no-countries-left");
+  // The same block is harmless as soon as there is somewhere else to go.
+  assert.ok(newSession(UID, "shape", oceania, T0, Math.random, ["Oceania", "Europe"]).subject);
 });

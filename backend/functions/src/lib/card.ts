@@ -56,21 +56,41 @@ export type CardItem = Challenge;
 const TIER_WEIGHT: Record<1 | 2 | 3, number> = { 1: 0.5, 2: 0.35, 3: 0.15 };
 
 /**
- * Build a card. `exclude` is FR-5.2: subjects already used in this tournament
- * plus the daily schedule's ±60 day window, so a tournament never asks what
- * the group is about to be asked at lunch. Subjects are unique within a card.
+ * Build a card.
  *
- * `rand` is injected so tests are deterministic.
+ * **`exclude` is off-limits twice over**: not a subject, and not a distractor
+ * either. That is FR-5.2 — subjects already used in this tournament plus the
+ * daily schedule's ±60 day window — and D-60's practice window, and FR-9.9's
+ * continents. All three mean "the player must not be shown this country at
+ * all", which is exactly what an option is.
+ *
+ * **`notAgain` is off-limits once**: not a subject, but a perfectly good
+ * distractor. Practice's "don't repeat yourself" list is the only thing of that
+ * shape (D-70). Folding it into `exclude` was wrong in a way nothing noticed
+ * until the continent filter shipped: a player drilling Oceania ran `free`
+ * below seven after the seventh flag, and `buildOptions` quietly fell back to
+ * the whole world — so the run got easier half way through, then hard again
+ * when the list recycled.
+ *
+ * Subjects are unique within a card. `rand` is injected so tests are
+ * deterministic.
  */
-export function buildCard(spec: CardSpec, exclude: ReadonlySet<string>, rand: () => number = Math.random): CardItem[] {
+export function buildCard(
+  spec: CardSpec,
+  exclude: ReadonlySet<string>,
+  rand: () => number = Math.random,
+  notAgain: ReadonlySet<string> = new Set(),
+): CardItem[] {
   const kinds = expand(spec);
   if (kinds.length === 0) throw mondoError("invalid-argument", "A card needs at least one challenge.");
   if (kinds.length > MAX_CARD_ITEMS) throw mondoError("invalid-argument", `A card holds at most ${MAX_CARD_ITEMS} challenges.`);
   if (spec.order === "shuffled") shuffle(kinds, rand);
 
   const used = new Set(exclude);
+  const taken = new Set([...exclude, ...notAgain]);
   const items = kinds.map((kind) => {
-    const subject = pickSubject(kind, used, rand);
+    const subject = pickSubject(kind, taken, rand);
+    taken.add(subject);
     used.add(subject);
     return { kind, subject };
   });
