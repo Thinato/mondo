@@ -9,7 +9,7 @@ import { errorMessage, t } from "./i18n.js";
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"), panel: $("panel"), tabs: $("tabs"),
-  account: $("account"), profileBtn: $("profile-btn"),
+  account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
   usersRows: $("users-rows"), usersMore: $("users-more"), userAttempts: $("user-attempts"), userAttemptsTitle: $("user-attempts-title"), userAttemptsRows: $("user-attempts-rows"),
   groupsRows: $("groups-rows"), dayInput: $("day-input"), dayRows: $("day-rows"),
   confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
@@ -24,10 +24,11 @@ el.usersMore.textContent = t("loadMore"); // the markup label is a fallback
 const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
 
 watchAuth({
-  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, account: el.account, setStatus,
+  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
+  account: el.account, adminLink: el.adminLink, profile, setStatus,
   onUser: (u) => {
     el.panel.hidden = !u;
-    if (u) { profile.setName(u.displayName); loadUsers(true); }
+    if (u) loadUsers(true);
   },
 });
 

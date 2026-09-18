@@ -13,7 +13,7 @@
 import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import { auth, googleProvider } from "./firebase.js";
 import * as api from "./api.js";
-import { ask, attachAccount, showAccount } from "./auth-ui.js";
+import { applyIdentity, ask, attachAccount, showAccount } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, renderFlag, renderOptions, renderShape } from "./geo.js";
@@ -120,11 +120,9 @@ async function load() {
     // the page, and a slow or failing `listGroups` must not hold either up.
     const groupsSoon = api.listGroups({}).catch(() => null);
     round = await api.getRound({});
-    if (round.me) {
-      profile.setName(round.me.displayName);
-      showAccount(el.account, auth.currentUser, round.me.displayName);
-      el.adminLink.hidden = round.me.role !== "admin";
-    }
+    // getRound already carries the display name and the role, so the daily is
+    // the one page that does not have to ask a second time.
+    applyIdentity({ account: el.account, user: auth.currentUser, adminLink: el.adminLink, profile }, round.me);
     setStatus("");
     render();
     loadPanel(groupsSoon).catch(() => { /* garnish; never the player's problem */ });

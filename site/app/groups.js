@@ -19,7 +19,7 @@ import { mountProfile } from "./profile.js";
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"),
-  account: $("account"), profileBtn: $("profile-btn"),
+  account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
   list: $("list"), cards: $("cards"), noGroups: $("no-groups"), createForm: $("create-form"), createName: $("create-name"),
   board: $("board"), groupName: $("group-name"), groupMeta: $("group-meta"),
   ownerTools: $("owner-tools"), inviteBtn: $("invite-btn"), inviteResult: $("invite-result"), inviteHint: $("invite-hint"),
@@ -47,11 +47,11 @@ let section = "ranking";
 const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
 
 watchAuth({
-  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, account: el.account, setStatus,
+  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
+  account: el.account, adminLink: el.adminLink, profile, setStatus,
   onUser: (u) => {
     el.list.hidden = el.board.hidden = true;
     if (!u) { view = null; tournaments = null; return; }
-    profile.setName(u.displayName);
     const token = params.get("convite");
     if (token) return accept(token);
     if (gid) return loadBoard();

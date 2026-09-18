@@ -18,7 +18,7 @@ import {
   type Group, type Member,
 } from "./lib/groups";
 import { inviteState, inviteToken, newInvite, type Invite } from "./lib/invite";
-import type { Attempt, Profile } from "./lib/round";
+import type { Attempt, Profile, Role } from "./lib/round";
 import { effectiveStreak, windowDays, type FinishedResult } from "./lib/standings";
 import { requireGroupId, requireGroupName, requireInviteToken, requireObject, requireUid } from "./lib/validate";
 
@@ -272,15 +272,29 @@ export const renameGroup = callable<{ groupId: unknown; name: unknown }, { ok: t
  * listGroups({}) → the caller's groups, plus whether they may create one, so
  * `grupos.html` can hide a form the server would refuse anyway (FR-4.1).
  */
-export const listGroups = callable<unknown, { groups: { groupId: string; name: string; memberCount: number; isOwner: boolean }[]; canCreate: boolean }>(async (uid) => {
+/**
+ * `me` is here for the same reason `getRound` carries one: the profile is
+ * already read to work out `canCreate`, so the display name and the role are
+ * two fields off a document that is in hand. Every page but the daily gets its
+ * chrome from this call — the initials on the avatar, whether the Painel link
+ * shows, and the name the Perfil dialog prefills — and before it existed those
+ * pages fell back to the Google account's name, which is not the name the game
+ * knows anyone by.
+ *
+ * It authorizes nothing. `admin` here only decides whether a link is drawn;
+ * admin.ts asserts the role itself on every call behind it (SEC-8).
+ */
+export const listGroups = callable<unknown, { groups: { groupId: string; name: string; memberCount: number; isOwner: boolean }[]; canCreate: boolean; me: { displayName: string; role: Role } | null }>(async (uid) => {
   const profileSnap = await userRef(uid).get();
   const profile = profileSnap.exists ? (profileSnap.data() as Profile) : null;
   const canCreate = canCreateGroup(profile);
+  const me = profile ? { displayName: profile.displayName, role: profile.role ?? ("player" as Role) } : null;
   const gids = groupsOf(profile);
-  if (gids.length === 0) return { groups: [], canCreate };
+  if (gids.length === 0) return { groups: [], canCreate, me };
   const snaps = await db().getAll(...gids.map(groupRef));
   return {
     canCreate,
+    me,
     groups: snaps.flatMap((s) => {
       if (!s.exists) return []; // index and group out of step; the nightly job does not fix this, leaveTx does
       const g = s.data() as Group;

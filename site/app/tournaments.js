@@ -23,7 +23,7 @@ import { fillBuckets } from "./people.js";
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"),
-  account: $("account"), profileBtn: $("profile-btn"),
+  account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
   detail: $("detail"), backToList: $("back-to-list"), tName: $("t-name"), tMeta: $("t-meta"), tActions: $("t-actions"),
   round: $("round"), roundTitle: $("round-title"), roundCloses: $("round-closes"), playBtn: $("play-btn"),
   roundHint: $("round-hint"), roundFinished: $("round-finished"), roundPlaying: $("round-playing"), roundWaiting: $("round-waiting"),
@@ -66,11 +66,11 @@ const help = attachHelp({
 const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
 
 watchAuth({
-  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, account: el.account, setStatus,
+  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
+  account: el.account, adminLink: el.adminLink, profile, setStatus,
   onUser: (u) => {
     el.detail.hidden = el.card.hidden = true;
     if (!u) { view = null; card = null; reveal = null; return; }
-    profile.setName(u.displayName);
     route();
   },
 });
