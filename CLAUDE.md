@@ -106,6 +106,12 @@ backend.
   one control per screen. It cannot be orange or green: the five `--band-*` colours already mean
   warm-to-cold, so a green primary button beside a green "you are close" bar would be two meanings in one
   colour. `.primary` is the filled one; what `.primary` used to look like is now `.secondary`.
+- **`listGroups` carries a `me`** (D-68). The profile is already read there to work out `canCreate`, so
+  the display name and the role are two free fields off a document in hand — and they are where every page
+  but the daily gets its chrome: the initials on the avatar, whether the **Painel** link is drawn, and the
+  name the Perfil dialog prefills. Do not prefill that dialog from the Firebase session instead: the Google
+  account's name is not the name the group knows anyone by, and saving it would silently replace theirs.
+  The role here draws a link and authorizes nothing; `admin.ts` asserts it on every call behind that link.
 - **The phone's tab bar has two tabs** (FR-6.1, D-68). Hoje and Treinar. Grupos, torneios and the painel
   are in the account menu and not on the bar — nobody opens Mondo on a bus to rename a group. Above 60rem
   the bar is gone and the three destinations are back in the top bar.

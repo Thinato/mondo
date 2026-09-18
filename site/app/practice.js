@@ -25,7 +25,7 @@ import { errorMessage, t } from "./i18n.js";
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"),
-  account: $("account"), profileBtn: $("profile-btn"),
+  account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
   runCols: $("run-cols"), picker: $("picker"), hint: $("practice-hint"), train: $("train"),
   progress: $("progress"), helpBtn: $("help-btn"), leaveBtn: $("leave-btn"), giveUpBtn: $("giveup-btn"),
   helpDialog: $("help-dialog"), helpTitle: $("help-title"), helpBody: $("help-body"), helpClose: $("help-close"),
@@ -68,10 +68,11 @@ const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => 
 // ---------------------------------------------------------------------------
 
 watchAuth({
-  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut, account: el.account, setStatus,
+  signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
+  account: el.account, adminLink: el.adminLink, profile, setStatus,
   onUser: (user) => {
     if (!user) { view = null; kind = null; run = []; shownPrompt = null; }   // FR-1.6: nothing survives sign-out
-    if (user) { profile.setName(user.displayName); buildPicker(); }
+    if (user) buildPicker();
     render();
   },
 });
