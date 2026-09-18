@@ -110,8 +110,10 @@ never reach the published site — the Pages workflow uploads the `site/` direct
   README.md
 
 /tools/
-  build-geo.mjs           Natural Earth -> the three generated data files above
-  lib/shape.mjs           pure geometry helpers, unit-tested
+  build-geo.mjs           country-shapes/ + Natural Earth -> the three generated data files above
+  country-shapes/         the silhouette artwork, 196 SVGs (D-69) — licence unknown, see NOTICE
+  lib/artwork.mjs         artwork SVG -> one fitted path, unit-tested
+  lib/shape.mjs           D-8 selection and the centroid, unit-tested
   include.json            which entities are countries (PR to change)
   tiers.json              recognisability tier per country (PR to change)
   capitals.json           pt-BR capital-city names for the `capital` kind (PR to change)

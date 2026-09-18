@@ -4,10 +4,11 @@ tools/out/
 # Generated geo artifacts are committed on purpose; scratch is not
 tools/.cache/
 tools/preview.html
+tools/preview-assets.html
 tools/flags-preview.html
 
-# Crawled reference SVGs of unknown license (D-15, D-16). Local-only; the preview shows them
-# beside the Natural Earth output, nothing else may read them.
+# The crawl D-69's artwork came out of (D-16). The 196 the pool needs live in
+# tools/country-shapes/; nothing reads this directory any more.
 assets/
 
 # Node

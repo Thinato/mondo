@@ -61,14 +61,17 @@ backend.
 
 - Only the largest landmass of each country is rendered. France is metropolitan France. This is
   decision D-8; see `docs/03-geo-data-pipeline.md` §3.1.
-- **Four silhouettes are not Natural Earth** (D-59). Monaco, San Marino, Liechtenstein and
-  Nauru come from vendored mapsicon artwork in `tools/mapsicon/`, because ne_10m gives Monaco
-  12 vertices and Nauru 9 and they all render as the same blob. Only the OUTLINE is borrowed —
-  centroids, and so every distance and compass hint, stay Natural Earth. **Tuvalu and the
-  Marshall Islands have no silhouette at all** and are absent from `shapes.json`; they keep
-  their other three kinds. Exceptions live in `tools/shape-overrides.json` with a reason each.
-  mapsicon has no formal licence, only a written grant requiring attribution and forbidding
-  resale — it is in `NOTICE`, and it is the only such source in the build.
+- **No silhouette is Natural Earth** (D-69, which widened D-59 and reversed D-15). All 196 are
+  traced from the drawn artwork in `tools/country-shapes/` by `tools/lib/artwork.mjs`, because
+  ne_10m gives Monaco 12 vertices and Nauru 9 and what it does resolve is a simplification the
+  build simplifies again. Only the OUTLINE comes from there — **centroids, and so every distance
+  and compass hint, stay Natural Earth**, and `countries.json`'s centroids were byte-identical
+  across the change. That artwork's origin and licence are **unknown**; `NOTICE` and
+  `tools/country-shapes/README.md` say so, and the files are committed rather than read from the
+  still-gitignored `assets/` so the gap is visible. Do not reintroduce a projection for
+  silhouettes and do not put a drawing in the scoring path. **Tuvalu and the Marshall Islands
+  have no silhouette at all** and are absent from `shapes.json`; they keep their other four
+  kinds, and the list lives in `tools/shape-overrides.json` with a reason each.
 - There are **no shape keys and no public shape files**. Shapes and centroids exist only in
   `backend/functions/src/data/`; `getRound` inlines one path per round (D-13). If a change puts
   a shape or centroid into `site/`, stop.
@@ -118,10 +121,10 @@ backend.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).
-- `assets/` is gitignored reference material of unknown license (D-15, D-16). Nothing under
-  `site/`, `backend/` or the build may read it; only `tools/preview.html` shows it, locally.
-  It is **not** mapsicon — that was checked on 2026-09-13, the files differ — so D-59 changes
-  nothing here.
+- `assets/` is still gitignored and still not a build input (D-16). D-69 took the 196 SVGs the
+  pool needs out of it into `tools/country-shapes/` and reads them from there; the rest of
+  `assets/` — the other 53 shapes, the coats of arms — stays out of the repo and out of the
+  build. Do not add a read of `assets/` back.
 - Local runs use the `demo-mondo` project id and `npx firebase-tools`, not the Homebrew
   `firebase` binary. See `docs/02-architecture.md` §8.
 - **Playing is invite-only** (FR-1.7, D-28): a `player` with no group gets `not-invited`. Groups

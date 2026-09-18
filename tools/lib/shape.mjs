@@ -1,6 +1,12 @@
 // Pure geometry helpers for the geo build. No I/O. See 03-geo-data-pipeline.md §3.
+//
+// Since D-69 no silhouette is projected: the outlines come from the vendored
+// artwork in tools/country-shapes/ and `artwork.mjs` does the tracing. What is
+// left here is what still starts from lon/lat — the D-8 landmass selection and
+// the centroid every distance and compass hint is measured from — plus the two
+// pixel-space helpers both doors share, `simplifyRings` and `toPathData`.
 
-import { geoArea, geoAzimuthalEqualArea, geoCentroid, geoMercator } from "d3-geo";
+import { geoArea, geoCentroid } from "d3-geo";
 import simplify from "simplify-js";
 
 /** Fixed viewBox every silhouette is fitted into (FR-6.2). */
@@ -47,32 +53,6 @@ export function centroidOf(polygons) {
 }
 
 /**
- * Project one polygon with an azimuthal equal-area projection centred on its
- * own centroid, fitted into the fixed viewBox (§3.4). Every country ends up the
- * same visual size regardless of real area — that is the point.
- *
- * Returns rings as arrays of {x, y} in pixel space.
- */
-export function projectRings(polygons, centroid, kind = "mercator") {
-  const shape = { type: "MultiPolygon", coordinates: polygons };
-  const base =
-    kind === "azimuthal"
-      ? geoAzimuthalEqualArea().rotate([-centroid[0], -centroid[1], 0])
-      : geoMercator().rotate([-centroid[0], 0, 0]);
-  const projection = base.fitExtent([[PADDING, PADDING], [SIZE - PADDING, SIZE - PADDING]], shape);
-
-  // Flatten to rings: with evenodd fill, exterior rings and holes from every
-  // polygon can share one path.
-  return polygons.flat().map((ring) =>
-    ring.map(([lon, lat]) => {
-      const p = projection([lon, lat]);
-      if (!p) throw new Error(`point [${lon}, ${lat}] did not project`);
-      return { x: p[0], y: p[1] };
-    }),
-  );
-}
-
-/**
  * Simplify in pixel space to a tolerance (§3.3). Doing this *after* projection
  * means every silhouette gets the same visual fidelity whether it is Russia or
  * Nauru, which a percentage-of-vertices rule cannot give you.
@@ -102,37 +82,6 @@ export function toPathData(rings, decimals = 1) {
       return "M" + pts.map((p) => `${f(p.x)} ${f(p.y)}`).join("L") + "Z";
     })
     .join("");
-}
-
-/**
- * The whole per-country pipeline. `maxBytes` is enforced by escalating the
- * tolerance for this one country only, so a fjord-heavy coastline does not
- * force a coarser Italy.
- */
-export function buildShape(geometry, { tolerance = 1, maxBytes = 4096, step = 0.25, minShare = null, projection = "mercator" } = {}) {
-  const { polygons, keptPolygons, discardedPolygons, discardedAreaShare } = selectPolygons(geometry, { minShare });
-  // world-atlas quantisation can collapse a microstate to a line (the Vatican at
-  // 10m is two distinct points). Nothing downstream can rescue that; refuse it
-  // rather than emit an empty path the game would render as nothing.
-  const distinct = new Set(polygons[0][0].map((p) => p.join(","))).size;
-  if (distinct < 3) throw new Error(`degenerate geometry: largest polygon has ${distinct} distinct points`);
-  const centroid = centroidOf(polygons);
-  const projected = projectRings(polygons, centroid, projection);
-
-  let t = tolerance;
-  let path;
-  let points;
-  for (;;) {
-    const simplified = simplifyRings(projected, t);
-    path = toPathData(simplified);
-    points = simplified.reduce((n, r) => n + r.length, 0);
-    if (simplified.length === 0) throw new Error("geometry vanished under simplification");
-    if (Buffer.byteLength(path) <= maxBytes) break;
-    t = round(t + step, 4);
-    if (t > 20) throw new Error("could not fit shape under maxBytes");
-  }
-
-  return { centroid, path, points, tolerance: t, keptPolygons, discardedPolygons, discardedAreaShare };
 }
 
 /**
