@@ -9,7 +9,7 @@ none of it is fetched at request time.
 
 
 -------------------------------------------------------------------------------
-Natural Earth  —  country geometry
+Natural Earth  —  country centroids
 -------------------------------------------------------------------------------
 Dataset:  ne_10m_admin_0_countries
 Source:   https://www.naturalearthdata.com/
@@ -20,6 +20,10 @@ License:  Public domain.
 
 Natural Earth places no restrictions on use. The attribution above is requested
 by the project's terms of use and is reproduced here in full.
+
+Since D-69 this is the source of every centroid, and so of every distance and
+compass hint the game gives, but of no silhouette: the outlines are drawn
+artwork from tools/country-shapes/, listed at the end of this file.
 
 
 -------------------------------------------------------------------------------
@@ -107,33 +111,31 @@ repository.
 
 
 -------------------------------------------------------------------------------
-mapsicon  —  silhouettes for four microstates
+tools/country-shapes/  —  the silhouette artwork
 -------------------------------------------------------------------------------
-Author:    Régis Freyd
-Source:    https://github.com/djaiss/mapsicon
-Retrieved: 2026-09-13, all/<cc>/vector.svg at master
-License:   None stated. The project's README grants, verbatim:
+Source:    Unknown.
+Retrieved: 2026-09-08, by a crawl whose origin was not recorded.
+License:   Unknown. No licence, terms or attribution accompanied the files, and
+           none is stated inside them.
 
-               Do what you want with them as long as you mention me in your
-               project. Please don't resell them - I forbid it!
+    Every silhouette the game shows is traced from these 196 drawings (D-69).
+    This entry exists because a reader deserves the true answer about where the
+    artwork came from, and the true answer is that nobody wrote it down.
 
-    Mondo is free to play and sells nothing, so the second condition is met.
-    This entry, and tools/mapsicon/README.md, are how the first is met.
+    They were kept out of the build for ten days for exactly that reason
+    (D-15, D-16). D-69 reversed it: Natural Earth at 10m draws Nauru with nine
+    vertices and Monaco with twelve, and the silhouettes it produced were not
+    good enough to play. The files are committed under tools/country-shapes/
+    rather than left in the gitignored assets/ directory so that the unknown is
+    visible rather than hidden, and so a clean clone can run the build.
 
-    Four countries take their silhouette from this artwork instead of from
-    Natural Earth: Monaco, San Marino, Liechtenstein and Nauru (D-59). Natural
-    Earth's 10m dataset does not resolve a country of a few square kilometres —
-    Nauru is nine vertices there, Monaco twelve — and the three of them rendered
-    as the same blob, which makes a question unanswerable rather than hard.
+    If you are reusing this repository: this directory, and the derived file
+    backend/functions/src/data/shapes.json, are the one part of it whose
+    redistribution terms nobody can vouch for. Everything else here is
+    accounted for above.
 
     Only the OUTLINE comes from here. Every centroid, and therefore every
     distance and compass hint the game gives, still comes from Natural Earth.
-    tools/lib/icon.mjs applies the file's own transform and fits the result into
-    the same 500x500 box the projected shapes use; the drawings are not modified
+    tools/lib/artwork.mjs applies D-8, fits the result into the same 500x500
+    box, and simplifies to a pixel tolerance; the drawings are not modified
     beyond that and coordinate rounding.
-
-    This is the only artwork in the build from a source without a formal
-    licence. It is committed under tools/mapsicon/ rather than fetched, so its
-    provenance stays legible. It is unrelated to the gitignored assets/
-    directory, which is reference material of unknown origin (D-15, D-16) and
-    remains barred from the build.

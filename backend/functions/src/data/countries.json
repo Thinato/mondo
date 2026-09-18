@@ -45,8 +45,8 @@
    "tier": 2,
    "areaKm2": 83600,
    "keptPolygons": 1,
-   "discardedPolygons": 9,
-   "discardedAreaShare": 0.0101
+   "discardedPolygons": 2,
+   "discardedAreaShare": 0.0043
   },
   {
    "code": "AF",
@@ -87,8 +87,8 @@
    "tier": 3,
    "areaKm2": 442,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.3779
+   "discardedPolygons": 26,
+   "discardedAreaShare": 0.407
   },
   {
    "code": "AL",
@@ -150,8 +150,8 @@
    "tier": 1,
    "areaKm2": 1246700,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0055
+   "discardedPolygons": 1,
+   "discardedAreaShare": 0.0061
   },
   {
    "code": "AR",
@@ -171,8 +171,8 @@
    "tier": 1,
    "areaKm2": 2780400,
    "keptPolygons": 1,
-   "discardedPolygons": 7,
-   "discardedAreaShare": 0.0078
+   "discardedPolygons": 75,
+   "discardedAreaShare": 0.0143
   },
   {
    "code": "AT",
@@ -213,8 +213,8 @@
    "tier": 1,
    "areaKm2": 7692024,
    "keptPolygons": 1,
-   "discardedPolygons": 94,
-   "discardedAreaShare": 0.012
+   "discardedPolygons": 1,
+   "discardedAreaShare": 0.0125
   },
   {
    "code": "AZ",
@@ -234,8 +234,8 @@
    "tier": 2,
    "areaKm2": 86600,
    "keptPolygons": 1,
-   "discardedPolygons": 5,
-   "discardedAreaShare": 0.0564
+   "discardedPolygons": 7,
+   "discardedAreaShare": 0.0611
   },
   {
    "code": "BA",
@@ -297,8 +297,8 @@
    "tier": 1,
    "areaKm2": 147570,
    "keptPolygons": 1,
-   "discardedPolygons": 21,
-   "discardedAreaShare": 0.0229
+   "discardedPolygons": 7,
+   "discardedAreaShare": 0.0173
   },
   {
    "code": "BE",
@@ -381,8 +381,8 @@
    "tier": 3,
    "areaKm2": 765,
    "keptPolygons": 1,
-   "discardedPolygons": 0,
-   "discardedAreaShare": 0
+   "discardedPolygons": 9,
+   "discardedAreaShare": 0.2104
   },
   {
    "code": "BI",
@@ -445,7 +445,7 @@
    "areaKm2": 5765,
    "keptPolygons": 1,
    "discardedPolygons": 1,
-   "discardedAreaShare": 0.2266
+   "discardedAreaShare": 0.2241
   },
   {
    "code": "BO",
@@ -486,8 +486,8 @@
    "tier": 1,
    "areaKm2": 8515767,
    "keptPolygons": 1,
-   "discardedPolygons": 42,
-   "discardedAreaShare": 0.0064
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "BS",
@@ -507,8 +507,8 @@
    "tier": 3,
    "areaKm2": 13943,
    "keptPolygons": 1,
-   "discardedPolygons": 41,
-   "discardedAreaShare": 0.716
+   "discardedPolygons": 185,
+   "discardedAreaShare": 0.7135
   },
   {
    "code": "BT",
@@ -591,8 +591,8 @@
    "tier": 3,
    "areaKm2": 22966,
    "keptPolygons": 1,
-   "discardedPolygons": 9,
-   "discardedAreaShare": 0.013
+   "discardedPolygons": 5,
+   "discardedAreaShare": 0.0146
   },
   {
    "code": "CA",
@@ -612,8 +612,8 @@
    "tier": 1,
    "areaKm2": 9984670,
    "keptPolygons": 1,
-   "discardedPolygons": 409,
-   "discardedAreaShare": 0.1815
+   "discardedPolygons": 2575,
+   "discardedAreaShare": 0.4041
   },
   {
    "code": "CD",
@@ -633,8 +633,8 @@
    "tier": 1,
    "areaKm2": 2344858,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.0001
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "CF",
@@ -717,8 +717,8 @@
    "tier": 1,
    "areaKm2": 322463,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.0002
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "CL",
@@ -738,8 +738,8 @@
    "tier": 1,
    "areaKm2": 756102,
    "keptPolygons": 1,
-   "discardedPolygons": 162,
-   "discardedAreaShare": 0.1194
+   "discardedPolygons": 8,
+   "discardedAreaShare": 0.0231
   },
   {
    "code": "CM",
@@ -780,8 +780,8 @@
    "tier": 1,
    "areaKm2": 9706961,
    "keptPolygons": 1,
-   "discardedPolygons": 69,
-   "discardedAreaShare": 0.0042
+   "discardedPolygons": 1,
+   "discardedAreaShare": 0.0039
   },
   {
    "code": "CO",
@@ -801,8 +801,8 @@
    "tier": 1,
    "areaKm2": 1141748,
    "keptPolygons": 1,
-   "discardedPolygons": 10,
-   "discardedAreaShare": 0.0005
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "CR",
@@ -822,8 +822,8 @@
    "tier": 1,
    "areaKm2": 51100,
    "keptPolygons": 1,
-   "discardedPolygons": 3,
-   "discardedAreaShare": 0.0011
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "CU",
@@ -843,8 +843,8 @@
    "tier": 1,
    "areaKm2": 109884,
    "keptPolygons": 1,
-   "discardedPolygons": 40,
-   "discardedAreaShare": 0.038
+   "discardedPolygons": 11,
+   "discardedAreaShare": 0.0372
   },
   {
    "code": "CV",
@@ -864,8 +864,8 @@
    "tier": 3,
    "areaKm2": 4033,
    "keptPolygons": 1,
-   "discardedPolygons": 8,
-   "discardedAreaShare": 0.7528
+   "discardedPolygons": 11,
+   "discardedAreaShare": 0.7622
   },
   {
    "code": "CY",
@@ -885,8 +885,8 @@
    "tier": 2,
    "areaKm2": 9251,
    "keptPolygons": 1,
-   "discardedPolygons": 3,
-   "discardedAreaShare": 0.0364
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "CZ",
@@ -927,8 +927,8 @@
    "tier": 1,
    "areaKm2": 357114,
    "keptPolygons": 1,
-   "discardedPolygons": 21,
-   "discardedAreaShare": 0.0055
+   "discardedPolygons": 45,
+   "discardedAreaShare": 0.0065
   },
   {
    "code": "DJ",
@@ -968,9 +968,9 @@
    ],
    "tier": 1,
    "areaKm2": 43094,
-   "keptPolygons": 3,
-   "discardedPolygons": 12,
-   "discardedAreaShare": 0.0817
+   "keptPolygons": 4,
+   "discardedPolygons": 54,
+   "discardedAreaShare": 0.0974
   },
   {
    "code": "DM",
@@ -1011,8 +1011,8 @@
    "tier": 2,
    "areaKm2": 48671,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0033
+   "discardedPolygons": 4,
+   "discardedAreaShare": 0.0008
   },
   {
    "code": "DZ",
@@ -1053,8 +1053,8 @@
    "tier": 2,
    "areaKm2": 276841,
    "keptPolygons": 1,
-   "discardedPolygons": 15,
-   "discardedAreaShare": 0.0347
+   "discardedPolygons": 88,
+   "discardedAreaShare": 0.0388
   },
   {
    "code": "EE",
@@ -1074,8 +1074,8 @@
    "tier": 2,
    "areaKm2": 45227,
    "keptPolygons": 1,
-   "discardedPolygons": 7,
-   "discardedAreaShare": 0.0915
+   "discardedPolygons": 11,
+   "discardedAreaShare": 0.0943
   },
   {
    "code": "EG",
@@ -1095,8 +1095,8 @@
    "tier": 1,
    "areaKm2": 1002450,
    "keptPolygons": 1,
-   "discardedPolygons": 7,
-   "discardedAreaShare": 0.0002
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "ER",
@@ -1116,8 +1116,8 @@
    "tier": 2,
    "areaKm2": 117600,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0063
+   "discardedPolygons": 7,
+   "discardedAreaShare": 0.0083
   },
   {
    "code": "ES",
@@ -1137,8 +1137,8 @@
    "tier": 1,
    "areaKm2": 505992,
    "keptPolygons": 1,
-   "discardedPolygons": 22,
-   "discardedAreaShare": 0.025
+   "discardedPolygons": 30,
+   "discardedAreaShare": 0.0209
   },
   {
    "code": "ET",
@@ -1179,8 +1179,8 @@
    "tier": 2,
    "areaKm2": 338424,
    "keptPolygons": 1,
-   "discardedPolygons": 41,
-   "discardedAreaShare": 0.005
+   "discardedPolygons": 3,
+   "discardedAreaShare": 0.0038
   },
   {
    "code": "FJ",
@@ -1200,8 +1200,8 @@
    "tier": 3,
    "areaKm2": 18272,
    "keptPolygons": 2,
-   "discardedPolygons": 42,
-   "discardedAreaShare": 0.1219
+   "discardedPolygons": 48,
+   "discardedAreaShare": 0.1155
   },
   {
    "code": "FM",
@@ -1221,8 +1221,8 @@
    "tier": 3,
    "areaKm2": 702,
    "keptPolygons": 1,
-   "discardedPolygons": 19,
-   "discardedAreaShare": 0.4608
+   "discardedPolygons": 601,
+   "discardedAreaShare": 0.8896
   },
   {
    "code": "FR",
@@ -1242,8 +1242,8 @@
    "tier": 1,
    "areaKm2": 551695,
    "keptPolygons": 1,
-   "discardedPolygons": 20,
-   "discardedAreaShare": 0.1548
+   "discardedPolygons": 2,
+   "discardedAreaShare": 0.0147
   },
   {
    "code": "GA",
@@ -1263,8 +1263,8 @@
    "tier": 2,
    "areaKm2": 267668,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0005
+   "discardedPolygons": 1,
+   "discardedAreaShare": 0.0001
   },
   {
    "code": "GB",
@@ -1284,8 +1284,8 @@
    "tier": 1,
    "areaKm2": 242900,
    "keptPolygons": 2,
-   "discardedPolygons": 55,
-   "discardedAreaShare": 0.0448
+   "discardedPolygons": 140,
+   "discardedAreaShare": 0.0555
   },
   {
    "code": "GD",
@@ -1305,8 +1305,8 @@
    "tier": 3,
    "areaKm2": 344,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.1005
+   "discardedPolygons": 3,
+   "discardedAreaShare": 0.1051
   },
   {
    "code": "GE",
@@ -1368,8 +1368,8 @@
    "tier": 2,
    "areaKm2": 10689,
    "keptPolygons": 1,
-   "discardedPolygons": 0,
-   "discardedAreaShare": 0
+   "discardedPolygons": 1,
+   "discardedAreaShare": 0.0002
   },
   {
    "code": "GN",
@@ -1389,8 +1389,8 @@
    "tier": 2,
    "areaKm2": 245857,
    "keptPolygons": 1,
-   "discardedPolygons": 0,
-   "discardedAreaShare": 0
+   "discardedPolygons": 37,
+   "discardedAreaShare": 0.004
   },
   {
    "code": "GQ",
@@ -1410,8 +1410,8 @@
    "tier": 2,
    "areaKm2": 28051,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.075
+   "discardedPolygons": 4,
+   "discardedAreaShare": 0.0733
   },
   {
    "code": "GR",
@@ -1431,8 +1431,8 @@
    "tier": 1,
    "areaKm2": 131990,
    "keptPolygons": 2,
-   "discardedPolygons": 72,
-   "discardedAreaShare": 0.1246
+   "discardedPolygons": 58,
+   "discardedAreaShare": 0.0908
   },
   {
    "code": "GT",
@@ -1473,8 +1473,8 @@
    "tier": 2,
    "areaKm2": 36125,
    "keptPolygons": 1,
-   "discardedPolygons": 12,
-   "discardedAreaShare": 0.0447
+   "discardedPolygons": 49,
+   "discardedAreaShare": 0.0504
   },
   {
    "code": "GY",
@@ -1494,8 +1494,8 @@
    "tier": 3,
    "areaKm2": 214969,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.0003
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "HN",
@@ -1515,8 +1515,8 @@
    "tier": 2,
    "areaKm2": 112492,
    "keptPolygons": 1,
-   "discardedPolygons": 6,
-   "discardedAreaShare": 0.0029
+   "discardedPolygons": 10,
+   "discardedAreaShare": 0.0034
   },
   {
    "code": "HR",
@@ -1536,8 +1536,8 @@
    "tier": 2,
    "areaKm2": 56594,
    "keptPolygons": 1,
-   "discardedPolygons": 24,
-   "discardedAreaShare": 0.0641
+   "discardedPolygons": 41,
+   "discardedAreaShare": 0.0649
   },
   {
    "code": "HT",
@@ -1557,8 +1557,8 @@
    "tier": 2,
    "areaKm2": 27750,
    "keptPolygons": 1,
-   "discardedPolygons": 4,
-   "discardedAreaShare": 0.0355
+   "discardedPolygons": 27,
+   "discardedAreaShare": 0.036
   },
   {
    "code": "HU",
@@ -1599,8 +1599,8 @@
    "tier": 1,
    "areaKm2": 1904569,
    "keptPolygons": 5,
-   "discardedPolygons": 259,
-   "discardedAreaShare": 0.1297
+   "discardedPolygons": 1239,
+   "discardedAreaShare": 0.1361
   },
   {
    "code": "IE",
@@ -1620,8 +1620,8 @@
    "tier": 1,
    "areaKm2": 70273,
    "keptPolygons": 1,
-   "discardedPolygons": 6,
-   "discardedAreaShare": 0.0039
+   "discardedPolygons": 40,
+   "discardedAreaShare": 0.0063
   },
   {
    "code": "IL",
@@ -1662,8 +1662,8 @@
    "tier": 1,
    "areaKm2": 3287590,
    "keptPolygons": 1,
-   "discardedPolygons": 34,
-   "discardedAreaShare": 0.0024
+   "discardedPolygons": 452,
+   "discardedAreaShare": 0.0031
   },
   {
    "code": "IQ",
@@ -1704,8 +1704,8 @@
    "tier": 1,
    "areaKm2": 1648195,
    "keptPolygons": 1,
-   "discardedPolygons": 11,
-   "discardedAreaShare": 0.0011
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "IS",
@@ -1725,8 +1725,8 @@
    "tier": 1,
    "areaKm2": 103000,
    "keptPolygons": 1,
-   "discardedPolygons": 4,
-   "discardedAreaShare": 0.0003
+   "discardedPolygons": 2,
+   "discardedAreaShare": 0
   },
   {
    "code": "IT",
@@ -1746,8 +1746,8 @@
    "tier": 1,
    "areaKm2": 301336,
    "keptPolygons": 3,
-   "discardedPolygons": 26,
-   "discardedAreaShare": 0.0029
+   "discardedPolygons": 2,
+   "discardedAreaShare": 0.001
   },
   {
    "code": "JM",
@@ -1808,9 +1808,9 @@
    ],
    "tier": 1,
    "areaKm2": 377930,
-   "keptPolygons": 4,
-   "discardedPolygons": 105,
-   "discardedAreaShare": 0.0284
+   "keptPolygons": 3,
+   "discardedPolygons": 309,
+   "discardedAreaShare": 0.0717
   },
   {
    "code": "KE",
@@ -1830,8 +1830,8 @@
    "tier": 1,
    "areaKm2": 580367,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.0003
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "KG",
@@ -1872,8 +1872,8 @@
    "tier": 2,
    "areaKm2": 181035,
    "keptPolygons": 1,
-   "discardedPolygons": 5,
-   "discardedAreaShare": 0.0015
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "KI",
@@ -1893,8 +1893,8 @@
    "tier": 3,
    "areaKm2": 811,
    "keptPolygons": 1,
-   "discardedPolygons": 34,
-   "discardedAreaShare": 0.5406
+   "discardedPolygons": 49,
+   "discardedAreaShare": 0.5119
   },
   {
    "code": "KM",
@@ -1914,8 +1914,8 @@
    "tier": 3,
    "areaKm2": 1862,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.3862
+   "discardedPolygons": 4,
+   "discardedAreaShare": 0.386
   },
   {
    "code": "KN",
@@ -1936,7 +1936,7 @@
    "areaKm2": 261,
    "keptPolygons": 1,
    "discardedPolygons": 1,
-   "discardedAreaShare": 0.3346
+   "discardedAreaShare": 0.3557
   },
   {
    "code": "KP",
@@ -1956,8 +1956,8 @@
    "tier": 1,
    "areaKm2": 120538,
    "keptPolygons": 1,
-   "discardedPolygons": 9,
-   "discardedAreaShare": 0.0013
+   "discardedPolygons": 6,
+   "discardedAreaShare": 0.001
   },
   {
    "code": "KR",
@@ -1977,8 +1977,8 @@
    "tier": 1,
    "areaKm2": 100210,
    "keptPolygons": 1,
-   "discardedPolygons": 52,
-   "discardedAreaShare": 0.049
+   "discardedPolygons": 37,
+   "discardedAreaShare": 0.037
   },
   {
    "code": "KW",
@@ -1998,8 +1998,8 @@
    "tier": 2,
    "areaKm2": 17818,
    "keptPolygons": 1,
-   "discardedPolygons": 3,
-   "discardedAreaShare": 0.0451
+   "discardedPolygons": 4,
+   "discardedAreaShare": 0.0509
   },
   {
    "code": "KZ",
@@ -2019,7 +2019,7 @@
    "tier": 1,
    "areaKm2": 2724900,
    "keptPolygons": 1,
-   "discardedPolygons": 5,
+   "discardedPolygons": 23,
    "discardedAreaShare": 0.0001
   },
   {
@@ -2125,7 +2125,7 @@
    "areaKm2": 65610,
    "keptPolygons": 1,
    "discardedPolygons": 4,
-   "discardedAreaShare": 0.0049
+   "discardedAreaShare": 0.0036
   },
   {
    "code": "LR",
@@ -2188,7 +2188,7 @@
    "areaKm2": 65300,
    "keptPolygons": 1,
    "discardedPolygons": 1,
-   "discardedAreaShare": 0.002
+   "discardedAreaShare": 0.0015
   },
   {
    "code": "LU",
@@ -2355,8 +2355,8 @@
    "tier": 1,
    "areaKm2": 587041,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0008
+   "discardedPolygons": 5,
+   "discardedAreaShare": 0.0009
   },
   {
    "code": "MH",
@@ -2375,9 +2375,9 @@
    ],
    "tier": 3,
    "areaKm2": 181,
-   "keptPolygons": 1,
-   "discardedPolygons": 21,
-   "discardedAreaShare": 0.7502
+   "keptPolygons": 0,
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "MK",
@@ -2439,8 +2439,8 @@
    "tier": 1,
    "areaKm2": 676578,
    "keptPolygons": 1,
-   "discardedPolygons": 38,
-   "discardedAreaShare": 0.0072
+   "discardedPolygons": 7,
+   "discardedAreaShare": 0.0025
   },
   {
    "code": "MN",
@@ -2481,8 +2481,8 @@
    "tier": 1,
    "areaKm2": 1030700,
    "keptPolygons": 1,
-   "discardedPolygons": 4,
-   "discardedAreaShare": 0.0002
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "MT",
@@ -2502,8 +2502,8 @@
    "tier": 3,
    "areaKm2": 316,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.199
+   "discardedPolygons": 5,
+   "discardedAreaShare": 0.2187
   },
   {
    "code": "MU",
@@ -2523,8 +2523,8 @@
    "tier": 3,
    "areaKm2": 2040,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0574
+   "discardedPolygons": 38,
+   "discardedAreaShare": 0.0078
   },
   {
    "code": "MV",
@@ -2544,8 +2544,8 @@
    "tier": 3,
    "areaKm2": 300,
    "keptPolygons": 1,
-   "discardedPolygons": 175,
-   "discardedAreaShare": 0.6807
+   "discardedPolygons": 26,
+   "discardedAreaShare": 0.9048
   },
   {
    "code": "MW",
@@ -2565,8 +2565,8 @@
    "tier": 1,
    "areaKm2": 118484,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0017
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "MX",
@@ -2586,8 +2586,8 @@
    "tier": 1,
    "areaKm2": 1964375,
    "keptPolygons": 1,
-   "discardedPolygons": 50,
-   "discardedAreaShare": 0.0029
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "MY",
@@ -2607,8 +2607,8 @@
    "tier": 1,
    "areaKm2": 330803,
    "keptPolygons": 2,
-   "discardedPolygons": 15,
-   "discardedAreaShare": 0.0075
+   "discardedPolygons": 91,
+   "discardedAreaShare": 0.0086
   },
   {
    "code": "MZ",
@@ -2628,8 +2628,8 @@
    "tier": 1,
    "areaKm2": 801590,
    "keptPolygons": 1,
-   "discardedPolygons": 3,
-   "discardedAreaShare": 0.0004
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "NA",
@@ -2691,8 +2691,8 @@
    "tier": 1,
    "areaKm2": 923768,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0003
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "NI",
@@ -2712,8 +2712,8 @@
    "tier": 2,
    "areaKm2": 130373,
    "keptPolygons": 1,
-   "discardedPolygons": 3,
-   "discardedAreaShare": 0.0004
+   "discardedPolygons": 17,
+   "discardedAreaShare": 0.004
   },
   {
    "code": "NL",
@@ -2733,8 +2733,8 @@
    "tier": 1,
    "areaKm2": 41850,
    "keptPolygons": 1,
-   "discardedPolygons": 11,
-   "discardedAreaShare": 0.046
+   "discardedPolygons": 10,
+   "discardedAreaShare": 0.0779
   },
   {
    "code": "NO",
@@ -2754,8 +2754,8 @@
    "tier": 1,
    "areaKm2": 323802,
    "keptPolygons": 1,
-   "discardedPolygons": 119,
-   "discardedAreaShare": 0.2087
+   "discardedPolygons": 93,
+   "discardedAreaShare": 0.0497
   },
   {
    "code": "NP",
@@ -2817,8 +2817,8 @@
    "tier": 1,
    "areaKm2": 270467,
    "keptPolygons": 2,
-   "discardedPolygons": 23,
-   "discardedAreaShare": 0.0156
+   "discardedPolygons": 13,
+   "discardedAreaShare": 0.0096
   },
   {
    "code": "OM",
@@ -2838,8 +2838,8 @@
    "tier": 2,
    "areaKm2": 309500,
    "keptPolygons": 1,
-   "discardedPolygons": 5,
-   "discardedAreaShare": 0.0077
+   "discardedPolygons": 12,
+   "discardedAreaShare": 0.0081
   },
   {
    "code": "PA",
@@ -2859,8 +2859,8 @@
    "tier": 1,
    "areaKm2": 75417,
    "keptPolygons": 1,
-   "discardedPolygons": 14,
-   "discardedAreaShare": 0.0155
+   "discardedPolygons": 12,
+   "discardedAreaShare": 0.0151
   },
   {
    "code": "PE",
@@ -2880,8 +2880,8 @@
    "tier": 1,
    "areaKm2": 1285216,
    "keptPolygons": 1,
-   "discardedPolygons": 4,
-   "discardedAreaShare": 0
+   "discardedPolygons": 16,
+   "discardedAreaShare": 0.0001
   },
   {
    "code": "PG",
@@ -2901,8 +2901,8 @@
    "tier": 2,
    "areaKm2": 462840,
    "keptPolygons": 1,
-   "discardedPolygons": 57,
-   "discardedAreaShare": 0.1398
+   "discardedPolygons": 301,
+   "discardedAreaShare": 0.1469
   },
   {
    "code": "PH",
@@ -2922,8 +2922,8 @@
    "tier": 1,
    "areaKm2": 342353,
    "keptPolygons": 7,
-   "discardedPolygons": 89,
-   "discardedAreaShare": 0.12
+   "discardedPolygons": 416,
+   "discardedAreaShare": 0.1262
   },
   {
    "code": "PK",
@@ -2943,7 +2943,7 @@
    "tier": 1,
    "areaKm2": 881912,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
+   "discardedPolygons": 0,
    "discardedAreaShare": 0
   },
   {
@@ -2985,8 +2985,8 @@
    "tier": 2,
    "areaKm2": 6220,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.0532
+   "discardedPolygons": 2,
+   "discardedAreaShare": 0.0602
   },
   {
    "code": "PT",
@@ -3006,8 +3006,8 @@
    "tier": 1,
    "areaKm2": 92090,
    "keptPolygons": 1,
-   "discardedPolygons": 16,
-   "discardedAreaShare": 0.0376
+   "discardedPolygons": 57,
+   "discardedAreaShare": 0.1615
   },
   {
    "code": "PW",
@@ -3027,8 +3027,8 @@
    "tier": 3,
    "areaKm2": 459,
    "keptPolygons": 1,
-   "discardedPolygons": 8,
-   "discardedAreaShare": 0.286
+   "discardedPolygons": 21,
+   "discardedAreaShare": 0.2018
   },
   {
    "code": "PY",
@@ -3111,8 +3111,8 @@
    "tier": 2,
    "areaKm2": 88361,
    "keptPolygons": 1,
-   "discardedPolygons": 0,
-   "discardedAreaShare": 0
+   "discardedPolygons": 1,
+   "discardedAreaShare": 0.0001
   },
   {
    "code": "RU",
@@ -3132,8 +3132,8 @@
    "tier": 1,
    "areaKm2": 17098242,
    "keptPolygons": 1,
-   "discardedPolygons": 213,
-   "discardedAreaShare": 0.0264
+   "discardedPolygons": 2125,
+   "discardedAreaShare": 0.0486
   },
   {
    "code": "RW",
@@ -3153,8 +3153,8 @@
    "tier": 2,
    "areaKm2": 26338,
    "keptPolygons": 1,
-   "discardedPolygons": 0,
-   "discardedAreaShare": 0
+   "discardedPolygons": 1,
+   "discardedAreaShare": 0.0003
   },
   {
    "code": "SA",
@@ -3174,8 +3174,8 @@
    "tier": 1,
    "areaKm2": 2149690,
    "keptPolygons": 1,
-   "discardedPolygons": 10,
-   "discardedAreaShare": 0.0005
+   "discardedPolygons": 2,
+   "discardedAreaShare": 0.0004
   },
   {
    "code": "SB",
@@ -3195,8 +3195,8 @@
    "tier": 3,
    "areaKm2": 28896,
    "keptPolygons": 1,
-   "discardedPolygons": 47,
-   "discardedAreaShare": 0.8036
+   "discardedPolygons": 31,
+   "discardedAreaShare": 0.7875
   },
   {
    "code": "SC",
@@ -3216,8 +3216,8 @@
    "tier": 3,
    "areaKm2": 452,
    "keptPolygons": 1,
-   "discardedPolygons": 25,
-   "discardedAreaShare": 0.6228
+   "discardedPolygons": 21,
+   "discardedAreaShare": 0.3679
   },
   {
    "code": "SD",
@@ -3237,7 +3237,7 @@
    "tier": 1,
    "areaKm2": 1886068,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
+   "discardedPolygons": 6,
    "discardedAreaShare": 0
   },
   {
@@ -3258,8 +3258,8 @@
    "tier": 2,
    "areaKm2": 450295,
    "keptPolygons": 1,
-   "discardedPolygons": 40,
-   "discardedAreaShare": 0.0126
+   "discardedPolygons": 2,
+   "discardedAreaShare": 0.0107
   },
   {
    "code": "SG",
@@ -3279,8 +3279,8 @@
    "tier": 3,
    "areaKm2": 710,
    "keptPolygons": 1,
-   "discardedPolygons": 0,
-   "discardedAreaShare": 0
+   "discardedPolygons": 13,
+   "discardedAreaShare": 0.1322
   },
   {
    "code": "SI",
@@ -3342,8 +3342,8 @@
    "tier": 2,
    "areaKm2": 71740,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.0087
+   "discardedPolygons": 8,
+   "discardedAreaShare": 0.0089
   },
   {
    "code": "SM",
@@ -3384,8 +3384,8 @@
    "tier": 2,
    "areaKm2": 196722,
    "keptPolygons": 1,
-   "discardedPolygons": 0,
-   "discardedAreaShare": 0
+   "discardedPolygons": 2,
+   "discardedAreaShare": 0.0032
   },
   {
    "code": "SO",
@@ -3468,8 +3468,8 @@
    "tier": 3,
    "areaKm2": 964,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.1521
+   "discardedPolygons": 2,
+   "discardedAreaShare": 0.1426
   },
   {
    "code": "SV",
@@ -3489,8 +3489,8 @@
    "tier": 2,
    "areaKm2": 21041,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0012
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "SY",
@@ -3594,8 +3594,8 @@
    "tier": 1,
    "areaKm2": 513120,
    "keptPolygons": 1,
-   "discardedPolygons": 19,
-   "discardedAreaShare": 0.0037
+   "discardedPolygons": 9,
+   "discardedAreaShare": 0.0034
   },
   {
    "code": "TJ",
@@ -3616,7 +3616,7 @@
    "areaKm2": 143100,
    "keptPolygons": 1,
    "discardedPolygons": 2,
-   "discardedAreaShare": 0.001
+   "discardedAreaShare": 0.0008
   },
   {
    "code": "TL",
@@ -3636,8 +3636,8 @@
    "tier": 2,
    "areaKm2": 14874,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0591
+   "discardedPolygons": 3,
+   "discardedAreaShare": 0.0649
   },
   {
    "code": "TM",
@@ -3657,8 +3657,8 @@
    "tier": 2,
    "areaKm2": 488100,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0002
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "TN",
@@ -3678,8 +3678,8 @@
    "tier": 2,
    "areaKm2": 163610,
    "keptPolygons": 1,
-   "discardedPolygons": 3,
-   "discardedAreaShare": 0.0042
+   "discardedPolygons": 1,
+   "discardedAreaShare": 0.0035
   },
   {
    "code": "TO",
@@ -3699,8 +3699,8 @@
    "tier": 3,
    "areaKm2": 747,
    "keptPolygons": 1,
-   "discardedPolygons": 9,
-   "discardedAreaShare": 0.5758
+   "discardedPolygons": 25,
+   "discardedAreaShare": 0.5056
   },
   {
    "code": "TR",
@@ -3720,8 +3720,8 @@
    "tier": 1,
    "areaKm2": 783562,
    "keptPolygons": 1,
-   "discardedPolygons": 5,
-   "discardedAreaShare": 0.0306
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "TT",
@@ -3741,8 +3741,8 @@
    "tier": 2,
    "areaKm2": 5130,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.0568
+   "discardedPolygons": 3,
+   "discardedAreaShare": 0.0617
   },
   {
    "code": "TV",
@@ -3761,9 +3761,9 @@
    ],
    "tier": 3,
    "areaKm2": 26,
-   "keptPolygons": 1,
-   "discardedPolygons": 8,
-   "discardedAreaShare": 0.6119
+   "keptPolygons": 0,
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "TW",
@@ -3783,8 +3783,8 @@
    "tier": 1,
    "areaKm2": 36193,
    "keptPolygons": 1,
-   "discardedPolygons": 7,
-   "discardedAreaShare": 0.0094
+   "discardedPolygons": 5,
+   "discardedAreaShare": 0.0051
   },
   {
    "code": "TZ",
@@ -3805,7 +3805,7 @@
    "areaKm2": 945087,
    "keptPolygons": 1,
    "discardedPolygons": 6,
-   "discardedAreaShare": 0.0032
+   "discardedAreaShare": 0.0036
   },
   {
    "code": "UA",
@@ -3825,8 +3825,8 @@
    "tier": 1,
    "areaKm2": 603500,
    "keptPolygons": 1,
-   "discardedPolygons": 3,
-   "discardedAreaShare": 0.0003
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "UG",
@@ -3846,8 +3846,8 @@
    "tier": 1,
    "areaKm2": 241550,
    "keptPolygons": 1,
-   "discardedPolygons": 0,
-   "discardedAreaShare": 0
+   "discardedPolygons": 5,
+   "discardedAreaShare": 0.0034
   },
   {
    "code": "US",
@@ -3867,8 +3867,8 @@
    "tier": 1,
    "areaKm2": 9372610,
    "keptPolygons": 1,
-   "discardedPolygons": 345,
-   "discardedAreaShare": 0.1613
+   "discardedPolygons": 1091,
+   "discardedAreaShare": 0.382
   },
   {
    "code": "UY",
@@ -3909,8 +3909,8 @@
    "tier": 1,
    "areaKm2": 447400,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.001
+   "discardedPolygons": 5,
+   "discardedAreaShare": 0.0006
   },
   {
    "code": "VC",
@@ -3930,8 +3930,8 @@
    "tier": 3,
    "areaKm2": 389,
    "keptPolygons": 1,
-   "discardedPolygons": 4,
-   "discardedAreaShare": 0.1024
+   "discardedPolygons": 11,
+   "discardedAreaShare": 0.1177
   },
   {
    "code": "VE",
@@ -3951,8 +3951,8 @@
    "tier": 1,
    "areaKm2": 916445,
    "keptPolygons": 1,
-   "discardedPolygons": 28,
-   "discardedAreaShare": 0.0039
+   "discardedPolygons": 19,
+   "discardedAreaShare": 0.0026
   },
   {
    "code": "VN",
@@ -3972,8 +3972,8 @@
    "tier": 1,
    "areaKm2": 331212,
    "keptPolygons": 1,
-   "discardedPolygons": 24,
-   "discardedAreaShare": 0.0063
+   "discardedPolygons": 0,
+   "discardedAreaShare": 0
   },
   {
    "code": "VU",
@@ -3993,8 +3993,8 @@
    "tier": 3,
    "areaKm2": 12189,
    "keptPolygons": 1,
-   "discardedPolygons": 26,
-   "discardedAreaShare": 0.6681
+   "discardedPolygons": 33,
+   "discardedAreaShare": 0.6899
   },
   {
    "code": "WS",
@@ -4014,8 +4014,8 @@
    "tier": 3,
    "areaKm2": 2842,
    "keptPolygons": 1,
-   "discardedPolygons": 1,
-   "discardedAreaShare": 0.408
+   "discardedPolygons": 4,
+   "discardedAreaShare": 0.4058
   },
   {
    "code": "XK",
@@ -4056,7 +4056,7 @@
    "tier": 1,
    "areaKm2": 527968,
    "keptPolygons": 1,
-   "discardedPolygons": 8,
+   "discardedPolygons": 29,
    "discardedAreaShare": 0.0091
   },
   {
@@ -4077,8 +4077,8 @@
    "tier": 1,
    "areaKm2": 1221037,
    "keptPolygons": 1,
-   "discardedPolygons": 2,
-   "discardedAreaShare": 0.0003
+   "discardedPolygons": 17,
+   "discardedAreaShare": 0.0024
   },
   {
    "code": "ZM",

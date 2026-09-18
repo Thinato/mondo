@@ -6,22 +6,24 @@
 //   site/data/countries.min.json           client: codes, names, aliases. NOTHING ELSE.
 //   backend/functions/src/data/countries.json   server: + centroids, tiers, stats
 //   backend/functions/src/data/shapes.json      server: SVG path per country
-//   tools/preview.html                     human review grid (gitignored). Shows the crawled
-//                                          reference SVG from assets/ beside each shape when
-//                                          that file exists locally (D-15, D-17). assets/ is
-//                                          gitignored and is never a build input.
+//   tools/preview.html                     human review grid (gitignored).
+//
+// Two sources, deliberately split (D-69). The SILHOUETTE is vendored artwork
+// from tools/country-shapes/. The CENTROID — and so every distance and compass
+// hint the game gives — is still Natural Earth, because drawn art must never
+// reach the scoring path.
 //
 // The client never receives shapes or centroids. The server inlines one shape
 // per round (SEC-1, SEC-2, D-13), so there is no public shape file to match a
 // silhouette against.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { feature } from "topojson-client";
 import wc from "world-countries";
-import { buildShape, VIEW_BOX } from "./lib/shape.mjs";
-import { buildIcon } from "./lib/icon.mjs";
+import { centroidOf, selectPolygons, VIEW_BOX } from "./lib/shape.mjs";
+import { buildArtwork } from "./lib/artwork.mjs";
 import { normalize } from "../site/app/normalize.js";
 
 const TOOLS = dirname(fileURLToPath(import.meta.url));
@@ -33,13 +35,16 @@ const write = (p, data) => {
 };
 
 // ---------------------------------------------------------------------------
-// Budgets (§3.3, §8). buildShape enforces MAX_SHAPE_BYTES per country by
+// Budgets (§3.3, §8). buildArtwork enforces MAX_SHAPE_BYTES per country by
 // escalating tolerance for that country alone; the total is a sanity cap.
 // ---------------------------------------------------------------------------
 const MAX_SHAPE_BYTES = 8192;
 const MAX_TOTAL_SHAPE_BYTES = 640 * 1024;
 const TOLERANCE_PX = 1.0;
 const REVIEW_DISCARDED_SHARE = 0.25; // §3.1: above this, a human should look
+
+// A country on the noShape list still has a row; it just has no outline.
+const NO_OUTLINE = { path: "", points: 0, tolerance: 0, keptPolygons: 0, discardedPolygons: 0, discardedAreaShare: 0 };
 
 // world-atlas features carry only a numeric ISO id. A few have none; map by name.
 const BY_NAME = { XK: "Kosovo" };
@@ -52,8 +57,8 @@ const tiers = read("tools/tiers.json").tiers;
 const { names: nameOverrides = {}, aliases: curatedAliases = {} } = read("tools/aliases.json");
 const keepOverrides = read("tools/overrides.json").keep;
 const capitalOverrides = read("tools/capitals.json").capitals;
-// D-59 — the two exceptions to "every silhouette is projected Natural Earth".
-const { icons: iconOverrides, noShape } = read("tools/shape-overrides.json");
+// D-59 — the two countries the artwork cannot rescue either.
+const { noShape } = read("tools/shape-overrides.json");
 const topo = read("tools/node_modules/world-atlas/countries-10m.json");
 const sources = {
   "world-atlas": read("tools/node_modules/world-atlas/package.json").version,
@@ -108,36 +113,41 @@ for (const code of codes) {
     continue;
   }
 
-  let shape;
+  const minShare = keepOverrides[code]?.minShare ?? null;
+
+  // Where the country IS: Natural Earth, always (D-69). The same D-8 selection
+  // the silhouette gets, because a centroid out over the discarded islands
+  // would point the compass into the ocean.
+  let centroid;
   try {
-    shape = buildShape(feat.geometry, {
-      tolerance: TOLERANCE_PX,
-      maxBytes: MAX_SHAPE_BYTES,
-      minShare: keepOverrides[code]?.minShare ?? null,
-    });
+    centroid = centroidOf(selectPolygons(feat.geometry, { minShare }).polygons);
   } catch (e) {
-    errors.push(`${code}: ${e.message}`);
+    errors.push(`${code}: centroid: ${e.message}`);
     continue;
   }
-  // D-59 — four microstates take their OUTLINE from vendored mapsicon artwork,
-  // because ne_10m has nothing to project: Nauru is nine vertices there. The
-  // centroid is deliberately NOT replaced. It still comes from Natural Earth,
-  // which is accurate about where a country is even when it is useless about
-  // what shape it is — and the centroid is what the distance and compass hints
-  // are computed from, so hand-drawn art must not reach it.
-  if (iconOverrides[code]) {
+
+  // What the country LOOKS like: vendored artwork (D-69). Natural Earth draws
+  // Nauru with nine vertices and Monaco with twelve, and the coastlines it does
+  // resolve are a simplification we then simplify again. The artwork is already
+  // 2D, so there is no projection here — only D-8, a fit and a simplify.
+  // D-59's two atoll nations are skipped: the artwork has them, but Tuvalu's
+  // largest atoll fits the box as a 13-point sliver and the Marshall Islands'
+  // disappears under simplification entirely.
+  let shape = NO_OUTLINE;
+  if (!noShape[code]) {
     try {
-      const icon = buildIcon(readFileSync(join(ROOT, `tools/mapsicon/${code.toLowerCase()}.svg`), "utf8"), {
+      shape = buildArtwork(readFileSync(join(ROOT, `tools/country-shapes/${code.toLowerCase()}.svg`), "utf8"), {
+        tolerance: TOLERANCE_PX,
         maxBytes: MAX_SHAPE_BYTES,
+        minShare,
       });
-      shape = { ...shape, path: icon.path, points: icon.points, tolerance: 0, source: "mapsicon" };
     } catch (e) {
-      errors.push(`${code}: mapsicon override failed: ${e.message}`);
+      errors.push(`${code}: artwork: ${e.message}`);
       continue;
     }
   }
 
-  const [lon, lat] = shape.centroid;
+  const [lon, lat] = centroid;
   if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
     errors.push(`${code}: centroid out of range [${lon}, ${lat}]`);
   }
@@ -173,7 +183,7 @@ for (const code of codes) {
     names: { en, "pt-BR": pt },
     capital: { en: capitalEn ?? "", "pt-BR": capitalOverrides[code] ?? capitalEn ?? "" },
     aliases,
-    centroid: shape.centroid,
+    centroid,
     tier,
     areaKm2: Math.round(meta.area),
     keptPolygons: shape.keptPolygons,
@@ -185,9 +195,9 @@ for (const code of codes) {
   });
   // D-59 — a country on the noShape list keeps its centroid, its names and its
   // place in the pool; it just has no silhouette, so `kindById("shape").pool()`
-  // drops it and the other three kinds never notice. The Vatican has been
-  // handled this way since D-20, by buildShape refusing degenerate geometry;
-  // this is the same outcome reached deliberately rather than by exception.
+  // drops it and the other kinds never notice. The Vatican has been handled
+  // this way since D-20, by being left out of the pool entirely; this is the
+  // same outcome reached deliberately rather than by exception.
   if (!noShape[code]) shapes[code] = shape.path;
 }
 
@@ -250,7 +260,7 @@ write(
   "backend/functions/src/data/shapes.json",
   JSON.stringify(
     {
-      "//": "GENERATED by tools/build-geo.mjs — do not edit. Server-only (D-13). One SVG path per country, largest landmass only (D-8), azimuthal equal-area centred on the country, fitted to the viewBox. Render with fill-rule=evenodd.",
+      "//": "GENERATED by tools/build-geo.mjs — do not edit. Server-only (D-13). One SVG path per country, traced from the vendored artwork in tools/country-shapes/ (D-69), largest landmass only (D-8), fitted to the viewBox. Render with fill-rule=evenodd.",
       viewBox: VIEW_BOX,
       fillRule: "evenodd",
       shapes,
@@ -271,7 +281,7 @@ const escalated = countries.filter((c) => c.tolerance > TOLERANCE_PX);
 const tierCounts = [1, 2, 3].map((t) => countries.filter((c) => c.tier === t).length);
 const kb = (n) => (n / 1024).toFixed(1) + " KB";
 
-console.log(`✓ ${countries.length} countries from ${sources.dataset} (world-atlas ${sources["world-atlas"]}, world-countries ${sources["world-countries"]})`);
+console.log(`✓ ${countries.length} countries — outlines from tools/country-shapes/, centroids from ${sources.dataset} (world-atlas ${sources["world-atlas"]}, world-countries ${sources["world-countries"]})`);
 console.log(`  tiers 1/2/3: ${tierCounts.join(" / ")}`);
 console.log(`  shapes: ${kb(totalShapeBytes)} total, largest ${Math.max(...countries.map((c) => c.bytes))} B, ${countries.reduce((n, c) => n + c.points, 0)} points`);
 console.log(`  client countries.min.json: ${kb(Buffer.byteLength(readFileSync(join(ROOT, "site/data/countries.min.json"))))}`);
@@ -293,7 +303,7 @@ function isLatin(s) {
 function renderPreview(list, shapeByCode) {
   const card = (c) => `
     <figure class="${c.discardedAreaShare >= REVIEW_DISCARDED_SHARE ? "review" : ""}">
-      <svg viewBox="${VIEW_BOX}"><path d="${shapeByCode[c.code]}" fill-rule="evenodd"/></svg>${reference(c.code)}
+      <svg viewBox="${VIEW_BOX}"><path d="${shapeByCode[c.code] ?? ""}" fill-rule="evenodd"/></svg>
       <figcaption>
         <b>${esc(c.names.en)}</b> <span class="code">${c.code}</span><br>
         <small>${esc(c.names["pt-BR"])} · tier ${c.tier} · ${c.points} pts · ${c.bytes} B${c.tolerance > TOLERANCE_PX ? ` · tol ${c.tolerance}` : ""}${c.keptPolygons > 1 ? ` · kept ${c.keptPolygons}` : ""}${c.discardedPolygons ? ` · dropped ${c.discardedPolygons} (${(c.discardedAreaShare * 100).toFixed(1)}%)` : ""}</small>
@@ -312,7 +322,7 @@ function renderPreview(list, shapeByCode) {
   path{fill:#222} .code{color:#888;font-family:ui-monospace,monospace} small{color:#666}
 </style>
 <h1>Mondo — ${list.length} silhouettes</h1>
-<p>Generated by <code>tools/build-geo.mjs</code>. Not published. Largest landmass only (D-8), azimuthal equal-area centred per country, fitted to ${VIEW_BOX.split(" ")[2]}px, simplified to ${TOLERANCE_PX}px.</p>
+<p>Generated by <code>tools/build-geo.mjs</code>. Not published. Vendored artwork from <code>tools/country-shapes/</code> (D-69), largest landmass only (D-8), fitted to ${VIEW_BOX.split(" ")[2]}px, simplified to ${TOLERANCE_PX}px.</p>
 <h2>Needs a human look — ≥ ${REVIEW_DISCARDED_SHARE * 100}% of area discarded (${review.length})</h2>
 <div class="grid">${review.map(card).join("")}</div>
 <h2>Everything else (${rest.length})</h2>
@@ -320,11 +330,6 @@ function renderPreview(list, shapeByCode) {
 `;
 }
 
-// D-17: a second opinion for the eye, never an input. Relative path from tools/.
-function reference(code) {
-  const rel = `../assets/countries/shapes/${code.toLowerCase()}.svg`;
-  return existsSync(join(TOOLS, rel)) ? `<img src="${rel}" alt="" title="referência (local)">` : "";
-}
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);

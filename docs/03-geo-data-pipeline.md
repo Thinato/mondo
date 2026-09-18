@@ -12,11 +12,18 @@ the browser.
 
 | Source | What it gives | License |
 |---|---|---|
-| Natural Earth `ne_10m_admin_0_countries`, via `world-atlas` (npm) | Country polygons as TopoJSON | Public domain |
+| `tools/country-shapes/` (vendored, 196 files) | The silhouette artwork every shape is traced from (D-69) | **Unknown** — see `NOTICE` |
+| Natural Earth `ne_10m_admin_0_countries`, via `world-atlas` (npm) | Country polygons as TopoJSON, for the **centroids** (D-69) | Public domain |
 | `world-countries` (npm) | ISO alpha-2/alpha-3/numeric, English + Portuguese names, alt spellings, area | ODbL; attributed in `NOTICE` |
 | `topojson-client` (npm, dev only) | TopoJSON → GeoJSON | ISC |
-| `d3-geo` (npm, dev only) | Spherical area/centroid, azimuthal projection, fit-to-extent | ISC |
+| `d3-geo` (npm, dev only) | Spherical area and centroid | ISC |
 | `simplify-js` (npm, dev only) | Douglas-Peucker simplification in pixel space | BSD-2 |
+
+**Two sources, split down the middle (D-69).** The artwork decides what a country *looks* like;
+Natural Earth decides where it *is*. Drawn maps look like the countries and surveyed polygons do
+not, at the scale a 500px silhouette needs — but a drawing must never reach the scoring path, so
+every centroid, and so every distance and compass hint, is still Natural Earth's. That boundary is
+D-59's, kept and widened. §3.5a has the history.
 
 Flag artwork and GDP figures are **not** part of this pipeline. Each has its own offline build —
 `tools/build-flags.mjs` (06-tournaments.md §5.3) and `tools/build-gdp.mjs` (§5.4) — over its own
@@ -104,15 +111,15 @@ The client never receives a centroid: it has no use for one, and a centroid is a
 
 ### 3.3 Simplification
 
-Simplify **after** projecting, in pixel space, to a fixed tolerance of **1px** on the 500px
+Simplify **after** fitting, in pixel space, to a fixed tolerance of **1px** on the 500px
 box (Douglas-Peucker via `simplify-js`). A percentage-of-vertices rule would give Russia and
 Nauru wildly different visual fidelity; a pixel tolerance gives every silhouette the same.
 
 Budget: every country's path ≤ **8 KB**. If a coastline does not fit at 1px, the tolerance is
 escalated in 0.25px steps *for that country alone*, so a fjord-heavy Norway never forces a
-coarser Italy. At launch only three escalate: Canada and Iceland to 1.25px, Norway to 1.75px.
-Total for all 196 is ~490 KB, held server-side; one path (≤ 8 KB) travels per round, which is
-noise against NFR-5.
+coarser Italy. Since D-69, seven escalate: Nicaragua to 1.25px, the Bahamas, Canada, Denmark,
+the UK and Norway to 1.5px, Ireland to 1.75px. Total for all 194 is ~510 KB against a 640 KB
+cap, held server-side; one path (≤ 8 KB) travels per round, which is noise against NFR-5.
 
 Verify visually. Over-simplified Italy stops looking like a boot, and that ruins the game.
 
@@ -121,54 +128,68 @@ Verify visually. Over-simplified Italy stops looking like a boot, and that ruins
 Do **not** use a single world projection — Greenland-style distortion would make high-latitude
 countries unrecognisable and would leak latitude as a hint.
 
-Per country: project with `d3.geoAzimuthalEqualArea` centred on that country's centroid, then
-`fitExtent` into a fixed 500×500 viewBox with 24px padding. Every silhouette then occupies
-similar screen area regardless of real size, satisfying FR-6.2 (area must not be a free hint).
+Since D-69 the build does not project at all: the artwork arrives already 2D, one file per
+country, and `artwork.mjs` only applies D-8, fits the kept rings into a fixed 500×500 viewBox
+with 24px padding, and simplifies. Every silhouette then occupies similar screen area regardless
+of real size, satisfying FR-6.2 (area must not be a free hint).
 
-### 3.5a Where Natural Earth runs out (D-59)
+**The rule above still has to hold, and it was checked rather than assumed.** If the artwork were
+cut out of one world map, high-latitude countries would arrive pre-stretched and the projection
+would be leaking latitude through the back door. It is not: each file is projected for its own
+country, and width-to-height ratios match the `geoAzimuthalEqualArea` renders they replaced to
+within **1.8 % in every latitude band, 60–90° included**. The files are frozen in git, so this is
+a one-time check, recorded in `tools/country-shapes/README.md`.
 
-10m is the finest resolution `world-atlas` ships, and it is not fine enough for a country of a
-few square kilometres. Vertex counts straight out of `ne_10m_admin_0_countries`, against a pool
+### 3.5a Where Natural Earth runs out (D-59, D-69)
+
+10m is the finest resolution `world-atlas` ships, and it is not fine enough. It showed first at
+the bottom of the pool. Vertex counts straight out of `ne_10m_admin_0_countries`, against a pool
 median of **210**:
 
-| | vertices in ne_10m | after D-59 |
-|---|---|---|
-| Nauru | 9 | 103 (mapsicon) |
-| Monaco | 12 | 285 (mapsicon) |
-| Tuvalu | 13 | **no silhouette** |
-| Marshall Islands | 17 | **no silhouette** |
-| San Marino | 19 | 229 (mapsicon) |
-| Liechtenstein | 26 | 166 (mapsicon) |
+| | vertices in ne_10m |
+|---|---|
+| Nauru | 9 |
+| Monaco | 12 |
+| Tuvalu | 13 |
+| Marshall Islands | 17 |
+| San Marino | 19 |
+| Liechtenstein | 26 |
 
 The failure was not that these looked crude. It was that Monaco, Nauru and San Marino looked
-like **the same blob as each other**, so the question had no answer a player could reach.
+like **the same blob as each other**, so the question had no answer a player could reach. D-59
+gave four of them outlines from [mapsicon](https://github.com/djaiss/mapsicon) and dropped two.
 
-**Four take their outline from [mapsicon](https://github.com/djaiss/mapsicon)**, vendored under
-`tools/mapsicon/` and converted by `tools/lib/icon.mjs`: parse the path, apply the file's own
-potrace `translate/scale` transform, fit into the same 500×500 box §3.4 uses. Curves survive the
-trip — an affine map takes Béziers to Béziers, control points included — so there is no
-flatten-then-re-approximate step, and the result is both smoother and smaller.
+**D-69 finished the argument in the other direction.** The same complaint came back for the rest
+of the pool — not blobs, but a simplification of a simplification — and the answer was to stop
+projecting surveyed polygons for silhouettes entirely. All 196 are now traced from the drawn
+artwork in `tools/country-shapes/` by `tools/lib/artwork.mjs`, mapsicon and `icon.mjs` are gone,
+and Natural Earth keeps the job it is actually good at: §3.2's centroids.
 
-Three boundaries keep this from spreading:
+`artwork.mjs` parses every `<path>` in the file (`M L H V C Z`, absolute and relative), flattens
+curves, applies §3.1's D-8 selection in two dimensions, fits and simplifies. Two boundaries from
+D-59 carry over unchanged, and they are the load-bearing ones:
 
 1. **Outline only.** The centroid still comes from Natural Earth (§3.2), so every distance and
-   compass hint is computed from surveyed geometry. mapsicon is hand-drawn art and must not
-   reach the scoring path.
-2. **Single-landmass countries only.** mapsicon draws every island, which contradicts D-8.
-   Maldives, São Vicente and São Cristóvão stay on Natural Earth rather than become a vertical
-   line of specks. `backend/functions/test/countries.test.ts` pins the list of four.
-3. **Refuse, never guess.** `icon.mjs` throws `UnsupportedIcon` on any command it does not
-   understand, on more than one `<path>`, and on a missing group transform. An arc quietly
-   dropped is a country with a bite out of it and no error anywhere.
+   compass hint is computed from surveyed geometry. The check that this held through the change
+   was that `countries.json`'s centroids came out byte-identical.
+2. **Refuse, never guess.** `artwork.mjs` throws `UnsupportedArtwork` on any path command it does
+   not understand and on a file with no `<path>`. An arc quietly dropped is a country with a bite
+   out of it and no error anywhere.
 
-**Two get no silhouette at all.** Tuvalu and the Marshall Islands are atoll nations: D-8 keeps
-the largest landmass, which is a speck, and mapsicon does not have them. They are absent from
-`shapes.json`, so `KINDS.shape.pool()` drops them, and they keep their flag, capital and GDP
-challenges. This is D-20's treatment of the Vatican, reached deliberately instead of by
-`buildShape` refusing degenerate input.
+D-59's third boundary — single-landmass countries only, because mapsicon drew every island — is
+gone, because D-8 now runs over the artwork like it runs over everything else, and
+`tools/overrides.json`'s `minShare` is read on the same side. Indonesia keeps five landmasses,
+the Philippines seven, New Zealand two.
 
-Both lists live in `tools/shape-overrides.json` with a reason per country. mapsicon's terms —
-attribution, no resale, no formal licence — are in `NOTICE` and `tools/mapsicon/README.md`.
+**Two still get no silhouette at all.** Tuvalu and the Marshall Islands are atoll nations, and
+the artwork does not rescue them: D-8 leaves Tuvalu a 13-point sliver of Funafuti, and the
+Marshall Islands' largest atoll is a thread that disappears under simplification entirely. They
+are absent from `shapes.json`, so `KINDS.shape.pool()` drops them, and they keep their other four
+kinds. This is D-20's treatment of the Vatican, reached deliberately. The list lives in
+`tools/shape-overrides.json` with a reason per country.
+
+The artwork's provenance is unknown and `NOTICE` says so in full; `tools/country-shapes/README.md`
+has the whole story, including what was checked before it was accepted.
 
 ### 3.5 Optional rotation
 
