@@ -362,13 +362,14 @@ this dataset it reads "Flag of Brazil", which is the answer (SEC-1).
 
 | why | countries |
 |---|---|
-| over the 40 KB per-flag budget | AD AF BT BZ DO ES HR HT ME OM PE RS SM SV TM |
+| over the 44 KB per-flag budget | AD AF BT BZ DO ES HR HT ME OM PE RS SM SV TM |
 | needs a gradient or a nested clip | BO CR EC GT MX NI |
 | excluded by hand (SEC-1, `tools/flags.json`) | BN EG PY |
 
 The budget is a per-response cap, since a card serves one item at a time, and it sits in the gap
-the data itself leaves: Portugal's armillary sphere is the last flag under it at 36 KB, Oman's is
-the first over it at 47 KB.
+the data itself leaves: Fiji's coat of arms is the last flag under it at 43.6 KB, Haiti's is the
+first over it at 49.5 KB. It was 40 KB until `roundPath` learned to preserve fine detail — the
+artwork got heavier because it got complete, and the same 24 countries are out either way.
 
 **That budget does most of the SEC-1 work by itself**, which was not the plan and is worth
 recording. FR-8.4 says a prompt must not name its own answer, and a flag whose coat of arms

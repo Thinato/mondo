@@ -30,12 +30,17 @@ const write = (p, data) => {
 
 // ---------------------------------------------------------------------------
 // Budgets. A card is played one item at a time (card.ts), so the per-flag cap
-// is the per-response cap. 40 KB sits in the gap the data itself leaves —
-// Portugal's armillary sphere is the last flag under it at 36 KB and Oman's
-// is the first over it at 47 KB — rather than at a round number that would cut
-// through the middle of the distribution. The total is what a tournament
+// is the per-response cap. It sits in the gap the data itself leaves rather
+// than at a round number that would cut through the middle of the
+// distribution: **Fiji's coat of arms is the last flag under it at 43.6 KB and
+// Haiti's is the first over it at 49.5 KB**. The total is what a tournament
 // function parses on a cold start; `flags.json` is imported by kinds.ts, which
 // the daily does not touch (D-45), so the daily round pays none of it.
+//
+// The cap moved from 40 KB to 44 KB when `roundPath` learned to keep a path's
+// fine detail: the artwork got heavier because it got COMPLETE, and Fiji was
+// the one flag the old number would have dropped for being drawn properly. The
+// same 24 countries are out either way, for the same reasons.
 //
 // The per-flag cap also does the SEC-1 work almost by itself: every flag whose
 // artwork spells its own country's name — Bolivia, Costa Rica, the Dominican
@@ -43,7 +48,7 @@ const write = (p, data) => {
 // carries a coat of arms, and the emblem detail is exactly the weight. What is
 // left over goes in tools/flags.json by hand.
 // ---------------------------------------------------------------------------
-const MAX_FLAG_BYTES = 40 * 1024;
+const MAX_FLAG_BYTES = 44 * 1024;
 const MAX_TOTAL_BYTES = 800 * 1024;
 const MIN_POOL = 150; // below this something in the converter regressed; fail the build
 

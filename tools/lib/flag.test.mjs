@@ -170,9 +170,35 @@ test("a nested <svg> without a viewBox is just its own origin", () => {
 // ---------------------------------------------------------------------------
 
 test("rounding keeps the shape and drops the noise", () => {
-  assert.equal(roundPath("M0.123456 -1.999999h3.00001", 2), "M.12 -2h3");
+  assert.equal(roundPath("M0.123456 -1.999999h3.00001", 2), "M.1235 -2h3");
   assert.equal(roundPath("M1 2h3", 2), "M1 2h3", "integers are left alone");
-  assert.equal(roundPath("a2.5 2.5 0 1 0 5 0", 0), "a3 3 0 1 0 5 0", "arc flags stay flags");
+  // The four-significant-digit floor protects a small radius even at dp 0; what
+  // rounds here is the number that can afford it.
+  assert.equal(roundPath("a2.5 2.5 0 1 0 5 0", 0), "a2.5 2.5 0 1 0 5 0", "arc flags stay flags");
+  assert.equal(roundPath("a2500.5 2500.5 0 1 0 5 0", 0), "a2501 2501 0 1 0 5 0");
+  // "1000.4" rounds to the integer "1000", and a trailing-zero strip that does
+  // not know where the decimal point was would hand back "1".
+  assert.equal(roundPath("M1000.4 2000.6", 0), "M1000 2001", "a rounded integer keeps its zeros");
+});
+
+test("an arc flag is not a number, however tightly it is written", () => {
+  // `a20 20 0 01375.8 0` is "large-arc 0, sweep 1, x 375.8", not "…0, 1375.8".
+  // Reading it as a decimal drops the leading zero and every argument after it
+  // shifts by one, which is what wrecked Angola, Cyprus, Fiji, Kyrgyzstan and
+  // Kiribati: the only five flags in the set drawn with compact arcs.
+  assert.equal(roundPath("a20 20 0 01375.8 0.123456", 2), "a20 20 0 01375.8 .1235");
+  assert.equal(roundPath("a1.01 1.01 0 01-.347-.245", 2), "a1.01 1.01 0 01-.347-.245");
+  assert.equal(roundPath("A5 5 0 10 20 30", 2), "A5 5 0 10 20 30", "spaced flags survive too");
+  refuses(`<path d="a1 1 0 25 3 4"/>`);
+});
+
+test("a step smaller than the grid keeps its shape instead of becoming zero", () => {
+  // The bug this exists for: at 2 decimals these deltas all round to 0, the pen
+  // stops moving, and an olive leaf or a kufic stroke implodes to a point.
+  assert.equal(roundPath("l.004-.003", 2), "l.004-.003");
+  assert.equal(roundPath("c-.139.06-.289.091-.44.09", 2), "c-.139.06-.289.091-.44.09");
+  // A coordinate big enough to afford the absolute grid still pays it.
+  assert.equal(roundPath("M506.741 421.431", 2), "M506.74 421.43");
 });
 
 test("the parser keeps attribute values whole and ignores comments", () => {

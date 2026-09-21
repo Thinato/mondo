@@ -538,8 +538,12 @@ test("D-64: eight flags is a bigger prompt than one, and bounded", () => {
   // in one question. Median artwork is about 0.5 KB and the mean about 3.4 KB,
   // but the tail runs to 34 KB — Portugal, Brazil and Fiji carry whole coats of
   // arms — so a sampled worst case understates it by a factor of three.
+  // 266 KB today. It was 220 KB until the converter stopped rounding fine
+  // detail away: Fiji, Portugal and Sri Lanka all got heavier by getting
+  // COMPLETE, and that is the honest weight of the question. The bound is here
+  // to catch artwork ballooning, not to pin the current number.
   const worstPossible = sizes.slice(0, PICK_OPTIONS).reduce((n, b) => n + b, 0);
-  assert.ok(worstPossible < 256_000, `eight of the largest flags would be ${worstPossible} bytes`);
+  assert.ok(worstPossible < 300_000, `eight of the largest flags would be ${worstPossible} bytes`);
 
   // What a question actually weighs, over the whole pool.
   let total = 0;
