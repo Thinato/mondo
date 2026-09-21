@@ -1,5 +1,5 @@
 /**
- * Groups (FR-4 as amended): create, invite by single-use link, accept, leave,
+ * Groups (FR-4 as amended): create, invite by link, accept, leave,
  * remove, rename, list. Every mutation is one Firestore transaction that reads
  * everything first and writes last. Rules in lib/groups.ts, lib/invite.ts,
  * lib/authz.ts; this file is I/O.
@@ -17,10 +17,10 @@ import {
   backfillStats, DEFAULT_MAX_MEMBERS, MAX_GROUPS_PER_USER, newMember, nextOwner, resultOf, WINDOW_30,
   type Group, type Member,
 } from "./lib/groups";
-import { inviteState, inviteToken, newInvite, type Invite } from "./lib/invite";
+import { inviteMode, inviteState, inviteToken, newInvite, type Invite, type InviteMode } from "./lib/invite";
 import type { Attempt, Profile, Role } from "./lib/round";
 import { effectiveStreak, windowDays, type FinishedResult } from "./lib/standings";
-import { requireGroupId, requireGroupName, requireInviteToken, requireObject, requireUid } from "./lib/validate";
+import { requireGroupId, requireGroupName, requireInviteMode, requireInviteToken, requireObject, requireUid } from "./lib/validate";
 
 // ---------------------------------------------------------------------------
 // Shared transaction pieces
@@ -132,9 +132,20 @@ export const createGroup = callable<{ name: unknown }, { groupId: string }>(asyn
 /** How many invites one group may have outstanding at once (finding 8). */
 const MAX_PENDING_INVITES = 20;
 
-/** createInvite({ groupId }) → { token, url, expiresAt }. Owner only. */
-export const createInvite = callable<{ groupId: unknown }, { token: string; url: string; expiresAt: string }>(async (uid, data) => {
-  const gid = requireGroupId(requireObject(data).groupId);
+/**
+ * createInvite({ groupId, mode? }) → { token, url, expiresAt, mode }. Owner only —
+ * and owner means owner, not organizer (FR-7.5): an organizer invites to the
+ * groups they made and to no others.
+ *
+ * `mode` is FR-4.12 and defaults to the single-use link this has always minted.
+ */
+export const createInvite = callable<
+  { groupId: unknown; mode?: unknown },
+  { token: string; url: string; expiresAt: string; mode: InviteMode }
+>(async (uid, data) => {
+  const body = requireObject(data);
+  const gid = requireGroupId(body.groupId);
+  const mode = requireInviteMode(body.mode);
   const now = Timestamp.now();
   const snap = await groupRef(gid).get();
   if (!snap.exists) throw mondoError("not-found", "No such group.");
@@ -151,18 +162,27 @@ export const createInvite = callable<{ groupId: unknown }, { token: string; url:
   // but create() refuses to overwrite one if it ever happens, so try again once.
   for (let attempt = 0; ; attempt++) {
     const token = inviteToken();
-    const invite = newInvite(gid, group.name, uid, now);
+    const invite = newInvite(gid, group.name, uid, now, mode);
     try {
       await inviteRef(token).create(invite);
-      return { token, url: `${GAME_URL}grupos.html?convite=${token}`, expiresAt: invite.expiresAt.toDate().toISOString() };
+      return { token, url: `${GAME_URL}grupos.html?convite=${token}`, expiresAt: invite.expiresAt.toDate().toISOString(), mode };
     } catch (e) {
       if (attempt >= 1) throw e;
     }
   }
 });
 
-/** listInvites({ groupId }) → pending invites, newest first. Owner only. */
-export const listInvites = callable<{ groupId: unknown }, { invites: { token: string; url: string; createdAt: string; expiresAt: string }[] }>(async (uid, data) => {
+/**
+ * listInvites({ groupId }) → live invites, newest first. Owner only.
+ *
+ * Both kinds in one list: an owner deciding whether to revoke a link cares what
+ * it does and when it dies, not which button made it. `uses` is the only thing
+ * a broadcast link tells on itself (FR-4.12).
+ */
+export const listInvites = callable<
+  { groupId: unknown },
+  { invites: { token: string; url: string; createdAt: string; expiresAt: string; mode: InviteMode; uses: number }[] }
+>(async (uid, data) => {
   const gid = requireGroupId(requireObject(data).groupId);
   const now = Timestamp.now();
   const snap = await groupRef(gid).get();
@@ -179,6 +199,8 @@ export const listInvites = callable<{ groupId: unknown }, { invites: { token: st
       url: `${GAME_URL}grupos.html?convite=${i.token}`,
       createdAt: i.createdAt.toDate().toISOString(),
       expiresAt: i.expiresAt.toDate().toISOString(),
+      mode: inviteMode(i),
+      uses: i.uses ?? 0,
     }));
   return { invites };
 });
@@ -200,7 +222,10 @@ export const revokeInvite = callable<{ token: unknown }, { ok: true }>(async (ui
 
 /**
  * acceptInvite({ token }) → { groupId, name }. The single write path into a
- * group, and what unlocks play (D-28). Consumes the token (FR-4.3 as amended).
+ * group, and what unlocks play (D-28). Consumes a single-use token (FR-4.3 as
+ * amended); a multi-use one it only counts (FR-4.12). Every other gate — state,
+ * group full, too many groups — is the same for both, which is the point of
+ * modes being a field rather than a second path in.
  */
 export const acceptInvite = callable<{ token: unknown }, { groupId: string; name: string }>(async (uid, data) => {
   const token = requireInviteToken(requireObject(data).token);
@@ -231,7 +256,11 @@ export const acceptInvite = callable<{ token: unknown }, { groupId: string; name
     tx.create(memberRef(invite.groupId, uid), newMember(uid, profile.displayName, "member", now, backfillStats(results, closedDay), effectiveStreak(profile, closedDay, today)));
     tx.update(groupRef(invite.groupId), { memberCount: group.memberCount + 1 });
     tx.set(userRef(uid), { ...profile, groups: [...groups, invite.groupId] });
-    tx.update(inviteRef(token), { usedBy: uid, usedAt: now });
+    // FR-4.12: a multi-use token is not spent by being used, only counted —
+    // leaving `usedBy` null is what keeps `inviteState` calling it pending and
+    // `pendingInvitesOf` still listing it for the owner.
+    const spent = inviteMode(invite) === "single" ? { usedBy: uid, usedAt: now } : {};
+    tx.update(inviteRef(token), { ...spent, uses: (invite.uses ?? 0) + 1 });
     return { groupId: invite.groupId, name: group.name };
   });
 });

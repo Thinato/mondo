@@ -83,8 +83,17 @@ const PT_BR = {
   players: "{n} jogador|{n} jogadores",
   owner: "dono",
   invited: "Você entrou em {name}.",
-  inviteCreated: "Link criado. Vale por 7 dias e só funciona uma vez.",
+  // FR-4.12 — two kinds of link, and the message says which one you just made,
+  // because the difference between them is who else can use it.
+  inviteCreated: {
+    single: "Link criado. Vale 7 dias e só funciona uma vez.",
+    multi: "Link criado. Vale 2 dias e serve para várias pessoas.",
+  },
+  inviteMode: { single: "uso único", multi: "várias pessoas" },
+  inviteUses: "{n} entrou por ele|{n} entraram por ele",
   inviteRevoked: "Convite revogado.",
+  copy: "Copiar",
+  revoke: "Revogar",
   renamed: "Grupo renomeado.",
   left: "Você saiu do grupo.",
   removed: "Jogador removido.",
@@ -118,7 +127,7 @@ const PT_BR = {
   statPlayed: "Dias jogados",
   statSolved: "Dias perfeitos",
   closedThrough: "Ranking fechado até {day}. Hoje entra amanhã ao meio-dia.",
-  noPending: "Nenhum convite pendente.",
+  noPending: "Nenhum convite ativo.",
   expires: "vale até {date}",
   // admin (FR-7.2)
   adminOnly: "Só o administrador vê esta página.",

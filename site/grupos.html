@@ -72,11 +72,6 @@
       </div>
     </div>
 
-    <div id="invite-result" hidden>
-      <p class="fine" id="invite-hint"></p>
-      <p id="invite-url" class="invite-url"></p>
-      <div class="row"><button id="copy-btn" type="button" class="secondary">Copiar link</button></div>
-    </div>
     <form id="rename-form" class="row" autocomplete="off" hidden>
       <input id="rename-name" type="text" minlength="3" maxlength="40" required aria-label="Novo nome">
       <button type="submit" class="primary">Salvar</button>
@@ -151,11 +146,12 @@
         </table>
       </div>
       <div id="pending-wrap" hidden>
-        <h3 class="title">Convites pendentes</h3>
-        <ul id="pending" class="pending" aria-label="Convites pendentes"></ul>
+        <h3 class="title">Convites ativos</h3>
+        <ul id="pending" class="pending" aria-label="Convites ativos"></ul>
       </div>
-      <p class="fine">Convites são links de uso único e valem 7 dias. E-mails nunca aparecem aqui —
-      só o nome de exibição.</p>
+      <p class="fine">Um convite é um link. O de uso único vale 7 dias e funciona uma vez; o de
+      várias pessoas vale 2 dias e funciona até você revogar. E-mails nunca aparecem aqui — só o
+      nome de exibição.</p>
     </section>
 
     <p class="fine"><button id="leave-btn" type="button" class="link">Sair do grupo</button></p>
@@ -177,6 +173,25 @@
     Treinar
   </a>
 </nav>
+
+<!-- FR-4.12 — which kind of link to mint. The button used to mint one without
+     asking, which was fine while there was only one kind; now the choice has a
+     consequence that lasts 48 hours, so it gets asked out loud. -->
+<dialog id="invite-dialog">
+  <form id="invite-form" method="dialog">
+    <h2>Convidar</h2>
+    <label class="choice"><input type="radio" name="mode" value="single" checked>
+      <span>Uso único <span class="fine">— vale 7 dias, entra uma pessoa só</span></span></label>
+    <label class="choice"><input type="radio" name="mode" value="multi">
+      <span>Várias pessoas <span class="fine">— vale 2 dias, entra quem tiver o link</span></span></label>
+    <p class="fine">Um link para várias pessoas funciona até vencer ou você revogar. Mande só para
+    quem você quer no grupo.</p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Cancelar</button>
+      <button type="submit" value="ok" class="primary">Criar link</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="confirm-dialog">
   <form method="dialog">

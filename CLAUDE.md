@@ -87,6 +87,22 @@ backend.
   second path that "skips" an item. `scoreItem` already returns 0 for anything unsolved, so
   there is nothing to special-case. The daily confirms before giving up and practice does not,
   and that asymmetry is the point: the daily's zero is permanent and shared.
+- **An invitation has two lives and one shape** (FR-4.12, D-71). Single-use dies on the first
+  accept and lasts 7 days; multi-use lasts 48 hours and is spent by nothing but time or a revoke.
+  That is **one field on the invite document**, not a second collection and not a second way into a
+  group: `acceptInvite` runs the same state check, the same group-full check and the same member
+  write for both, and only the last line differs — a multi-use token gets its `uses` counted and
+  keeps `usedBy` null, which is what leaves it `pending` and still listed for the owner
+  (`pendingInvitesOf` filters on `usedBy == null`). **The token is unchanged**: 16 chars of the
+  FR-4.2 alphabet either way. "Public invite" means multi-use, never short and never guessable, and
+  `invites/{token}` stays deny-all to every client. D-71 knowingly trades away half of D-32's
+  justification — read it before shortening the token, lengthening the 48 hours, or dropping the use
+  counter, because each of those is the mitigation the trade rests on. **Single-use is the default**
+  for a request that names no mode, so a cached client keeps minting what it always did.
+- **Inviting is the owner's, not the organizer's** (FR-4.8, FR-7.5). `createInvite` calls
+  `requireOwner`, so an organizer invites to the groups they made and an admin to theirs; the role
+  is what lets you *create* a group, never what lets you into someone else's. A `player` who
+  inherits a group under D-23 can invite to it, and that is correct.
 - **The practice continent filter is an exclusion, not a second pool** (FR-9.9, D-70). Every
   country outside the chosen continents joins the set `buildCard` already excludes, so tier
   weighting, option-building and the empty-pool error keep working without knowing the filter

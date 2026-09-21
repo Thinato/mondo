@@ -225,6 +225,84 @@ test("4. D-32: tokens are single-use, revocable, expiring, and race-safe", async
   assert.equal((await doc(`groups/${gid}`)).memberCount, 3);
 });
 
+test("4b. FR-4.12 / D-71: a multi-use link admits everyone until it dies; a single-use one still dies first", async () => {
+  // Its own group, dissolved at the end: this test adds members, and every
+  // later test counts the ones in `gid`.
+  const g = ok(await organizer.call("createGroup", { name: "Convites" }), "createGroup").groupId;
+  const ttl = async (token: string) => {
+    const d = await doc(`invites/${token}`);
+    return d.expiresAt.toMillis() - d.createdAt.toMillis();
+  };
+
+  const multi = ok(await organizer.call("createInvite", { groupId: g, mode: "multi" }), "createInvite multi");
+  assert.equal(multi.mode, "multi");
+  assert.equal(await ttl(multi.token), 2 * 86_400_000, "a multi-use link lives 48 hours");
+
+  const [m1, m2] = await Promise.all([newAccount("multi1"), newAccount("multi2")]);
+  ok(await m1.call("acceptInvite", { token: multi.token }), "first accept");
+  ok(await m2.call("acceptInvite", { token: multi.token }), "second accept on the same token");
+  const after = await doc(`invites/${multi.token}`);
+  assert.equal(after.usedBy, null, "being accepted does not spend a multi-use token");
+  assert.equal(after.uses, 2);
+  assert.equal((await doc(`groups/${g}`)).memberCount, 3);
+  ok(await m1.call("getRound", {}), "and joining through it unlocks play (D-28)");
+
+  const listed = ok(await organizer.call("listInvites", { groupId: g }), "listInvites").invites
+    .find((i: Any) => i.token === multi.token);
+  assert.equal(listed.mode, "multi");
+  assert.equal(listed.uses, 2);
+
+  // The other kind is untouched: still 7 days, still spent by the first accept.
+  const single = ok(await organizer.call("createInvite", { groupId: g }), "createInvite default");
+  assert.equal(single.mode, "single", "no mode means the single-use kind");
+  assert.equal(await ttl(single.token), 7 * 86_400_000);
+  const [s1, s2] = await Promise.all([newAccount("single1"), newAccount("single2")]);
+  ok(await s1.call("acceptInvite", { token: single.token }), "single accept");
+  assert.equal(code(await s2.call("acceptInvite", { token: single.token })), "invalid-invite");
+  const spent = await doc(`invites/${single.token}`);
+  assert.equal(spent.usedBy, s1.uid);
+  assert.equal(spent.uses, 1);
+
+  // An invite written before modes existed: no `mode`, no `uses` (D-71).
+  const legacy = "LEGACY22LEGACY22";
+  await db.doc(`invites/${legacy}`).set({
+    groupId: g, groupName: "Convites", createdBy: organizer.uid, createdAt: Timestamp.now(),
+    expiresAt: Timestamp.fromMillis(Date.now() + 86_400_000), usedBy: null, usedAt: null, revokedAt: null,
+  });
+  const legacyRow = ok(await organizer.call("listInvites", { groupId: g }), "listInvites legacy").invites
+    .find((i: Any) => i.token === legacy);
+  assert.equal(legacyRow.mode, "single");
+  assert.equal(legacyRow.uses, 0);
+  const old = await newAccount("legacy");
+  ok(await old.call("acceptInvite", { token: legacy }), "a modeless invite still works");
+  assert.equal((await doc(`invites/${legacy}`)).usedBy, old.uid, "and is spent like the single-use link it is");
+
+  // SEC-8: an unknown mode writes nothing. "public" is what the feature is
+  // called in conversation, so it is the one wrong word worth refusing loudly.
+  const before = (await db.collection("invites").where("groupId", "==", g).get()).size;
+  for (const bad of ["public", "MULTI", "", 1, []]) {
+    assert.equal(code(await organizer.call("createInvite", { groupId: g, mode: bad })), "invalid-argument", `mode ${JSON.stringify(bad)}`);
+  }
+  assert.equal((await db.collection("invites").where("groupId", "==", g).get()).size, before, "a refused mode mints nothing");
+
+  // Revoking is what makes a broadcast link safe to hand out.
+  ok(await organizer.call("revokeInvite", { token: multi.token }), "revokeInvite multi");
+  const late = await newAccount("late");
+  assert.equal(code(await late.call("acceptInvite", { token: multi.token })), "invalid-invite");
+  assert.equal(ok(await organizer.call("listInvites", { groupId: g }), "listInvites after revoke").invites
+    .some((i: Any) => i.token === multi.token), false);
+
+  // Tidy: the last one out dissolves the group and its pending invites (D-23).
+  for (const a of [m1, m2, s1, old, organizer]) ok(await a.call("leaveGroup", { groupId: g }), "leave");
+  assert.equal(await exists(`groups/${g}`), false);
+  // D-23 deletes the *pending* invites of a dissolved group, which is all of
+  // them that could still let anyone in. The spent and revoked ones stay until
+  // the weekly sweep, and cannot be accepted meanwhile — the group is gone.
+  const leftovers = (await db.collection("invites").where("groupId", "==", g).get()).docs.map((d) => d.data());
+  assert.ok(leftovers.every((i) => i.usedBy !== null || i.revokedAt !== null), JSON.stringify(leftovers.map((i) => i.mode)));
+  assert.equal(code(await (await newAccount("orphan")).call("acceptInvite", { token: multi.token })), "invalid-invite");
+});
+
 test("5. FR-4.10 / FR-4.11: the board is members-only and hides today's scores until you finish", async () => {
   assert.equal(code(await third.call("getLeaderboard", { groupId: gid })), "permission-denied");
 
