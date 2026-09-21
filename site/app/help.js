@@ -1,12 +1,13 @@
 // "?" — what the hints mean (FR-6.9, D-56).
 //
-// **Three topics, not five.** The five kinds share three hint vocabularies
+// **Three topics, not six.** The six kinds share three hint vocabularies
 // between them: shape, flag and capital all answer with a country, so they all
 // give kilometres, a compass arrow and a proximity percentage; `gdp` answers
-// with a number, so it gives higher/lower and a ratio; `flagPick` answers with
-// a pick and gives no hint at all (D-64), which needs saying precisely because
-// a player waiting for one would think the game was broken. Five popups to
-// teach three vocabularies is two too many.
+// with a number, so it gives higher/lower and a ratio; the two pick kinds
+// answer with a pick and give no hint at all (D-64, D-72), which needs saying
+// precisely because a player waiting for one would think the game was broken.
+// Six popups to teach three vocabularies is three too many, and the pick text
+// differs between flags and silhouettes by one noun — so it does not.
 //
 // **The first one opens itself.** The feedback that prompted this was "I didn't
 // understand the percentage", from players who had the guess rows in front of
@@ -15,10 +16,11 @@
 // Once per topic, ever — remembered in localStorage, which is per-browser and
 // carries nothing worth syncing.
 
+import { isPick } from "./geo.js";
 import { t } from "./i18n.js";
 
 const key = (topic) => `mondo.help.${topic}`;
-const topicOf = (kind) => (kind === "gdp" || kind === "flagPick" ? kind : "country");
+const topicOf = (kind) => (kind === "gdp" ? "gdp" : isPick(kind) ? "pick" : "country");
 
 /**
  * Wire a page's help button and dialog. Returns the function to call on every

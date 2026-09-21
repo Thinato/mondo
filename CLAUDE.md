@@ -181,9 +181,18 @@ backend.
   subjects — naming one would teach a flag that answers the `flag` challenge beside it. Do not
   choose distractors by anything readable **off the artwork**: weighting by payload size would
   make a busy flag rarer as a distractor than as an answer, and "pick the busiest" would beat the
-  game knowing nothing. Geography is not in that class and is the point — **four of `flagPick`'s
-  eight are the answer's nearest countries by centroid** (D-65), which is what makes the kind
-  hard, and the "?" and `regras.html` both say so on purpose.
+  game knowing nothing. Geography is not in that class and is the point — **four of the eight are
+  the answer's nearest countries by centroid** (D-65), which is what makes the kind hard, and the
+  "?" and `regras.html` both say so on purpose.
+- **There are two pick kinds and one implementation** (D-72). `shapePick` is `flagPick` with
+  `shape`'s pool and `shape`'s artwork: `pickOptions` builds the board for both, `gradeChoiceGuess`
+  grades both, `renderOptions` draws both, and one help text explains both. A third would be a
+  pool and an artwork lookup. Two things are true of silhouettes and not of flags: every one is
+  drawn into the same 500×500 box, so **size is not a cue** on a board of eight, and a board is
+  *lighter* than a flag board. **`shapePick` is NOT in the daily** — it is in Treinar and the
+  `qual-silhueta` preset, which is where `flagPick` started too (D-64 → D-66). Putting it in the
+  daily means a day of six worth 0–36, a fourth seam, a schedule regeneration and a reseed; the
+  five-kind day is pinned by `tools/lib/schedule.test.mjs`, so it cannot happen by accident.
 - **`tools/generate-schedule.mjs` now needs the backend built** (D-66): it imports the server's
   own `buildOptions` from `backend/functions/lib/` rather than restating which eight flags are on
   offer. `poolsFrom` still duplicates the pool rules — a JSON generator cannot import TypeScript

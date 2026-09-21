@@ -184,7 +184,8 @@ button:disabled { opacity: .5; cursor: default; }
   border-radius: .25rem;
 }
 
-/* FR-8.7 / D-64 — the eight flags of a multiple-choice challenge.
+/* FR-8.7 / D-64, D-72 — the eight options of a multiple-choice challenge:
+   flags, or silhouettes.
 
    Two columns on a phone and four on a desktop: eight flags in one row would be
    under 7rem each at 360px, which is too small to tell Chad from Romania, and
@@ -204,6 +205,10 @@ button:disabled { opacity: .5; cursor: default; }
   position: relative;
 }
 .option svg { display: block; width: 100%; height: 100%; border-radius: .2rem; }
+/* A silhouette carries no colour of its own — it is a bare path — so the option
+   box paints it exactly as .silhouette does, and without this it would be black
+   on a black card in the dark theme. A flag paints itself and is left alone. */
+.option svg.shape path { fill: var(--ink); }
 .option:not(:disabled):hover, .option:not(:disabled):focus-visible { outline: 2px solid var(--fg); }
 /* The artwork dims, the ✗ does not: opacity on the button would fade the mark
    along with the flag under it, and the mark is the part that has to read. */

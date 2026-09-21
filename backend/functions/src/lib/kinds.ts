@@ -23,7 +23,7 @@ import { mondoError } from "./errors";
 import { bearingDeg, distanceKm, proximity } from "./geo";
 import { isChoiceGuess, isCountryGuess, isNumberGuess, type StoredGuess } from "./round";
 
-export const KIND_IDS = ["shape", "capital", "flag", "gdp", "flagPick"] as const;
+export const KIND_IDS = ["shape", "capital", "flag", "gdp", "flagPick", "shapePick"] as const;
 export type KindId = (typeof KIND_IDS)[number];
 
 /**
@@ -73,11 +73,15 @@ export type Prompt =
   /**
    * FR-8.7 — the question is a set of options and the answer is *which one*.
    * The country is named, like `gdp`'s, because here the country is the
-   * question; what must not appear is any hint of which option is its flag.
-   * So the options carry artwork and nothing else — no code, no name, no id.
-   * Position is the only handle the client has, and the guess is an index.
+   * question; what must not appear is any hint of which option is the right
+   * one. So the options carry artwork and nothing else — no code, no name, no
+   * id. Position is the only handle the client has, and the guess is an index.
+   *
+   * Two kinds, one shape (D-72): the flags `flag` asks about, or the
+   * silhouettes `shape` asks about. The artwork differs and nothing else does.
    */
-  | { kind: "flagPick"; country: string; options: { flag: Flag }[] };
+  | { kind: "flagPick"; country: string; options: { flag: Flag }[] }
+  | { kind: "shapePick"; country: string; options: { shape: Shape }[] };
 
 export interface Graded {
   guess: StoredGuess;
@@ -219,11 +223,7 @@ const shape: Kind = {
   maxGuesses: MAX_GUESSES,
   pointsByGuess: [6, 5, 4, 3, 2, 1],
   pool: () => ALL().filter((c) => shapeFor(c.code) !== undefined),
-  prompt: ({ subject }) => {
-    const s = shapeFor(subject);
-    if (!s) throw mondoError("not-found", "No silhouette for this challenge.");
-    return { kind: "shape", shape: s };
-  },
+  prompt: ({ subject }) => ({ kind: "shape", shape: mustShape(subject) }),
   grade: gradeCountryGuess,
   wasCorrect: countryWasCorrect,
   reveal: ({ subject }) => nameOf(subject),
@@ -315,8 +315,8 @@ const gdp: Kind = {
   reveal: ({ subject }) => ({ code: subject, name: `${mustCountry(subject).names["pt-BR"]}: US$ ${mustGdp(subject).toLocaleString("pt-BR")}` }),
 };
 
-/** FR-8.7 — how many flags are on offer. */
-export const FLAG_PICK_OPTIONS = 8;
+/** FR-8.7 — how many options are on offer, for either pick kind. */
+export const PICK_OPTIONS = 8;
 
 /**
  * How many of the eight are the answer's own neighbourhood, **the answer
@@ -329,8 +329,54 @@ export const FLAG_PICK_OPTIONS = 8;
  * pan-African palette — so the near half is where the confusion lives, and the
  * far half keeps a card from being a geography lesson with one plausible
  * answer.
+ *
+ * `shapePick` inherits the mix rather than inventing one (D-72). Silhouettes do
+ * not cluster the way flags do, so the near half buys less there — but the
+ * alternative is a shape-similarity metric, which is a pipeline to build, and
+ * one computed off the artwork, which D-64 rules out for reasons that have not
+ * changed.
  */
-export const FLAG_PICK_NEAR = 5;
+export const PICK_NEAR = 5;
+
+/**
+ * The options of a pick challenge: the answer, its nearest neighbours, and
+ * strangers to fill (D-65). The POOL is the only thing that differs between the
+ * two pick kinds, so this is one function and not two (D-72) — the near/far mix
+ * is the difficulty of both, and two copies is two places for it to drift.
+ *
+ * Prefer distractors from outside the exclusion window; fall back to the rest
+ * of the pool if that leaves too few. A tournament excludes ±60 days of daily
+ * subjects (FR-5.2) — 120 codes out of a pool of about 170 — so "too few" is a
+ * real case and not a defensive flourish.
+ *
+ * **Returns them in any order.** `buildCard` shuffles the result, so no kind
+ * can put the answer at a predictable index and none has to remember not to.
+ */
+function pickOptions(pool: readonly Country[], subject: string, exclude: ReadonlySet<string>, rand: () => number): string[] {
+  const answer = mustCountry(subject);
+  const others = pool.filter((c) => c.code !== subject);
+  const free = others.filter((c) => !exclude.has(c.code));
+  const bag = free.length >= PICK_OPTIONS - 1 ? free : others;
+
+  // The neighbourhood (D-65): the nearest by centroid, which is the same
+  // measure the compass hint uses. Not "shares a border" — that would need
+  // adjacency data the pipeline does not carry, and it would leave an island
+  // nation with no neighbours at all, which is exactly the case that most
+  // needs company.
+  const near = [...bag]
+    .sort((a, b) => distanceKm(answer.centroid, a.centroid) - distanceKm(answer.centroid, b.centroid))
+    .slice(0, PICK_NEAR - 1);
+
+  const nearby = new Set(near.map((c) => c.code));
+  const picked = [subject, ...nearby];
+  const rest = bag.filter((c) => !nearby.has(c.code));
+  while (picked.length < PICK_OPTIONS && rest.length > 0) {
+    picked.push(rest.splice(Math.floor(rand() * rest.length), 1)[0]!.code);
+  }
+  // Deliberately NOT shuffled here: `buildCard` does that for every choice
+  // kind, so the answer cannot sit at a fixed index even if a kind forgets.
+  return picked;
+}
 
 /**
  * `flagPick` — "which of these eight is the flag of X?". The inverse of `flag`:
@@ -358,35 +404,7 @@ const flagPick: Kind = {
   // Exactly `flag`'s pool: a country needs artwork to be the answer here, and
   // the same artwork is what makes it usable as a distractor.
   pool: () => flag.pool(),
-  buildOptions: (subject, exclude, rand) => {
-    const answer = mustCountry(subject);
-    const others = flag.pool().filter((c) => c.code !== subject);
-    // Prefer distractors from outside the exclusion window; fall back to the
-    // rest of the pool if that leaves too few. A tournament excludes ±60 days
-    // of daily subjects (FR-5.2) — 120 codes out of a pool of about 170 — so
-    // "too few" is a real case and not a defensive flourish.
-    const free = others.filter((c) => !exclude.has(c.code));
-    const bag = free.length >= FLAG_PICK_OPTIONS - 1 ? free : others;
-
-    // The neighbourhood (D-65): the nearest by centroid, which is the same
-    // measure the compass hint uses. Not "shares a border" — that would need
-    // adjacency data the pipeline does not carry, and it would leave an island
-    // nation with no neighbours at all, which is exactly the case that most
-    // needs company.
-    const near = [...bag]
-      .sort((a, b) => distanceKm(answer.centroid, a.centroid) - distanceKm(answer.centroid, b.centroid))
-      .slice(0, FLAG_PICK_NEAR - 1);
-
-    const nearby = new Set(near.map((c) => c.code));
-    const picked = [subject, ...nearby];
-    const rest = bag.filter((c) => !nearby.has(c.code));
-    while (picked.length < FLAG_PICK_OPTIONS && rest.length > 0) {
-      picked.push(rest.splice(Math.floor(rand() * rest.length), 1)[0]!.code);
-    }
-    // Deliberately NOT shuffled here: `buildCard` does that for every choice
-    // kind, so the answer cannot sit at a fixed index even if a kind forgets.
-    return picked;
-  },
+  buildOptions: (subject, exclude, rand) => pickOptions(flag.pool(), subject, exclude, rand),
   prompt: (item) => ({
     kind: "flagPick",
     country: mustCountry(item.subject).names["pt-BR"],
@@ -400,7 +418,45 @@ const flagPick: Kind = {
   reveal: (item) => ({ ...nameOf(item.subject), pick: mustOptions(item).indexOf(item.subject) }),
 };
 
-export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag, gdp, flagPick };
+/**
+ * `shapePick` — "which of these eight is the silhouette of X?" (D-72). The
+ * inverse of `shape`, the way `flagPick` inverts `flag`, and the same eight
+ * options and two guesses for the same reason: FR-8.2 wants kinds that can be
+ * summed, and the budget is arithmetic about picking one of eight, which does
+ * not know what the artwork is.
+ *
+ * Two things about the silhouettes matter here and neither is true of flags.
+ * The artwork is **scale-normalised** — every country is drawn into the same
+ * 500×500 box (03-geo-data-pipeline.md) — so a board of eight does not reduce
+ * Monaco to a speck, and, more to the point, SIZE IS NOT A CUE: "pick the
+ * biggest" beats nothing, which is the same rule D-64 wrote about flag payload.
+ * And the board is **smaller over the wire** than a flag board: a silhouette
+ * averages 2,7 KB against a flag's 3,5 KB.
+ *
+ * SEC-12's conceded residual applies as it does to `shape`, eight times over: a
+ * determined player can geometry-match against public map data. Time is what a
+ * cheat costs (FR-8.3) and the admin timing surface is the detection story.
+ */
+const shapePick: Kind = {
+  id: "shapePick",
+  maxGuesses: 2,
+  pointsByGuess: [6, 2],
+  // Exactly `shape`'s pool: a country needs a silhouette to be the answer here,
+  // and the same silhouette is what makes it usable as a distractor. Tuvalu and
+  // the Marshall Islands are in neither (D-69).
+  pool: () => shape.pool(),
+  buildOptions: (subject, exclude, rand) => pickOptions(shape.pool(), subject, exclude, rand),
+  prompt: (item) => ({
+    kind: "shapePick",
+    country: mustCountry(item.subject).names["pt-BR"],
+    options: mustOptions(item).map((code) => ({ shape: mustShape(code) })),
+  }),
+  grade: gradeChoiceGuess,
+  wasCorrect: (item, guess) => isChoiceGuess(guess) && mustOptions(item)[guess.pick] === item.subject,
+  reveal: (item) => ({ ...nameOf(item.subject), pick: mustOptions(item).indexOf(item.subject) }),
+};
+
+export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag, gdp, flagPick, shapePick };
 
 /**
  * Grade a pick: which option, and whether it was the right one.
@@ -437,6 +493,12 @@ function mustFlag(code: string): Flag {
   const f = flagFor(code);
   if (!f) throw mondoError("not-found", "No flag for this challenge.");
   return f;
+}
+
+function mustShape(code: string): Shape {
+  const s = shapeFor(code);
+  if (!s) throw mondoError("not-found", "No silhouette for this challenge.");
+  return s;
 }
 
 /**

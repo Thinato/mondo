@@ -16,7 +16,7 @@ import * as api from "./api.js";
 import { applyIdentity, ask, attachAccount, showAccount } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, renderFlag, renderOptions, renderShape } from "./geo.js";
+import { guessRow, isPick, renderFlag, renderOptions, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
@@ -146,7 +146,7 @@ function focusInput() {
   if (round?.status !== "in_progress") return;
   // A choice challenge has no field to focus: the grid is the input, and
   // stealing focus to an invisible textbox would strand a keyboard user.
-  if (round.prompt?.kind === "flagPick") return;
+  if (isPick(round.prompt?.kind)) return;
   const field = round.prompt?.kind === "gdp" ? el.number : el.input;
   if (!field.disabled) field.focus();
 }
@@ -241,17 +241,19 @@ function render() {
   // reveal is which option was right, so the grid stays up with the answer
   // marked while every other kind's prompt goes away (FR-8.7, D-64).
   const shownPrompt = revealing ? revealPrompt : round.prompt;
-  const kind = revealing ? (shownPrompt?.kind === "flagPick" ? "flagPick" : null) : round.prompt?.kind ?? null;
+  const kind = revealing ? (isPick(shownPrompt?.kind) ? shownPrompt.kind : null) : round.prompt?.kind ?? null;
   el.shapeWrap.hidden = kind !== "shape";
   el.flagWrap.hidden = kind !== "flag";
-  el.capital.hidden = kind !== "capital" && kind !== "gdp" && kind !== "flagPick";
-  el.options.hidden = kind !== "flagPick";
+  el.capital.hidden = kind !== "capital" && kind !== "gdp" && !isPick(kind);
+  el.options.hidden = !isPick(kind);
   if (kind === "shape") renderShape(el.shape, round.prompt.shape);
   else if (kind === "flag") renderFlag(el.flag, round.prompt.flag);
   else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: round.prompt.capital });
   else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: round.prompt.country, year: round.prompt.year });
-  else if (kind === "flagPick") {
-    el.capital.textContent = t("flagPickPrompt", { country: shownPrompt.country });
+  else if (isPick(kind)) {
+    // `flagPickPrompt` or `shapePickPrompt`: the sentence differs by one noun,
+    // so the key is derived rather than branched on (D-72).
+    el.capital.textContent = t(`${kind}Prompt`, { country: shownPrompt.country });
     renderOptions(el.options, shownPrompt.options, {
       guesses: revealing ? reveal.guesses ?? [] : round.guesses,
       answer: revealing ? reveal.answer : null,
@@ -261,7 +263,7 @@ function render() {
 
   // Three inputs, at most one visible: a country autocomplete, a number field
   // (D-53), or the grid above, which is its own input (D-64).
-  el.form.hidden = !inProgress || revealing || kind === "flagPick";
+  el.form.hidden = !inProgress || revealing || isPick(kind);
   el.combo.hidden = kind === "gdp";
   el.money.hidden = kind !== "gdp";
 
@@ -272,7 +274,7 @@ function render() {
   // showing the answer with an empty list. D-52 shipped exactly this bug once.
   // A pick has no row: it is struck out in the grid instead, which is also the
   // only honest place for it — the client is never told which country it was.
-  const rows = kind === "flagPick" ? [] : revealing ? reveal.guesses ?? [] : round.guesses;
+  const rows = isPick(kind) ? [] : revealing ? reveal.guesses ?? [] : round.guesses;
   el.guesses.replaceChildren(...rows.map(guessRow));
   el.left.textContent = inProgress && !revealing ? t("guessesLeft", { n: round.guessesUsed, max: round.guessesMax }) : "";
 
@@ -282,7 +284,7 @@ function render() {
   if (revealing) {
     el.revealText.textContent = reveal.status === "solved"
       ? t("revealSolved", { points: reveal.points })
-      : kind === "flagPick"
+      : isPick(kind)
       ? t("revealPick")
       : t("revealFailed", { answer: reveal.answer.name });
     el.revealNext.textContent = inProgress ? t("continueChallenge") : t("seeResult");

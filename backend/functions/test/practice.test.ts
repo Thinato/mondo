@@ -32,15 +32,17 @@ const rejects = (fn: () => unknown, code: string) =>
   });
 
 // A guess is a country code for three kinds, a number for `gdp` (D-53) and an
-// index for `flagPick` (D-64), so the tests ask the kind what a right and a
-// wrong answer look like rather than assuming the guess is always a country.
+// index for a pick kind (D-64, D-72), so the tests ask the kind what a right
+// and a wrong answer look like rather than assuming the guess is a country.
+// The test for "is this a pick kind" is that the session HAS options, which is
+// what makes it total over kinds nobody has written yet.
 const right = (s: PracticeSession) =>
-  s.kind === "gdp" ? gdpFor(s.subject)! : s.kind === "flagPick" ? s.options!.indexOf(s.subject) : s.subject;
+  s.kind === "gdp" ? gdpFor(s.subject)! : s.options ? s.options.indexOf(s.subject) : s.subject;
 const wrong = (s: PracticeSession) =>
   s.kind === "gdp"
     ? gdpFor(s.subject)! * 10
-    : s.kind === "flagPick"
-    ? (s.options!.indexOf(s.subject) + 1) % s.options!.length
+    : s.options
+    ? (s.options.indexOf(s.subject) + 1) % s.options.length
     : KINDS[s.kind].pool().find((c) => c.code !== s.subject)!.code;
 
 /** Guess the answer, then look at what came back. */
