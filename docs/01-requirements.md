@@ -126,20 +126,26 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 
 - **FR-4.1** *(amended 2026-09-09)* Only users with role `admin` or `organizer` (FR-7) MAY
   create a group, with a name (3–40 chars).
-- **FR-4.2** *(amended 2026-09-09)* Groups have **no public invite code**. An invitation is a
-  **single-use token** of 16 chars from the ambiguity-free alphabet
-  `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, valid for 7 days, created by the group owner and revocable
-  by them (D-32).
-- **FR-4.3** *(amended 2026-09-09)* A user joins a group by following an invite link. The first
-  signed-in account to accept consumes the token; a used, revoked, expired or unknown token
-  MUST be rejected with a typed error.
+- **FR-4.2** *(amended 2026-09-09, 2026-09-20)* Groups have **no public invite code**. An
+  invitation is a token of 16 chars from the ambiguity-free alphabet
+  `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, created by the group owner and revocable by them (D-32).
+  It is **single-use and valid for 7 days**, or **multi-use and valid for 48 hours** (FR-4.12,
+  D-71). The token is the same shape either way: "multi-use" never means short, guessable or
+  browsable.
+- **FR-4.3** *(amended 2026-09-09, 2026-09-20)* A user joins a group by following an invite link.
+  The first signed-in account to accept **consumes a single-use token**; a multi-use token is not
+  consumed by being accepted and keeps working until it expires or is revoked. A used, revoked,
+  expired or unknown token MUST be rejected with a typed error.
 - **FR-4.4** A user MAY belong to up to 10 groups.
 - **FR-4.5** A group MUST have a maximum size (default 200).
 - **FR-4.6** The group leaderboard MUST show, per member: rank, display name, points in the
   selected window, rounds played, average guesses, current streak.
 - **FR-4.7** The leaderboard MUST be filterable by window (all-time / 7d / 30d).
-- **FR-4.8** *(amended 2026-09-09)* The owner MUST be able to rename the group, create and revoke
-  invites, and remove a member. Management rights follow **ownership**, not role (FR-7.5).
+- **FR-4.8** *(amended 2026-09-09, 2026-09-20)* The owner MUST be able to rename the group, create
+  and revoke invites, and remove a member. Management rights follow **ownership**, not role
+  (FR-7.5) — an organizer invites to the groups they own and to no others. The owner MUST be able
+  to see every live invite of their group with its **kind**, its **expiry**, how many accounts have
+  joined through it, a way to **copy the link again**, and a way to **revoke** it.
 - **FR-4.9** A member MUST be able to leave a group. Their historical results stay but they
   disappear from the board. When the owner leaves, ownership MUST pass to the longest-standing
   remaining member without granting them any role (D-23); the last member leaving deletes the
@@ -147,6 +153,11 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-4.10** Group membership and the leaderboard MUST only be readable by members.
 - **FR-4.11** A group MUST show a "today" panel: who has already played today (without revealing
   their score until they finish, to preserve drama), and who has not.
+- **FR-4.12** *(added 2026-09-20)* An owner MAY mint a **multi-use** invite link, valid for **48
+  hours**, which admits every account that follows it until it expires or is revoked. It counts
+  against the same per-group cap on outstanding invites as a single-use one, and the invite records
+  how many accounts joined through it. Single-use is the default: a request that names no kind MUST
+  mint the 7-day single-use link.
 
 ## FR-5 — Tournaments *(rewritten 2026-09-09; design in `docs/06-tournaments.md`)*
 

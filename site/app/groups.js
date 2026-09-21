@@ -22,8 +22,9 @@ const el = {
   account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
   list: $("list"), cards: $("cards"), noGroups: $("no-groups"), createForm: $("create-form"), createName: $("create-name"),
   board: $("board"), groupName: $("group-name"), groupMeta: $("group-meta"),
-  ownerTools: $("owner-tools"), inviteBtn: $("invite-btn"), inviteResult: $("invite-result"), inviteHint: $("invite-hint"),
-  inviteUrl: $("invite-url"), copyBtn: $("copy-btn"), renameBtn: $("rename-btn"), renameForm: $("rename-form"),
+  ownerTools: $("owner-tools"), inviteBtn: $("invite-btn"),
+  inviteDialog: $("invite-dialog"), inviteForm: $("invite-form"),
+  renameBtn: $("rename-btn"), renameForm: $("rename-form"),
   renameName: $("rename-name"), renameCancel: $("rename-cancel"),
   sections: $("sections"), tabRanking: $("tab-ranking"), tabTorneios: $("tab-torneios"), tabMembros: $("tab-membros"),
   countTournaments: $("count-tournaments"), countMembers: $("count-members"),
@@ -229,14 +230,17 @@ function renderMembers() {
 
 // --- the three sections ------------------------------------------------------
 
-el.sections.addEventListener("click", (ev) => {
-  const b = ev.target.closest("button[data-tab]");
-  if (!b) return;
-  section = b.dataset.tab;
-  for (const x of el.sections.querySelectorAll("button")) x.setAttribute("aria-selected", String(x === b));
+function showSection(name) {
+  section = name;
+  for (const x of el.sections.querySelectorAll("button")) x.setAttribute("aria-selected", String(x.dataset.tab === name));
   el.tabRanking.hidden = section !== "ranking";
   el.tabTorneios.hidden = section !== "torneios";
   el.tabMembros.hidden = section !== "membros";
+}
+
+el.sections.addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-tab]");
+  if (b) showSection(b.dataset.tab);
 });
 
 el.tabs.addEventListener("click", (ev) => {
@@ -346,37 +350,63 @@ el.tCreateForm.addEventListener("submit", async (ev) => {
 
 // --- owner actions (FR-4.8) --------------------------------------------------
 
+// FR-4.12 — the button asks which kind of link, then lands on the members tab,
+// where the new link sits at the top of the list with its own copy button. The
+// old flow printed one URL into a panel beside the button; the list already had
+// to show every live invite, and two places showing the same link disagree the
+// moment one of them is revoked.
 el.inviteBtn.addEventListener("click", async () => {
+  if (!(await ask(el.inviteDialog))) return;
+  const mode = el.inviteForm.elements.mode.value;
   el.inviteBtn.disabled = true;
   try {
-    const inv = await api.createInvite({ groupId: gid });
-    el.inviteUrl.textContent = inv.url;
-    el.inviteHint.textContent = t("inviteCreated");
-    el.inviteResult.hidden = false;
-    el.copyBtn.textContent = "Copiar link";
-    loadPending();
+    const inv = await api.createInvite({ groupId: gid, mode });
+    setStatus(t(`inviteCreated.${mode}`), "ok");
+    showSection("membros");
+    await loadPending(inv.token);
   } catch (err) { setStatus(errorMessage(err), "err"); }
   finally { el.inviteBtn.disabled = false; }
 });
 
-el.copyBtn.addEventListener("click", async () => {
-  try { await navigator.clipboard.writeText(el.inviteUrl.textContent); el.copyBtn.textContent = t("copied"); }
-  catch { setStatus(t("copyFailed"), "warn"); }
-});
-
-async function loadPending() {
+/**
+ * The live invites of this group (owner only). `highlight` is the token just
+ * minted: its copy button takes focus, so minting still ends one keystroke from
+ * a link on the clipboard. Nothing is copied automatically — a clipboard write
+ * after an `await` is no longer a user gesture, and Safari refuses it.
+ */
+async function loadPending(highlight) {
   try {
     const { invites } = await api.listInvites({ groupId: gid });
     el.pendingWrap.hidden = false;
     el.pending.replaceChildren(...invites.map((i) => {
       const li = document.createElement("li");
-      const txt = document.createElement("span"); txt.textContent = `…${i.token.slice(-4)} · ${t("expires", { date: formatDay(i.expiresAt.slice(0, 10)) })}`;
-      const b = document.createElement("button"); b.type = "button"; b.className = "link"; b.textContent = "Revogar";
-      b.addEventListener("click", async () => {
+
+      const txt = document.createElement("span");
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = t(`inviteMode.${i.mode}`);
+      // A multi-use link is the only one that can be used behind the owner's
+      // back, so it is the only one that says how often it has been.
+      const used = i.mode === "multi" && i.uses > 0 ? ` · ${t("inviteUses", { n: i.uses })}` : "";
+      txt.append(badge, ` …${i.token.slice(-4)} · ${t("expires", { date: formatWhen(i.expiresAt) })}${used}`);
+
+      const actions = document.createElement("div");
+      const copy = document.createElement("button");
+      copy.type = "button"; copy.className = "link"; copy.textContent = t("copy");
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(i.url); copy.textContent = t("copied"); }
+        catch { setStatus(t("copyFailed"), "warn"); }
+      });
+      const revoke = document.createElement("button");
+      revoke.type = "button"; revoke.className = "link"; revoke.textContent = t("revoke");
+      revoke.addEventListener("click", async () => {
         try { await api.revokeInvite({ token: i.token }); setStatus(t("inviteRevoked"), "ok"); loadPending(); }
         catch (err) { setStatus(errorMessage(err), "err"); }
       });
-      li.append(txt, b);
+      actions.append(copy, revoke);
+
+      li.append(txt, actions);
+      if (i.token === highlight) { li.className = "new"; queueMicrotask(() => copy.focus()); }
       return li;
     }));
     if (invites.length === 0) { const li = document.createElement("li"); li.textContent = t("noPending"); el.pending.append(li); }
@@ -421,6 +451,10 @@ el.leaveBtn.addEventListener("click", async () => {
 
 const dayFmt = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
 function formatDay(iso) { return dayFmt.format(new Date(`${iso}T12:00:00Z`)); }
+// Invites expire at an hour, not on a day: "vale até 20/09" on a link that dies
+// at 15:04 is a lie the owner hears about from whoever could not join.
+const whenFmt = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+function formatWhen(iso) { return whenFmt.format(new Date(iso)); }
 
 function setStatus(text, cls = "") {
   el.status.textContent = text;

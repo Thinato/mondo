@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
 import { REGIONS } from "../src/lib/countries";
 import {
-  requireCountryCode, requireDisplayName, requireGroupId, requireGroupName, requireLocale, requireObject, requirePuzzleId, requireRegions, requireRole, requireUid,
+  requireCountryCode, requireDisplayName, requireGroupId, requireGroupName, requireInviteMode, requireLocale, requireObject, requirePuzzleId, requireRegions, requireRole, requireUid,
 } from "../src/lib/validate";
 
 const invalidArgument = (fn: () => unknown) =>
@@ -77,4 +77,15 @@ test("FR-9.9: regions default to every continent, and an empty list is a bug, no
   // [] is what a UI bug looks like. Reading it as "all of them" would silently
   // widen a filter the player narrowed, which is the wrong way to be wrong.
   for (const bad of [[], "Europe", ["europe"], ["Antarctic"], ["Europe", 1], {}, 1]) invalidArgument(() => requireRegions(bad));
+});
+
+test("FR-4.12: requireInviteMode defaults to single and refuses anything else", () => {
+  assert.equal(requireInviteMode(undefined), "single");
+  assert.equal(requireInviteMode(null), "single");
+  assert.equal(requireInviteMode("single"), "single");
+  assert.equal(requireInviteMode("multi"), "multi");
+  // "public" is what the feature is called in conversation and is not a mode;
+  // accepting it by accident would mint the wide link when someone typed the
+  // wrong word, which is the one mistake here that cannot be taken back.
+  for (const bad of ["public", "Multi", "", "SINGLE", 1, true, {}, ["multi"]]) invalidArgument(() => requireInviteMode(bad));
 });

@@ -5,6 +5,7 @@
 
 import { COUNTRIES, REGIONS, type Region } from "./countries";
 import { mondoError } from "./errors";
+import type { InviteMode } from "./invite";
 
 const PUZZLE_ID = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -69,6 +70,17 @@ export function requireInviteToken(v: unknown): string {
   const s = typeof v === "string" ? v.trim().toUpperCase() : "";
   if (!INVITE_TOKEN.test(s)) throw mondoError("invalid-argument", "Invalid invite token.");
   return s;
+}
+
+/**
+ * FR-4.12. Absent means the single-use kind, so a client that has never heard of
+ * modes keeps minting exactly what it used to (the same reason `requireRegions`
+ * defaults to every continent, D-70).
+ */
+export function requireInviteMode(v: unknown): InviteMode {
+  if (v === undefined || v === null) return "single";
+  if (v !== "single" && v !== "multi") throw mondoError("invalid-argument", "Unknown invite mode.");
+  return v;
 }
 
 /** Firestore auto-ids are 20 URL-safe alphanumerics. */

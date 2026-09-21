@@ -367,9 +367,16 @@ table.board .name { max-width: 10rem; overflow: hidden; text-overflow: ellipsis;
 .today li { padding: .3rem 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: .5rem; }
 .today li .score { font-family: var(--mono); font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .fast { color: var(--err); font-weight: 600; }
-.invite-url { font-family: ui-monospace, monospace; font-size: .85rem; word-break: break-all; padding: .5rem; background: var(--card); border-radius: .5rem; }
 .pending { list-style: none; margin: .5rem 0; padding: 0; font-size: .9rem; }
-.pending li { display: flex; justify-content: space-between; gap: .5rem; padding: .25rem 0; color: var(--muted); }
+.pending li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; padding: .25rem 0; color: var(--muted); }
+.pending li > div { display: flex; gap: .75rem; flex: none; }
+/* The invite just minted. A tint rather than a border, so the row does not
+   change height and shift the ones under it as it settles. */
+.pending li.new { background: var(--card); border-radius: .4rem; padding: .25rem .4rem; }
+
+/* FR-4.12 — the two kinds of invite link, stacked in the dialog. */
+.choice { display: flex; gap: .5rem; align-items: baseline; margin-bottom: .6rem; font-size: .95rem; }
+.choice input { width: auto; }
 select { font: inherit; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: .35rem; background: var(--field); color: inherit; }
 details.guesses { font-size: .85rem; }
 details.guesses summary { cursor: pointer; color: var(--muted); }
