@@ -278,7 +278,7 @@ Still none. `participantUids array-contains`, `tournaments where groupId ==`, `s
 
 ```ts
 export interface ChallengeKind<Answer, Guess, Feedback> {
-  id: "shape" | "flag" | "capital" | "gdp" | "flagPick";
+  id: "shape" | "flag" | "capital" | "gdp" | "flagPick" | "shapePick";
 
   /** Pick a subject not in `exclude` (FR-5.2). Deterministic given `rand`. */
   pick(exclude: ReadonlySet<string>, rand: () => number): Answer;
@@ -312,7 +312,7 @@ now shares `applyCardGuess` with tournaments through `CardCore`, and `lib/round.
 what a *day* has that a round does not: the schedule, the streak, the share grid, and the
 `puzzleId` the nightly job selects on.
 
-### 5.2 The four kinds
+### 5.2 The six kinds
 
 | kind | prompt | answer | guesses | feedback | data | status |
 |---|---|---|---|---|---|---|
@@ -321,6 +321,7 @@ what a *day* has that a round does not: the schedule, the streak, the share grid
 | `flag` | one inlined flag, as filled paths | country | 3 | km + compass | `flags.json`, built from a vendored public-domain SVG set | **exists** (§5.3) |
 | `gdp` | a country name (public) | a number | 3 | higher / lower + how close | `gdp.json`, GDP per capita PPP for one pinned year | **exists** (§5.4) |
 | `flagPick` | a country name (public) + **eight flags, anonymous** | one of the eight | 2 | none — right or struck out | `flags.json`, the same set `flag` uses | **exists** (§5.5) |
+| `shapePick` | a country name (public) + **eight silhouettes, anonymous** | one of the eight | 2 | none — right or struck out | `shapes.json`, the same set `shape` uses | **exists** (§5.5), not in the daily (D-72) |
 
 **Not every country can be asked as a `capital`.** Fifteen name themselves in their own capital
 — Brasília/Brasil, Cidade do México/México, Singapura/Singapura, Bissau/Guiné-Bissau,
@@ -418,10 +419,17 @@ answer — "qual o PIB do Brasil?" beside a silhouette of Brasil. `buildCard` al
 distinct within a card, which is exactly what stops it; `test/card.test.ts` pins it over two
 thousand generated cards.
 
-### 5.5 `flagPick`, where the position is the answer (FR-8.7, D-64)
+### 5.5 The pick kinds, where the position is the answer (FR-8.7, D-64, D-72)
 
-The inverse of `flag`: the country is the question, and the answer is which of eight flags is
-its. Same pool, same `flags.json`, opposite direction.
+`flagPick` is the inverse of `flag`: the country is the question, and the answer is which of eight
+flags is its. Same pool, same `flags.json`, opposite direction. **`shapePick` is the same kind with
+`shape`'s artwork** — eight silhouettes, `shapes.json`, `shape`'s 194-country pool — and everything
+below is true of both, which is the point of D-72: the option builder, the shuffle, the grading,
+the index-only guess and the reveal are shared, and a pick kind is a pool plus an artwork lookup.
+The two facts that differ are about the silhouettes, not about the kind: they are drawn into one
+500×500 box, so **size is not a cue** and Monaco is not a speck on a board of eight, and a board of
+them is lighter over the wire than a board of flags (2,7 KB a silhouette against 3,5 KB a flag,
+with no coat-of-arms tail).
 
 **Two guesses, [6, 2].** This is the only kind whose budget is a difficulty argument rather than
 a feel. A blind player picking one of eight scores on `g/n` of challenges — 25 % at two guesses,
@@ -637,6 +645,7 @@ Two things follow, and both are why this is the right shape rather than a shortc
 | `bandeiras` | `free_for_all` | `aggregate` | 5 × `flag` | 1 | points → time | one-kind tournament, the thing Paulo asked for by name |
 | `economia` | `free_for_all` | `aggregate` | 5 × `gdp` | 1 | points → time | five numbers, three guesses each; the only preset where nobody names a country |
 | `qual-bandeira` | `free_for_all` | `aggregate` | 5 × `flagPick` | 1 | points → time | ten taps end to end; the only preset where nothing is typed |
+| `qual-silhueta` | `free_for_all` | `aggregate` | 5 × `shapePick` | 1 | points → time | the same card with the other artwork (D-72); nothing typed here either |
 
 Preset ids are stable and are referenced in tests. `quintal` is the one built in slice 1; the rest
 land with the format that carries them.

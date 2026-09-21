@@ -154,6 +154,13 @@ export const PRESETS: readonly Preset[] = [
     items: [{ kind: "flagPick", count: 5 }],
     order: "as_listed",
   }),
+  // D-72 — the same card with the other artwork. It earns its own preset rather
+  // than a mixed one: a card that alternates flags and silhouettes asks the
+  // player to switch what they are looking at every two taps.
+  freeForAll("qual-silhueta", "Qual é a silhueta?", "Cinco países, oito silhuetas cada. Duas tentativas.", {
+    items: [{ kind: "shapePick", count: 5 }],
+    order: "as_listed",
+  }),
   {
     id: "liga",
     label: "Liga",

@@ -10,8 +10,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { COUNTRIES, countryByCode, flagFor } from "../src/lib/countries";
-import { FLAG_PICK_NEAR, FLAG_PICK_OPTIONS, GDP_CORRECT_WITHIN, KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem, type Challenge, type KindId } from "../src/lib/kinds";
+import { COUNTRIES, countryByCode, flagFor, shapeFor } from "../src/lib/countries";
+import { PICK_NEAR, PICK_OPTIONS, GDP_CORRECT_WITHIN, KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem, type Challenge, type KindId, type Prompt } from "../src/lib/kinds";
 import { GDP_YEAR, gdpFor } from "../src/lib/countries";
 import { isNumberGuess, type StoredNumberGuess } from "../src/lib/round";
 import { distanceKm } from "../src/lib/geo";
@@ -305,13 +305,33 @@ test("reveal names the country in pt-BR, and only once the caller asks for it", 
   assert.deepEqual(KINDS.capital.reveal(ch("capital", "BR")), { code: "BR", name: "Brasil" });
 });
 
-// --- FR-8.7 / D-64: flagPick ------------------------------------------------
+// --- FR-8.7 / D-64, D-72: the pick kinds ------------------------------------
+//
+// Two kinds, one set of rules, so these are written once and run twice. What
+// differs between them is the artwork and the pool; everything the tests below
+// assert — eight options, the answer among them, four neighbours, nothing in
+// the payload that names a country — is the same question asked of both.
 
-/** A flagPick challenge with real options, built the way `buildCard` builds one. */
-function pickItem(subject: string, exclude: ReadonlySet<string> = new Set(), rand = mulberry(7)): Challenge {
-  const options = KINDS.flagPick.buildOptions!(subject, exclude, rand);
-  return { kind: "flagPick", subject, options };
+type PickKind = "flagPick" | "shapePick";
+const PICKS: readonly PickKind[] = ["flagPick", "shapePick"];
+
+/** What each pick kind deals in: the artwork lookup, the option field, and the
+ *  ONLY keys that field may carry. The last one is the SEC-1 assertion. */
+const ART: Record<PickKind, { has: (code: string) => unknown; field: string; keys: string[]; pool: KindId }> = {
+  flagPick: { has: flagFor, field: "flag", keys: ["viewBox", "paths"], pool: "flag" },
+  shapePick: { has: shapeFor, field: "shape", keys: ["viewBox", "d", "fillRule"], pool: "shape" },
+};
+
+/** A pick challenge with real options, built the way `buildCard` builds one. */
+function pickItem(kind: PickKind, subject: string, exclude: ReadonlySet<string> = new Set(), rand = mulberry(7)): Challenge {
+  const options = KINDS[kind].buildOptions!(subject, exclude, rand);
+  return { kind, subject, options };
 }
+
+/** The union is discriminated by a literal, which a loop variable cannot narrow. */
+const optionsOf = (p: Prompt): readonly Record<string, unknown>[] =>
+  "options" in p ? (p.options as readonly Record<string, unknown>[]) : [];
+const countryOf = (p: Prompt): string => ("country" in p ? p.country : "");
 
 /** A deterministic PRNG, so "shuffled" is testable rather than hopeful. */
 function mulberry(seed: number): () => number {
@@ -325,154 +345,186 @@ function mulberry(seed: number): () => number {
 }
 
 test("D-65: four of the eight are the answer's nearest, and the rest are strangers", () => {
-  const rand = mulberry(5);
-  const pool = KINDS.flagPick.pool();
-  for (const c of pool) {
-    const options = KINDS.flagPick.buildOptions!(c.code, new Set(), rand);
-    // The nearest four by centroid — the same measure the compass hint uses.
-    const nearest = pool
-      .filter((o) => o.code !== c.code)
-      .sort((a, b) => distanceKm(c.centroid, a.centroid) - distanceKm(c.centroid, b.centroid))
-      .slice(0, FLAG_PICK_NEAR - 1)
-      .map((o) => o.code);
-    for (const n of nearest) assert.ok(options.includes(n), `${c.code}: ${n} is a neighbour and was left out`);
-    // And the other three are NOT the next-nearest: they are drawn at random
-    // from the rest, which is what keeps a card from being a geography lesson.
-    assert.equal(options.length, FLAG_PICK_OPTIONS);
-    assert.equal(new Set(options).size, FLAG_PICK_OPTIONS);
+  for (const kind of PICKS) {
+    const rand = mulberry(5);
+    const pool = KINDS[kind].pool();
+    for (const c of pool) {
+      const options = KINDS[kind].buildOptions!(c.code, new Set(), rand);
+      // The nearest four by centroid — the same measure the compass hint uses.
+      const nearest = pool
+        .filter((o) => o.code !== c.code)
+        .sort((a, b) => distanceKm(c.centroid, a.centroid) - distanceKm(c.centroid, b.centroid))
+        .slice(0, PICK_NEAR - 1)
+        .map((o) => o.code);
+      for (const n of nearest) assert.ok(options.includes(n), `${kind} ${c.code}: ${n} is a neighbour and was left out`);
+      // And the other three are NOT the next-nearest: they are drawn at random
+      // from the rest, which is what keeps a card from being a geography lesson.
+      assert.equal(options.length, PICK_OPTIONS);
+      assert.equal(new Set(options).size, PICK_OPTIONS);
+    }
   }
 });
 
 test("D-65: the neighbourhood is measurably closer than the strangers", () => {
-  const rand = mulberry(9);
-  const pool = KINDS.flagPick.pool();
-  let nearTotal = 0;
-  let farTotal = 0;
-  for (const c of pool) {
-    const options = KINDS.flagPick.buildOptions!(c.code, new Set(), rand);
-    const km = options.filter((o) => o !== c.code).map((o) => distanceKm(c.centroid, countryByCode(o)!.centroid));
-    km.sort((a, b) => a - b);
-    nearTotal += km.slice(0, FLAG_PICK_NEAR - 1).reduce((n, d) => n + d, 0) / (FLAG_PICK_NEAR - 1);
-    farTotal += km.slice(FLAG_PICK_NEAR - 1).reduce((n, d) => n + d, 0) / (FLAG_PICK_OPTIONS - FLAG_PICK_NEAR);
+  for (const kind of PICKS) {
+    const rand = mulberry(9);
+    const pool = KINDS[kind].pool();
+    let nearTotal = 0;
+    let farTotal = 0;
+    for (const c of pool) {
+      const options = KINDS[kind].buildOptions!(c.code, new Set(), rand);
+      const km = options.filter((o) => o !== c.code).map((o) => distanceKm(c.centroid, countryByCode(o)!.centroid));
+      km.sort((a, b) => a - b);
+      nearTotal += km.slice(0, PICK_NEAR - 1).reduce((n, d) => n + d, 0) / (PICK_NEAR - 1);
+      farTotal += km.slice(PICK_NEAR - 1).reduce((n, d) => n + d, 0) / (PICK_OPTIONS - PICK_NEAR);
+    }
+    const near = nearTotal / pool.length;
+    const far = farTotal / pool.length;
+    // Uniform distractors averaged about 9000 km from the answer. The point of
+    // D-65 is that half the board is now regional, so the near four must be a
+    // different order of magnitude, not merely a bit closer.
+    assert.ok(near < far / 4, `${kind}: near ${Math.round(near)} km vs far ${Math.round(far)} km`);
   }
-  const near = nearTotal / pool.length;
-  const far = farTotal / pool.length;
-  // Uniform distractors averaged about 9000 km from the answer. The point of
-  // D-65 is that half the board is now regional, so the near four must be a
-  // different order of magnitude, not merely a bit closer.
-  assert.ok(near < far / 4, `near ${Math.round(near)} km vs far ${Math.round(far)} km`);
 });
 
 test("FR-8.7: eight options, the answer among them exactly once", () => {
-  const rand = mulberry(1);
-  for (const c of KINDS.flagPick.pool()) {
-    const options = KINDS.flagPick.buildOptions!(c.code, new Set(), rand);
-    assert.equal(options.length, FLAG_PICK_OPTIONS, `${c.code}: wrong option count`);
-    assert.equal(options.filter((o) => o === c.code).length, 1, `${c.code}: the answer must appear once`);
-    assert.equal(new Set(options).size, FLAG_PICK_OPTIONS, `${c.code}: options must be distinct`);
-    for (const o of options) assert.ok(flagFor(o), `${o} has no flag and cannot be an option`);
+  for (const kind of PICKS) {
+    const rand = mulberry(1);
+    for (const c of KINDS[kind].pool()) {
+      const options = KINDS[kind].buildOptions!(c.code, new Set(), rand);
+      assert.equal(options.length, PICK_OPTIONS, `${kind} ${c.code}: wrong option count`);
+      assert.equal(options.filter((o) => o === c.code).length, 1, `${kind} ${c.code}: the answer must appear once`);
+      assert.equal(new Set(options).size, PICK_OPTIONS, `${kind} ${c.code}: options must be distinct`);
+      for (const o of options) assert.ok(ART[kind].has(o), `${o} has no ${ART[kind].field} and cannot be an option`);
+    }
   }
 });
 
 test("FR-8.7: distractors avoid the exclusion window, and never drop below eight to do it", () => {
-  const pool = KINDS.flagPick.pool().map((c) => c.code);
-  const exclude = new Set(pool.filter((c) => c !== "BR").slice(0, 40));
-  const options = KINDS.flagPick.buildOptions!("BR", exclude, mulberry(3));
-  assert.equal(options.length, FLAG_PICK_OPTIONS);
-  for (const o of options) assert.ok(o === "BR" || !exclude.has(o), `${o} is excluded and was offered anyway`);
+  for (const kind of PICKS) {
+    const pool = KINDS[kind].pool().map((c) => c.code);
+    const exclude = new Set(pool.filter((c) => c !== "BR").slice(0, 40));
+    const options = KINDS[kind].buildOptions!("BR", exclude, mulberry(3));
+    assert.equal(options.length, PICK_OPTIONS);
+    for (const o of options) assert.ok(o === "BR" || !exclude.has(o), `${kind}: ${o} is excluded and was offered anyway`);
 
-  // Exclude all but four: the window has to give way rather than deal a short
-  // hand, because a card of eight options with five in it is a different game.
-  const nearlyAll = new Set(pool.filter((c) => c !== "BR").slice(4));
-  const squeezed = KINDS.flagPick.buildOptions!("BR", nearlyAll, mulberry(4));
-  assert.equal(squeezed.length, FLAG_PICK_OPTIONS, "a tight window must not shrink the question");
-  assert.ok(squeezed.includes("BR"));
+    // Exclude all but four: the window has to give way rather than deal a short
+    // hand, because a card of eight options with five in it is a different game.
+    const nearlyAll = new Set(pool.filter((c) => c !== "BR").slice(4));
+    const squeezed = KINDS[kind].buildOptions!("BR", nearlyAll, mulberry(4));
+    assert.equal(squeezed.length, PICK_OPTIONS, `${kind}: a tight window must not shrink the question`);
+    assert.ok(squeezed.includes("BR"));
+  }
 });
 
-test("SEC-1: the flagPick prompt names the country it ASKS about and nothing that identifies the answer", () => {
-  const item = pickItem("BR");
-  const p = KINDS.flagPick.prompt(item);
-  assert.equal(p.kind, "flagPick");
-  assert.equal(p.kind === "flagPick" && p.country, "Brasil");
-  assert.equal(p.kind === "flagPick" ? p.options.length : 0, FLAG_PICK_OPTIONS);
+test("SEC-1: a pick prompt names the country it ASKS about and nothing that identifies the answer", () => {
+  for (const kind of PICKS) {
+    const item = pickItem(kind, "BR");
+    const p = KINDS[kind].prompt(item);
+    assert.equal(p.kind, kind);
+    assert.equal(countryOf(p), "Brasil");
+    assert.equal(optionsOf(p).length, PICK_OPTIONS);
 
-  // The options carry artwork and nothing else: no code, no name, no id, in any
-  // locale. Position is the only handle, and the guess is an index.
-  const json = JSON.stringify(p.kind === "flagPick" ? p.options : []);
-  for (const code of item.options!) {
-    const c = countryByCode(code)!;
-    for (const term of [`"${c.code}"`, c.code3, c.names.en, c.names["pt-BR"]]) {
-      assert.ok(!json.includes(term), `the options leak ${term}`);
+    // The options carry artwork and nothing else: no code, no name, no id, in
+    // any locale. Position is the only handle, and the guess is an index.
+    const json = JSON.stringify(optionsOf(p));
+    for (const code of item.options!) {
+      const c = countryByCode(code)!;
+      for (const term of [`"${c.code}"`, c.code3, c.names.en, c.names["pt-BR"]]) {
+        assert.ok(!json.includes(term), `${kind}: the options leak ${term}`);
+      }
     }
   }
 });
 
 test("SEC-1: no option in the whole pool ever carries a country's name or code", () => {
-  const rand = mulberry(11);
-  for (const c of KINDS.flagPick.pool()) {
-    const p = KINDS.flagPick.prompt(pickItem(c.code, new Set(), rand));
-    const json = JSON.stringify(p.kind === "flagPick" ? p.options : []);
-    // Only the keys a flag is made of, and the values are paths and colours.
-    for (const key of Object.keys(JSON.parse(json)[0].flag)) {
-      assert.ok(["viewBox", "paths"].includes(key), `${c.code}: unexpected option field ${key}`);
+  for (const kind of PICKS) {
+    const rand = mulberry(11);
+    for (const c of KINDS[kind].pool()) {
+      const p = KINDS[kind].prompt(pickItem(kind, c.code, new Set(), rand));
+      const options = JSON.parse(JSON.stringify(optionsOf(p))) as Record<string, Record<string, unknown>>[];
+      for (const option of options) {
+        // One field, and inside it only the keys the artwork is made of. A
+        // silhouette is a path and a fill rule; a flag is paths and colours.
+        assert.deepEqual(Object.keys(option), [ART[kind].field], `${kind} ${c.code}: unexpected option field`);
+        for (const key of Object.keys(option[ART[kind].field]!)) {
+          assert.ok(ART[kind].keys.includes(key), `${kind} ${c.code}: unexpected artwork field ${key}`);
+        }
+      }
     }
   }
 });
 
 test("FR-8.7: a pick is graded by index, and only an index in range is a guess", () => {
-  const item = pickItem("BR");
-  const right = item.options!.indexOf("BR");
-  const wrong = (right + 1) % FLAG_PICK_OPTIONS;
+  for (const kind of PICKS) {
+    const item = pickItem(kind, "BR");
+    const right = item.options!.indexOf("BR");
+    const wrong = (right + 1) % PICK_OPTIONS;
 
-  assert.equal(KINDS.flagPick.grade(item, right, T0).correct, true);
-  assert.equal(KINDS.flagPick.grade(item, wrong, T0).correct, false);
-  assert.deepEqual(KINDS.flagPick.grade(item, right, T0).guess, { pick: right, proximity: 1, at: T0 });
-  assert.equal(KINDS.flagPick.grade(item, wrong, T0).guess.proximity, 0, "there is no nearly");
+    assert.equal(KINDS[kind].grade(item, right, T0).correct, true);
+    assert.equal(KINDS[kind].grade(item, wrong, T0).correct, false);
+    assert.deepEqual(KINDS[kind].grade(item, right, T0).guess, { pick: right, proximity: 1, at: T0 });
+    assert.equal(KINDS[kind].grade(item, wrong, T0).guess.proximity, 0, "there is no nearly");
 
-  for (const bad of ["0", null, {}, [], true, NaN, Infinity, 1.5, -1, FLAG_PICK_OPTIONS, "BR"]) {
-    rejects(() => KINDS.flagPick.grade(item, bad, T0), "invalid-argument");
+    for (const bad of ["0", null, {}, [], true, NaN, Infinity, 1.5, -1, PICK_OPTIONS, "BR"]) {
+      rejects(() => KINDS[kind].grade(item, bad, T0), "invalid-argument");
+    }
   }
 });
 
 test("FR-8.7: a choice item with no options is a broken challenge, not a crash", () => {
-  const bare: Challenge = { kind: "flagPick", subject: "BR" };
-  rejects(() => KINDS.flagPick.prompt(bare), "not-found");
-  rejects(() => KINDS.flagPick.grade(bare, 0, T0), "not-found");
+  for (const kind of PICKS) {
+    const bare: Challenge = { kind, subject: "BR" };
+    rejects(() => KINDS[kind].prompt(bare), "not-found");
+    rejects(() => KINDS[kind].grade(bare, 0, T0), "not-found");
+  }
 });
 
 test("FR-8.7: wasCorrect reads a stored pick back, for the share grid", () => {
-  const item = pickItem("BR");
-  const right = item.options!.indexOf("BR");
-  assert.equal(KINDS.flagPick.wasCorrect(item, KINDS.flagPick.grade(item, right, T0).guess), true);
-  assert.equal(
-    KINDS.flagPick.wasCorrect(item, KINDS.flagPick.grade(item, (right + 3) % FLAG_PICK_OPTIONS, T0).guess),
-    false,
-  );
-  // A country guess belongs to another kind and is never this one's answer.
-  assert.equal(KINDS.flagPick.wasCorrect(item, KINDS.shape.grade(ch("shape", "BR"), "BR", T0).guess), false);
+  for (const kind of PICKS) {
+    const item = pickItem(kind, "BR");
+    const right = item.options!.indexOf("BR");
+    assert.equal(KINDS[kind].wasCorrect(item, KINDS[kind].grade(item, right, T0).guess), true);
+    assert.equal(
+      KINDS[kind].wasCorrect(item, KINDS[kind].grade(item, (right + 3) % PICK_OPTIONS, T0).guess),
+      false,
+    );
+    // A country guess belongs to another kind and is never this one's answer.
+    assert.equal(KINDS[kind].wasCorrect(item, KINDS.shape.grade(ch("shape", "BR"), "BR", T0).guess), false);
+  }
 });
 
 test("D-64: the reveal is WHICH option, because the prompt already named the country", () => {
-  const item = pickItem("BR");
-  const r = KINDS.flagPick.reveal(item);
-  assert.equal(r.name, "Brasil");
-  assert.equal(r.pick, item.options!.indexOf("BR"));
-  assert.ok(r.pick! >= 0 && r.pick! < FLAG_PICK_OPTIONS);
+  for (const kind of PICKS) {
+    const item = pickItem(kind, "BR");
+    const r = KINDS[kind].reveal(item);
+    assert.equal(r.name, "Brasil");
+    assert.equal(r.pick, item.options!.indexOf("BR"));
+    assert.ok(r.pick! >= 0 && r.pick! < PICK_OPTIONS);
+  }
   // Every other kind still reveals a name and no index.
   assert.equal(KINDS.shape.reveal(ch("shape", "BR")).pick, undefined);
 });
 
 test("D-64: two guesses at [6, 2] — a blind picker scores on a quarter of items, not two fifths", () => {
-  assert.equal(KINDS.flagPick.maxGuesses, 2);
-  assert.deepEqual([...KINDS.flagPick.pointsByGuess], [6, 2]);
+  for (const kind of PICKS) {
+    assert.equal(KINDS[kind].maxGuesses, 2);
+    assert.deepEqual([...KINDS[kind].pointsByGuess], [6, 2]);
+  }
   // 1/8 + 7/8 × 1/7. At three guesses this would be 0.40, which is what the
   // budget is for: FR-8.2 asks a card of mixed kinds to be summable.
   const blind = 1 / 8 + (7 / 8) * (1 / 7);
   assert.ok(Math.abs(blind - 0.25) < 1e-9);
 });
 
-test("flagPick asks about exactly what flag asks about", () => {
-  assert.deepEqual(KINDS.flagPick.pool().map((c) => c.code), KINDS.flag.pool().map((c) => c.code));
+test("a pick kind asks about exactly what the kind it inverts asks about", () => {
+  for (const kind of PICKS) {
+    assert.deepEqual(
+      KINDS[kind].pool().map((c) => c.code),
+      KINDS[ART[kind].pool].pool().map((c) => c.code),
+      `${kind} must ask about exactly what ${ART[kind].pool} asks about`,
+    );
+  }
 });
 
 test("D-64: eight flags is a bigger prompt than one, and bounded", () => {
@@ -486,16 +538,39 @@ test("D-64: eight flags is a bigger prompt than one, and bounded", () => {
   // in one question. Median artwork is about 0.5 KB and the mean about 3.4 KB,
   // but the tail runs to 34 KB — Portugal, Brazil and Fiji carry whole coats of
   // arms — so a sampled worst case understates it by a factor of three.
-  const worstPossible = sizes.slice(0, FLAG_PICK_OPTIONS).reduce((n, b) => n + b, 0);
+  const worstPossible = sizes.slice(0, PICK_OPTIONS).reduce((n, b) => n + b, 0);
   assert.ok(worstPossible < 256_000, `eight of the largest flags would be ${worstPossible} bytes`);
 
   // What a question actually weighs, over the whole pool.
   let total = 0;
-  for (const c of pool) total += JSON.stringify(KINDS.flagPick.prompt(pickItem(c.code, new Set(), rand))).length;
+  for (const c of pool) total += JSON.stringify(KINDS.flagPick.prompt(pickItem("flagPick", c.code, new Set(), rand))).length;
   assert.ok(total / pool.length < 60_000, `the average flagPick prompt is ${Math.round(total / pool.length)} bytes`);
 
   // NOT a licence to pick small distractors. Choosing options by weight would
   // make a complex flag rarer as a distractor than as an answer, and a player
   // who noticed would take the busiest flag on the board every time. The size
   // is the cost of the question being fair.
+});
+
+test("D-72: eight silhouettes weigh less than eight flags, and are bounded too", () => {
+  const rand = mulberry(17);
+  const pool = KINDS.shapePick.pool();
+  const sizes = pool
+    .map((c) => JSON.stringify(KINDS.shape.prompt(ch("shape", c.code))).length)
+    .sort((a, b) => b - a);
+
+  // The silhouettes have no tail: the build simplifies every one of them to a
+  // byte budget, so the eight largest in the pool are within a factor of three
+  // of the mean rather than ten times it.
+  const worstPossible = sizes.slice(0, PICK_OPTIONS).reduce((n, b) => n + b, 0);
+  assert.ok(worstPossible < 96_000, `eight of the largest silhouettes would be ${worstPossible} bytes`);
+
+  let total = 0;
+  for (const c of pool) total += JSON.stringify(KINDS.shapePick.prompt(pickItem("shapePick", c.code, new Set(), rand))).length;
+  const mean = total / pool.length;
+  assert.ok(mean < 40_000, `the average shapePick prompt is ${Math.round(mean)} bytes`);
+
+  // The same rule as above, and it bites harder here: every silhouette is drawn
+  // into the same 500×500 box, so SIZE IS NOT A CUE on the board — Monaco fills
+  // it exactly as Russia does. Do not choose distractors by path length either.
 });

@@ -18,7 +18,7 @@ import { ask, watchAuth } from "./auth-ui.js";
 import { mountProfile } from "./profile.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, renderFlag, renderOptions, renderShape } from "./geo.js";
+import { guessRow, isPick, renderFlag, renderOptions, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 
@@ -42,7 +42,7 @@ const el = {
 
 /** The kinds on offer. A new kind joins practice by joining this list and
  *  i18n's `kindName` / `practice.about` — which it needs a label in anyway. */
-const KINDS = ["shape", "flag", "capital", "gdp", "flagPick"];
+const KINDS = ["shape", "flag", "capital", "gdp", "flagPick", "shapePick"];
 
 /** FR-9.9 — the continents, in the server's own ids (`world-countries`'
  *  `region`). Labels come from i18n; nothing here knows which country is where,
@@ -348,18 +348,18 @@ function renderChallenge() {
   // its reveal is which option was right, and the options are artwork the
   // server does not send twice (FR-8.7, D-64). So the prompt is kept.
   const shown = revealing ? shownPrompt : (shownPrompt = item.prompt);
-  const shownKind = revealing && shown?.kind === "flagPick" ? "flagPick" : kind;
+  const shownKind = revealing && isPick(shown?.kind) ? shown.kind : kind;
 
   el.shapeWrap.hidden = kind !== "shape";
   el.flagWrap.hidden = kind !== "flag";
-  el.capital.hidden = shownKind !== "capital" && shownKind !== "gdp" && shownKind !== "flagPick";
-  el.options.hidden = shownKind !== "flagPick";
+  el.capital.hidden = shownKind !== "capital" && shownKind !== "gdp" && !isPick(shownKind);
+  el.options.hidden = !isPick(shownKind);
   if (kind === "shape") renderShape(el.shape, item.prompt.shape);
   else if (kind === "flag") renderFlag(el.flag, item.prompt.flag);
   else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: item.prompt.capital });
   else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: item.prompt.country, year: item.prompt.year });
-  else if (shownKind === "flagPick") {
-    el.capital.textContent = t("flagPickPrompt", { country: shown.country });
+  else if (isPick(shownKind)) {
+    el.capital.textContent = t(`${shownKind}Prompt`, { country: shown.country });
     renderOptions(el.options, shown.options, {
       guesses: item.guesses,
       answer: revealing ? item.answer : null,
@@ -374,15 +374,15 @@ function renderChallenge() {
 
   // A pick is struck out in the grid, not listed as a row: the client is never
   // told which country it was, so there is nothing to put in one.
-  el.guesses.replaceChildren(...(shownKind === "flagPick" ? [] : item.guesses).map(guessRow));
-  el.form.hidden = revealing || shownKind === "flagPick";
+  el.guesses.replaceChildren(...(isPick(shownKind) ? [] : item.guesses).map(guessRow));
+  el.form.hidden = revealing || isPick(shownKind);
   el.left.textContent = revealing ? "" : t("guessesLeft", { n: item.guessesUsed, max: item.guessesMax });
 
   el.reveal.hidden = !revealing;
   if (revealing) {
     el.revealText.textContent = item.status === "solved"
       ? t("revealSolved", { points: item.points })
-      : shownKind === "flagPick"
+      : isPick(shownKind)
       ? t("revealPick")
       : t("revealFailed", { answer: item.answer.name });
     el.revealNext.textContent = t("practice.next");
@@ -436,7 +436,7 @@ function focusInput() {
   if (view?.status !== "in_progress") return;
   if (view.item.status !== "current") return el.revealNext.focus();
   // A choice challenge has no field: the grid is the input (FR-8.7).
-  if (view.item.prompt?.kind === "flagPick") return;
+  if (isPick(view.item.prompt?.kind)) return;
   const field = view.item.prompt?.kind === "gdp" ? el.number : el.input;
   if (!field.disabled) field.focus();
 }

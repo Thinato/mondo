@@ -15,7 +15,7 @@ import { mountProfile } from "./profile.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, renderFlag, renderOptions, renderShape } from "./geo.js";
+import { guessRow, isPick, renderFlag, renderOptions, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
@@ -440,17 +440,17 @@ function renderCard() {
   // A choice challenge's prompt outlives its challenge: its reveal is which
   // option was right (FR-8.7, D-64), so the grid stays with the answer marked.
   const shown = revealing ? revealPrompt : card.prompt;
-  const kind = revealing ? (shown?.kind === "flagPick" ? "flagPick" : null) : card.prompt?.kind ?? null;
+  const kind = revealing ? (isPick(shown?.kind) ? shown.kind : null) : card.prompt?.kind ?? null;
   el.cardShapeWrap.hidden = kind !== "shape";
-  el.cardCapital.hidden = kind !== "capital" && kind !== "gdp" && kind !== "flagPick";
+  el.cardCapital.hidden = kind !== "capital" && kind !== "gdp" && !isPick(kind);
   el.cardFlagWrap.hidden = kind !== "flag";
-  el.cardOptions.hidden = kind !== "flagPick";
+  el.cardOptions.hidden = !isPick(kind);
   if (kind === "shape") renderShape(el.cardShape, card.prompt.shape);
   else if (kind === "capital") el.cardCapital.textContent = t("capitalPrompt", { city: card.prompt.capital });
   else if (kind === "gdp") el.cardCapital.textContent = t("gdpPrompt", { country: card.prompt.country, year: card.prompt.year });
   else if (kind === "flag") renderFlag(el.cardFlag, card.prompt.flag);
-  else if (kind === "flagPick") {
-    el.cardCapital.textContent = t("flagPickPrompt", { country: shown.country });
+  else if (isPick(kind)) {
+    el.cardCapital.textContent = t(`${kind}Prompt`, { country: shown.country });
     renderOptions(el.cardOptions, shown.options, {
       guesses: revealing ? reveal.guesses ?? [] : card.guesses,
       answer: revealing ? reveal.answer : null,
@@ -466,9 +466,9 @@ function renderCard() {
   // `?? []` for the same deploy window game.js documents. A pick has no row:
   // it is struck out in the grid, which is the only place it could be, since
   // the client is never told which country it was.
-  const rows = kind === "flagPick" ? [] : revealing ? reveal.guesses ?? [] : card.guesses;
+  const rows = isPick(kind) ? [] : revealing ? reveal.guesses ?? [] : card.guesses;
   el.cardGuesses.replaceChildren(...rows.map(guessRow));
-  el.cardForm.hidden = done || revealing || kind === "flagPick";
+  el.cardForm.hidden = done || revealing || isPick(kind);
   el.cardLeft.textContent = done || revealing ? "" : t("guessesLeft", { n: card.guessesUsed, max: card.guessesMax });
 
   // The rail (FR-6.11), the same one the daily has: five boxes above the prompt
@@ -495,7 +495,7 @@ function renderCard() {
   if (revealing) {
     el.cardRevealText.textContent = reveal.status === "solved"
       ? t("revealSolved", { points: reveal.points })
-      : kind === "flagPick"
+      : isPick(kind)
       ? t("revealPick")
       : t("revealFailed", { answer: reveal.answer.name });
     el.cardRevealNext.textContent = done ? t("seeResult") : t("continueChallenge");
@@ -540,7 +540,7 @@ function focusInput() {
   if (reveal) return el.cardRevealNext.focus();
   if (card?.status !== "in_progress") return;
   // A choice challenge has no field: the grid is the input (FR-8.7).
-  if (card.prompt?.kind === "flagPick") return;
+  if (isPick(card.prompt?.kind)) return;
   const field = card.prompt?.kind === "gdp" ? el.cardNumber : el.cardInput;
   if (!field.disabled) field.focus();
 }

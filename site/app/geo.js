@@ -124,9 +124,12 @@ const nf = new Intl.NumberFormat("pt-BR");
  */
 export const formatUsd = (n) => `US$ ${nf.format(n)}`;
 
+/** The kinds whose answer is picked rather than typed (FR-8.7, D-64, D-72). */
+export const isPick = (kind) => kind === "flagPick" || kind === "shapePick";
+
 /**
  * The options of a multiple-choice challenge, as a grid of buttons (FR-8.7,
- * D-64).
+ * D-64, D-72).
  *
  * The client is handed artwork and nothing else — no code, no name, no id — so
  * position is the only thing an option has, and an index is the whole guess.
@@ -149,7 +152,15 @@ export function renderOptions(list, options, { guesses = [], answer = null, onPi
     button.setAttribute("aria-label", t("optionLabel", { n: i + 1 }));
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("role", "presentation");
-    renderFlag(svg, option.flag);
+    // Whichever artwork the kind deals in (D-72). A silhouette is a bare path
+    // with no colour of its own, so it is marked for mondo.css to paint; a flag
+    // paints itself and must not be touched.
+    if (option.shape) {
+      renderShape(svg, option.shape);
+      svg.classList.add("shape");
+    } else {
+      renderFlag(svg, option.flag);
+    }
     // Every option box is the same size, so the grid does not go ragged when a
     // 37:28 Dane sits beside a 2:1 Palauan. The artwork keeps its own shape and
     // is letterboxed inside the box by the SVG's own preserveAspectRatio, which

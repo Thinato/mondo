@@ -40,9 +40,13 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-2.1** There MUST be exactly one daily puzzle, identified by `puzzleId` in `YYYY-MM-DD`
   form. The day boundary is **12:00 `America/Sao_Paulo`** (OQ-2, resolved). `puzzleId` names the
   date the puzzle *opens*; the puzzle stays live until 12:00 the following day.
-- **FR-2.1a** (D-52, D-53, D-66) A day MUST hold **one challenge of every shipped kind** —
-  silhouette, flag, capital, GDP per capita and "which of these eight flags" — played strictly in
-  order, one at a time. The order MUST be shuffled per day, so that no kind is always first.
+- **FR-2.1a** *(amended 2026-09-21, D-72)* (D-52, D-53, D-66) A day MUST hold **one challenge of
+  every kind the schedule asks** — silhouette, flag, capital, GDP per capita and "which of these
+  eight flags" — played strictly in order, one at a time. The order MUST be shuffled per day, so
+  that no kind is always first. A day is worth 0–30. It is **not** "every shipped kind": a new kind
+  reaches players through practice and a tournament preset first (FR-9, D-64), and joins the daily
+  only when the schedule is regenerated to include it, which is a decision with a cost — the
+  all-time column gains a seam (D-66). `shapePick` is shipped and is not yet in the daily.
 - **FR-2.2** The puzzle answers MUST be selected from a pre-generated schedule, not chosen at
   request time.
 - **FR-2.3** *(rewritten 2026-09-16, D-67)* A country MUST NOT be asked about **by the same
@@ -224,13 +228,13 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   still holds, because `buildCard` keeps subjects distinct there and FR-2.3 does not apply to it.
 - **FR-8.5** The manager MUST be able to specify a card as a multiset of kinds and choose whether
   the order is as listed or shuffled. A card MAY be several challenges of one kind.
-- **FR-8.6** *(amended 2026-09-16, D-64)* Shipped kinds: `shape`, `capital`, `flag` (a vendored
+- **FR-8.6** *(amended 2026-09-21, D-72)* Shipped kinds: `shape`, `capital`, `flag` (a vendored
   public-domain SVG set, flattened offline to filled paths; 24 countries have no flag), `gdp`
-  (World Bank GDP per capita PPP for one pinned year; 10 countries have no figure) and
-  `flagPick` (FR-8.7). **All five are asked every day** (FR-2.1a, D-66), and all five are
-  available to tournament card specs and to practice. `flagPick` reached players through practice
-  and a tournament preset first, which is what FR-9 exists for, and joined the daily three days
-  later once it had been played.
+  (World Bank GDP per capita PPP for one pinned year; 10 countries have no figure), `flagPick`
+  and `shapePick` (both FR-8.7). **All six are available to tournament card specs and to
+  practice**; the first five are asked every day (FR-2.1a, D-66). `flagPick` reached players
+  through practice and a tournament preset first, which is what FR-9 exists for, and joined the
+  daily three days later once it had been played; `shapePick` is at that first stage now.
 - **FR-8.7** *(added 2026-09-16, D-64)* A kind MAY ask its question as **a set of options**, of
   which exactly one is right. For such a kind:
   - The options MUST be chosen once, when the card is built, and **stored** with the challenge.
@@ -241,7 +245,8 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
     identifying an option — a country code, a name in any locale, an id — may appear in the
     prompt, in the DOM, or in a guess. A guess is an **index**.
   - A wrong pick MUST NOT be named, in the response or on screen. Naming it teaches the player
-    that flag, and a flag taught here can answer a `flag` challenge on the same card.
+    that flag — or that silhouette — and artwork taught here can answer the `flag` or `shape`
+    challenge on the same card.
   - Distractors MUST exclude every other subject on the same card, and SHOULD exclude the
     caller's own exclusion window (FR-5.2, FR-9.5) where the pool allows it.
   - Distractors MUST NOT be chosen by any property a player can read **off the artwork itself** —
@@ -249,13 +254,16 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
     complex flag rarer as a distractor than as an answer, and "pick the busiest one" would beat
     the game without knowing anything.
   - A property that requires *already knowing what the options are* is not in that class, and MAY
-    be used (D-65): `flagPick` draws four of its eight from the answer's nearest countries, which
-    is the whole difficulty of the kind, and reading it needs exactly the knowledge being asked
-    for. Where such a structure exists the in-game help MUST say so — a mechanic that only
+    be used (D-65): both pick kinds draw four of their eight from the answer's nearest countries,
+    which is the whole difficulty of the kind, and reading it needs exactly the knowledge being
+    asked for. Where such a structure exists the in-game help MUST say so — a mechanic that only
     rewards the players who noticed it is a worse game than one that explains itself.
   - The guess budget MUST reflect that picking is easier than naming: with `n` options and `g`
     guesses a blind player scores on `g/n` of challenges, and FR-8.2's shared 0–6 scale is only
-    honest while that stays small. `flagPick` is 8 options and 2 guesses, so 25 %.
+    honest while that stays small. Both pick kinds are 8 options and 2 guesses, so 25 %.
+  - *(added 2026-09-21, D-72)* A second pick kind MUST NOT be a second implementation: the option
+    builder, the shuffle, the grading and the reveal are shared, and a new one differs only in its
+    pool and its artwork. `shapePick` is `shape`'s pool drawn onto `flagPick`'s board.
 
 ## FR-6 — Client experience
 

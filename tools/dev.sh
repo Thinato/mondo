@@ -119,7 +119,7 @@ GRANT_PID=$!
 
 sleep 1
 echo ""
-echo "  treino (flagPick lives here):  http://localhost:8000/praticar.html"
+echo "  treino (the pick kinds live here):  http://localhost:8000/praticar.html"
 echo "  o jogo do dia:                 http://localhost:8000/"
 echo "  emulator UI:                   http://127.0.0.1:4000/"
 echo ""

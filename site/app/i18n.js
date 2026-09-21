@@ -19,7 +19,7 @@ const PT_BR = {
   // D-52: a day is three challenges, so the result talks about the day.
   dayDone: "{points} de {max} pontos hoje.",
   dayPerfect: "Dia perfeito! {points} de {max} pontos.",
-  kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita", flagPick: "qual bandeira" },
+  kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita", flagPick: "qual bandeira", shapePick: "qual silhueta" },
   // FR-9.9 — the five continents practice can be narrowed to. The server's own
   // ids are English (`world-countries`' `region`); these are the labels. América
   // is one continent here, as it is in a Brazilian classroom.
@@ -59,9 +59,13 @@ const PT_BR = {
     // pick waiting for a distance would think the game was broken. The one
     // thing that IS a clue is how the board is built, and hiding that would
     // just reward whoever noticed first.
-    flagPick:
-      "Aqui o país está na pergunta e a resposta é uma das oito bandeiras.\n\n" +
-      "Não há pista a cada erro: ou é aquela, ou não é. A bandeira que você escolher errado sai do tabuleiro e você tem mais uma chance.\n\n" +
+    //
+    // One text for both pick kinds (D-72): everything it says is true of eight
+    // silhouettes as well as of eight flags, and a fourth topic differing by
+    // one noun would be a popup nobody needed.
+    pick:
+      "Aqui o país está na pergunta e a resposta é uma das oito opções — bandeiras num desafio, silhuetas no outro.\n\n" +
+      "Não há pista a cada erro: ou é aquela, ou não é. A opção que você escolher errado sai do tabuleiro e você tem mais uma chance.\n\n" +
       "Mas o tabuleiro não é sorteado do mundo inteiro: QUATRO das outras sete são dos países mais próximos da resposta, e três vêm de qualquer lugar. Se você reconhecer uma vizinha, já sabe em que canto do mapa procurar.\n\n" +
       "São duas tentativas. A primeira vale 6 pontos e a segunda 2 — bem menos que nos outros desafios, porque escolher entre oito é bem mais fácil que escrever o nome de um país entre 196.",
   },
@@ -174,6 +178,8 @@ const PT_BR = {
   // FR-8.7 — the country is the question here, as it is for gdp. What is being
   // asked for is which of the eight is its flag.
   flagPickPrompt: "Qual destas é a bandeira de {country}?",
+  // D-72 — the same sentence with the other noun.
+  shapePickPrompt: "Qual destas é a silhueta de {country}?",
   optionLabel: "opção {n}",
   optionStruck: "opção {n}, já descartada",
   optionRight: "opção {n}, a resposta certa",
@@ -222,6 +228,7 @@ const PT_BR = {
       capital: "Que país tem esta capital?",
       gdp: "Qual o PIB per capita deste país?",
       flagPick: "Qual destas oito é a bandeira do país?",
+      shapePick: "Qual destas oito é a silhueta do país?",
     },
     counter: "Desafio {n} · {points} pts",
     // FR-9.9. The hint only appears once the chips and the running session

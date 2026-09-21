@@ -343,37 +343,52 @@ test("giving up is not throttled: it can only happen once per challenge", () => 
   assert.equal(after.cursor, 1);
 });
 
-// --- FR-8.7 / D-64: multiple-choice options ---------------------------------
+// --- FR-8.7 / D-64, D-72: multiple-choice options ---------------------------
 
 test("FR-8.7: buildCard fills a choice kind's options and leaves every other kind's absent", () => {
-  const card = buildCard({ items: [{ kind: "flagPick", count: 1 }, { kind: "shape", count: 1 }], order: "as_listed" }, NONE);
-  assert.equal(card[0]!.options?.length, 8);
-  assert.ok(card[0]!.options!.includes(card[0]!.subject), "the answer must be on offer");
-  assert.equal(card[1]!.options, undefined, "a typed kind carries no options");
+  const card = buildCard(
+    { items: [{ kind: "flagPick", count: 1 }, { kind: "shapePick", count: 1 }, { kind: "shape", count: 1 }], order: "as_listed" },
+    NONE,
+  );
+  for (const i of [0, 1]) {
+    assert.equal(card[i]!.options?.length, 8);
+    assert.ok(card[i]!.options!.includes(card[i]!.subject), "the answer must be on offer");
+  }
+  assert.equal(card[2]!.options, undefined, "a typed kind carries no options");
 });
 
 test("SEC-1: the answer's position is not predictable — over 4000 cards it is uniform", () => {
-  const counts = new Array(8).fill(0);
-  let rand = 0;
-  // A linear congruential generator rather than Math.random, so a failure here
-  // is reproducible and someone can find out which index was favoured.
-  const lcg = () => ((rand = (rand * 1103515245 + 12345) % 2147483648) / 2147483648);
-  for (let i = 0; i < 4000; i++) {
-    const item = buildCard({ items: [{ kind: "flagPick", count: 1 }], order: "as_listed" }, NONE, lcg)[0]!;
-    counts[item.options!.indexOf(item.subject)]!++;
-  }
-  const expected = 4000 / 8;
-  // 3σ on a binomial with p = 1/8 over 4000 draws is about 63; anything outside
-  // that is a bias, not a run of luck. A kind that forgot to shuffle would land
-  // 4000 in one bucket and 0 in the others.
-  const sigma3 = 3 * Math.sqrt(4000 * (1 / 8) * (7 / 8));
-  for (const [i, n] of counts.entries()) {
-    assert.ok(Math.abs(n - expected) < sigma3, `index ${i} came up ${n} times, expected about ${expected}`);
+  // Both pick kinds, because the shuffle lives in buildCard and the point of it
+  // being there is that a NEW choice kind inherits it without asking (D-72).
+  for (const kind of ["flagPick", "shapePick"] as const) {
+    const counts = new Array(8).fill(0);
+    let rand = 0;
+    // A linear congruential generator rather than Math.random, so a failure
+    // here is reproducible and someone can find out which index was favoured.
+    const lcg = () => ((rand = (rand * 1103515245 + 12345) % 2147483648) / 2147483648);
+    for (let i = 0; i < 4000; i++) {
+      const item = buildCard({ items: [{ kind, count: 1 }], order: "as_listed" }, NONE, lcg)[0]!;
+      counts[item.options!.indexOf(item.subject)]!++;
+    }
+    const expected = 4000 / 8;
+    // 3σ on a binomial with p = 1/8 over 4000 draws is about 63; anything
+    // outside that is a bias, not a run of luck. A kind that forgot to shuffle
+    // would land 4000 in one bucket and 0 in the others.
+    const sigma3 = 3 * Math.sqrt(4000 * (1 / 8) * (7 / 8));
+    for (const [i, n] of counts.entries()) {
+      assert.ok(Math.abs(n - expected) < sigma3, `${kind}: index ${i} came up ${n} times, expected about ${expected}`);
+    }
   }
 });
 
 test("FR-8.7: a distractor is never another challenge's answer on the same card", () => {
-  const spec: CardSpec = { items: [{ kind: "flagPick", count: 2 }, { kind: "flag", count: 1 }, { kind: "shape", count: 1 }], order: "as_listed" };
+  // Both boards and both typed kinds on one card: a `shapePick` board must not
+  // hold the silhouette that answers the `shape` challenge beside it, which is
+  // the D-72 case of the rule D-64 wrote for flags.
+  const spec: CardSpec = {
+    items: [{ kind: "flagPick", count: 2 }, { kind: "shapePick", count: 1 }, { kind: "flag", count: 1 }, { kind: "shape", count: 1 }],
+    order: "as_listed",
+  };
   for (let i = 0; i < 200; i++) {
     const card = buildCard(spec, NONE);
     const subjects = new Set(card.map((it) => it.subject));
