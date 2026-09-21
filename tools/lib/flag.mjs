@@ -187,7 +187,7 @@ function walk(node, ctx, env) {
     if (child.name === "defs" || child.name === "clipPath") continue;
 
     const inherited = { ...ctx.paint, ...paintOf(child) };
-    const transform = join(ctx.transform, transformOf(child));
+    const transform = join(ctx.transform, transformOf(child, env.box));
     const clip = clipOf(child, ctx.clip, transform, env);
 
     if (CONTAINERS.has(child.name)) {
@@ -222,7 +222,7 @@ function resolveUse(node, ctx, env) {
   // Enter the target the same way `walk` enters a child. Georgia's small
   // crosses are half a clipped shape used twice, so skipping the target's own
   // clip-path here drew four blobs instead of four crosses.
-  const transform = join(base, transformOf(target));
+  const transform = join(base, transformOf(target, env.box));
   const entered = { transform, clip: clipOf(target, ctx.clip, transform, env), paint: { ...ctx.paint, ...paintOf(target) } };
 
   env.seen.add(target);
@@ -284,11 +284,48 @@ function styleOf(style) {
   return out;
 }
 
-function transformOf(node) {
+function transformOf(node, box) {
   const t = node.attrs.transform;
-  if (t === undefined) return "";
-  if (!TRANSFORM.test(t)) refuse(`transform="${t}"`);
-  return t.trim();
+  if (t !== undefined && !TRANSFORM.test(t)) refuse(`transform="${t}"`);
+  return join(t === undefined ? "" : t.trim(), node.name === "svg" ? viewportOf(node, box) : "");
+}
+
+/**
+ * A nested `<svg>` is not a `<g>`: it opens its own viewport, and its viewBox
+ * is mapped into it. Walking it as a group ignores that mapping, which is how
+ * Slovenia's coat of arms came out twenty times too big — a blue shield the
+ * size of the whole flag, which is exactly what it looked like from across the
+ * room: a lake. It is the only nested `<svg>` in the set, so the bug had one
+ * victim and no second opinion.
+ *
+ * The default `preserveAspectRatio` ("xMidYMid meet") is a uniform scale of
+ * min(sx, sy) with the slack split evenly, and "none" is the non-uniform one;
+ * the centring term is zero for "none", so one formula does both. Any other
+ * alignment is REFUSED rather than approximated — it would place artwork
+ * subtly wrong, and a dropped flag at least says why in the build log.
+ *
+ * An absent width or height is 100 % of the enclosing viewport, which at the
+ * one nesting level this dataset uses is the flag's own box.
+ *
+ * Deliberately NOT clipped to the viewport, which a browser would do: the wire
+ * format has nowhere to put that clip (`emit` refuses a clip under a
+ * transform), the one flag that nests draws inside its own viewBox, and
+ * anything that overflowed would show up in the preview grid a human reads.
+ */
+function viewportOf(node, box) {
+  const a = node.attrs;
+  const [x, y] = [num(a, "x", box, "x"), num(a, "y", box, "y")];
+  const [w, h] = [num(a, "width", box, "x", box[2]), num(a, "height", box, "y", box[3])];
+  if (a.viewBox === undefined) return x || y ? `translate(${x} ${y})` : "";
+
+  const vb = a.viewBox.trim().split(/[\s,]+/).map(Number);
+  if (vb.length !== 4 || vb.some((n) => !Number.isFinite(n)) || vb[2] <= 0 || vb[3] <= 0) refuse(`nested viewBox="${a.viewBox}"`);
+  const par = (a.preserveAspectRatio ?? "xMidYMid meet").trim();
+  if (par !== "none" && !/^xMidYMid(\s+meet)?$/.test(par)) refuse(`preserveAspectRatio="${par}"`);
+
+  const [sx, sy] = par === "none" ? [w / vb[2], h / vb[3]] : [Math.min(w / vb[2], h / vb[3]), Math.min(w / vb[2], h / vb[3])];
+  const r = (n) => +n.toFixed(6);
+  return `translate(${r(x + (w - vb[2] * sx) / 2 - vb[0] * sx)} ${r(y + (h - vb[3] * sy) / 2 - vb[1] * sy)}) scale(${r(sx)} ${r(sy)})`;
 }
 
 /**

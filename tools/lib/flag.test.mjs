@@ -127,6 +127,45 @@ test("a file with nothing to draw is refused rather than served blank", () => {
 });
 
 // ---------------------------------------------------------------------------
+// A nested <svg> is a viewport, not a group
+// ---------------------------------------------------------------------------
+
+test("a nested <svg> maps its viewBox into its own width and height", () => {
+  // Slovenia's shape: a coat of arms drawn in its own 240-wide space and
+  // placed on the flag by a nested <svg>. Walked as a <g> it came out twenty
+  // times too big and covered the whole flag.
+  const { paths } = buildFlag(
+    svg(`<svg x="1" y="1" width="2" height="1" viewBox="-120 -60 240 120"><path d="M-120 -60h240v120z" fill="#005da4"/></svg>`),
+  );
+  assert.deepEqual(paths, [{ fill: "#005da4", d: "M-120 -60h240v120z", transform: "translate(2 1.5) scale(0.008333 0.008333)" }]);
+
+  // What that means on the page: the viewBox's top-left corner lands on the
+  // viewport's, at (1, 1), and its bottom-right on (3, 2) — a 2 x 1 box where
+  // the artwork was asked to go, not a 240 x 120 one over the whole flag.
+  const [, tx, ty, s] = /translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)/.exec(paths[0].transform).map(Number);
+  const at = (x, y) => [+(tx + x * s).toFixed(2), +(ty + y * s).toFixed(2)];
+  assert.deepEqual(at(-120, -60), [1, 1]);
+  assert.deepEqual(at(120, 60), [3, 2]);
+});
+
+test("preserveAspectRatio: the default letterboxes, none stretches, anything else is refused", () => {
+  const nested = (attrs) => buildFlag(svg(`<svg width="6" height="3" viewBox="0 0 10 10" ${attrs}><path d="M0 0h10v10z"/></svg>`)).paths[0].transform;
+  // meet (the default): one scale, min(6/10, 3/10), and the slack split evenly.
+  assert.equal(nested(""), "translate(1.5 0) scale(0.3 0.3)");
+  assert.equal(nested(`preserveAspectRatio="xMidYMid meet"`), "translate(1.5 0) scale(0.3 0.3)");
+  // none: fill the viewport, aspect ratio be damned.
+  assert.equal(nested(`preserveAspectRatio="none"`), "translate(0 0) scale(0.6 0.3)");
+  // An alignment this does not implement would place artwork subtly wrong, so
+  // the flag is dropped with a reason instead.
+  refuses(`<svg width="6" height="3" viewBox="0 0 10 10" preserveAspectRatio="xMinYMax slice"><path d="M0 0h1"/></svg>`);
+});
+
+test("a nested <svg> without a viewBox is just its own origin", () => {
+  const [p] = buildFlag(svg(`<svg x="2" y="1"><path d="M0 0h1v1z" fill="#fff"/></svg>`)).paths;
+  assert.equal(p.transform, "translate(2 1)");
+});
+
+// ---------------------------------------------------------------------------
 // Rounding and parsing
 // ---------------------------------------------------------------------------
 
