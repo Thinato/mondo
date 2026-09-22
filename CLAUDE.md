@@ -72,6 +72,17 @@ backend.
   silhouettes and do not put a drawing in the scoring path. **Tuvalu and the Marshall Islands
   have no silhouette at all** and are absent from `shapes.json`; they keep their other four
   kinds, and the list lives in `tools/shape-overrides.json` with a reason each.
+- **Only a ring the artwork traced is land; a ring it drew is furniture** (D-74). The files in
+  `tools/country-shapes/` are map illustrations, so besides the coastlines they carry callout
+  brackets, leader lines, arrowheads and inset frames — and D-8 picks the largest ring by *area*,
+  which for an island nation is the furniture. Tonga's silhouette was the rounded bar drawn above
+  its map, Kiribati's a vertical rule, Micronesia's a bracket and an arrowhead. `buildArtwork`
+  drops any ring under 20 vertices before `selectRings` runs, because what tells land from chrome
+  is **how the ring was made, not how big it is**: a traced coastline has a vertex every few units
+  (the thinnest selectable ring in the set has 34) and every piece of furniture in the set has 3 to
+  13. Do not turn this into an area, aspect-ratio or bounding-box-fill rule — a 2-unit atoll must
+  survive on its 39 vertices and a 600-unit bar must die on its 5. The artwork set is frozen, so the
+  threshold was validated against all 197 files, not sampled: 191 shapes byte-identical, 3 fixed.
 - There are **no shape keys and no public shape files**. Shapes and centroids exist only in
   `backend/functions/src/data/`; `getRound` inlines one path per round (D-13). If a change puts
   a shape or centroid into `site/`, stop.

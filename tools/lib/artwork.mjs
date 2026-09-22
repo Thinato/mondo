@@ -187,12 +187,38 @@ export function fitRings(rings, { size = SIZE, padding = PADDING } = {}) {
 }
 
 /**
+ * A ring this sparse was drawn, not traced (D-74).
+ *
+ * These files are map ILLUSTRATIONS, not coastline data: besides the land they
+ * carry callout brackets, leader lines, arrowheads and inset frames. `selectRings`
+ * implements D-8 — largest ring by area — and has no way to know that some of
+ * the rings are not land. For a country with a mainland the furniture loses and
+ * nobody ever noticed; for an island nation it WINS, and the silhouette becomes
+ * a piece of the page's own chrome. Tonga was the 470x4 rounded bar above its
+ * map, Kiribati a 600-unit vertical rule, Micronesia a callout bracket and its
+ * arrowhead.
+ *
+ * What separates them is not size but how they were made. A traced coastline
+ * carries a vertex every few units, so the thinnest ring in the whole set that
+ * D-8 could ever select still has 34 of them; every piece of furniture in the
+ * set has between 3 and 13. The threshold sits in that gap with about twice the
+ * margin either way, and it is deliberately NOT a size rule — a 2-unit atoll
+ * survives on 39 vertices and a 600-unit bar is dropped on 5.
+ *
+ * This lives here and not in `selectRings` because D-8 is about which landmasses
+ * to keep, and a bracket was never a candidate.
+ */
+const MIN_COASTLINE_POINTS = 20;
+
+/**
  * The whole per-country pipeline. `maxBytes` is enforced the way buildShape
  * enforces it — by escalating the tolerance for this one country alone, so a
  * fjord-heavy coastline does not force a coarser Italy.
  */
 export function buildArtwork(svg, { tolerance = 1, maxBytes = 8192, step = 0.25, minShare = null, size = SIZE, padding = PADDING } = {}) {
-  const rings = pathData(svg).flatMap((d) => toRings(d));
+  const rings = pathData(svg)
+    .flatMap((d) => toRings(d))
+    .filter((r) => r.length >= MIN_COASTLINE_POINTS);
   const selected = selectRings(rings, { minShare });
   const fitted = fitRings(selected.rings, { size, padding });
 
