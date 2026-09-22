@@ -13,7 +13,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { countryByCode, gdpFor, REGIONS } from "../src/lib/countries";
+import { COUNTRIES, countryByCode, gdpFor, REGIONS } from "../src/lib/countries";
 import { MAX_ITEM_POINTS, KINDS, KIND_IDS, type KindId } from "../src/lib/kinds";
 import {
   applyPracticeGuess, endSession, giveUpPractice, newSession, practiceView, serveNext,
@@ -194,6 +194,27 @@ test("a finished challenge sends the answer and no prompt", () => {
   assert.equal(v.item?.answer?.code, s.subject);
   assert.equal(v.item?.points, MAX_ITEM_POINTS);
   assert.equal(v.item?.guesses.length, 1);
+});
+
+test("D-76: a board names all eight when it closes, and none of them before", () => {
+  for (const kind of ["flagPick", "shapePick"] as const) {
+    const open = newSession(UID, kind, [], T0);
+    const names = open.options!.map((c) => COUNTRIES.get(c)!.names["pt-BR"]);
+    const subject = COUNTRIES.get(open.subject)!.names["pt-BR"];
+
+    // Open: the prompt names the country it ASKS about and nothing else. The
+    // subject is skipped because the prompt says it out loud — what has to
+    // stay secret is which tile it is.
+    const before = JSON.stringify(practiceView(open, T0));
+    for (const name of names.filter((n) => n !== subject)) {
+      assert.ok(!before.includes(name), `${kind}: "${name}" was on the wire while the board was open`);
+    }
+
+    // Closed: every tile, in board order.
+    const answer = practiceView(solve(open, 1000), at(1000)).item!.answer!;
+    assert.deepEqual(answer.names, names, `${kind}: the closed board names all eight in order`);
+    assert.equal(answer.names![answer.pick!], subject);
+  }
 });
 
 test("an abandoned challenge takes its answer with it", () => {

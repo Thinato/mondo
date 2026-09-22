@@ -194,8 +194,13 @@ backend.
   no name, no id — so a guess is an index; **`buildCard` does the shuffling**, never the kind,
   so a new choice kind cannot ship with the answer at index 0 by forgetting; and the options are
   **stored on the card**, never derived from the subject, or a pool change reshuffles a challenge
-  someone has open. A wrong pick is never named and distractors exclude the card's other
-  subjects — naming one would teach a flag that answers the `flag` challenge beside it. Do not
+  someone has open. A wrong pick is never named **while the challenge is open**; once it closes
+  the reveal names all eight (D-76), which is the point of a board — you came to learn eight
+  flags, not one. That leaves **distractors excluding the card's other subjects as the only thing**
+  keeping a board from teaching the flag that answers the `flag` challenge beside it. It used to be
+  the second of two locks and now it is the lock: `card.test.ts` pins it per card,
+  `kinds.test.ts` pins `buildOptions` honouring its exclusion set, and
+  `tools/lib/schedule.test.mjs` pins it across a generated year of daily boards. Do not
   choose distractors by anything readable **off the artwork**: weighting by payload size would
   make a busy flag rarer as a distractor than as an answer, and "pick the busiest" would beat the
   game knowing nothing. Geography is not in that class and is the point — **four of the eight are

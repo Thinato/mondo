@@ -442,6 +442,26 @@ test("D-64: a finished pick reveals which option was right; an open one reveals 
   assert.deepEqual(view.items[0]!.guesses?.map((g) => g.kind), ["choice"]);
 });
 
+test("D-76: a tournament board names all eight when it closes, and none before", () => {
+  const card = buildCard({ items: [{ kind: "shapePick", count: 1 }], order: "as_listed" }, NONE);
+  const names = card[0]!.options!.map((c) => COUNTRIES.get(c)!.names["pt-BR"]);
+  const subject = COUNTRIES.get(card[0]!.subject)!.names["pt-BR"];
+  const open = newCardPlay("u1", "t1", "r1", card, T0);
+
+  // The prompt names the country it asks about; the other seven stay off the
+  // wire until the challenge is over. Three views, three `over ?` gates —
+  // round.ts, practice.ts and this one — and each is tested where it lives.
+  const before = JSON.stringify(cardView(open, card, T0));
+  for (const name of names.filter((n) => n !== subject)) {
+    assert.ok(!before.includes(name), `"${name}" was on the wire while the board was open`);
+  }
+
+  const done: CardPlay = { ...open, ...giveUpCard(open, card, at(1000)) };
+  const answer = cardView(done, card, at(1000)).items[0]!.answer!;
+  assert.deepEqual(answer.names, names, "board order, even when the player gave up");
+  assert.equal(answer.names![answer.pick!], subject);
+});
+
 test("FR-2.13 on a pick: giving up closes it at zero with no guesses spent", () => {
   const card = buildCard({ items: [{ kind: "flagPick", count: 1 }], order: "as_listed" }, NONE);
   const open = newCardPlay("u1", "t1", "r1", card, T0);

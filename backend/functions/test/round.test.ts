@@ -201,6 +201,53 @@ test("SEC-1: a solved challenge reveals its own answer and still says nothing ab
   assert.ok(!JSON.stringify(view).includes("Brasil"), "the flag's answer is not out yet");
 });
 
+// --- D-76: the board's names are the reveal's, and only the reveal's ---------
+
+/** A day whose first challenge is a board. The eight exclude `IT`, which is the
+ *  other challenge's subject, exactly as FR-8.7 requires of a real card — and
+ *  they are all in the FLAG pool, which is why the obvious neighbours Peru,
+ *  Paraguay, Bolivia and Ecuador are absent: their arms spell their own name,
+ *  so SEC-1 drops them (tools/flags.json). */
+const PICK_CARD: CardItem[] = [
+  { kind: "flagPick", subject: "BR", options: ["AR", "BR", "CL", "UY", "CO", "VE", "GY", "SR"] },
+  { kind: "capital", subject: "IT" },
+];
+const pickPuzzle: Puzzle = { ...puzzle, items: PICK_CARD };
+/** Every option's pt-BR name EXCEPT the subject's: the subject is the question
+ *  and the prompt says it out loud. What must stay in is which TILE it is. */
+const otherNames = PICK_CARD[0]!.options!
+  .filter((c) => c !== "BR")
+  .map((c) => COUNTRIES.get(c)!.names["pt-BR"]);
+
+test("D-76: while the board is open it names nothing but the country it asks about", () => {
+  const a = newAttempt("u1", pickPuzzle.puzzleId, PICK_CARD, T0);
+  const view = roundView(applyGuess(a, PICK_CARD, 0, at(1000)), pickPuzzle, at(1000));
+  assert.equal(view.items[0]!.answer, null, "an open board revealed its answer");
+  const json = JSON.stringify(view);
+  assert.ok(json.includes("Brasil"), "the prompt asks about Brazil out loud");
+  for (const name of otherNames) {
+    assert.ok(!json.includes(name), `"${name}" was on the wire while the board was open`);
+  }
+  // Not even the one the player just struck: a spent pick is an index (D-64).
+  assert.equal(view.guesses[0]!.kind, "choice");
+  assert.ok(!json.includes("Argentina"));
+});
+
+test("D-76: once the board closes it names all eight, in board order", () => {
+  const solved = applyGuess(newAttempt("u1", pickPuzzle.puzzleId, PICK_CARD, T0), PICK_CARD, 1, at(1000));
+  const answer = roundView(solved, pickPuzzle, at(1000)).items[0]!.answer!;
+  assert.equal(answer.pick, 1);
+  assert.deepEqual(answer.names, PICK_CARD[0]!.options!.map((c) => COUNTRIES.get(c)!.names["pt-BR"]));
+  assert.equal(answer.names![answer.pick!], "Brasil");
+  // And the challenge now open is still silent about ITS answer. "Roma" is on
+  // the wire and must be: the capital is that challenge's question, not its
+  // answer. "Itália" is the answer, and it is not.
+  const view = roundView(solved, pickPuzzle, at(1000));
+  assert.equal(view.items[1]!.answer, null);
+  assert.ok(JSON.stringify(view).includes("Roma"), "the open capital challenge asks its question");
+  assert.ok(!JSON.stringify(view).includes("Itália"), "and does not answer it");
+});
+
 // D-55: the reveal screen shows the guesses of the challenge just played,
 // including the one that ended it — which is precisely the one the top-level
 // `guesses` has moved past, and which the client never saw graded.

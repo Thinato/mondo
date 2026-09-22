@@ -67,7 +67,8 @@ const PT_BR = {
       "Aqui o país está na pergunta e a resposta é uma das oito opções — bandeiras num desafio, silhuetas no outro.\n\n" +
       "Não há pista a cada erro: ou é aquela, ou não é. A opção que você escolher errado sai do tabuleiro e você tem mais uma chance.\n\n" +
       "Mas o tabuleiro não é sorteado do mundo inteiro: QUATRO das outras sete são dos países mais próximos da resposta, e três vêm de qualquer lugar. Se você reconhecer uma vizinha, já sabe em que canto do mapa procurar.\n\n" +
-      "São duas tentativas. A primeira vale 6 pontos e a segunda 2 — bem menos que nos outros desafios, porque escolher entre oito é bem mais fácil que escrever o nome de um país entre 196.",
+      "São duas tentativas. A primeira vale 6 pontos e a segunda 2 — bem menos que nos outros desafios, porque escolher entre oito é bem mais fácil que escrever o nome de um país entre 196.\n\n" +
+      "Quando o desafio acaba, as oito aparecem com o nome do país — não só a certa. A ideia é você sair daqui tendo aprendido oito, não uma.",
   },
   // FR-2.13 / D-61 — zero points, and the answer.
   confirmGiveUp: "Desistir deste desafio? Ele fica com 0 pontos e você vê a resposta.",
@@ -183,6 +184,11 @@ const PT_BR = {
   optionLabel: "opção {n}",
   optionStruck: "opção {n}, já descartada",
   optionRight: "opção {n}, a resposta certa",
+  // Once the challenge is over the board names every option (D-76), and the
+  // label says what the caption says: a screen reader gets the same lesson.
+  optionNamed: "opção {n}: {country}",
+  optionStruckNamed: "opção {n}, já descartada: {country}",
+  optionRightNamed: "opção {n}, a resposta certa: {country}",
   needNumber: "Digite um número.",
   higher: "é mais",
   lower: "é menos",

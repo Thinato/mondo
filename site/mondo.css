@@ -223,6 +223,18 @@ button:disabled { opacity: .5; cursor: default; }
 .option.right { outline: 2px solid var(--ok); opacity: 1; }
 .option:disabled:not(.struck):not(.right) { cursor: default; opacity: .55; }
 
+/* The names under every option, once the challenge is over (D-76). The caption
+   is a sibling of the button rather than part of it, so `.option`'s aspect-ratio
+   still measures the artwork alone and the tiles do not shrink to make room.
+   Long names WRAP rather than truncate: this grid exists to teach, and half of
+   "República Democrática do Congo" teaches the wrong string. */
+.options li { display: grid; gap: .25rem; align-content: start; }
+.option-name {
+  margin: 0; font-size: .75rem; line-height: 1.2; text-align: center;
+  color: var(--muted); overflow-wrap: anywhere; text-wrap: balance;
+}
+.option-name.right { color: var(--ok); font-weight: 600; }
+
 /* Guess rows: name · distance · arrow · percent. Colour is never alone (FR-6.7). */
 .guesses { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .4rem; }
 .guess {

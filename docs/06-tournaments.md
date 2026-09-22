@@ -320,8 +320,8 @@ what a *day* has that a round does not: the schedule, the streak, the share grid
 | `capital` | a capital city name | country | 3 | km + compass from the guess (reuses geo) | `world-countries.capital` | **free** — already a dependency |
 | `flag` | one inlined flag, as filled paths | country | 3 | km + compass | `flags.json`, built from a vendored public-domain SVG set | **exists** (§5.3) |
 | `gdp` | a country name (public) | a number | 3 | higher / lower + how close | `gdp.json`, GDP per capita PPP for one pinned year | **exists** (§5.4) |
-| `flagPick` | a country name (public) + **eight flags, anonymous** | one of the eight | 2 | none — right or struck out | `flags.json`, the same set `flag` uses | **exists** (§5.5) |
-| `shapePick` | a country name (public) + **eight silhouettes, anonymous** | one of the eight | 2 | none — right or struck out | `shapes.json`, the same set `shape` uses | **exists** (§5.5), and in the daily since D-75 |
+| `flagPick` | a country name (public) + **eight flags, anonymous** | one of the eight | 2 | none while open; the reveal names all eight (D-76) | `flags.json`, the same set `flag` uses | **exists** (§5.5) |
+| `shapePick` | a country name (public) + **eight silhouettes, anonymous** | one of the eight | 2 | none while open; the reveal names all eight (D-76) | `shapes.json`, the same set `shape` uses | **exists** (§5.5), and in the daily since D-75 |
 
 **Not every country can be asked as a `capital`.** Fifteen name themselves in their own capital
 — Brasília/Brasil, Cidade do México/México, Singapura/Singapura, Bissau/Guiné-Bissau,

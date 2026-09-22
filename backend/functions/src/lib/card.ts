@@ -17,7 +17,7 @@ import type { Timestamp } from "firebase-admin/firestore";
 import { GUESS_MIN_INTERVAL_MS, SUSPICIOUS_SOLVE_MS } from "./config";
 import type { Country } from "./countries";
 import { mondoError } from "./errors";
-import { kindById, scoreItem, type Challenge, type KindId, type Prompt } from "./kinds";
+import { kindById, scoreItem, type Challenge, type KindId, type Prompt, type Reveal } from "./kinds";
 import { guessView, type GuessView, type StoredGuess } from "./round";
 
 export const MAX_CARD_ITEMS = 10;
@@ -360,8 +360,12 @@ export interface CardItemView {
   guessCount: number;
   /** Both only once the item itself is over. */
   points: number | null;
-  /** `pick` only for a choice kind: which option was the right one (FR-8.7). */
-  answer: { code: string; name: string; pick?: number } | null;
+  /**
+   * `pick` and `names` only for a choice kind: which option was the right one,
+   * and what every option was (FR-8.7, D-76). Null until the item is over, and
+   * that `over ?` below is the only thing holding either of them back.
+   */
+  answer: Reveal | null;
   /**
    * Once the item is over, the guesses that got there — including the one that
    * finished it, which is exactly the one `guesses` above has already moved

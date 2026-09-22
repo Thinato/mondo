@@ -194,6 +194,58 @@ test("D-66: the generator fills a choice kind's options, and only that kind's", 
   }
 });
 
+test("D-76: over a whole year, no day's board can name another of its challenges", () => {
+  // The lock this test guards used to be one of two. D-64 also refused to name
+  // a wrong pick at all, and between them a board could not teach artwork that
+  // answered the `flag` or `shape` challenge beside it. D-76 names every option
+  // once the challenge closes, and spends that second lock — so THIS is now the
+  // only thing standing between a named board and the answer next to it.
+  //
+  // The chain has three links and each is pinned where it lives: the generator
+  // hands `buildOptions` every subject of the day (here), `buildOptions` honours
+  // its exclusion set (backend kinds.test.ts), and `buildCard` composes the two
+  // for practice and tournaments (backend card.test.ts). This link is the daily's
+  // and it is the one with a year of days behind it.
+  for (const seed of [1, 7, 20260922]) {
+    const calls = [];
+    const buildOptions = (kind, subject, exclude) => {
+      // Like the real one, which is `KINDS[kind]?.buildOptions?.(...)`: a kind
+      // that is not a board has no options and must not grow an empty array.
+      if (kind !== "flagPick" && kind !== "shapePick") return undefined;
+      // The returned board carries its own call index, because the same
+      // (kind, subject) pair recurs every 30 days or so and matching on it
+      // silently compares one day's board against another day's subjects —
+      // which is a test that passes for the wrong reason.
+      calls.push({ kind, subject, exclude: new Set(exclude) });
+      return [subject, `CALL${calls.length - 1}`, ...Array.from({ length: 6 }, (_, i) => `X${i}`)];
+    };
+    const days = generate({ pools, seed, start: "2026-10-01", days: 365, buildOptions });
+    assert.equal(days.length, 365);
+
+    let boards = 0;
+    for (const day of days) {
+      const subjects = day.items.map((i) => i.subject);
+      for (const item of day.items.filter((i) => i.options)) {
+        boards++;
+        const call = calls[Number(item.options[1].slice(4))];
+        assert.equal(call.kind, item.kind);
+        assert.equal(call.subject, item.subject);
+        for (const other of subjects) {
+          if (other === item.subject) continue;
+          assert.ok(
+            call.exclude.has(other),
+            `${day.puzzleId}: ${item.kind}'s board could have offered ${other}, which answers another challenge that day`,
+          );
+        }
+      }
+    }
+    // Two boards a day since D-75, so a year is 730. If this ever reads 0 the
+    // test is passing by finding nothing, which is the way a guard like this
+    // dies quietly.
+    assert.equal(boards, 365 * 2, `seed ${seed}: expected two boards a day`);
+  }
+});
+
 test("D-67: a kind only has to outlast its OWN window, so there is no ceiling", () => {
   // What D-66 recorded as impossible — a sixth kind — is now free, because a
   // day no longer locks its countries against the other kinds. Simulated with

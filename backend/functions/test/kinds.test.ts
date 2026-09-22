@@ -455,6 +455,36 @@ test("SEC-1: no option in the whole pool ever carries a country's name or code",
   }
 });
 
+test("D-76: the reveal names every option, in the board's own order", () => {
+  for (const kind of PICKS) {
+    const rand = mulberry(29);
+    for (const c of KINDS[kind].pool()) {
+      const item = pickItem(kind, c.code, new Set(), rand);
+      const r = KINDS[kind].reveal(item);
+      assert.equal(r.names?.length, PICK_OPTIONS, `${kind} ${c.code}: one name per option`);
+      // Board order, not pool order and not sorted: the name under tile i has
+      // to be the country whose artwork is on tile i, or the reveal teaches the
+      // wrong flag to everyone who reads it.
+      item.options!.forEach((code, i) => {
+        assert.equal(r.names![i], countryByCode(code)!.names["pt-BR"], `${kind} ${c.code}: name ${i} is off by position`);
+      });
+      assert.equal(r.names![r.pick!], r.name, `${kind} ${c.code}: the named answer is the one at pick`);
+      assert.equal(item.options![r.pick!], item.subject);
+    }
+  }
+});
+
+test("D-76: names belong to a pick kind and nothing else", () => {
+  // `Reveal.names` is the option-to-country mapping. A kind with no options has
+  // no mapping to leak, and must not grow a field that implies it has one.
+  for (const id of KIND_IDS) {
+    if ((PICKS as readonly KindId[]).includes(id)) continue;
+    const r = KINDS[id].reveal({ kind: id, subject: "BR" });
+    assert.equal(r.names, undefined, `${id} has no options and must have no names`);
+    assert.equal(r.pick, undefined, `${id} has no options and must have no pick`);
+  }
+});
+
 test("FR-8.7: a pick is graded by index, and only an index in range is a guess", () => {
   for (const kind of PICKS) {
     const item = pickItem(kind, "BR");
