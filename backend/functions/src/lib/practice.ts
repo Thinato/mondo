@@ -20,7 +20,7 @@ import type { Timestamp } from "firebase-admin/firestore";
 import { applyCardGuess, buildCard, giveUpCard, newCardCore, type CardCore, type CardItem, type CardPlayItem } from "./card";
 import { mondoError } from "./errors";
 import { REGIONS, type Region } from "./countries";
-import { kindById, MAX_ITEM_POINTS, type KindId, type Prompt } from "./kinds";
+import { kindById, MAX_ITEM_POINTS, type KindId, type Prompt, type Reveal } from "./kinds";
 import { guessView, type GuessView } from "./round";
 
 /** D-60 — how far ahead of today the daily schedule is withheld from practice. */
@@ -249,8 +249,12 @@ export interface PracticeItemView {
   guesses: GuessView[];
   /** Both only once the challenge is over (SEC-1). */
   points: number | null;
-  /** `pick` only for a choice kind: which option was the right one (FR-8.7). */
-  answer: { code: string; name: string; pick?: number } | null;
+  /**
+   * `pick` and `names` only for a choice kind: which option was the right one,
+   * and what every option was (FR-8.7, D-76). Null until the item is over, and
+   * that `over ?` below is the only thing holding either of them back.
+   */
+  answer: Reveal | null;
 }
 
 export interface PracticeView {

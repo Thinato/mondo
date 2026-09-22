@@ -143,12 +143,19 @@ export const isPick = (kind) => kind === "flagPick" || kind === "shapePick";
  */
 export function renderOptions(list, options, { guesses = [], answer = null, onPick = null } = {}) {
   const spent = new Set(guesses.filter((g) => g.kind === "choice").map((g) => g.pick));
+  // Every option's name, but only once the challenge is over: the server sends
+  // them on the reveal and nowhere else (D-76). While it is open this is
+  // undefined and the board renders exactly as it always did.
+  const names = answer?.names ?? null;
   list.replaceChildren(...options.map((option, i) => {
     const li = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
-    // The label is the position, never the country: a screen reader must not
-    // be told what the eyes are being asked to work out.
+    // The label is the position, never the country — WHILE THE CHALLENGE IS
+    // OPEN: a screen reader must not be told what the eyes are being asked to
+    // work out. Once it is over the country is the whole point, and the label
+    // says it, so the reveal teaches a screen reader what it teaches everyone
+    // else (D-76).
     button.setAttribute("aria-label", t("optionLabel", { n: i + 1 }));
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("role", "presentation");
@@ -171,12 +178,25 @@ export function renderOptions(list, options, { guesses = [], answer = null, onPi
     const struck = spent.has(i) && !(answer && answer.pick === i);
     const right = answer !== null && answer.pick === i;
     button.className = `option${struck ? " struck" : ""}${right ? " right" : ""}`;
-    if (struck) button.setAttribute("aria-label", t("optionStruck", { n: i + 1 }));
-    if (right) button.setAttribute("aria-label", t("optionRight", { n: i + 1 }));
+    // Three states x named or not. The plain, un-named, un-struck case keeps the
+    // `optionLabel` set above, which is the one a player sees while choosing.
+    const country = names?.[i];
+    const state = struck ? "Struck" : right ? "Right" : "";
+    if (country !== undefined) button.setAttribute("aria-label", t(`option${state}Named`, { n: i + 1, country }));
+    else if (state !== "") button.setAttribute("aria-label", t(`option${state}`, { n: i + 1 }));
     // A struck option is out, and once the answer is up the whole grid is.
     button.disabled = struck || answer !== null || onPick === null;
     if (!button.disabled) button.addEventListener("click", () => onPick(i));
     li.appendChild(button);
+    // The caption is a SIBLING of the button, never inside it: `.option` is
+    // `aspect-ratio: 3 / 2` and text within it would shrink the artwork, which
+    // is the thing being learned.
+    if (country !== undefined) {
+      const name = document.createElement("p");
+      name.className = `option-name${right ? " right" : ""}`;
+      name.textContent = country;
+      li.appendChild(name);
+    }
     return li;
   }));
 }

@@ -246,9 +246,15 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
     be uniformly distributed. **The position is the answer** (SEC-1): it follows that nothing
     identifying an option — a country code, a name in any locale, an id — may appear in the
     prompt, in the DOM, or in a guess. A guess is an **index**.
-  - A wrong pick MUST NOT be named, in the response or on screen. Naming it teaches the player
-    that flag — or that silhouette — and artwork taught here can answer the `flag` or `shape`
-    challenge on the same card.
+  - *(narrowed 2026-09-22, D-76)* A wrong pick MUST NOT be named, in the response or on screen,
+    **while the challenge is open**. Once it is over the reveal MUST name **every** option, in the
+    board's order, so that a board teaches all eight rather than one — which is the reason to put
+    eight things in front of someone. The mapping is the answer only for as long as the position
+    is: the prompt named the country from the start, and what was secret was which tile.
+  - It follows that the justification the rule above used to give — artwork taught here can answer
+    the `flag` or `shape` challenge on the same card — now rests **entirely** on the distractor
+    rule below. That was always the lock doing the work; it is now the only one, and it is pinned
+    three times: per card, per `buildOptions` call, and across a generated year of daily boards.
   - Distractors MUST exclude every other subject on the same card, and SHOULD exclude the
     caller's own exclusion window (FR-5.2, FR-9.5) where the pool allows it.
   - Distractors MUST NOT be chosen by any property a player can read **off the artwork itself** —

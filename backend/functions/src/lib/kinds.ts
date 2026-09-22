@@ -130,7 +130,37 @@ export interface Kind {
    * country name alone would be no reveal at all there: the prompt already
    * named it, and what the player does not know is which flag was its.
    */
-  reveal(item: Challenge): { code: string; name: string; pick?: number };
+  reveal(item: Challenge): Reveal;
+}
+
+/**
+ * What a player is told once a challenge is over — and the ONLY shape in which
+ * the answer is ever allowed to leave the server (SEC-1). Every caller gates it
+ * on the item being finished: `round.ts`, `card.ts` and `practice.ts` all write
+ * `answer: over ? kind.reveal(...) : null`, which is why this type is declared
+ * here, next to the kinds, and imported by the three views rather than restated
+ * in each of them. It was restated in each of them, and a field added here had
+ * to be added in four places.
+ */
+export interface Reveal {
+  code: string;
+  name: string;
+  /** A choice kind only: which option was the right one (FR-8.7). */
+  pick?: number;
+  /**
+   * A choice kind only (D-76): every option's name, in the board's own order,
+   * so the reveal can teach all eight instead of one.
+   *
+   * This is the option-to-country mapping, which is the thing the whole kind is
+   * built to withhold — so read where it may go with care. It leaves ONLY
+   * through `reveal`, and by then the position it protects has stopped meaning
+   * anything: the prompt named the country all along, and what was secret was
+   * which tile, for the length of one challenge.
+   *
+   * It MUST NOT be added to `prompt`. `kinds.test.ts` pins an option object to
+   * exactly one key — its artwork — and that test is what keeps this honest.
+   */
+  names?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -412,10 +442,7 @@ const flagPick: Kind = {
   }),
   grade: gradeChoiceGuess,
   wasCorrect: (item, guess) => isChoiceGuess(guess) && mustOptions(item)[guess.pick] === item.subject,
-  // The name is for the finished list, which shows one row per challenge; the
-  // index is what the reveal actually needs, because the prompt already named
-  // the country and "Era Brasil" answers a question nobody asked.
-  reveal: (item) => ({ ...nameOf(item.subject), pick: mustOptions(item).indexOf(item.subject) }),
+  reveal: revealPick,
 };
 
 /**
@@ -453,7 +480,7 @@ const shapePick: Kind = {
   }),
   grade: gradeChoiceGuess,
   wasCorrect: (item, guess) => isChoiceGuess(guess) && mustOptions(item)[guess.pick] === item.subject,
-  reveal: (item) => ({ ...nameOf(item.subject), pick: mustOptions(item).indexOf(item.subject) }),
+  reveal: revealPick,
 };
 
 export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag, gdp, flagPick, shapePick };
@@ -477,6 +504,32 @@ function requirePick(raw: unknown, count: number): number {
   if (typeof raw !== "number" || !Number.isInteger(raw)) throw mondoError("invalid-argument", "A guess must be one of the options.");
   if (raw < 0 || raw >= count) throw mondoError("invalid-argument", "That is not one of the options.");
   return raw;
+}
+
+/**
+ * The reveal both pick kinds use (D-72 — one implementation, not two).
+ *
+ * Three things, and the third is new. The NAME is for the finished list, which
+ * shows one row per challenge. The PICK is what the board actually needs,
+ * because the prompt already named the country and "Era Brasil" answers a
+ * question nobody asked. And NAMES is every option, in board order (D-76), so
+ * that finishing the challenge teaches eight flags rather than one — which is
+ * the whole point of a board a player stares at for two guesses.
+ *
+ * Naming the losers used to be forbidden outright, and the rule that forbade it
+ * gave a reason: artwork taught here can answer the `flag` or `shape` challenge
+ * sitting beside it on the same card. That reason is `buildOptions`'s job —
+ * FR-8.7 makes a distractor exclude every other subject on the card — so what
+ * is left is a mapping that only matters while the challenge is open, and this
+ * function is only ever called once it is closed.
+ */
+function revealPick(item: Challenge): Reveal {
+  const options = mustOptions(item);
+  return {
+    ...nameOf(item.subject),
+    pick: options.indexOf(item.subject),
+    names: options.map((code) => nameOf(code).name),
+  };
 }
 
 /**

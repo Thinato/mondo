@@ -22,7 +22,7 @@ import { applyCardGuess, giveUpCard, newCardCore, cardIntervalsMs, totalGuesses,
 import { countryByCode, type Country } from "./countries";
 import { mondoError } from "./errors";
 import { compass8, type Compass } from "./geo";
-import { kindById, type KindId, type Prompt } from "./kinds";
+import { kindById, type KindId, type Prompt, type Reveal } from "./kinds";
 import { shareGrid, type ItemForShare } from "./scoring";
 
 // ---------------------------------------------------------------------------
@@ -318,11 +318,18 @@ export interface NumberGuessView {
 
 /**
  * A pick, for a kind whose options the client is already holding (FR-8.7). It
- * carries the index and nothing else: the client strikes that option out, and
- * is never told which country it was. Naming it would teach the player a flag —
- * and if that flag is the subject of the `flag` challenge beside it, teaching
- * them is handing them the answer. `buildOptions` keeps the two apart as well,
- * so this is the second of two locks on the same door.
+ * carries the index and nothing else: the client strikes that option out and is
+ * not told which country it was — **while the challenge is open**. Once it
+ * closes, `Reveal.names` names all eight (D-76), because by then the mapping is
+ * the lesson rather than the answer.
+ *
+ * This used to be the second of two locks on the same door, and D-76 spent it.
+ * The remaining lock is the one that was always doing the work: `buildOptions`
+ * makes a distractor exclude every other subject on the card, so artwork taught
+ * here cannot answer the `flag` or `shape` challenge beside it. That lock is
+ * now load-bearing ALONE — `card.test.ts` pins it per card and
+ * `tools/lib/schedule.test.mjs` pins it across a generated year. Do not weaken
+ * either without putting this one back.
  */
 export interface ChoiceGuessView {
   kind: "choice";
@@ -338,8 +345,12 @@ export interface RoundItemView {
   guessCount: number;
   /** Both only once the challenge itself is over (SEC-1). */
   points: number | null;
-  /** `pick` only for a choice kind: which option was the right one (FR-8.7). */
-  answer: { code: string; name: string; pick?: number } | null;
+  /**
+   * `pick` and `names` only for a choice kind: which option was the right one,
+   * and what every option was (FR-8.7, D-76). Null until the item is over, and
+   * that `over ?` below is the only thing holding either of them back.
+   */
+  answer: Reveal | null;
   /**
    * Once the item is over, the guesses that got there — including the one that
    * finished it, which is exactly the one `guesses` above has already moved
