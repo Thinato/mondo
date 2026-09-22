@@ -137,9 +137,10 @@ for (const code of codes) {
   // Nauru with nine vertices and Monaco with twelve, and the coastlines it does
   // resolve are a simplification we then simplify again. The artwork is already
   // 2D, so there is no projection here — only D-8, a fit and a simplify.
-  // D-59's two atoll nations are skipped: the artwork has them, but Tuvalu's
-  // largest atoll fits the box as a 13-point sliver and the Marshall Islands'
-  // disappears under simplification entirely.
+  // D-59's two atoll nations are skipped, and since D-74 for two different
+  // reasons: tv.svg has no traced coastline in it at all, only the page's own
+  // furniture, while mh.svg does yield a real reef ring and is held out by
+  // choice. tools/shape-overrides.json carries both reasons.
   let shape = NO_OUTLINE;
   if (!noShape[code]) {
     try {

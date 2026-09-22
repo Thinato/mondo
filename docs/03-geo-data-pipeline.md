@@ -181,12 +181,17 @@ gone, because D-8 now runs over the artwork like it runs over everything else, a
 `tools/overrides.json`'s `minShare` is read on the same side. Indonesia keeps five landmasses,
 the Philippines seven, New Zealand two.
 
-**Two still get no silhouette at all.** Tuvalu and the Marshall Islands are atoll nations, and
-the artwork does not rescue them: D-8 leaves Tuvalu a 13-point sliver of Funafuti, and the
-Marshall Islands' largest atoll is a thread that disappears under simplification entirely. They
-are absent from `shapes.json`, so `KINDS.shape.pool()` drops them, and they keep their other four
-kinds. This is D-20's treatment of the Vatican, reached deliberately. The list lives in
-`tools/shape-overrides.json` with a reason per country.
+**Two still get no silhouette at all**, and since D-74 for two different reasons. Tuvalu's file
+contains **no traced coastline whatever** — all six of its rings are the page's own furniture, so
+`buildArtwork` refuses it rather than being told to skip it. The Marshall Islands' does yield a
+real reef ring of 173 points, and is held out by choice: it is one atoll of 29, 93 % of what the
+file draws is discarded to reach it, and putting it back moves the `shape` pool and the daily
+schedule with it. Both are absent from `shapes.json`, so `KINDS.shape.pool()` drops them, and they
+keep their other four kinds. This is D-20's treatment of the Vatican, reached deliberately. The
+list lives in `tools/shape-overrides.json` with a reason per country.
+
+Both entries used to cite a vertex count — "a 13-point sliver of Funafuti", "a 17-vertex speck" —
+and **both counts were of map furniture**, not of land. D-74 is why.
 
 The artwork's provenance is unknown and `NOTICE` says so in full; `tools/country-shapes/README.md`
 has the whole story, including what was checked before it was accepted.

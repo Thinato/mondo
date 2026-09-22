@@ -1,7 +1,7 @@
 {
   "//": "Exceptions to 'every country's silhouette is traced from tools/country-shapes/' (D-69). A bare list of country codes is a list nobody can audit later, so each entry carries its reason.",
   "noShape": {
-    "TV": "Nine atolls over 676 km of ocean; D-8 keeps the largest, which is a 13-vertex sliver of Funafuti. Not in mapsicon either. Keeps its flag, capital and GDP challenges.",
-    "MH": "Same shape of problem as TV: 29 atolls, and D-8 leaves a 17-vertex speck. Not in mapsicon. Keeps its other three kinds."
+    "TV": "Nine atolls over 676 km of ocean, and the file draws none of them as coastline: since D-74 every ring in tv.svg is map furniture, so buildArtwork refuses it outright rather than being told to skip it. The “13-vertex sliver of Funafuti” this entry used to cite was a leader line. Not in mapsicon either. Keeps its flag, capital and GDP challenges.",
+    "MH": "29 atolls. NOT the same problem as TV any more: since D-74 the artwork does yield a real silhouette — one traced reef ring, 173 points — because the 17-vertex speck this entry used to cite was an arrowhead. It stays out because that ring is one atoll of 29 and 93% of what the file draws is discarded to reach it, and because adding it moves the shape pool and the daily schedule. Reversing this is a game decision, not a build fix. Keeps its other three kinds."
   }
 }

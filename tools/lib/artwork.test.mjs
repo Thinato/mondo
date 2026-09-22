@@ -6,6 +6,21 @@ import { PADDING, SIZE } from "./shape.mjs";
 
 const svg = (d) => `<svg viewBox="0 0 1000 1000"><path d="${d}"/></svg>`;
 const square = (x, y, w) => `M${x} ${y}L${x + w} ${y}L${x + w} ${y + w}L${x} ${y + w}Z`;
+// The same square, with a coastline's vertex density. `buildArtwork` drops any
+// ring sparse enough to have been drawn rather than traced (D-74), so a fixture
+// that has to survive the whole pipeline needs more than four corners. The
+// `selectRings` tests below are about D-8 and never meet that filter, so they
+// keep using `square`.
+const coast = (x, y, w, per = 6) => {
+  const corners = [[x, y], [x + w, y], [x + w, y + w], [x, y + w]];
+  let d = `M${x} ${y}`;
+  for (let i = 0; i < 4; i++) {
+    const [ax, ay] = corners[i];
+    const [bx, by] = corners[(i + 1) % 4];
+    for (let s = 1; s <= per; s++) d += `L${ax + ((bx - ax) * s) / per} ${ay + ((by - ay) * s) / per}`;
+  }
+  return `${d}Z`;
+};
 
 test("H and V are real commands, not decoration", () => {
   // Every file in tools/country-shapes/ uses them; icon.mjs did not accept them
@@ -60,7 +75,7 @@ test("an island outside the landmass is not mistaken for a hole", () => {
 });
 
 test("FR-6.2: a country fills the padded box whatever size it was drawn", () => {
-  for (const d of [square(0, 0, 900), square(480, 480, 4)]) {
+  for (const d of [coast(0, 0, 900), coast(480, 480, 4)]) {
     const { path } = buildArtwork(svg(d));
     const nums = path.match(/-?\d+(\.\d+)?/g).map(Number);
     const xs = nums.filter((_, i) => i % 2 === 0);
@@ -70,6 +85,22 @@ test("FR-6.2: a country fills the padded box whatever size it was drawn", () => 
     const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
     assert.ok(span > SIZE - 2 * PADDING - 1, `fitted to the box, span ${span}`);
   }
+});
+
+test("D-74: map furniture loses to land, however much area it covers", () => {
+  // Tonga's silhouette was the 470x4 rounded bar drawn above its map, because
+  // D-8 picks the largest ring by area and the bar covers more of the page than
+  // Tongatapu does. The bar is 11 vertices and the island is 518: what tells
+  // them apart is that one was drawn and the other traced.
+  const bar = `M100 100H900V140H100Z`; // 800x40 = 32000 units of nothing
+  const island = coast(400, 400, 100); // 10000 units of land
+  const { path } = buildArtwork(`<svg viewBox="0 0 1000 1000"><path d="${bar}"/><path d="${island}"/></svg>`);
+  const nums = path.match(/-?\d+(\.\d+)?/g).map(Number);
+  const xs = nums.filter((_, i) => i % 2 === 0);
+  const ys = nums.filter((_, i) => i % 2 === 1);
+  const [w, h] = [Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)];
+  // The island is square, so the fitted result is too. The bar would be 20:1.
+  assert.ok(Math.abs(w - h) < 1, `kept the island, not the bar (${w} x ${h})`);
 });
 
 test("the byte cap is met by escalating tolerance for that country alone", () => {
