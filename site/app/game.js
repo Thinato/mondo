@@ -17,6 +17,7 @@ import { applyIdentity, ask, attachAccount, showAccount } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, isPick, renderFlag, renderOptions, renderShape } from "./geo.js";
+import { takeReport } from "./visibility.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
@@ -169,7 +170,7 @@ async function submit(numberGuess) {
   if (numberGuess === undefined && !picked) return;
   const guess = numberGuess ?? picked.code;
   picked = null;
-  await advance(() => api.submitGuess({ puzzleId: round.puzzleId, guess }));
+  await advance(() => api.submitGuess({ puzzleId: round.puzzleId, guess, selfReport: takeReport() }));
 }
 
 /**
@@ -257,7 +258,7 @@ function render() {
     renderOptions(el.options, shownPrompt.options, {
       guesses: revealing ? reveal.guesses ?? [] : round.guesses,
       answer: revealing ? reveal.answer : null,
-      onPick: revealing ? null : (i) => advance(() => api.submitGuess({ puzzleId: round.puzzleId, guess: i })),
+      onPick: revealing ? null : (i) => advance(() => api.submitGuess({ puzzleId: round.puzzleId, guess: i, selfReport: takeReport() })),
     });
   } else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
 

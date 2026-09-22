@@ -12,11 +12,12 @@ import { FieldPath, Timestamp } from "firebase-admin/firestore";
 import { attemptRef, db, groupsCol, playRef, puzzleDays, roundRef, userRef } from "./db";
 import { groupsOf, requireAdmin, roleOf } from "./lib/authz";
 import { callable } from "./lib/callable";
-import { cardIntervalsMs, totalGuesses, type CardPlay } from "./lib/card";
+import { cardIntervalsMs, cardSelfReports, totalGuesses, type CardPlay } from "./lib/card";
 import { countryByCode } from "./lib/countries";
 import { mondoError } from "./lib/errors";
 import { todayState, type Group, type TodayState } from "./lib/groups";
-import { intervalsMs, isChoiceGuess, isNumberGuess, puzzleItems, resetAttempt, type Attempt, type Profile, type Puzzle, type Role } from "./lib/round";
+import { intervalsMs, isChoiceGuess, isNumberGuess, puzzleItems, resetAttempt, selfReports, type Attempt, type Profile, type Puzzle, type Role } from "./lib/round";
+import { countImpossible, type SelfReport } from "./lib/report";
 import { windowDays } from "./lib/standings";
 import { playId, type TournamentRound } from "./lib/tournament";
 import { requireObject, requirePuzzleId, requireRole, requireUid } from "./lib/validate";
@@ -118,6 +119,18 @@ export interface AttemptRow {
   uid: string; displayName: string; puzzleId: string; state: TodayState;
   guessCount: number; elapsedMs: number | null; retries: number;
   intervalsMs: number[]; startedAt: string; finishedAt: string | null;
+  /**
+   * D-77 — what the PAGE claimed, one entry per guess, in `intervalsMs` order,
+   * so the two read side by side. A **null is the interesting entry**: it means
+   * that guess carried no claim at all, and a player whose every guess is null
+   * while everyone else's are populated is the anomaly this field exists for.
+   * A run of zeros is not suspicious — most people finish a challenge without
+   * leaving the page. Weigh it, never accuse on it: none of this sees a second
+   * device.
+   */
+  selfReports: (SelfReport | null)[];
+  /** Guesses claiming more hidden time than the server's interval allows. */
+  impossibleReports: number;
   /** Null for today until the admin has finished their own round (D-31), like FR-4.11 on the board. */
   solved: boolean | null; points: number | null; suspicious: boolean | null;
   guesses?: { code: string; name: string; distanceKm: number; proximity: number }[];
@@ -132,6 +145,9 @@ export interface MatchRow {
   startedAt: string; finishedAt: string | null;
   /** Per item: served→first guess, then guess→guess. */
   intervalsMs: number[][];
+  /** D-77 — the page's claim about each of those windows, same shape. */
+  selfReports: (SelfReport | null)[][];
+  impossibleReports: number;
 }
 
 /**
@@ -231,6 +247,8 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
         suspicious: reveal ? p.suspicious : null,
         startedAt: p.startedAt.toDate().toISOString(), finishedAt: iso(p.finishedAt),
         intervalsMs: cardIntervalsMs(p),
+        selfReports: cardSelfReports(p),
+        impossibleReports: countImpossible(cardSelfReports(p).flat(), cardIntervalsMs(p).flat()),
       };
     });
 
@@ -244,6 +262,9 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
         uid: a.uid, displayName: names.get(a.uid) ?? REMOVED, puzzleId: a.puzzleId, state: todayState(a),
         guessCount: a.guessCount, elapsedMs: a.elapsedMs,
         retries: a.retries ?? 0, intervalsMs: intervalsMs(a), startedAt: a.startedAt.toDate().toISOString(), finishedAt: iso(a.finishedAt),
+        // D-77 — timings and the claims about them are the cheating material
+        // the panel exists for, so they stay live with the rest of it (D-31).
+        selfReports: selfReports(a), impossibleReports: countImpossible(selfReports(a), intervalsMs(a)),
         // `suspicious` is only ever set on a solve, so it would announce an
         // unrevealed outcome by itself (D-31). Guess count and timings are the
         // cheating material the panel is for and stay live.

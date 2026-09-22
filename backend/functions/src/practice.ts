@@ -22,6 +22,7 @@ import { requireCanPlay } from "./lib/authz";
 import { callable } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { kindById } from "./lib/kinds";
+import { parseSelfReport } from "./lib/report";
 import {
   applyPracticeGuess, endSession, giveUpPractice as giveUpSession, newSession, practiceView, serveNext,
   PRACTICE_EXCLUSION_DAYS, type PracticeSession, type PracticeView,
@@ -106,17 +107,19 @@ export const nextPractice = callable<unknown, PracticeView>(async (uid) => {
  * `guess` is untyped here for the same reason it is in the daily: only the kind
  * knows what a guess is, and a numeric kind will not take a country code.
  */
-export const submitPracticeGuess = callable<{ guess: unknown }, PracticeView>(async (uid, data) => {
-  const raw = requireObject(data).guess;
+export const submitPracticeGuess = callable<{ guess: unknown; selfReport?: unknown }, PracticeView>(async (uid, data) => {
+  const input = requireObject(data);
+  const raw = input.guess;
   if (typeof raw !== "string" && typeof raw !== "number") {
     throw mondoError("invalid-argument", "A guess must be a country or a number.");
   }
+  const selfReport = parseSelfReport(input.selfReport);   // D-77
   const now = Timestamp.now();
   const session = await db().runTransaction(async (tx) => {
     const [snap, profileSnap] = await Promise.all([tx.get(practiceRef(uid)), tx.get(userRef(uid))]);
     requireCanPlay(profileSnap.exists ? (profileSnap.data() as Profile) : null);
     if (!snap.exists) throw mondoError("not-found", "Start a practice session first.");
-    const after = applyPracticeGuess(snap.data() as PracticeSession, raw, now);
+    const after = applyPracticeGuess(snap.data() as PracticeSession, raw, now, selfReport);
     tx.set(practiceRef(uid), after);
     return after;
   });

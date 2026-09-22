@@ -18,6 +18,7 @@ import { GUESS_MIN_INTERVAL_MS, SUSPICIOUS_SOLVE_MS } from "./config";
 import type { Country } from "./countries";
 import { mondoError } from "./errors";
 import { kindById, scoreItem, type Challenge, type KindId, type Prompt, type Reveal } from "./kinds";
+import type { SelfReport } from "./report";
 import { guessView, type GuessView, type StoredGuess } from "./round";
 
 export const MAX_CARD_ITEMS = 10;
@@ -236,7 +237,16 @@ export function newCardPlay(uid: string, tournamentId: string, roundId: string, 
  * Throws the same typed errors the daily does, for the same reasons (FR-2.10,
  * SEC-4 via the caller's transaction, SEC-5's 400 ms floor).
  */
-export function applyCardGuess(play: CardCore, card: readonly CardItem[], raw: unknown, now: Timestamp): CardCore {
+export function applyCardGuess(
+  play: CardCore,
+  card: readonly CardItem[],
+  raw: unknown,
+  now: Timestamp,
+  // D-77 — what the PAGE claimed about the window this guess closes. Attached
+  // to the guess and nothing else: it must sit next to the interval the server
+  // timed, and it must never reach `kind.grade` or `scoreItem`.
+  selfReport: SelfReport | null = null,
+): CardCore {
   if (play.finishedAt !== null) throw mondoError("already-completed", "This card is finished.");
   if (play.items.length !== card.length) throw mondoError("not-found", "This round is not ready.");
 
@@ -256,7 +266,7 @@ export function applyCardGuess(play: CardCore, card: readonly CardItem[], raw: u
   if (item.guesses.length >= kind.maxGuesses) throw mondoError("no-guesses-remaining", "No guesses left on this challenge.");
 
   const { guess, correct } = kind.grade(cardItem, raw, now);
-  const guesses = [...item.guesses, guess];
+  const guesses = [...item.guesses, selfReport === null ? guess : { ...guess, selfReport }];
 
   if (!correct && guesses.length < kind.maxGuesses) {
     const items = [...play.items];
@@ -346,6 +356,16 @@ export function cardIntervalsMs(play: CardCore): number[][] {
       return d;
     });
   });
+}
+
+/**
+ * D-77 — what the page CLAIMED for each guess, shaped exactly like
+ * `cardIntervalsMs` so a reader can lay the two side by side: `[i][j]` is the
+ * claim about the window `cardIntervalsMs(play)[i][j]` measured. `null` is a
+ * guess that carried no claim at all, which is the entry worth looking at.
+ */
+export function cardSelfReports(play: CardCore): (SelfReport | null)[][] {
+  return play.items.map((it) => it.guesses.map((g) => g.selfReport ?? null));
 }
 
 // ---------------------------------------------------------------------------

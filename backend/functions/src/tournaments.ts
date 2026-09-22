@@ -18,6 +18,7 @@ import {
 } from "./db";
 import { isAdmin, requireCanPlay, requireOwner } from "./lib/authz";
 import { callable } from "./lib/callable";
+import { parseSelfReport } from "./lib/report";
 import {
   applyCardGuess, buildCard, cardView, newCardPlay, totalGuesses,
   type CardItem, type CardPlay, type CardView,
@@ -918,9 +919,10 @@ export const getCard = callable<{ tournamentId: unknown }, CardView>(async (uid,
  * `guess` is deliberately untyped here: each kind validates its own shape
  * (SEC-8), because a numeric kind will not take a country code.
  */
-export const submitCardGuess = callable<{ tournamentId: unknown; guess: unknown }, CardView>(async (uid, data) => {
+export const submitCardGuess = callable<{ tournamentId: unknown; guess: unknown; selfReport?: unknown }, CardView>(async (uid, data) => {
   const input = requireObject(data);
   const tid = requireTournamentId(input.tournamentId);
+  const selfReport = parseSelfReport(input.selfReport);   // D-77
   const now = Timestamp.now();
   const { t, card, tieK } = await loadPlayable(uid, tid, now);
   const n = t.currentRound!;
@@ -939,7 +941,7 @@ export const submitCardGuess = callable<{ tournamentId: unknown; guess: unknown 
     // The transitions are shared with the daily (D-52), so they return the
     // core; spreading it back over the play keeps this card's identity fields.
     const before = snap.data() as CardPlay;
-    const after: CardPlay = { ...before, ...applyCardGuess(before, card, input.guess, now) };
+    const after: CardPlay = { ...before, ...applyCardGuess(before, card, input.guess, now, selfReport) };
     tx.set(playRef(id), after);
     return after;
   });

@@ -16,6 +16,7 @@ import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, isPick, renderFlag, renderOptions, renderShape } from "./geo.js";
+import { takeReport } from "./visibility.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
@@ -403,7 +404,7 @@ async function submit(raw) {
     const before = card.cursor;
     // Captured before the call: after it, `card.prompt` is the NEXT challenge.
     const shown = card.prompt;
-    card = await api.submitCardGuess({ tournamentId: tid, guess });
+    card = await api.submitCardGuess({ tournamentId: tid, guess, selfReport: takeReport() });
     el.cardInput.value = "";
     el.cardNumber.value = "";
     // D-55: a cursor that moved means that challenge is over, and a finished

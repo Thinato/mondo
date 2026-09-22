@@ -408,6 +408,23 @@ to test new challenges."*
   on time as much as correctness (FR-8.3) and the admin timing surface is the detection story
   (OQ-8's posture). A prompt that *states* its own answer is not covered by this and is a bug
   (FR-8.4).
+- **SEC-16** *(added 2026-09-22, D-77)* Every guess MAY carry a **self-report** of what the page
+  saw while the challenge was open — tab hides, window blurs, total hidden milliseconds, and
+  whether the device is a phone. It is **evidence for a human, never a control**:
+  - It MUST be sent **unconditionally, including when nothing happened**. A report only sent when
+    something happens makes "no data" mean three things at once — nothing happened, the field was
+    stripped, the request failed — and the signal is worth having precisely because **silence is
+    conspicuous** when everyone else is noisy.
+  - It MUST be validated like any other input (closed shape, integer bounds, known platform) and
+    stored as a **claim**, never merged into anything the server measured.
+  - It MUST NOT reach scoring, ordering, or any tiebreak. SEC-13 stands: **time is the detection
+    story**, and this sits beside the server's intervals rather than in front of them.
+  - It MUST be disclosed in `privacidade.html`, because it is a record of behaviour rather than of
+    play.
+  - Accepted limits, written down so nobody over-reads the data: it is trivially stripped by
+    anyone who opens devtools; it **cannot see a second device at all**; a page reload resets it;
+    and a desktop player who never leaves the tab is indistinguishable from one who suppressed it,
+    which is why the platform travels with the claim.
 - **SEC-14** *(added 2026-09-09)* Accepted residual risk: within an open tournament round every
   participant plays the same card (D-38), so whoever plays early can simply tell whoever plays
   later. Mitigations: no result is visible to anyone else until the round closes (FR-5.6), so

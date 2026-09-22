@@ -21,6 +21,7 @@ import { applyCardGuess, buildCard, giveUpCard, newCardCore, type CardCore, type
 import { mondoError } from "./errors";
 import { REGIONS, type Region } from "./countries";
 import { kindById, MAX_ITEM_POINTS, type KindId, type Prompt, type Reveal } from "./kinds";
+import type { SelfReport } from "./report";
 import { guessView, type GuessView } from "./round";
 
 /** D-60 — how far ahead of today the daily schedule is withheld from practice. */
@@ -124,10 +125,15 @@ export function serveNext(s: PracticeSession, now: Timestamp, rand: () => number
  * finish is not stored here — so the item's own finish is guarded first, or a
  * solved challenge would take a second guess and score twice.
  */
-export function applyPracticeGuess(s: PracticeSession, raw: unknown, now: Timestamp): PracticeSession {
+export function applyPracticeGuess(
+  s: PracticeSession,
+  raw: unknown,
+  now: Timestamp,
+  selfReport: SelfReport | null = null,
+): PracticeSession {
   if (s.endedAt !== null) throw mondoError("already-completed", "This practice session is over.");
   if (s.item.finishedAt !== null) throw mondoError("already-completed", "This challenge is over.");
-  const after = applyCardGuess(coreOf(s), [challengeOf(s)], raw, now);
+  const after = applyCardGuess(coreOf(s), [challengeOf(s)], raw, now, selfReport);
   return { ...s, item: after.items[0]! };
 }
 

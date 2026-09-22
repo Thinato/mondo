@@ -19,6 +19,7 @@ import { mountProfile } from "./profile.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, isPick, renderFlag, renderOptions, renderShape } from "./geo.js";
+import { takeReport } from "./visibility.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 
@@ -208,7 +209,7 @@ async function submit(numberGuess) {
   if (numberGuess === undefined && !picked) return;
   const guess = numberGuess ?? picked.code;
   picked = null;
-  await advance(() => api.submitPracticeGuess({ guess }));
+  await advance(() => api.submitPracticeGuess({ guess, selfReport: takeReport() }));
 }
 
 /**
@@ -363,7 +364,7 @@ function renderChallenge() {
     renderOptions(el.options, shown.options, {
       guesses: item.guesses,
       answer: revealing ? item.answer : null,
-      onPick: revealing ? null : (i) => advance(() => api.submitPracticeGuess({ guess: i })),
+      onPick: revealing ? null : (i) => advance(() => api.submitPracticeGuess({ guess: i, selfReport: takeReport() })),
     });
   } else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
 

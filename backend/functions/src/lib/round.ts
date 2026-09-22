@@ -18,11 +18,12 @@
  */
 
 import type { Timestamp } from "firebase-admin/firestore";
-import { applyCardGuess, giveUpCard, newCardCore, cardIntervalsMs, totalGuesses, type CardCore, type CardItem } from "./card";
+import { applyCardGuess, giveUpCard, newCardCore, cardIntervalsMs, cardSelfReports, totalGuesses, type CardCore, type CardItem } from "./card";
 import { countryByCode, type Country } from "./countries";
 import { mondoError } from "./errors";
 import { compass8, type Compass } from "./geo";
 import { kindById, type KindId, type Prompt, type Reveal } from "./kinds";
+import type { SelfReport } from "./report";
 import { shareGrid, type ItemForShare } from "./scoring";
 
 // ---------------------------------------------------------------------------
@@ -60,20 +61,35 @@ export function puzzleItems(puzzle: Puzzle): CardItem[] {
  */
 export type StoredGuess = StoredCountryGuess | StoredNumberGuess | StoredChoiceGuess;
 
-export interface StoredCountryGuess {
+/**
+ * What every stored guess carries, whatever the kind asked for. Extracted so
+ * that a field belonging to ALL guesses is declared once — `selfReport` is the
+ * first, and it was going to be three copies.
+ */
+interface StoredGuessBase {
+  proximity: number;
+  /** The SERVER's clock, always (invariant 3). Everything scored reads this. */
+  at: Timestamp;
+  /**
+   * What the page claimed about the player leaving it, for the window ending at
+   * `at` (D-77). **A claim, never a measurement** — it is the client's own
+   * number, it is absent for any client that did not send one, and nothing that
+   * scores may read it. `lib/report.ts` says why a forgeable field is worth
+   * having and what it cannot see.
+   */
+  selfReport?: SelfReport;
+}
+
+export interface StoredCountryGuess extends StoredGuessBase {
   code: string;
   distanceKm: number;
   bearingDeg: number;
-  proximity: number;
-  at: Timestamp;
 }
 
-export interface StoredNumberGuess {
+export interface StoredNumberGuess extends StoredGuessBase {
   value: number;
   /** The answer is HIGHER than this guess. Meaningless once the guess is right. */
   higher: boolean;
-  proximity: number;
-  at: Timestamp;
 }
 
 /**
@@ -84,10 +100,8 @@ export interface StoredNumberGuess {
  *
  * `proximity` is 0 or 1. There is no nearly.
  */
-export interface StoredChoiceGuess {
+export interface StoredChoiceGuess extends StoredGuessBase {
   pick: number;
-  proximity: number;
-  at: Timestamp;
 }
 
 export const isNumberGuess = (g: StoredGuess): g is StoredNumberGuess => "value" in g;
@@ -222,17 +236,34 @@ export function intervalsMs(attempt: Pick<Attempt, "startedAt" | "items" | "gues
 }
 
 /**
+ * D-77 — the self-reports of a day's guesses, flattened the way `intervalsMs`
+ * flattens intervals, so `selfReports(a)[n]` is the claim about
+ * `intervalsMs(a)[n]`. A pre-D-52 attempt has no items and no reports either;
+ * it predates the field by a year and its guesses are all `null`.
+ */
+export function selfReports(attempt: Pick<Attempt, "items" | "guesses">): (SelfReport | null)[] {
+  if (attempt.items) return cardSelfReports(attempt as CardCore).flat();
+  return (attempt.guesses ?? []).map((g) => g.selfReport ?? null);
+}
+
+/**
  * Apply one guess to the day's current challenge. The rules — order, the 400 ms
  * floor, per-item clocks, scoring — are `applyCardGuess`'s, shared with
  * tournaments (D-52); what this adds is the three summary fields the boards and
  * the dashboard read off the top of the document.
  */
-export function applyGuess(legacyOrCurrent: Attempt, card: readonly CardItem[], raw: unknown, now: Timestamp): Attempt {
+export function applyGuess(
+  legacyOrCurrent: Attempt,
+  card: readonly CardItem[],
+  raw: unknown,
+  now: Timestamp,
+  selfReport: SelfReport | null = null,
+): Attempt {
   // Upgrading here rather than at the call site is deliberate: this and
   // `roundView` are the two doors into a day, and the production bug was a
   // caller forgetting. A caller cannot forget something it does not do.
   const attempt = upgradeAttempt(legacyOrCurrent);
-  const core = applyCardGuess(attempt, card, raw, now);
+  const core = applyCardGuess(attempt, card, raw, now, selfReport);
   return {
     ...attempt,
     ...core,
