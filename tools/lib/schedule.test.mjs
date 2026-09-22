@@ -149,11 +149,22 @@ test("prng is deterministic and in [0, 1)", () => {
   }
 });
 
-// --- FR-8.7 / D-66: the daily's fifth challenge -----------------------------
+// --- FR-8.7 / D-66, D-75: the daily's fifth and sixth challenges ------------
 
-test("D-66: a day is five challenges and flagPick is one of them", () => {
-  assert.deepEqual(KINDS, ["shape", "flag", "capital", "gdp", "flagPick"]);
+test("D-75: a day is six challenges, and both pick kinds are among them", () => {
+  assert.deepEqual(KINDS, ["shape", "flag", "capital", "gdp", "flagPick", "shapePick"]);
   assert.deepEqual(pools.flagPick, pools.flag, "flagPick asks about exactly what flag asks about");
+  // D-75 — and the same for silhouettes, the two atoll nations' absence
+  // included: a kind cannot offer as a distractor what it cannot offer as an
+  // answer, so this is the same assertion, not a second one.
+  assert.deepEqual(pools.shapePick, pools.shape, "shapePick asks about exactly what shape asks about");
+});
+
+test("D-75: a day is worth 0-36, six challenges of six points", () => {
+  // The number nobody can derive from this module: `lib/round.ts` sums the
+  // card's own kinds, so the day's maximum follows from KINDS.length and there
+  // is no constant to forget. This pins the arithmetic the seam is made of.
+  assert.equal(KINDS.length * 6, 36);
 });
 
 test("D-66: the generator fills a choice kind's options, and only that kind's", () => {

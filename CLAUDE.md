@@ -6,9 +6,9 @@ Context for AI coding agents working in this repo. Read `docs/00-brief.md` throu
 ## What this is
 
 A daily country-guessing game served at `lisecki.dev/mondo/`, built for a small competitive
-group. A day is four challenges — silhouette, flag, capital, GDP per capita — played in order
-(D-52, D-53). A day is **five** challenges since D-66: `flagPick` — which of these eight flags
-— joined them. There is also a practice mode: one kind, as many challenges as you like, scored
+group. A day is **six** challenges — silhouette, flag, capital, GDP per capita, "which of
+these eight flags" and "which of these eight silhouettes" — played in order, one at a time, worth
+0–36 (D-52, D-53, D-66, D-75). There is also a practice mode: one kind, as many challenges as you like, scored
 for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages, Firebase
 backend.
 
@@ -170,19 +170,25 @@ backend.
   card of N challenges played one at a time, so the transitions live once in `lib/card.ts` and
   `lib/round.ts` keeps only what a *day* has — the schedule, the streak, the share grid, and the
   `puzzleId`. A daily attempt carries `puzzleId`; a tournament play must not (D-40).
-- **A day is worth 0–30, and earlier days are worth less** (0–6 before D-52, 0–18 before D-53,
-  0–24 before D-66). Do not "fix" the seams in the all-time column: leaving them is a deliberate
-  call, and there are three now.
+- **A day is worth 0–36, and earlier days are worth less** (0–6 before D-52, 0–18 before D-53,
+  0–24 before D-66, 0–30 before D-75). Do not "fix" the seams in the all-time column: leaving them
+  is a deliberate call, and there are four now. Nothing hardcodes 36 — `lib/round.ts` sums the
+  card's own kinds, so the maximum follows from the schedule's `KINDS` and a seventh kind would
+  need no arithmetic changed.
 - **The daily schedule has exactly one rule** (FR-2.3, D-67): the same country is not asked by
   the **same kind** within 30 days. Nothing else. A country may be two challenges on one day, and
   about 21 days a year it is. There is no ceiling on how many kinds a day can hold — a kind needs
   only a pool bigger than 30.
-- **`gdp` and `flagPick` name a country in their prompts**, because in both the country is the
-  question — the figure is the answer in one, the flag in the other. Inside a **tournament card**
+- **`gdp`, `flagPick` and `shapePick` name a country in their prompts**, because in all three the
+  country is the question — the figure is the answer in one, the flag in the second, the silhouette
+  in the third. Inside a **tournament card**
   what keeps that safe is `buildCard` holding subjects distinct; do not relax that. **The daily no
-  longer has that guarantee** (D-67): about 14 days a year a `gdp` or `flagPick` prompt names the
-  answer to another of that day's challenges. That was measured and accepted, not missed — if you
-  are asked to "fix" it, the fix is FR-2.3, not a patch in `kinds.ts`.
+  longer has that guarantee** (D-67): about 21 days a year a `gdp`, `flagPick` or `shapePick` prompt
+  names the answer to another of that day's challenges, and about 2 of those are `shape` beside
+  `shapePick` on one country — the pair where the artwork repeats too. That was measured and
+  accepted, not missed, and re-measured when D-75 added the sixth kind (it was 14 at five). If you
+  are asked to "fix" it, the fix is FR-2.3, not a patch in `kinds.ts` and not a second scheduling
+  rule, which would reverse D-67.
 - **In a multiple-choice kind the POSITION of the right option is the answer** (FR-8.7, D-64).
   Three rules follow and each has a test. An option carries artwork and nothing else — no code,
   no name, no id — so a guess is an index; **`buildCard` does the shuffling**, never the kind,
@@ -210,10 +216,11 @@ backend.
   grades both, `renderOptions` draws both, and one help text explains both. A third would be a
   pool and an artwork lookup. Two things are true of silhouettes and not of flags: every one is
   drawn into the same 500×500 box, so **size is not a cue** on a board of eight, and a board is
-  *lighter* than a flag board. **`shapePick` is NOT in the daily** — it is in Treinar and the
-  `qual-silhueta` preset, which is where `flagPick` started too (D-64 → D-66). Putting it in the
-  daily means a day of six worth 0–36, a fourth seam, a schedule regeneration and a reseed; the
-  five-kind day is pinned by `tools/lib/schedule.test.mjs`, so it cannot happen by accident.
+  *lighter* than a flag board. **`shapePick` joined the daily on 2026-09-22** (D-75), by the route
+  this sentence used to describe and at the price it quoted: a day of six worth 0–36, a fourth
+  seam, a schedule regeneration and a reseed. `tools/lib/schedule.mjs`'s `KINDS` is the authority
+  on which kinds a day holds and its test pins the list, so the count cannot drift by accident in
+  either direction.
 - **`tools/generate-schedule.mjs` now needs the backend built** (D-66): it imports the server's
   own `buildOptions` from `backend/functions/lib/` rather than restating which eight flags are on
   offer. `poolsFrom` still duplicates the pool rules — a JSON generator cannot import TypeScript

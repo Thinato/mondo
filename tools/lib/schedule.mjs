@@ -17,10 +17,18 @@
 // more than 30 countries, and the smallest pool has 172.
 //
 // **What it costs is real and was accepted knowingly.** Two challenges on one
-// day now share a country about 19 days a year, and on about 14 of those one of
-// them gives the other away, because `gdp` and `flagPick` name their country in
-// the prompt: "qual o PIB do Brasil?" beside an unsolved silhouette of Brazil.
-// Paulo, 2026-09-16: "it can appear again in the challenge, no problem".
+// day share a country about 26 days a year, and on about 21 of those one of them
+// gives the other away, because `gdp`, `flagPick` and `shapePick` all name their
+// country in the prompt: "qual o PIB do Brasil?" beside an unsolved silhouette
+// of Brazil. Paulo, 2026-09-16: "it can appear again in the challenge, no
+// problem". Those were 19 and 14 at five kinds; D-75 added the sixth and they
+// were re-measured over 20 seeds x 365 days rather than re-estimated.
+//
+// The sharpest pair is the one where the ARTWORK repeats — `shape` beside
+// `shapePick` on the same country, which names it and then shows it among eight
+// — and it lands at 2.0 days a year, against `flag` + `flagPick`'s 2.45. That
+// pair has been live since D-66, which is why the new one needed no new rule.
+// If this is ever "fixed", the fix is FR-2.3 and not a special case here.
 //
 // Determinism: same inputs + same seed → byte-identical output, so the schedule
 // can be regenerated from its seed rather than backed up (05-cost.md).
@@ -31,7 +39,7 @@ export const DEFAULT_WEIGHTS = { 1: 0.5, 2: 0.35, 3: 0.15 };
 /** FR-2.3 as amended (D-67): the same country, by the same kind, not within 30 days. */
 export const KIND_WINDOW = 30;
 /** The order challenges are drawn in. The order they are PLAYED in is shuffled. */
-export const KINDS = ["shape", "flag", "capital", "gdp", "flagPick"];
+export const KINDS = ["shape", "flag", "capital", "gdp", "flagPick", "shapePick"];
 
 /** mulberry32 — small, seedable, good enough for shuffling countries. */
 export function prng(seed) {
@@ -75,14 +83,19 @@ export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson) {
   // "No silhouette for this challenge" at whoever opened the day.
   const hasShape = new Set(Object.keys(shapesJson.shapes));
   const flag = withTier(countriesJson.countries.filter((c) => hasFlag.has(c.code)));
+  const shape = withTier(countriesJson.countries.filter((c) => hasShape.has(c.code)));
   return {
-    shape: withTier(countriesJson.countries.filter((c) => hasShape.has(c.code))),
+    shape,
     capital: withTier(countriesJson.countries.filter((c) => c.capital?.["pt-BR"] && !namesItsCapital(c))),
     flag,
     gdp: withTier(countriesJson.countries.filter((c) => hasGdp.has(c.code))),
     // D-64: `flagPick` asks about exactly what `flag` asks about — it needs the
     // artwork to be an answer, and the same artwork to be a distractor.
     flagPick: flag,
+    // D-75: and `shapePick` asks about exactly what `shape` asks about, for the
+    // same reason — including the two atoll nations' absence, which has to hold
+    // for the distractors as much as for the answer.
+    shapePick: shape,
   };
 }
 
