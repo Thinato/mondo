@@ -191,6 +191,17 @@ answer — measured, put in front of Paulo, and accepted. Worldle's single-count
 considered and does not fit our kinds: four of the five ask "which country is this?", so solving
 the first would give away the rest.
 
+**Done 2026-09-22 — `shapePick` joins the daily (FR-2.1a, D-75).** A day is six challenges and
+worth 0–36, one day after the kind shipped to practice and a preset. Two lines of
+`tools/lib/schedule.mjs`: `KINDS` gains the kind, `poolsFrom` returns `shapePick: shape`. Nothing
+in `lib/round.ts` moved — the day's maximum is the card's own sum, so 0–36 follows from
+`KINDS.length`. The sixth kind that D-66 called "arithmetically impossible" became possible the
+same afternoon, when D-67 replaced the day window with a per-kind one; the only feasibility
+question left is a pool bigger than 30, and silhouettes have 194. The all-time column gets its
+fourth seam, and D-67's collision cost was re-measured over 20 seeds × 365 days rather than
+re-estimated: two challenges share a country 26 days a year against 19, and 21 of those give one
+away against 14. Production needs the schedule regenerated and reseeded.
+
 **Done 2026-09-16 — `flagPick` joins the daily (FR-2.1a, D-66).** A day is five challenges and
 worth 0–30, three days after the kind shipped to practice. The schedule generator gained the kind
 and now imports the server's own `buildOptions` rather than restating it — the option rules are
@@ -206,7 +217,7 @@ to stay summable. The `Kind` contract now takes the whole challenge rather than 
 so a choice kind can see the options its three siblings do not have; `CardItem` gained an optional
 `options`, stored and shuffled by `buildCard` rather than derived, because the position of the
 right option is the answer and a derived set would reshuffle under anyone holding the challenge
-open. **It is not in the daily** — practice and a tournament preset reach it for free, while the
+open. **It is not in the daily** *(it joined one day later — D-75, above)* — practice and a tournament preset reach it for free, while the
 daily needs the schedule regenerated, and a fifth challenge would take a day from 0–24 to 0–30.
 That staging is what FR-9 was asked for: "a good way for us to test new challenges".
 

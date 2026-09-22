@@ -59,6 +59,19 @@ try {
   console.error("build the backend first: npm --prefix backend/functions run build");
   process.exit(2);
 }
+// Every kind this schedule asks about must be a kind the SERVER ships, or the
+// seeded days name something `kindById` will throw on and the day fails at noon
+// for everyone — not degraded, gone. That nearly happened once (D-66: the seed
+// went out before the deploy), and `?.` below is exactly what would hide it: a
+// kind the server has never heard of gets `undefined` options and generates
+// silently, because a non-choice kind legitimately has none. So it is checked
+// here, where the generator and the compiled server already meet, and the
+// tournament presets get the same assertion in tournament.test.ts.
+const missing = KINDS.filter((kind) => !KINDS_IMPL[kind]);
+if (missing.length > 0) {
+  console.error(`the backend does not ship ${missing.join(", ")} — rebuild it, or fix KINDS in lib/schedule.mjs`);
+  process.exit(2);
+}
 const buildOptions = (kind, subject, exclude, rand) => KINDS_IMPL[kind]?.buildOptions?.(subject, exclude, rand);
 
 const seed = Number(args.seed);
