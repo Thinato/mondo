@@ -184,6 +184,16 @@ backend.
   game knowing nothing. Geography is not in that class and is the point — **four of the eight are
   the answer's nearest countries by centroid** (D-65), which is what makes the kind hard, and the
   "?" and `regras.html` both say so on purpose.
+- **Flag path data is rounded twice over, and an arc flag is not rounded at all** (D-73).
+  `roundPath` reads the path commands rather than scanning for decimals, because `a20 20 0 01375.8 0`
+  is "large-arc 0, sweep 1, x 375.8" and a blind decimal scan turns those two flags into part of the
+  coordinate. It then keeps whichever precision rule is FINER: the flag's absolute grid for a
+  coordinate that can afford it, and **four significant digits** for everything else — an absolute
+  grid sets a sub-grid relative step to zero, which stops the pen and implodes the shape rather than
+  blurring it. Cyprus's wreath, Iraq's kufic script, Kyrgyzstan's sun and Tuvalu's stars were all
+  casualties of one or the other. Do not "simplify" it back to a regex, and do not lower the
+  significant-digit floor to save bytes: the per-flag cap (44 KB, in the gap between Fiji at 43.6 and
+  Haiti at 49.5) is where that trade is made instead.
 - **There are two pick kinds and one implementation** (D-72). `shapePick` is `flagPick` with
   `shape`'s pool and `shape`'s artwork: `pickOptions` builds the board for both, `gradeChoiceGuess`
   grades both, `renderOptions` draws both, and one help text explains both. A third would be a

@@ -187,7 +187,7 @@ function walk(node, ctx, env) {
     if (child.name === "defs" || child.name === "clipPath") continue;
 
     const inherited = { ...ctx.paint, ...paintOf(child) };
-    const transform = join(ctx.transform, transformOf(child));
+    const transform = join(ctx.transform, transformOf(child, env.box));
     const clip = clipOf(child, ctx.clip, transform, env);
 
     if (CONTAINERS.has(child.name)) {
@@ -222,7 +222,7 @@ function resolveUse(node, ctx, env) {
   // Enter the target the same way `walk` enters a child. Georgia's small
   // crosses are half a clipped shape used twice, so skipping the target's own
   // clip-path here drew four blobs instead of four crosses.
-  const transform = join(base, transformOf(target));
+  const transform = join(base, transformOf(target, env.box));
   const entered = { transform, clip: clipOf(target, ctx.clip, transform, env), paint: { ...ctx.paint, ...paintOf(target) } };
 
   env.seen.add(target);
@@ -284,11 +284,48 @@ function styleOf(style) {
   return out;
 }
 
-function transformOf(node) {
+function transformOf(node, box) {
   const t = node.attrs.transform;
-  if (t === undefined) return "";
-  if (!TRANSFORM.test(t)) refuse(`transform="${t}"`);
-  return t.trim();
+  if (t !== undefined && !TRANSFORM.test(t)) refuse(`transform="${t}"`);
+  return join(t === undefined ? "" : t.trim(), node.name === "svg" ? viewportOf(node, box) : "");
+}
+
+/**
+ * A nested `<svg>` is not a `<g>`: it opens its own viewport, and its viewBox
+ * is mapped into it. Walking it as a group ignores that mapping, which is how
+ * Slovenia's coat of arms came out twenty times too big — a blue shield the
+ * size of the whole flag, which is exactly what it looked like from across the
+ * room: a lake. It is the only nested `<svg>` in the set, so the bug had one
+ * victim and no second opinion.
+ *
+ * The default `preserveAspectRatio` ("xMidYMid meet") is a uniform scale of
+ * min(sx, sy) with the slack split evenly, and "none" is the non-uniform one;
+ * the centring term is zero for "none", so one formula does both. Any other
+ * alignment is REFUSED rather than approximated — it would place artwork
+ * subtly wrong, and a dropped flag at least says why in the build log.
+ *
+ * An absent width or height is 100 % of the enclosing viewport, which at the
+ * one nesting level this dataset uses is the flag's own box.
+ *
+ * Deliberately NOT clipped to the viewport, which a browser would do: the wire
+ * format has nowhere to put that clip (`emit` refuses a clip under a
+ * transform), the one flag that nests draws inside its own viewBox, and
+ * anything that overflowed would show up in the preview grid a human reads.
+ */
+function viewportOf(node, box) {
+  const a = node.attrs;
+  const [x, y] = [num(a, "x", box, "x"), num(a, "y", box, "y")];
+  const [w, h] = [num(a, "width", box, "x", box[2]), num(a, "height", box, "y", box[3])];
+  if (a.viewBox === undefined) return x || y ? `translate(${x} ${y})` : "";
+
+  const vb = a.viewBox.trim().split(/[\s,]+/).map(Number);
+  if (vb.length !== 4 || vb.some((n) => !Number.isFinite(n)) || vb[2] <= 0 || vb[3] <= 0) refuse(`nested viewBox="${a.viewBox}"`);
+  const par = (a.preserveAspectRatio ?? "xMidYMid meet").trim();
+  if (par !== "none" && !/^xMidYMid(\s+meet)?$/.test(par)) refuse(`preserveAspectRatio="${par}"`);
+
+  const [sx, sy] = par === "none" ? [w / vb[2], h / vb[3]] : [Math.min(w / vb[2], h / vb[3]), Math.min(w / vb[2], h / vb[3])];
+  const r = (n) => +n.toFixed(6);
+  return `translate(${r(x + (w - vb[2] * sx) / 2 - vb[0] * sx)} ${r(y + (h - vb[3] * sy) / 2 - vb[1] * sy)}) scale(${r(sx)} ${r(sy)})`;
 }
 
 /**
@@ -363,12 +400,93 @@ function straightPolygon(d) {
   return points.length ? points : null;
 }
 
-/** Every decimal in path data, rounded and stripped of trailing zeros. */
+/** How many arguments each path command takes, lower-cased. */
+const PATH_ARGS = { m: 2, l: 2, h: 1, v: 1, c: 6, s: 4, q: 4, t: 2, a: 7, z: 0 };
+const PATH_NUMBER = /^[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/;
+
+/**
+ * At least this many significant digits survive, however small the number.
+ *
+ * `dp` below is an ABSOLUTE precision taken from the flag's own width, which is
+ * the right rule for a coordinate and the wrong one for a relative step: the
+ * leaves of Cyprus's olive branch and the strokes of Iraq's kufic script are
+ * drawn with deltas well under a hundredth of the flag, and rounding those to
+ * an absolute grid does not blur them — it sets them to zero, the pen stops
+ * moving, and the shape implodes towards wherever the subpath started. Whichever
+ * of the two rules is FINER wins, so big coordinates keep the byte saving and
+ * small steps keep their shape.
+ */
+const MIN_SIGNIFICANT = 4;
+
+/**
+ * Every number in path data, rounded and stripped of trailing zeros.
+ *
+ * It reads the commands rather than scanning for decimals, because **an arc
+ * flag is not a number**. `a20 20 0 01375.8 0` is "radii 20 20, rotation 0,
+ * large-arc 0, sweep 1, then x 375.8": the two flags are single digits and the
+ * SVG grammar allows them to be written with no separator at all, including
+ * none before the coordinate that follows. A blind decimal scan reads `01375.8`
+ * as one number, rounds it, and drops the leading zero — after which the flags
+ * are whatever digits happen to be at the front of the coordinate. Five flags in
+ * the set were drawn that way and all five were being mangled: Angola, Cyprus,
+ * Fiji, Kyrgyzstan and Kiribati.
+ *
+ * Everything that is not a number is copied through byte for byte — letters,
+ * spaces, commas, signs — so the only thing this function can change is the
+ * precision of a coordinate.
+ */
 export function roundPath(d, dp) {
-  return d.replace(/-?\d*\.\d+(?:e-?\d+)?/g, (m) => {
-    const r = Number(m).toFixed(dp).replace(/\.?0+$/, "").replace(/^(-?)0\./, "$1.");
-    return r === "" || r === "-" ? "0" : r;
-  });
+  let out = "";
+  let i = 0;
+  let cmd = null;
+  let arg = 0;
+  while (i < d.length) {
+    const ch = d[i];
+    if (/[A-Za-z]/.test(ch)) {
+      cmd = ch.toLowerCase();
+      if (PATH_ARGS[cmd] === undefined) refuse(`path command "${ch}"`);
+      arg = 0;
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === " " || ch === "," || ch === "\t" || ch === "\n" || ch === "\r") {
+      out += ch;
+      i++;
+      continue;
+    }
+    if (cmd === null) refuse("path data that starts with a number");
+    // The 4th and 5th arguments of an arc are flags: one character each, and
+    // never anything to round.
+    if (cmd === "a" && (arg % 7 === 3 || arg % 7 === 4)) {
+      if (ch !== "0" && ch !== "1") refuse(`arc flag "${ch}"`);
+      out += ch;
+      i++;
+      arg++;
+      continue;
+    }
+    const m = PATH_NUMBER.exec(d.slice(i));
+    if (!m) refuse(`path data: "${d.slice(i, i + 12)}"`);
+    out += roundNumber(m[0], dp);
+    i += m[0].length;
+    arg++;
+  }
+  return out;
+}
+
+function roundNumber(token, dp) {
+  const n = Number(token);
+  if (!Number.isFinite(n)) refuse(`"${token}" is not a number`);
+  if (n === 0) return "0";
+  const significant = MIN_SIGNIFICANT - 1 - Math.floor(Math.log10(Math.abs(n)));
+  const r = n
+    .toFixed(Math.max(0, dp, significant))
+    // A trailing-zero strip has to leave the integer part alone: "100" is not
+    // "1", and toFixed(0) produces exactly that shape.
+    .replace(/(\.\d*?)0+$/, "$1")
+    .replace(/\.$/, "")
+    .replace(/^(-?)0\./, "$1.");
+  return r === "" || r === "-" ? "0" : r;
 }
 
 const join = (a, b) => (a && b ? `${a} ${b}` : a || b);

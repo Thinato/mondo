@@ -127,13 +127,78 @@ test("a file with nothing to draw is refused rather than served blank", () => {
 });
 
 // ---------------------------------------------------------------------------
+// A nested <svg> is a viewport, not a group
+// ---------------------------------------------------------------------------
+
+test("a nested <svg> maps its viewBox into its own width and height", () => {
+  // Slovenia's shape: a coat of arms drawn in its own 240-wide space and
+  // placed on the flag by a nested <svg>. Walked as a <g> it came out twenty
+  // times too big and covered the whole flag.
+  const { paths } = buildFlag(
+    svg(`<svg x="1" y="1" width="2" height="1" viewBox="-120 -60 240 120"><path d="M-120 -60h240v120z" fill="#005da4"/></svg>`),
+  );
+  assert.deepEqual(paths, [{ fill: "#005da4", d: "M-120 -60h240v120z", transform: "translate(2 1.5) scale(0.008333 0.008333)" }]);
+
+  // What that means on the page: the viewBox's top-left corner lands on the
+  // viewport's, at (1, 1), and its bottom-right on (3, 2) — a 2 x 1 box where
+  // the artwork was asked to go, not a 240 x 120 one over the whole flag.
+  const [, tx, ty, s] = /translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)/.exec(paths[0].transform).map(Number);
+  const at = (x, y) => [+(tx + x * s).toFixed(2), +(ty + y * s).toFixed(2)];
+  assert.deepEqual(at(-120, -60), [1, 1]);
+  assert.deepEqual(at(120, 60), [3, 2]);
+});
+
+test("preserveAspectRatio: the default letterboxes, none stretches, anything else is refused", () => {
+  const nested = (attrs) => buildFlag(svg(`<svg width="6" height="3" viewBox="0 0 10 10" ${attrs}><path d="M0 0h10v10z"/></svg>`)).paths[0].transform;
+  // meet (the default): one scale, min(6/10, 3/10), and the slack split evenly.
+  assert.equal(nested(""), "translate(1.5 0) scale(0.3 0.3)");
+  assert.equal(nested(`preserveAspectRatio="xMidYMid meet"`), "translate(1.5 0) scale(0.3 0.3)");
+  // none: fill the viewport, aspect ratio be damned.
+  assert.equal(nested(`preserveAspectRatio="none"`), "translate(0 0) scale(0.6 0.3)");
+  // An alignment this does not implement would place artwork subtly wrong, so
+  // the flag is dropped with a reason instead.
+  refuses(`<svg width="6" height="3" viewBox="0 0 10 10" preserveAspectRatio="xMinYMax slice"><path d="M0 0h1"/></svg>`);
+});
+
+test("a nested <svg> without a viewBox is just its own origin", () => {
+  const [p] = buildFlag(svg(`<svg x="2" y="1"><path d="M0 0h1v1z" fill="#fff"/></svg>`)).paths;
+  assert.equal(p.transform, "translate(2 1)");
+});
+
+// ---------------------------------------------------------------------------
 // Rounding and parsing
 // ---------------------------------------------------------------------------
 
 test("rounding keeps the shape and drops the noise", () => {
-  assert.equal(roundPath("M0.123456 -1.999999h3.00001", 2), "M.12 -2h3");
+  assert.equal(roundPath("M0.123456 -1.999999h3.00001", 2), "M.1235 -2h3");
   assert.equal(roundPath("M1 2h3", 2), "M1 2h3", "integers are left alone");
-  assert.equal(roundPath("a2.5 2.5 0 1 0 5 0", 0), "a3 3 0 1 0 5 0", "arc flags stay flags");
+  // The four-significant-digit floor protects a small radius even at dp 0; what
+  // rounds here is the number that can afford it.
+  assert.equal(roundPath("a2.5 2.5 0 1 0 5 0", 0), "a2.5 2.5 0 1 0 5 0", "arc flags stay flags");
+  assert.equal(roundPath("a2500.5 2500.5 0 1 0 5 0", 0), "a2501 2501 0 1 0 5 0");
+  // "1000.4" rounds to the integer "1000", and a trailing-zero strip that does
+  // not know where the decimal point was would hand back "1".
+  assert.equal(roundPath("M1000.4 2000.6", 0), "M1000 2001", "a rounded integer keeps its zeros");
+});
+
+test("an arc flag is not a number, however tightly it is written", () => {
+  // `a20 20 0 01375.8 0` is "large-arc 0, sweep 1, x 375.8", not "…0, 1375.8".
+  // Reading it as a decimal drops the leading zero and every argument after it
+  // shifts by one, which is what wrecked Angola, Cyprus, Fiji, Kyrgyzstan and
+  // Kiribati: the only five flags in the set drawn with compact arcs.
+  assert.equal(roundPath("a20 20 0 01375.8 0.123456", 2), "a20 20 0 01375.8 .1235");
+  assert.equal(roundPath("a1.01 1.01 0 01-.347-.245", 2), "a1.01 1.01 0 01-.347-.245");
+  assert.equal(roundPath("A5 5 0 10 20 30", 2), "A5 5 0 10 20 30", "spaced flags survive too");
+  refuses(`<path d="a1 1 0 25 3 4"/>`);
+});
+
+test("a step smaller than the grid keeps its shape instead of becoming zero", () => {
+  // The bug this exists for: at 2 decimals these deltas all round to 0, the pen
+  // stops moving, and an olive leaf or a kufic stroke implodes to a point.
+  assert.equal(roundPath("l.004-.003", 2), "l.004-.003");
+  assert.equal(roundPath("c-.139.06-.289.091-.44.09", 2), "c-.139.06-.289.091-.44.09");
+  // A coordinate big enough to afford the absolute grid still pays it.
+  assert.equal(roundPath("M506.741 421.431", 2), "M506.74 421.43");
 });
 
 test("the parser keeps attribute values whole and ignores comments", () => {
