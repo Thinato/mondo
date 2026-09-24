@@ -177,7 +177,7 @@ backend.
   need no arithmetic changed.
 - **The daily schedule has exactly one rule** (FR-2.3, D-67): the same country is not asked by
   the **same kind** within 30 days. Nothing else. A country may be two challenges on one day, and
-  about 21 days a year it is. There is no ceiling on how many kinds a day can hold — a kind needs
+  about 26 days a year it is — 31 in the year seeded on 2026-09-24. There is no ceiling on how many kinds a day can hold — a kind needs
   only a pool bigger than 30.
 - **`gdp`, `flagPick` and `shapePick` name a country in their prompts**, because in all three the
   country is the question — the figure is the answer in one, the flag in the second, the silhouette
@@ -186,7 +186,9 @@ backend.
   longer has that guarantee** (D-67): about 21 days a year a `gdp`, `flagPick` or `shapePick` prompt
   names the answer to another of that day's challenges, and about 2 of those are `shape` beside
   `shapePick` on one country — the pair where the artwork repeats too. That was measured and
-  accepted, not missed, and re-measured when D-75 added the sixth kind (it was 14 at five). If you
+  accepted, not missed, and re-measured when D-75 added the sixth kind (it was 14 at five). The
+  year seeded on 2026-09-24 holds **20 of them, 3 of which are `shape` beside `shapePick`** — the
+  estimate met by the one year that is actually live. If you
   are asked to "fix" it, the fix is FR-2.3, not a patch in `kinds.ts` and not a second scheduling
   rule, which would reverse D-67.
 - **In a multiple-choice kind the POSITION of the right option is the answer** (FR-8.7, D-64).
@@ -221,9 +223,12 @@ backend.
   grades both, `renderOptions` draws both, and one help text explains both. A third would be a
   pool and an artwork lookup. Two things are true of silhouettes and not of flags: every one is
   drawn into the same 500×500 box, so **size is not a cue** on a board of eight, and a board is
-  *lighter* than a flag board. **`shapePick` joined the daily on 2026-09-22** (D-75), by the route
+  *lighter* than a flag board. **`shapePick` joined the daily on 2026-09-24** (D-75), by the route
   this sentence used to describe and at the price it quoted: a day of six worth 0–36, a fourth
-  seam, a schedule regeneration and a reseed. `tools/lib/schedule.mjs`'s `KINDS` is the authority
+  seam, a schedule regeneration and a reseed. The decision is dated 2026-09-22 and the first six-
+  challenge day is dated 2026-09-24, because **a merge is not a reseed**: the backend had shipped
+  the kind two days before the decision (D-72), so nothing was deployed and nothing was missing but
+  the schedule. `tools/lib/schedule.mjs`'s `KINDS` is the authority
   on which kinds a day holds and its test pins the list, so the count cannot drift by accident in
   either direction.
 - **`tools/generate-schedule.mjs` now needs the backend built** (D-66): it imports the server's

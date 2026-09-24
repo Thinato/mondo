@@ -50,7 +50,7 @@ Scope: FR-1 (except deletion), FR-2, FR-6, SEC-1 … SEC-9. Plus the whole geo p
 
 1. ~~`tools/build-geo.mjs` end to end.~~ **Built 2026-09-06.** 196 countries (VA dropped 2026-09-08: no usable geometry), 10 D-8 exceptions,
    client file leak-checked. `tools/preview.html` is rendered — **look at every silhouette**.
-2. ~~`tools/generate-schedule.mjs`, seeded into Firestore.~~ **Built 2026-09-08. Production seeded 2026-09-09**: seed 20260908, 365 days from 2026-09-08. Regenerable from those two numbers; re-seed with `--history` before 2027-09-07 (NFR-6).
+2. ~~`tools/generate-schedule.mjs`, seeded into Firestore.~~ **Built 2026-09-08. Production seeded 2026-09-09**: seed 20260908, 365 days from 2026-09-08. Regenerable from those two numbers; re-seed with `--history` before 2027-09-07 (NFR-6). **Re-seeded twice since**: 2026-09-16 (seed 20260916, 365 days from 2026-09-17, the five-kind day of D-66) and 2026-09-24 (seed 20260924, 365 days from 2026-09-24, the six-kind day of D-75). Both took `--history` out of production rather than off disk, because Firestore is the authority on what was played.
 3. ~~`backend/functions`: `getRound`, `submitGuess`. Pure `geo.ts` and `scoring.ts` with tests.~~ **Built 2026-09-08.** 46 unit tests plus an emulator smoke run; `updateProfile` added for FR-1.3.
 4. ~~`firestore.rules` with **negative** rules tests.~~ **Built 2026-09-08.** Ten emulator tests, most negative, run in CI.
 5. ~~`site/index.html` + `site/app/`: auth, silhouette render, autocomplete, guess loop, results,
