@@ -19,7 +19,7 @@ const PT_BR = {
   // D-52: a day is three challenges, so the result talks about the day.
   dayDone: "{points} de {max} pontos hoje.",
   dayPerfect: "Dia perfeito! {points} de {max} pontos.",
-  kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita", flagPick: "qual bandeira", shapePick: "qual silhueta" },
+  kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita", flagPick: "qual bandeira", shapePick: "qual silhueta", person: "quem nasceu onde" },
   // FR-9.9 — the five continents practice can be narrowed to. The server's own
   // ids are English (`world-countries`' `region`); these are the labels. América
   // is one continent here, as it is in a Brazilian classroom.
@@ -32,6 +32,10 @@ const PT_BR = {
   // FR-8.7: the grid below is showing which one it was, so the line does not
   // repeat the country the prompt already named.
   revealPick: "Era esta.",
+  // D-78 — the city, beside the country, on both the right answer and the wrong
+  // one. "Era Rússia" alone teaches a player that the game is strange; "nasceu
+  // em Kaliningrado" teaches them where Königsberg went.
+  revealBorn: "Nasceu em {city}.",
   continueChallenge: "Próximo desafio",
   seeResult: "Ver o resultado",
   // FR-6.9 / D-56 — "?" explains the hints of the challenge on screen. Two
@@ -69,6 +73,14 @@ const PT_BR = {
       "Mas o tabuleiro não é sorteado do mundo inteiro: QUATRO das outras sete são dos países mais próximos da resposta, e três vêm de qualquer lugar. Se você reconhecer uma vizinha, já sabe em que canto do mapa procurar.\n\n" +
       "São duas tentativas. A primeira vale 6 pontos e a segunda 2 — bem menos que nos outros desafios, porque escolher entre oito é bem mais fácil que escrever o nome de um país entre 196.\n\n" +
       "Quando o desafio acaba, as oito aparecem com o nome do país — não só a certa. A ideia é você sair daqui tendo aprendido oito, não uma.",
+    // D-78. The second paragraph is the one that matters: it is the difference
+    // between a trick question and a thing learned, and a player who meets
+    // Kant before reading it will think the game is broken.
+    person:
+      "A pergunta é uma pessoa e a resposta é um país, com as mesmas pistas da silhueta: distância, seta e proximidade a cada erro.\n\n" +
+      "A resposta é o país de HOJE. Kant nasceu em Königsberg, que hoje é Kaliningrado, na Rússia — então a resposta é Rússia, não Alemanha. Marie Curie nasceu em Varsóvia quando a Polônia não existia no mapa, e a resposta é Polônia. Quando o desafio acaba, a cidade aparece junto com o país.\n\n" +
+      "São três tentativas, como na capital e na bandeira.\n\n" +
+      "As pessoas vêm do Pantheon (MIT) e as fotos da Wikimedia Commons, com o crédito de cada uma embaixo da foto.",
   },
   // FR-2.13 / D-61 — zero points, and the answer.
   confirmGiveUp: "Desistir deste desafio? Ele fica com 0 pontos e você vê a resposta.",
@@ -181,6 +193,10 @@ const PT_BR = {
   flagPickPrompt: "Qual destas é a bandeira de {country}?",
   // D-72 — the same sentence with the other noun.
   shapePickPrompt: "Qual destas é a silhueta de {country}?",
+  // D-78 — the person is the question and the country is the answer, so the
+  // sentence names them and nothing else. No occupation, no century: both are
+  // the answer in disguise for anyone who knows the period.
+  personPrompt: "Onde nasceu {name}?",
   optionLabel: "opção {n}",
   optionStruck: "opção {n}, já descartada",
   optionRight: "opção {n}, a resposta certa",
@@ -235,6 +251,7 @@ const PT_BR = {
       gdp: "Qual o PIB per capita deste país?",
       flagPick: "Qual destas oito é a bandeira do país?",
       shapePick: "Qual destas oito é a silhueta do país?",
+      person: "Onde nasceu esta pessoa?",
     },
     counter: "Desafio {n} · {points} pts",
     // FR-9.9. The hint only appears once the chips and the running session

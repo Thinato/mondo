@@ -16,6 +16,27 @@ export function renderShape(svg, shape) {
   svg.appendChild(path);
 }
 
+/**
+ * Fill a <figure> with the person a `person` challenge asks about (D-78): the
+ * photograph and its credit. The NAME is not set here — it is text and it goes
+ * where every other text prompt goes.
+ *
+ * This is the only artwork in the game that comes from somewhere else, so it is
+ * the only one that can fail to arrive. When it does, the figure goes away
+ * entirely rather than leaving a broken-image box in the middle of the card:
+ * the name is the question and the face is the help, so a challenge without the
+ * photo is harder, not impossible. `alt` carries the name rather than "photo of
+ * X" — a screen reader is reading the prompt out of the paragraph already.
+ */
+export function renderPerson(figure, img, credit, prompt) {
+  figure.hidden = false;
+  img.alt = prompt.name;
+  credit.textContent = prompt.credit;
+  img.onerror = () => { figure.hidden = true; };
+  img.onload = () => { figure.hidden = false; };
+  img.src = prompt.photo;
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**

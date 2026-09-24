@@ -233,10 +233,21 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
 - **FR-8.6** *(amended 2026-09-21, D-72)* Shipped kinds: `shape`, `capital`, `flag` (a vendored
   public-domain SVG set, flattened offline to filled paths; 24 countries have no flag), `gdp`
   (World Bank GDP per capita PPP for one pinned year; 10 countries have no figure), `flagPick`
-  and `shapePick` (both FR-8.7). **All six are available to tournament card specs and to
-  practice**; the first five are asked every day (FR-2.1a, D-66). `flagPick` reached players
-  through practice and a tournament preset first, which is what FR-9 exists for, and joined the
-  daily three days later once it had been played; `shapePick` is at that first stage now.
+  and `shapePick` (both FR-8.7), and `person` (FR-8.8). **All seven are available to tournament
+  card specs and to practice**; the first six are asked every day (FR-2.1a, D-66, D-75). Both pick
+  kinds reached players through practice and a tournament preset first, which is what FR-9 exists
+  for, and joined the daily once they had been played; `person` is at that first stage now.
+- **FR-8.8** *(added 2026-09-24, D-78)* The `person` kind asks **"where was this person born?"**:
+  the prompt is a name and a photograph, the answer is a country, and the scoring is `capital`'s —
+  three guesses at 6/4/2 with distance, compass and proximity between them.
+  - The answer is the country the birthplace is **in today**. This MUST be stated in the in-game
+    help and in `regras.html`, and the reveal MUST show the birth city beside the country.
+  - The person MUST be chosen once, when the card is built, and **stored** with the challenge, for
+    FR-8.7's reason: a rebuilt `people.json` would otherwise swap the face mid-challenge.
+  - The photograph is **fetched by the client from Wikimedia Commons** and is the only asset in the
+    game that is. A challenge whose photo fails to load MUST remain playable, and
+    `site/privacidade.html` MUST disclose the request.
+  - Only a country with at least one person who passes SEC-17 is in the pool.
 - **FR-8.7** *(added 2026-09-16, D-64)* A kind MAY ask its question as **a set of options**, of
   which exactly one is right. For such a kind:
   - The options MUST be chosen once, when the card is built, and **stored** with the challenge.
@@ -413,6 +424,15 @@ to test new challenges."*
   later. Mitigations: no result is visible to anyone else until the round closes (FR-5.6), so
   there is no live scoreboard feeding the temptation; the card is strictly sequential; and
   timings are recorded. The real fix is a synchronous round with a countdown, which is Phase 5.
+- **SEC-17** *(added 2026-09-24, D-78)* A `person` prompt MUST carry the person's name, the photo
+  URL and the photo's credit, and nothing else. Three fields of the source record are the answer in
+  other words and MUST NOT reach the client while the challenge is open: the **birth city** (which
+  belongs to the reveal), Pantheon's **`description`** ("Turkish actor and fashion model"), and the
+  **occupation**. The build MUST reject a candidate whose name, photo filename or credit names the
+  birth country, its demonym, its birth city, or one of the country's aliases in
+  `tools/people-aliases.json` — all three strings are sent, and the credit is the one that is easy
+  to forget ("Dubai Government Photographer"). A test MUST assert this over the whole pool rather
+  than a sample.
 - **SEC-15** *(added 2026-09-09, D-51)* No `attempts` document MUST be client-readable, including
   by the player it belongs to. The stored guess carries `bearingDeg` beside `distanceKm`, and the
   two together solve for the answer's centroid in closed form (D-36) — so a readable attempt

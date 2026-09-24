@@ -94,13 +94,24 @@
       </div>
     </div>
 
+    <!-- The question, above the artwork. For a silhouette or a flag there is no
+         text and this is empty; for `person` the NAME is the question and the
+         photograph is the help, so it has to be read first (D-78). -->
+    <p id="capital" class="capital-prompt" hidden></p>
     <figure class="silhouette" id="shape-wrap" hidden>
       <svg id="shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
     </figure>
     <figure class="flag" id="flag-wrap" hidden>
       <svg id="flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
     </figure>
-    <p id="capital" class="capital-prompt" hidden></p>
+    <!-- D-78: the only artwork in the game that comes from somewhere else. The
+         name is the question and lives in #capital with every other text
+         prompt; this is the face, and geo.js hides the whole figure if
+         Wikimedia does not answer. -->
+    <figure class="portrait" id="person-wrap" hidden>
+      <img id="person-photo" alt="" width="400" height="400" loading="eager" decoding="async" />
+      <figcaption id="person-credit" class="fine"></figcaption>
+    </figure>
 
     <!-- FR-8.7 / D-64: a multiple-choice challenge. Filled by renderOptions
          with artwork and nothing else — position is the whole identity, and

@@ -18,12 +18,12 @@
 
 import type { Timestamp } from "firebase-admin/firestore";
 import { MAX_GUESSES } from "./config";
-import { COUNTRIES, countryByCode, flagFor, gdpFor, shapeFor, GDP_YEAR, type Country, type Flag, type Shape } from "./countries";
+import { COUNTRIES, countryByCode, flagFor, gdpFor, peopleFor, shapeFor, GDP_YEAR, type Country, type Flag, type Person, type Shape } from "./countries";
 import { mondoError } from "./errors";
 import { bearingDeg, distanceKm, proximity } from "./geo";
 import { isChoiceGuess, isCountryGuess, isNumberGuess, type StoredGuess } from "./round";
 
-export const KIND_IDS = ["shape", "capital", "flag", "gdp", "flagPick", "shapePick"] as const;
+export const KIND_IDS = ["shape", "capital", "flag", "gdp", "flagPick", "shapePick", "person"] as const;
 export type KindId = (typeof KIND_IDS)[number];
 
 /**
@@ -48,6 +48,16 @@ export interface Challenge {
    * point at flags they never chose.
    */
   options?: readonly string[];
+  /**
+   * The Wikidata id of the person this `person` challenge asks about (D-78).
+   * Absent for every other kind.
+   *
+   * Stored for D-64's reason, which is not about options but about anything a
+   * card chooses: a rebuild of `people.json` reorders a country's list, and a
+   * person derived on read would swap mid-challenge — the player would come
+   * back from two wrong guesses to a different face.
+   */
+  person?: string;
 }
 
 /** FR-8.2 / D-44 — every kind scores one challenge on the same 0..6 scale, so a
@@ -81,7 +91,19 @@ export type Prompt =
    * silhouettes `shape` asks about. The artwork differs and nothing else does.
    */
   | { kind: "flagPick"; country: string; options: { flag: Flag }[] }
-  | { kind: "shapePick"; country: string; options: { shape: Shape }[] };
+  | { kind: "shapePick"; country: string; options: { shape: Shape }[] }
+  /**
+   * "Onde nasceu X?" (D-78). A name, a photo and the photo's credit — and
+   * nothing else, which takes some holding on to. The record behind this
+   * carries a birth city and Pantheon ships a `description` reading "Turkish
+   * actor and fashion model"; either one is the answer in plain text. The city
+   * belongs to the reveal, the description to nowhere.
+   *
+   * `photo` is a Commons URL rather than inlined artwork, so this is the only
+   * prompt whose rendering depends on a third party (D-78). The client must
+   * survive it failing: the name is the question, the face is the help.
+   */
+  | { kind: "person"; name: string; photo: string; credit: string };
 
 export interface Graded {
   guess: StoredGuess;
@@ -113,6 +135,16 @@ export interface Kind {
    * Absent on kinds whose answer is typed.
    */
   buildOptions?(subject: string, exclude: ReadonlySet<string>, rand: () => number): string[];
+  /**
+   * Anything else this kind must FIX when the card is built rather than derive
+   * when it is read — today, which of a country's people the question is about.
+   *
+   * Same argument as `buildOptions` and the same place in `buildCard`: a choice
+   * a kind makes twice is a choice that can differ between the two times, and
+   * the second time is somebody mid-challenge. Absent on every kind whose
+   * prompt follows from the subject alone.
+   */
+  buildDetail?(subject: string, rand: () => number): string | undefined;
   prompt(item: Challenge): Prompt;
   /** Validate and grade one raw guess from the client (SEC-8). */
   grade(item: Challenge, raw: unknown, now: Timestamp): Graded;
@@ -145,6 +177,9 @@ export interface Kind {
 export interface Reveal {
   code: string;
   name: string;
+  /** `person` only — the city, shown beside the country so the answer teaches
+   *  something instead of reading as a trick (D-78). */
+  bornIn?: string;
   /** A choice kind only: which option was the right one (FR-8.7). */
   pick?: number;
   /**
@@ -483,7 +518,52 @@ const shapePick: Kind = {
   reveal: revealPick,
 };
 
-export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag, gdp, flagPick, shapePick };
+/**
+ * `person` — "onde nasceu esta pessoa?" (FR-8.8, D-78). Pantheon says who is
+ * worth asking about; Wikimedia has the photograph.
+ *
+ * Three guesses on `capital`'s ladder, and for `capital`'s reason: a face is
+ * recognised or it is not, and there is no gradual reading of it to reward the
+ * way a silhouette rewards a fourth look. What the second and third guesses buy
+ * is the distance and the compass, which is the same deal every typed-answer
+ * kind offers.
+ *
+ * **The answer is where the place is TODAY.** Kant was born in Königsberg and
+ * the answer is Rússia; Marie Curie was born in Warsaw under Russian rule and
+ * the answer is Polônia. That is stated in `regras.html` and shown at the
+ * reveal with the city, because a player who is told only "Rússia" has learnt
+ * a trick question, and one who is told "nasceu em Königsberg" has learnt
+ * something. It is the same shape of accepted cost as D-67: measured, written
+ * down, and not a bug report.
+ *
+ * SEC-13, honestly: a name in the prompt is a search away, more so than a
+ * capital. Time is what a cheat costs here (FR-8.3), as everywhere else.
+ */
+const person: Kind = {
+  id: "person",
+  maxGuesses: 3,
+  pointsByGuess: [6, 4, 2],
+  pool: () => ALL().filter((c) => peopleFor(c.code).length > 0),
+  // Which of the country's people, fixed here and stored (D-64's argument,
+  // applied to a person instead of an order). Any of them; they are all
+  // famous enough to have survived the build's floor.
+  buildDetail: (subject, rand) => {
+    const list = peopleFor(subject);
+    return list.length === 0 ? undefined : list[Math.floor(rand() * list.length)]!.wd;
+  },
+  prompt: (item) => {
+    const p = mustPerson(item);
+    return { kind: "person", name: p.name, photo: p.photo, credit: `${p.credit} · ${p.licence}` };
+  },
+  grade: gradeCountryGuess,
+  wasCorrect: countryWasCorrect,
+  reveal: (item) => {
+    const bornIn = mustPerson(item).bplace;
+    return bornIn === null ? nameOf(item.subject) : { ...nameOf(item.subject), bornIn };
+  },
+};
+
+export const KINDS: Readonly<Record<KindId, Kind>> = { shape, capital, flag, gdp, flagPick, shapePick, person };
 
 /**
  * Grade a pick: which option, and whether it was the right one.
@@ -537,6 +617,11 @@ function revealPick(item: Challenge): Reveal {
  * built by code that did not know this kind existed — which is a bug, but one
  * the player should hear as "this challenge is broken" rather than as INTERNAL.
  */
+function mustPerson(item: Challenge): Person {
+  const chosen = peopleFor(item.subject).find((p) => p.wd === item.person);
+  if (!chosen) throw mondoError("not-found", "This challenge references a person who is no longer in the pool.");
+  return chosen;
+}
 function mustOptions(item: Challenge): readonly string[] {
   if (!item.options || item.options.length === 0) throw mondoError("not-found", "This challenge has no options.");
   return item.options;

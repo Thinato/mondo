@@ -99,13 +99,18 @@ export function buildCard(
   // just the ones picked so far (FR-8.7): a distractor that is another
   // challenge's answer lets a player cross off half of it for free.
   return items.map((item) => {
-    const options = kindById(item.kind).buildOptions?.(item.subject, used, rand);
-    if (!options) return item;
+    const kind = kindById(item.kind);
+    // Anything a kind must decide ONCE and keep — which person, today (D-78) —
+    // decided in the same pass and for the same reason as the options below.
+    const person = kind.buildDetail?.(item.subject, rand);
+    const withDetail = person === undefined ? item : { ...item, person };
+    const options = kind.buildOptions?.(item.subject, used, rand);
+    if (!options) return withDetail;
     // SEC-1: the position of the answer IS the answer, so the shuffle lives
     // here rather than in each kind. One place to be right, and a new choice
     // kind cannot ship with the answer at index 0 by forgetting.
     shuffle(options, rand);
-    return { ...item, options };
+    return { ...withDetail, options };
   });
 }
 

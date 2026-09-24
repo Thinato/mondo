@@ -184,6 +184,24 @@ button:disabled { opacity: .5; cursor: default; }
   border-radius: .25rem;
 }
 
+/* D-78 — the photograph of a `person` challenge. A fixed box with the picture
+   contained inside it, because these are not a normalised set the way the
+   silhouettes are: a 3:4 painted portrait and a 16:9 press photograph both
+   arrive here, and a box that resized itself to each would make the prompt
+   jump every challenge. `object-fit: contain` on a neutral ground shows the
+   whole picture and crops nobody's head off. */
+.portrait {
+  margin: 0 0 1rem; padding: 1rem;
+  display: grid; justify-items: center; gap: .5rem;
+  background: var(--card); border-radius: .75rem;
+}
+.portrait img {
+  display: block; width: 100%; height: auto; max-height: 45vh;
+  aspect-ratio: 4 / 3; object-fit: contain;
+  border-radius: .25rem;
+}
+.portrait figcaption { text-align: center; }
+
 /* FR-8.7 / D-64, D-72 — the eight options of a multiple-choice challenge:
    flags, or silhouettes.
 

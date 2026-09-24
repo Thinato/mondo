@@ -18,7 +18,7 @@ import { ask, watchAuth } from "./auth-ui.js";
 import { mountProfile } from "./profile.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, isPick, renderFlag, renderOptions, renderShape } from "./geo.js";
+import { guessRow, isPick, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 
@@ -31,6 +31,7 @@ const el = {
   progress: $("progress"), helpBtn: $("help-btn"), leaveBtn: $("leave-btn"), giveUpBtn: $("giveup-btn"),
   helpDialog: $("help-dialog"), helpTitle: $("help-title"), helpBody: $("help-body"), helpClose: $("help-close"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
+  personWrap: $("person-wrap"), personPhoto: $("person-photo"), personCredit: $("person-credit"),
   options: $("options"),
   guesses: $("guesses"), reveal: $("reveal"), revealText: $("reveal-text"), revealNext: $("reveal-next"),
   form: $("guess-form"), combo: $("guess-combo"), input: $("guess-input"), list: $("guess-list"),
@@ -42,7 +43,7 @@ const el = {
 
 /** The kinds on offer. A new kind joins practice by joining this list and
  *  i18n's `kindName` / `practice.about` — which it needs a label in anyway. */
-const KINDS = ["shape", "flag", "capital", "gdp", "flagPick", "shapePick"];
+const KINDS = ["shape", "flag", "capital", "gdp", "flagPick", "shapePick", "person"];
 
 /** FR-9.9 — the continents, in the server's own ids (`world-countries`'
  *  `region`). Labels come from i18n; nothing here knows which country is where,
@@ -352,12 +353,19 @@ function renderChallenge() {
 
   el.shapeWrap.hidden = kind !== "shape";
   el.flagWrap.hidden = kind !== "flag";
-  el.capital.hidden = shownKind !== "capital" && shownKind !== "gdp" && !isPick(shownKind);
+  // `renderPerson` un-hides this itself, and hides it again if the photo never
+  // arrives — so the only thing to do here is put it away for every other kind.
+  if (kind !== "person") el.personWrap.hidden = true;
+  el.capital.hidden = shownKind !== "capital" && shownKind !== "gdp" && shownKind !== "person" && !isPick(shownKind);
   el.options.hidden = !isPick(shownKind);
   if (kind === "shape") renderShape(el.shape, item.prompt.shape);
   else if (kind === "flag") renderFlag(el.flag, item.prompt.flag);
   else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: item.prompt.capital });
   else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: item.prompt.country, year: item.prompt.year });
+  else if (kind === "person") {
+    el.capital.textContent = t("personPrompt", { name: item.prompt.name });
+    renderPerson(el.personWrap, el.personPhoto, el.personCredit, item.prompt);
+  }
   else if (isPick(shownKind)) {
     el.capital.textContent = t(`${shownKind}Prompt`, { country: shown.country });
     renderOptions(el.options, shown.options, {
@@ -380,11 +388,12 @@ function renderChallenge() {
 
   el.reveal.hidden = !revealing;
   if (revealing) {
-    el.revealText.textContent = item.status === "solved"
+    const born = item.answer?.bornIn ? ` ${t("revealBorn", { city: item.answer.bornIn })}` : "";
+    el.revealText.textContent = (item.status === "solved"
       ? t("revealSolved", { points: item.points })
       : isPick(shownKind)
       ? t("revealPick")
-      : t("revealFailed", { answer: item.answer.name });
+      : t("revealFailed", { answer: item.answer.name })) + born;
     el.revealNext.textContent = t("practice.next");
   } else {
     // FR-6.9 — the first challenge of each hint vocabulary explains itself, and

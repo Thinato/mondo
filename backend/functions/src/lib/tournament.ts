@@ -161,6 +161,14 @@ export const PRESETS: readonly Preset[] = [
     items: [{ kind: "shapePick", count: 5 }],
     order: "as_listed",
   }),
+  // D-78 — the new kind's own preset, the same route `flagPick` and `shapePick`
+  // took: a card of one kind, played before anyone argues about whether it
+  // belongs in a day. Five and not three, because three guesses each makes this
+  // the same length of sitting as "Capitais" rather than twice it.
+  freeForAll("quem-nasceu-onde", "Quem nasceu onde?", "Cinco pessoas, cinco países de nascimento. Três tentativas cada.", {
+    items: [{ kind: "person", count: 5 }],
+    order: "as_listed",
+  }),
   {
     id: "liga",
     label: "Liga",
