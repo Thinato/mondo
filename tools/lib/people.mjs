@@ -185,3 +185,29 @@ export function vet(candidate, country, aliases = []) {
   if (leaksCountry(credit, avoid)) return `credit names the answer: ${credit}`;
   return null;
 }
+
+/**
+ * The bio shown at the REVEAL (D-81): the lead paragraph of a pt.wikipedia
+ * article, trimmed to something that fits under a photograph.
+ *
+ * This text is the one thing about a person that is NOT vetted for naming the
+ * country, and that is not an oversight — a Wikipedia lead opens "foi uma
+ * condessa húngara", which is the answer in four words. It is why this may only
+ * ever travel in a `Reveal`, next to `bplace`, and never in a `Prompt`. The
+ * build cannot make it safe; only the path it takes can.
+ *
+ * Cutting happens on a sentence boundary where there is one, because half a
+ * sentence with an ellipsis reads as a bug. A period only ends a sentence when
+ * a space and a capital follow it, so "Dr. Martin" and "1452 a.C." survive; the
+ * cost of getting that wrong is a slightly shorter bio, which is why the rule
+ * is a cheap approximation rather than a parser.
+ */
+export function leadParagraph(text, max = 400) {
+  const first = String(text ?? "").split("\n")[0].replace(/\s+/g, " ").trim();
+  if (first.length <= max) return first || null;
+  const head = first.slice(0, max + 1);
+  const ends = [...head.matchAll(/\.(?=\s+\p{Lu})/gu)].map((m) => m.index + 1);
+  if (ends.length > 0) return head.slice(0, ends.at(-1)).trim();
+  const space = head.lastIndexOf(" ");
+  return (space > 0 ? head.slice(0, space) : head.slice(0, max)).trim() + "…";
+}

@@ -37,6 +37,35 @@ export function renderPerson(figure, img, credit, prompt) {
   img.src = prompt.photo;
 }
 
+/**
+ * The bio under a finished `person` challenge (D-81): a paragraph on who that
+ * was, a link to the article it came from, and the licence it is shown under.
+ *
+ * Three reveal panels call this — the daily's, practice's and a tournament
+ * card's — and it lives here for the reason D-79 taught the hard way: `person`
+ * shipped to two of those three render paths and the third showed an error to
+ * everyone at noon. One helper cannot ship to two of three.
+ *
+ * `about` only ever arrives inside an `answer`, which the server sends only for
+ * a challenge that is over (SEC-1), so there is nothing to gate here. What IS
+ * gated is the URL: it is the one string in the game that came from a third
+ * party and ends up in an `href`, so it has to look like the article it claims
+ * to be before it is one.
+ */
+export function renderAbout(el, answer) {
+  const wiki = String(answer?.wiki ?? "");
+  const show = Boolean(answer?.about) && wiki.startsWith("https://pt.wikipedia.org/wiki/");
+  el.box.hidden = !show;
+  if (!show) return;
+  el.text.textContent = answer.about;
+  el.link.href = wiki;
+  el.link.textContent = t("revealWiki");
+  // Not decoration: the text is CC BY-SA 4.0 and this line plus the link above
+  // it are the terms it travels under, the same way the photo carries its
+  // credit (D-78).
+  el.credit.textContent = t("revealWikiCredit");
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**

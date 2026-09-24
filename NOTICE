@@ -180,3 +180,20 @@ The photographs are NOT redistributed: each is fetched by the player's browser
 from commons.wikimedia.org, and the author and licence are shown under it while
 the challenge is on screen. Where Commons names no author, the credit reads what
 Commons reads, usually "Unknown author".
+
+
+-------------------------------------------------------------------------------
+Wikipédia (pt)  —  one paragraph on who each person was
+-------------------------------------------------------------------------------
+Source:   https://pt.wikipedia.org
+License:  CC BY-SA 4.0  —  https://creativecommons.org/licenses/by-sa/4.0/
+
+Unlike the photographs, this text IS redistributed: the lead paragraph of each
+article is vendored into backend/functions/src/data/people.json at build time by
+tools/build-people.mjs and served from here. 989 of the 1,013 people have one.
+
+The licence is honoured where the text is shown, which is only ever the reveal
+of a finished challenge: the paragraph carries a link to the article it came
+from and a line naming CC BY-SA 4.0, and neither half is ever rendered without
+the other. The text is used unmodified apart from being cut to a sentence
+boundary to fit under the photograph.

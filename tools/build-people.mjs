@@ -3,6 +3,7 @@
 // `person` kind serves from (FR-8.8, D-78).
 //
 //   node build-people.mjs [--depth 20000] [--per-country 8] [--min-hpi 30] [--width 400]
+//   node build-people.mjs --only-about        # add D-81's bios to the file that exists
 //
 // Output: backend/functions/src/data/people.json — server-only, committed.
 //
@@ -12,20 +13,28 @@
 // runs at request time. The PHOTOS are the exception to "vendored": they are
 // hotlinked from Commons at play time (D-78), so what is committed is a URL.
 //
-// Three passes, because each API answers a different question:
+// Four passes, because each API answers a different question:
 //   1. Pantheon  — who is worth asking about, and where were they born
-//   2. Wikidata  — which photo is theirs (P18), and what is their name in pt
+//   2. Wikidata  — which photo is theirs (P18), their name in pt, their article
 //   3. Commons   — may we show that photo, and who gets the credit
+//   4. Wikipedia — one paragraph on who they were, for the REVEAL only (D-81)
 //
 // **What is deliberately NOT copied into the output**: Pantheon's `description`
 // ("Turkish actor and fashion model"), which is the answer written out, and the
 // occupation, which buys nothing. See lib/people.mjs.
+//
+// Pass 4 is the exception that proves that rule, and the reason it is safe is
+// the PATH and not the text. `about` opens "foi uma condessa húngara" — it is
+// the answer, stated more plainly than the description ever did. It may only
+// travel inside a `Reveal`, beside `bplace`, and `kinds.ts` is where that is
+// enforced: the `person` prompt is pinned to exactly four keys by a test, so
+// this field cannot reach an open challenge without that test going red.
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
-import { birthPlace, creditFrom, displayLicence, keepBest, photoUrl, vet } from "./lib/people.mjs";
+import { birthPlace, creditFrom, displayLicence, keepBest, leadParagraph, photoUrl, vet } from "./lib/people.mjs";
 
 const TOOLS = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(TOOLS, "..");
@@ -41,6 +50,7 @@ const { values: args } = parseArgs({
     "per-country": { type: "string", default: "8" },
     "min-hpi": { type: "string", default: "30" },
     width: { type: "string", default: "400" },
+    "only-about": { type: "boolean", default: false },
   },
 });
 const DEPTH = Number(args.depth);
@@ -74,6 +84,142 @@ async function getJson(url, headers = {}) {
 }
 
 const chunks = (list, n) => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
+
+const SOURCES = [
+  { name: "Pantheon (MIT Media Lab)", url: "https://pantheon.world/data/api", license: "CC BY-SA 4.0. See NOTICE." },
+  { name: "Wikidata (P18)", url: "https://www.wikidata.org", license: "CC0 1.0. See NOTICE." },
+  { name: "Wikimedia Commons", url: "https://commons.wikimedia.org", license: "per file; each entry carries its own credit and licence." },
+  { name: "Wikipédia (pt)", url: "https://pt.wikipedia.org", license: "CC BY-SA 4.0. See NOTICE — the reveal links the article and names the licence." },
+];
+
+/** How long a bio may be. Long enough for who someone was, short enough to sit
+ *  under a photograph on a phone without becoming the screen. */
+const ABOUT_MAX = 400;
+
+// --- 4. Wikipedia: one paragraph on who they were (D-81) ---------------------
+
+/** Wikidata again, for the pt article title. Same endpoint as pass 2, different
+ *  property, and a separate call because pass 2 runs over CANDIDATES while this
+ *  runs over the few who survived vetting. */
+async function ptTitles(wdIds) {
+  const titles = new Map();
+  for (const batch of chunks([...new Set(wdIds)], 50)) {
+    const url =
+      "https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&props=sitelinks&sitefilter=ptwiki" +
+      `&ids=${batch.join("|")}`;
+    const { entities = {} } = await getJson(url);
+    for (const [qid, e] of Object.entries(entities)) {
+      const title = e.sitelinks?.ptwiki?.title;
+      if (title) titles.set(qid, title);
+    }
+  }
+  return titles;
+}
+
+/**
+ * One GET, with backoff. pt.wikipedia throttles a sustained run — the first
+ * attempt at this pass got 211 bios and then nothing, because a 429 and "this
+ * person has no article" both looked like `null` and the build wrote a file
+ * that was 80 % empty without complaining. That is D-80's failure again, one
+ * layer down, so the two cases are now different types: this throws, and only
+ * the caller decides that a person legitimately has nothing to say.
+ */
+async function getWithRetry(url, tries = 5) {
+  let wait = 500;
+  for (let i = 0; ; i++) {
+    const res = await fetch(url, { headers: { "User-Agent": UA } });
+    if (res.ok || res.status === 404) return res;
+    if (i >= tries - 1 || (res.status !== 429 && res.status < 500)) {
+      throw new Error(`${res.status} ${res.statusText} for ${url}`);
+    }
+    const after = Number(res.headers.get("retry-after")) * 1000;
+    await new Promise((r) => setTimeout(r, Number.isFinite(after) && after > 0 ? after : wait));
+    wait *= 2;
+  }
+}
+
+/** The REST summary endpoint, which returns the lead already flattened to plain
+ *  text — so nothing here parses wikitext or HTML, and there is no sanitiser to
+ *  get wrong. `type` filters out disambiguation pages, which read as nonsense
+ *  under a portrait. Returns null only where there is genuinely nothing to
+ *  show; a request that FAILED throws, and never reads as an empty bio. */
+async function summaryOf(title) {
+  const url = `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, "_"))}`;
+  const res = await getWithRetry(url);
+  if (res.status === 404) return null;
+  const d = await res.json();
+  if (d.type !== "standard") return null;
+  const about = leadParagraph(d.extract, ABOUT_MAX);
+  const wiki = d.content_urls?.desktop?.page ?? null;
+  // Both or neither: a paragraph with no article to link is a quote with no
+  // attribution, which is not a licence we hold.
+  return about && wiki ? { about, wiki } : null;
+}
+
+/** Adds `about` and `wiki` to the people given, in place. Returns how many got
+ *  one; everyone else simply has no bio and the reveal hides the block. */
+async function addAbout(people) {
+  const all = Object.values(people).flat();
+  const titles = await ptTitles(all.map((p) => p.wd));
+  console.log(`wikipedia: ${titles.size} of ${all.length} people have a pt article`);
+  let done = 0;
+  let got = 0;
+  const failed = [];
+  // Four at a time with a breath between batches. The whole pass is a few
+  // minutes and nothing here runs at request time, so there is nothing to
+  // optimise for but staying under the throttle.
+  for (const batch of chunks(all, 4)) {
+    await Promise.all(batch.map(async (person) => {
+      const title = titles.get(person.wd);
+      if (!title) return;
+      try {
+        const s = await summaryOf(title);
+        if (s) {
+          person.about = s.about;
+          person.wiki = s.wiki;
+          got++;
+        }
+      } catch (err) {
+        failed.push(`${person.name} (${title}): ${err.message}`);
+      }
+    }));
+    done += batch.length;
+    if (done % 200 < 4) console.log(`  …${done}/${all.length}`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  console.log(`wikipedia: ${got} of ${all.length} people have a lead paragraph`);
+  // Loudly. A person with no article is fine and expected; a request that could
+  // not be made is a build that must not write a file.
+  if (failed.length > 0) {
+    console.error(`  ${failed.length} request(s) failed after retries; first 5:`);
+    for (const f of failed.slice(0, 5)) console.error(`    ${f}`);
+    throw new Error(`${failed.length} wikipedia requests failed — not writing a short file`);
+  }
+  return got;
+}
+
+if (args["only-about"]) {
+  // The set of people is FROZEN and this mode exists because of that. Every
+  // seeded day in production names its person by `wd` (D-78), so a full rebuild
+  // — which re-draws from Pantheon and re-vets — can drop somebody a scheduled
+  // day depends on, and a day naming a person the server cannot find is the
+  // 2026-09-24 outage from the other end (D-80). Adding two fields to the file
+  // that is already committed cannot do that. A full rebuild is still the right
+  // thing when the pool itself should change; it just has to be followed by a
+  // regeneration and a reseed, and the seeder's pre-flight will say so.
+  const existing = read("backend/functions/src/data/people.json");
+  const people = existing.people;
+  const before = Object.values(people).flat().length;
+  const got = await addAbout(people);
+  const after = Object.values(people).flat().length;
+  if (before !== after) throw new Error(`the set changed: ${before} → ${after}`);
+  existing.sources = SOURCES;
+  existing.aboutRetrievedAt = new Date().toISOString().slice(0, 10);
+  write("backend/functions/src/data/people.json", JSON.stringify(existing, null, 0) + "\n");
+  console.log(`  ${before} people untouched, ${got} gained a bio`);
+  console.log("  written: backend/functions/src/data/people.json");
+  process.exit(0);
+}
 
 // --- 1. Pantheon: who, and where were they born ------------------------------
 
@@ -201,17 +347,19 @@ for (const [code, list] of byCountry) {
   if (kept.length > 0) people[code] = keepBest(kept, PER_COUNTRY);
 }
 
+// Pass 4 last, and only over the survivors: `keepBest` has already cut each
+// country to its best few, so this is ~1,000 requests instead of ~3,000.
+await addAbout(people);
+
 const pool = Object.keys(people).sort();
 const out = {
   "//":
     "People and birthplaces from Pantheon, photos hotlinked from Wikimedia Commons. Generated by tools/build-people.mjs. " +
-    "Server-only: the birthplace IS the answer. Do not edit by hand, and never copy a description or an occupation in here.",
-  sources: [
-    { name: "Pantheon (MIT Media Lab)", url: "https://pantheon.world/data/api", license: "CC BY-SA 4.0. See NOTICE." },
-    { name: "Wikidata (P18)", url: "https://www.wikidata.org", license: "CC0 1.0. See NOTICE." },
-    { name: "Wikimedia Commons", url: "https://commons.wikimedia.org", license: "per file; each entry carries its own credit and licence." },
-  ],
+    "Server-only: the birthplace IS the answer, and so is `about` — both leave the server ONLY inside a Reveal. " +
+    "Do not edit by hand, and never copy a description or an occupation in here.",
+  sources: SOURCES,
   retrievedAt: new Date().toISOString().slice(0, 10),
+  aboutRetrievedAt: new Date().toISOString().slice(0, 10),
   params: { depth: DEPTH, perCountry: PER_COUNTRY, minHpi: MIN_HPI, width: WIDTH },
   people: Object.fromEntries(pool.map((c) => [c, people[c]])),
 };
