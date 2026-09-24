@@ -191,6 +191,20 @@ answer — measured, put in front of Paulo, and accepted. Worldle's single-count
 considered and does not fit our kinds: four of the five ask "which country is this?", so solving
 the first would give away the rest.
 
+**Done 2026-09-24 — a seventh kind: "onde nasceu essa pessoa?" (FR-8.8, D-78).** Practice and one
+tournament preset, not the daily, which is the route D-64 and D-72 both took. The kind is `capital`
+with a different prompt — a typed country answer, so the compass, the proximity bar and the 6/4/2
+ladder are all reused — and the work was `tools/build-people.mjs`: Pantheon for who and where,
+Wikidata for the photograph and the Portuguese name, Commons for the licence and the credit.
+**173 of 196 countries** field at least one usable person, 1,013 people in all, 569 of them public
+domain. The photograph is **hotlinked from Wikimedia** rather than vendored (Paulo's call), so
+nothing entered the repo, `privacidade.html` gained a paragraph, and a challenge whose photo never
+arrives still plays. The leak surface turned out to be the text beside the picture rather than the
+picture: Pantheon's `description` reads "Turkish actor and fashion model" and never enters the
+build, and the guard that rejects a name or filename naming the country grew twice during the work
+— once for adjectives, once for the **credit**, where the Emirates' most famous man is photographed
+by the "Dubai Government Photographer". Nothing about a day, a seam or a seed changed.
+
 **Done 2026-09-22 — `shapePick` joins the daily (FR-2.1a, D-75).** A day is six challenges and
 worth 0–36, one day after the kind shipped to practice and a preset. Two lines of
 `tools/lib/schedule.mjs`: `KINDS` gains the kind, `poolsFrom` returns `shapePick: shape`. Nothing

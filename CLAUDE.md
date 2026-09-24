@@ -154,6 +154,29 @@ backend.
 - **The phone's tab bar has two tabs** (FR-6.1, D-68). Hoje and Treinar. Grupos, torneios and the painel
   are in the account menu and not on the bar — nobody opens Mondo on a bus to rename a group. Above 60rem
   the bar is gone and the three destinations are back in the top bar.
+- **A `person` prompt is three strings, and two of them nearly leaked** (FR-8.8, SEC-17, D-78).
+  "Onde nasceu X?" sends a name, a photo URL and a photo credit. What must never travel with them
+  is the **birth city** (it is the reveal's), Pantheon's **`description`** — which reads "Turkish
+  actor and fashion model", the answer in plain text — and the occupation; `tools/build-people.mjs`
+  copies neither into `people.json`, so neither can be sent by accident. The build rejects a
+  candidate whose name, filename **or credit** names the country, and the credit is the one nobody
+  thinks of: the Emirates' most famous man is photographed by the "Dubai Government Photographer".
+  Matching is whole-word for short tokens and by prefix for long ones, because "brasileiro" is not
+  "Brasil" and `IT` is inside "Whitman". `tools/people-aliases.json` adds what a country is called
+  without being named — Inglaterra for Reino Unido, Pérsia for Irã — **keyed per country on
+  purpose**: "Isabel I de Inglaterra" is the answer written out, while "Catarina I da Rússia" was
+  born in Estonia and is the best kind of question here. Do not make that list global.
+- **The photo comes from Wikimedia, and it is the only thing in the game that does** (D-78). Paulo
+  chose hotlinking over vendoring, so a challenge must survive the image never arriving —
+  `renderPerson` hides the whole figure and the name carries the question alone — and
+  `site/privacidade.html` has to keep saying the request happens. The URL is the
+  `Special:FilePath` form because it survives a rename on Commons, which a direct
+  `upload.wikimedia.org` thumb path does not. The credit under the photo is the condition the
+  picture is shown under, not decoration.
+- **`person` is not in the daily** (D-78). It went to practice and one tournament preset first, the
+  route D-64 and D-72 both took. `tools/lib/schedule.mjs`'s `KINDS` still holds six and its test
+  still pins them, so no day, no seam and no seed changed. Adding it later is that list plus a
+  regeneration and a reseed.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).

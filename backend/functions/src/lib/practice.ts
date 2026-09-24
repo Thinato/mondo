@@ -47,6 +47,8 @@ export interface PracticeSession {
   startedAt: Timestamp;
   endedAt: Timestamp | null;
   subject: string;
+  /** D-64 / D-78 — what `buildCard` fixed for the challenge on screen. */
+  person?: string;
   /**
    * FR-8.7 — the options, in display order, for a choice kind. Present for a
    * whole session or for none of it, because the kind is fixed when the session
@@ -89,7 +91,7 @@ export function newSession(
     startedAt: now,
     endedAt: null,
     subject: challenge.subject,
-    ...optionsOf(challenge),
+    ...carried(challenge),
     item: freshItem(uid, kind, challenge.subject, now),
     regions: [...regions],
     asked,
@@ -110,7 +112,7 @@ export function serveNext(s: PracticeSession, now: Timestamp, rand: () => number
   return {
     ...s,
     subject: challenge.subject,
-    ...optionsOf(challenge),
+    ...carried(challenge),
     item: freshItem(s.uid, s.kind, challenge.subject, now),
     asked,
     totals: rolled(s),
@@ -179,11 +181,20 @@ const coreOf = (s: PracticeSession): CardCore => ({
  * session is a card of one item (D-60), and this is that item's other half —
  * the part that says what the question was rather than how it is going.
  */
-const challengeOf = (s: PracticeSession): CardItem =>
-  ({ kind: s.kind, subject: s.subject, ...(s.options ? { options: s.options } : {}) });
+const challengeOf = (s: PracticeSession): CardItem => ({ kind: s.kind, subject: s.subject, ...carried(s) });
 
-/** Firestore rejects an explicit `undefined`, so an absent field stays absent. */
-const optionsOf = (c: CardItem) => (c.options ? { options: c.options } : {});
+/**
+ * Whatever `buildCard` FIXED about this challenge and the session therefore has
+ * to remember: the options of a pick (D-64), the person of a `person` (D-78).
+ * Both are choices made once when the challenge was dealt, and a session that
+ * dropped them would deal a different challenge on every read.
+ *
+ * Firestore rejects an explicit `undefined`, so an absent field stays absent.
+ */
+const carried = (c: { options?: readonly string[]; person?: string }) => ({
+  ...(c.options ? { options: c.options } : {}),
+  ...(c.person ? { person: c.person } : {}),
+});
 
 /** Built through `newCardCore` so a new field on a card item cannot be missed here. */
 const freshItem = (uid: string, kind: KindId, subject: string, now: Timestamp): CardPlayItem =>

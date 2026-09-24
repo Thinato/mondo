@@ -9,6 +9,7 @@ import countriesJson from "../data/countries.json";
 import shapesJson from "../data/shapes.json";
 import flagsJson from "../data/flags.json";
 import gdpJson from "../data/gdp.json";
+import peopleJson from "../data/people.json";
 import type { LonLat } from "./geo";
 
 export interface Country {
@@ -84,6 +85,7 @@ const list = (countriesJson as unknown as { countries: Country[] }).countries;
 const shapes = shapesJson as unknown as { viewBox: string; fillRule: "evenodd"; shapes: Record<string, string> };
 const flags = (flagsJson as unknown as { flags: Record<string, Flag> }).flags;
 const gdp = gdpJson as unknown as { year: number; values: Record<string, number> };
+const people = (peopleJson as unknown as { people: Record<string, Person[]> }).people;
 
 /**
  * The year every `gdp` challenge asks about (D-53). Pinned and shown in the
@@ -91,6 +93,27 @@ const gdp = gdpJson as unknown as { year: number; values: Record<string, number>
  * vintage is an argument waiting to happen.
  */
 export const GDP_YEAR: number = gdp.year;
+
+/**
+ * Somebody the `person` kind can ask about, from `tools/build-people.mjs`
+ * (D-78). Server-only, like every other answer-bearing record here.
+ *
+ * `bplace` and `birthyear` are for the REVEAL and must never reach a prompt —
+ * a birth city names its country as surely as the country does. What is
+ * deliberately absent is Pantheon's `description`, which reads "Turkish actor
+ * and fashion model" and is the answer written out; the build does not copy it
+ * into the file, so it cannot be sent by accident from here.
+ */
+export interface Person {
+  name: string;
+  wd: string;
+  /** A Commons `Special:FilePath` URL, hotlinked by the client (D-78). */
+  photo: string;
+  credit: string;
+  licence: string;
+  bplace: string | null;
+  birthyear: number | null;
+}
 
 export const COUNTRIES: ReadonlyMap<string, Country> = new Map(list.map((c) => [c.code, c]));
 
@@ -123,4 +146,13 @@ export function flagFor(code: string): Flag | undefined {
  */
 export function gdpFor(code: string): number | undefined {
   return gdp.values[code];
+}
+
+/**
+ * The people born in one country, most famous first, or an empty list where the
+ * build found nobody with a usable photo. `person.pool()` is what that means
+ * for play: a country with no entry is not asked about.
+ */
+export function peopleFor(code: string): readonly Person[] {
+  return people[code] ?? [];
 }

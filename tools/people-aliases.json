@@ -1,0 +1,37 @@
+{
+  "//": "Words that give away a country without being its name (D-78). The build adds these to that country's avoid list, so a person whose name — or whose photo's filename — carries one is never asked about FOR THAT COUNTRY. Same shape as overrides.json and shape-overrides.json: a reason each, and a pull request to change one.",
+  "//2": "Only add a word that would make a pt-BR player think of THIS country: a nation inside it, or a historical realm whose heart is here. A name that points at some OTHER country is not a leak and must not be listed — 'Catarina I da Rússia' was born in Estonia and 'Carlos I de Espanha' in Belgium, and both are exactly the kind of question this challenge exists to ask.",
+
+  "GB": {
+    "words": ["Inglaterra", "England", "Escócia", "Scotland", "Grã-Bretanha", "Great Britain", "Gales", "Wales"],
+    "why": "Isabel I de Inglaterra and Henrique VIII de Inglaterra are 'Reino Unido' written out for anyone who knows where England is. Three of the eight the build found for GB were regnal names of this shape."
+  },
+  "KR": {
+    "words": ["Coreia", "Korea", "Joseon"],
+    "why": "Gojong da Coreia narrows the answer to two countries out of 196, and the other one is its neighbour."
+  },
+  "KP": {
+    "words": ["Coreia", "Korea", "Joseon"],
+    "why": "The same two countries, from the other side."
+  },
+  "IR": {
+    "words": ["Pérsia", "Persia", "Persa"],
+    "why": "Ciro II da Pérsia. Persia is Iran under its older name, not a neighbouring place."
+  },
+  "TR": {
+    "words": ["Bizâncio", "Byzantium", "Constantinopla", "Constantinople", "Otomano", "Ottoman"],
+    "why": "All four name the same city or the empire run from it, and all four are in Türkiye. For someone born ELSEWHERE in the old empire the same word points away from their birthplace, which is why this is keyed per country."
+  },
+  "NL": {
+    "words": ["Holanda", "Holland"],
+    "why": "The country's own name, 'Países Baixos', is already caught as a phrase; this is what everyone actually calls it."
+  },
+  "DE": {
+    "words": ["Prússia", "Prussia", "Prussiano"],
+    "why": "For a German-born person the word is Germany. For one born in Königsberg it points at Germany and the answer is Rússia — which is a fair question and why this is not a global word list."
+  },
+  "CZ": {
+    "words": ["Boémia", "Bohemia", "Morávia", "Moravia"],
+    "why": "Both are in Czechia. João I da Boémia was born in Luxembourg, so his entry is untouched by this."
+  }
+}

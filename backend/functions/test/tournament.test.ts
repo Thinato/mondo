@@ -92,13 +92,14 @@ test("the shipped presets cover every kind and both orderings", () => {
   assert.deepEqual(presetById("economia").config.cardSpec.items, [{ kind: "gdp", count: 5 }]);
   assert.deepEqual(presetById("qual-bandeira").config.cardSpec.items, [{ kind: "flagPick", count: 5 }]);
   assert.deepEqual(presetById("qual-silhueta").config.cardSpec.items, [{ kind: "shapePick", count: 5 }]);
+  assert.deepEqual(presetById("quem-nasceu-onde").config.cardSpec.items, [{ kind: "person", count: 5 }]);
   const mistura = presetById("mistura");
   assert.equal(mistura.config.cardSpec.order, "shuffled");
   assert.deepEqual(mistura.config.cardSpec.items.map((i) => i.kind), ["shape", "capital"]);
   // Every shipped kind is reachable from some preset: a kind nobody can pick
   // is a kind nobody tests (D-48 leaves the client no other way in).
   const asked = new Set(PRESETS.flatMap((p) => p.config.cardSpec.items.map((i) => i.kind)));
-  assert.deepEqual([...asked].sort(), ["capital", "flag", "flagPick", "gdp", "shape", "shapePick"]);
+  assert.deepEqual([...asked].sort(), ["capital", "flag", "flagPick", "gdp", "person", "shape", "shapePick"]);
 });
 
 test("D-48: a new tournament copies the preset's settings rather than referring to it", () => {

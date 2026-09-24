@@ -19,7 +19,7 @@ import {
   applyCardGuess, buildCard, cardIntervalsMs, cardView, giveUpCard, newCardPlay, totalGuesses,
   type CardItem, type CardPlay, type CardSpec,
 } from "../src/lib/card";
-import { COUNTRIES } from "../src/lib/countries";
+import { COUNTRIES, peopleFor } from "../src/lib/countries";
 import { KINDS } from "../src/lib/kinds";
 import { SUSPICIOUS_SOLVE_MS } from "../src/lib/config";
 
@@ -471,4 +471,20 @@ test("FR-2.13 on a pick: giving up closes it at zero with no guesses spent", () 
   assert.equal(done.items[0]!.points, 0);
   // The reveal still says which one it was: that is the whole reason to give up.
   assert.equal(cardView(done, card, at(1000)).items[0]!.answer?.pick, card[0]!.options!.indexOf(card[0]!.subject));
+});
+
+test("D-78: buildCard fixes the person, and it survives into the stored item", () => {
+  // The same argument as the options beside it (D-64): what the card decided
+  // must be what the card is read back as, or a rebuilt people.json changes the
+  // face between two guesses.
+  const items = buildCard({ items: [{ kind: "person", count: 3 }], order: "as_listed" }, NONE, Math.random);
+  assert.equal(items.length, 3);
+  for (const item of items) {
+    assert.equal(item.kind, "person");
+    assert.ok(item.person, `${item.subject} carries no person`);
+    assert.ok(peopleFor(item.subject).some((p) => p.wd === item.person), "the person belongs to the subject");
+    // The prompt has to work from the stored item alone, with no lookup back
+    // into whatever order the file happened to be in.
+    assert.equal(KINDS.person.prompt(item).kind, "person");
+  }
 });

@@ -10,7 +10,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
-import { COUNTRIES, countryByCode, flagFor, shapeFor } from "../src/lib/countries";
+import { COUNTRIES, countryByCode, flagFor, peopleFor, shapeFor } from "../src/lib/countries";
+import peopleJson from "../src/data/people.json";
 import { PICK_NEAR, PICK_OPTIONS, GDP_CORRECT_WITHIN, KINDS, KIND_IDS, MAX_ITEM_POINTS, capitalNamesItsCountry, kindById, scoreItem, type Challenge, type KindId, type Prompt } from "../src/lib/kinds";
 import { GDP_YEAR, gdpFor } from "../src/lib/countries";
 import { isNumberGuess, type StoredNumberGuess } from "../src/lib/round";
@@ -479,7 +480,10 @@ test("D-76: names belong to a pick kind and nothing else", () => {
   // no mapping to leak, and must not grow a field that implies it has one.
   for (const id of KIND_IDS) {
     if ((PICKS as readonly KindId[]).includes(id)) continue;
-    const r = KINDS[id].reveal({ kind: id, subject: "BR" });
+    // `person` needs the one thing its card fixed for it (D-78); every other
+    // kind's reveal follows from the subject alone.
+    const chosen = id === "person" ? { person: peopleFor("BR")[0]!.wd } : {};
+    const r = KINDS[id].reveal({ kind: id, subject: "BR", ...chosen });
     assert.equal(r.names, undefined, `${id} has no options and must have no names`);
     assert.equal(r.pick, undefined, `${id} has no options and must have no pick`);
   }
@@ -607,4 +611,104 @@ test("D-72: eight silhouettes weigh less than eight flags, and are bounded too",
   // The same rule as above, and it bites harder here: every silhouette is drawn
   // into the same 500×500 box, so SIZE IS NOT A CUE on the board — Monaco fills
   // it exactly as Russia does. Do not choose distractors by path length either.
+});
+
+// --- D-78: person -----------------------------------------------------------
+
+/** The tools' leak guard, restated for the data the SERVER actually serves.
+ *  Long words match as a prefix so "Brasil" catches "brasileiro". */
+const namesCountry = (text: string, words: readonly string[]): boolean => {
+  const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const tokens = norm(text).split(" ").filter(Boolean);
+  return words.map(norm).filter((w) => w.length >= 2).some((w) =>
+    w.includes(" ") ? ` ${tokens.join(" ")} `.includes(` ${w} `) : w.length >= 5 ? tokens.some((t) => t.startsWith(w)) : tokens.includes(w),
+  );
+};
+
+const personCh = (subject: string, wd = peopleFor(subject)[0]!.wd): Challenge => ({ kind: "person", subject, person: wd });
+
+test("FR-8.4 / D-78: the person prompt is a name, a photo and a credit, and nothing else", () => {
+  const subject = KINDS.person.pool()[0]!.code;
+  const p = KINDS.person.prompt(personCh(subject)) as Extract<Prompt, { kind: "person" }>;
+  assert.deepEqual(Object.keys(p).sort(), ["credit", "kind", "name", "photo"]);
+  assert.match(p.photo, /^https:\/\/commons\.wikimedia\.org\/wiki\/Special:FilePath\//);
+});
+
+test("D-78: no prompt in the whole pool names its own answer — not the country, not the birth city", () => {
+  // The two fields that would give it away are the ones the record carries and
+  // the prompt must not: `bplace` (a city names its country) and Pantheon's
+  // `description` ("Turkish actor"), which the build never copies. This walks
+  // every person of every country rather than sampling, because a single bad
+  // caption is a broken challenge for whoever draws it.
+  let checked = 0;
+  for (const country of KINDS.person.pool()) {
+    const c = countryByCode(country.code)!;
+    for (const person of peopleFor(c.code)) {
+      const p = KINDS.person.prompt(personCh(c.code, person.wd)) as Extract<Prompt, { kind: "person" }>;
+      // The three strings a player can actually read. The FILENAME is checked
+      // decoded, because that is the form it is read in and the encoded form
+      // is a trap: Rumi's photo is titled in Arabic, and percent-encoding it
+      // produces the byte "%D8%AF" — whose hex pair is the token "AF", which
+      // is Afghanistan, which is where he was born. A scan of the raw URL
+      // calls that a leak and it is not one.
+      const file = decodeURIComponent(p.photo.split("/Special:FilePath/")[1]!.split("?")[0]!);
+      const words = [c.names["pt-BR"], c.names.en, c.code, c.code3];
+      // The author, not the licence that follows it. Every CC licence contains
+      // "BY" — which is Belarus — and that says nothing about anyone, because
+      // it says the same thing about everyone. What the build DOES strip is the
+      // licence's jurisdiction port ("CC BY 3.0 br"), which really does turn up
+      // on Brazilians; `displayLicence` in tools/lib/people.mjs has the case.
+      for (const text of [p.name, person.credit, file]) {
+        assert.ok(!namesCountry(text, words), `prompt for ${c.code} leaks the country: ${text}`);
+        if (person.bplace) assert.ok(!namesCountry(text, [person.bplace]), `prompt for ${c.code} leaks the birth city: ${text}`);
+      }
+      const json = JSON.stringify(p);
+      assert.ok(!json.includes("centroid") && !json.includes(String(c.centroid[0])), `prompt for ${c.code} leaks a centroid`);
+      checked++;
+    }
+  }
+  assert.ok(checked > 300, `only ${checked} prompts checked — the pool looks empty`);
+});
+
+test("D-78: the pool is every country with somebody, and it clears the 30-day window", () => {
+  const pool = KINDS.person.pool();
+  assert.ok(pool.length > 30, `pool of ${pool.length} cannot honour a 30-day window`);
+  for (const c of pool) assert.ok(peopleFor(c.code).length > 0);
+  for (const c of COUNTRIES.values()) {
+    if (peopleFor(c.code).length === 0) assert.ok(!pool.some((p) => p.code === c.code), `${c.code} is in the pool with nobody in it`);
+  }
+});
+
+test("D-78: the person is chosen when the card is built and read back by id", () => {
+  const subject = KINDS.person.pool()[0]!.code;
+  const wds = peopleFor(subject).map((p) => p.wd);
+  // Whatever `buildDetail` returns must be one of this country's people, for
+  // every draw of the stream — a person from another country would be the
+  // answer to a different question.
+  for (let i = 0; i < 50; i++) {
+    const chosen = KINDS.person.buildDetail!(subject, () => i / 50);
+    assert.ok(wds.includes(chosen!), `${chosen} is not one of ${subject}'s people`);
+  }
+  // And an id nobody has is a missing challenge, not a silent fallback to
+  // somebody else: the player would come back to a different face.
+  rejects(() => KINDS.person.prompt({ kind: "person", subject, person: "Q0" }), "not-found");
+  rejects(() => KINDS.person.prompt({ kind: "person", subject }), "not-found");
+});
+
+test("D-78: the reveal names the country and, where we know it, the city", () => {
+  const subject = KINDS.person.pool().find((c) => peopleFor(c.code).some((p) => p.bplace))!.code;
+  const person = peopleFor(subject).find((p) => p.bplace)!;
+  const r = KINDS.person.reveal(personCh(subject, person.wd));
+  assert.equal(r.code, subject);
+  assert.equal(r.name, countryByCode(subject)!.names["pt-BR"]);
+  assert.equal(r.bornIn, person.bplace);
+});
+
+test("D-78: people.json carries no description and no occupation", () => {
+  // Pantheon's description is "Turkish actor and fashion model (born 1986)".
+  // The build does not copy it; this is the test that says so out loud, because
+  // the next person to widen the build will read it before adding a field.
+  const json = JSON.stringify(peopleJson);
+  assert.equal(json.includes('"description"'), false);
+  assert.equal(json.includes('"occupation"'), false);
 });

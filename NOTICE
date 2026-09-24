@@ -4,8 +4,13 @@ Licensed under the MIT License. See LICENSE.
 
 This product includes third-party data and software, listed below with their
 licenses and required attributions. Data listed here is processed offline at
-build time by tools/build-geo.mjs, tools/build-flags.mjs and tools/build-gdp.mjs;
-none of it is fetched at request time.
+build time by tools/build-geo.mjs, tools/build-flags.mjs, tools/build-gdp.mjs and
+tools/build-people.mjs; none of it is fetched at request time.
+
+The ONE exception is the photograph in a "where was this person born?" challenge
+(D-78), which the player's browser fetches from Wikimedia Commons as the page
+renders. Nothing else in the game reaches outside lisecki.dev at play time, and
+site/privacidade.html says so.
 
 
 -------------------------------------------------------------------------------
@@ -139,3 +144,39 @@ License:   Unknown. No licence, terms or attribution accompanied the files, and
     tools/lib/artwork.mjs applies D-8, fits the result into the same 500x500
     box, and simplifies to a pixel tolerance; the drawings are not modified
     beyond that and coordinate rounding.
+
+
+-------------------------------------------------------------------------------
+Pantheon  —  people, birthplaces and how widely known each person is
+-------------------------------------------------------------------------------
+Source:   https://pantheon.world/data/api  (MIT Media Lab, Collective Learning)
+License:  CC BY-SA 4.0  —  https://creativecommons.org/licenses/by-sa/4.0/
+
+    Yu, A.Z., Ronen, S., Hu, K., Lu, T., Hidalgo, C.A. "Pantheon 1.0, a manually
+    verified dataset of globally famous biographies." Scientific Data 2:150075.
+
+Read at build time by tools/build-people.mjs, which keeps the name, the birth
+city, the birth year and the popularity index. It does NOT keep Pantheon's
+`description` field: it reads "Turkish actor and fashion model" and the country
+is the answer to the challenge.
+
+
+-------------------------------------------------------------------------------
+Wikidata  —  the photograph of each person (P18), and their name in Portuguese
+-------------------------------------------------------------------------------
+Source:   https://www.wikidata.org
+License:  CC0 1.0  —  https://creativecommons.org/publicdomain/zero/1.0/
+
+
+-------------------------------------------------------------------------------
+Wikimedia Commons  —  the photographs themselves
+-------------------------------------------------------------------------------
+Source:   https://commons.wikimedia.org
+License:  per file. tools/build-people.mjs keeps only files whose Commons
+          `License` is public domain, CC0, CC BY or CC BY-SA, and records each
+          file's author and licence alongside it.
+
+The photographs are NOT redistributed: each is fetched by the player's browser
+from commons.wikimedia.org, and the author and licence are shown under it while
+the challenge is on screen. Where Commons names no author, the credit reads what
+Commons reads, usually "Unknown author".

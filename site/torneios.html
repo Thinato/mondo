@@ -110,13 +110,20 @@
                 aria-label="Como ler as pistas" aria-haspopup="dialog">?</button>
       </div>
 
+      <p id="card-capital" class="capital-prompt" hidden></p>
       <figure class="silhouette" id="card-shape-wrap" hidden>
         <svg id="card-shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
       </figure>
       <figure class="flag" id="card-flag-wrap" hidden>
         <svg id="card-flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
       </figure>
-      <p id="card-capital" class="capital-prompt" hidden></p>
+      <!-- D-78: the photograph, hotlinked from Wikimedia. geo.js hides the
+           whole figure if it does not arrive; the name is in #card-capital
+           with every other text prompt. -->
+      <figure class="portrait" id="card-person-wrap" hidden>
+        <img id="card-person-photo" alt="" width="400" height="400" loading="eager" decoding="async" />
+        <figcaption id="card-person-credit" class="fine"></figcaption>
+      </figure>
 
       <!-- FR-8.7 / D-64: a multiple-choice challenge. Artwork and nothing else;
            position is the whole identity and the guess is an index. -->
