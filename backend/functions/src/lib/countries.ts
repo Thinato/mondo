@@ -113,6 +113,18 @@ export interface Person {
   licence: string;
   bplace: string | null;
   birthyear: number | null;
+  /**
+   * The lead paragraph of the person's pt.wikipedia article, and a link to it
+   * (D-81). Both or neither: the text is CC BY-SA and the link is the
+   * attribution it is shown under.
+   *
+   * This is answer-bearing — a lead opens "foi uma condessa húngara" — so it
+   * belongs to `Reveal` exactly as `bplace` does and must never reach a
+   * `Prompt`. 24 of the 1,013 people have no article; their reveal simply has
+   * no bio.
+   */
+  about?: string;
+  wiki?: string;
 }
 
 export const COUNTRIES: ReadonlyMap<string, Country> = new Map(list.map((c) => [c.code, c]));

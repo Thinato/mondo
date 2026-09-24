@@ -714,6 +714,60 @@ test("D-78: the reveal names the country and, where we know it, the city", () =>
   assert.equal(r.bornIn, person.bplace);
 });
 
+test("D-81: the reveal carries the bio and its link, together or not at all", () => {
+  const withBio = KINDS.person.pool()
+    .flatMap((c) => peopleFor(c.code).map((p) => ({ code: c.code, p })))
+    .find(({ p }) => p.about)!;
+  const r = KINDS.person.reveal(personCh(withBio.code, withBio.p.wd));
+  assert.equal(r.about, withBio.p.about);
+  assert.equal(r.wiki, withBio.p.wiki);
+  assert.match(r.wiki!, /^https:\/\/pt\.wikipedia\.org\/wiki\//);
+
+  // 24 of the 1,013 have no pt article. Their reveal is the country and the
+  // city, exactly as it was before D-81 — not an empty paragraph.
+  const without = KINDS.person.pool()
+    .flatMap((c) => peopleFor(c.code).map((p) => ({ code: c.code, p })))
+    .find(({ p }) => !p.about);
+  if (without) {
+    const bare = KINDS.person.reveal(personCh(without.code, without.p.wd));
+    assert.equal(bare.about, undefined);
+    assert.equal(bare.wiki, undefined);
+  }
+});
+
+test("D-81: no bio is ever half a bio, anywhere in the pool", () => {
+  // The text is CC BY-SA and the link is the attribution, so one without the
+  // other is not something we are licensed to render. Cheaper to pin here than
+  // to remember it in three view layers.
+  for (const country of KINDS.person.pool()) {
+    for (const person of peopleFor(country.code)) {
+      assert.equal(
+        Boolean(person.about), Boolean(person.wiki),
+        `${country.code} ${person.name}: about and wiki must travel together`,
+      );
+    }
+  }
+});
+
+test("SEC-17 / D-81: the bio cannot reach an open challenge, for ANY person", () => {
+  // The single-person version of this test has existed since D-78. D-81 added a
+  // field to the record that names the country in its FIRST LINE — "foi uma
+  // condessa húngara" — so the guard is now walked over the whole pool: every
+  // prompt the game can build, pinned to the same four keys.
+  let checked = 0;
+  for (const country of KINDS.person.pool()) {
+    for (const person of peopleFor(country.code)) {
+      const prompt = KINDS.person.prompt(personCh(country.code, person.wd));
+      assert.deepEqual(
+        Object.keys(prompt).sort(), ["credit", "kind", "name", "photo"],
+        `${country.code} ${person.name}: the prompt grew a key`,
+      );
+      checked++;
+    }
+  }
+  assert.ok(checked > 900, `expected the whole pool, walked ${checked}`);
+});
+
 test("D-78: people.json carries no description and no occupation", () => {
   // Pantheon's description is "Turkish actor and fashion model (born 1986)".
   // The build does not copy it; this is the test that says so out loud, because
