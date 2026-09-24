@@ -522,11 +522,19 @@ const shapePick: Kind = {
  * `person` — "onde nasceu esta pessoa?" (FR-8.8, D-78). Pantheon says who is
  * worth asking about; Wikimedia has the photograph.
  *
- * Three guesses on `capital`'s ladder, and for `capital`'s reason: a face is
- * recognised or it is not, and there is no gradual reading of it to reward the
- * way a silhouette rewards a fourth look. What the second and third guesses buy
- * is the distance and the compass, which is the same deal every typed-answer
- * kind offers.
+ * **Six guesses on `shape`'s ladder** (Paulo, 2026-09-24). It shipped on
+ * `capital`'s three, on the argument that a face is recognised or it is not —
+ * and that argument was about the wrong half of the question. Recognising the
+ * person is only the first step here: knowing who Hage Geingob is does not
+ * place him, and from the second guess on the player is doing geography with
+ * kilometres and a compass, which is exactly what the six-guess ladder exists
+ * to reward. A photograph also carries more to reason from than a city name
+ * does — dress, setting, script on a sign — so there is more to narrow with.
+ *
+ * The cost is that this kind is now worth the same 0–6 over a longer climb, so
+ * a solve on the fourth guess pays 3 where a `capital` solve on the third pays
+ * 2. That is the same trade `shape` has always made and it is why both sit on
+ * one ladder rather than two.
  *
  * **The answer is where the place is TODAY.** Kant was born in Königsberg and
  * the answer is Rússia; Marie Curie was born in Warsaw under Russian rule and
@@ -541,8 +549,8 @@ const shapePick: Kind = {
  */
 const person: Kind = {
   id: "person",
-  maxGuesses: 3,
-  pointsByGuess: [6, 4, 2],
+  maxGuesses: MAX_GUESSES,
+  pointsByGuess: [6, 5, 4, 3, 2, 1],
   pool: () => ALL().filter((c) => peopleFor(c.code).length > 0),
   // Which of the country's people, fixed here and stored (D-64's argument,
   // applied to a person instead of an order). Any of them; they are all

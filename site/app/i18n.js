@@ -79,7 +79,7 @@ const PT_BR = {
     person:
       "A pergunta é uma pessoa e a resposta é um país, com as mesmas pistas da silhueta: distância, seta e proximidade a cada erro.\n\n" +
       "A resposta é o país de HOJE. Kant nasceu em Königsberg, que hoje é Kaliningrado, na Rússia — então a resposta é Rússia, não Alemanha. Marie Curie nasceu em Varsóvia quando a Polônia não existia no mapa, e a resposta é Polônia. Quando o desafio acaba, a cidade aparece junto com o país.\n\n" +
-      "São três tentativas, como na capital e na bandeira.\n\n" +
+      "São seis tentativas, como na silhueta — reconhecer a pessoa é só o começo, e daí em diante você acha o país com a distância e a seta.\n\n" +
       "As pessoas vêm do Pantheon (MIT) e as fotos da Wikimedia Commons, com o crédito de cada uma embaixo da foto.",
   },
   // FR-2.13 / D-61 — zero points, and the answer.

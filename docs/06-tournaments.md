@@ -322,7 +322,7 @@ what a *day* has that a round does not: the schedule, the streak, the share grid
 | `gdp` | a country name (public) | a number | 3 | higher / lower + how close | `gdp.json`, GDP per capita PPP for one pinned year | **exists** (§5.4) |
 | `flagPick` | a country name (public) + **eight flags, anonymous** | one of the eight | 2 | none while open; the reveal names all eight (D-76) | `flags.json`, the same set `flag` uses | **exists** (§5.5) |
 | `shapePick` | a country name (public) + **eight silhouettes, anonymous** | one of the eight | 2 | none while open; the reveal names all eight (D-76) | `shapes.json`, the same set `shape` uses | **exists** (§5.5), and in the daily since D-75 |
-| `person` | a person's name + **a photograph hotlinked from Wikimedia** | country | 3 | km + compass + proximity, exactly `capital`'s | `people.json`, from Pantheon + Wikidata + Commons | **exists** (D-78); practice and one preset, not the daily |
+| `person` | a person's name + **a photograph hotlinked from Wikimedia** | country | 6 | km + compass + proximity, exactly `shape`'s | `people.json`, from Pantheon + Wikidata + Commons | **exists** (D-78); practice and one preset, not the daily |
 
 **Not every country can be asked as a `capital`.** Fifteen name themselves in their own capital
 — Brasília/Brasil, Cidade do México/México, Singapura/Singapura, Bissau/Guiné-Bissau,
@@ -648,7 +648,7 @@ Two things follow, and both are why this is the right shape rather than a shortc
 | `economia` | `free_for_all` | `aggregate` | 5 × `gdp` | 1 | points → time | five numbers, three guesses each; the only preset where nobody names a country |
 | `qual-bandeira` | `free_for_all` | `aggregate` | 5 × `flagPick` | 1 | points → time | ten taps end to end; the only preset where nothing is typed |
 | `qual-silhueta` | `free_for_all` | `aggregate` | 5 × `shapePick` | 1 | points → time | the same card with the other artwork (D-72); nothing typed here either |
-| `quem-nasceu-onde` | `free_for_all` | `aggregate` | 5 × `person` | 1 | points → time | D-78. Five and not three because three guesses each makes it one sitting, not two |
+| `quem-nasceu-onde` | `free_for_all` | `aggregate` | 5 × `person` | 1 | points → time | D-78. Six guesses each, so it is the length of `quintal` — the card it is shaped like anyway |
 
 Preset ids are stable and are referenced in tests. `quintal` is the one built in slice 1; the rest
 land with the format that carries them.

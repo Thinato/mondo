@@ -670,6 +670,16 @@ test("D-78: no prompt in the whole pool names its own answer — not the country
   assert.ok(checked > 300, `only ${checked} prompts checked — the pool looks empty`);
 });
 
+test("D-78: six guesses on shape's ladder, not capital's three", () => {
+  // Raised from three on the day it shipped (Paulo, 2026-09-24). Recognising
+  // the face is the first half of the question; the rest is geography, and
+  // that is what the long ladder pays for. A silent revert to [6, 4, 2] would
+  // cost four guesses without changing a single test that does not say so.
+  assert.equal(KINDS.person.maxGuesses, 6);
+  assert.deepEqual(KINDS.person.pointsByGuess, [6, 5, 4, 3, 2, 1]);
+  assert.deepEqual(KINDS.person.pointsByGuess, KINDS.shape.pointsByGuess, "the same ladder, on purpose");
+});
+
 test("D-78: the pool is every country with somebody, and it clears the 30-day window", () => {
   const pool = KINDS.person.pool();
   assert.ok(pool.length > 30, `pool of ${pool.length} cannot honour a 30-day window`);
