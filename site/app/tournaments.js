@@ -15,7 +15,7 @@ import { mountProfile } from "./profile.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, isPick, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
+import { guessRow, isPick, renderAbout, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
@@ -40,6 +40,7 @@ const el = {
   helpBtn: $("help-btn"), helpDialog: $("help-dialog"), helpTitle: $("help-title"),
   helpBody: $("help-body"), helpClose: $("help-close"),
   cardReveal: $("card-reveal"), cardRevealText: $("card-reveal-text"), cardRevealNext: $("card-reveal-next"),
+  revealAbout: { box: $("card-reveal-about"), text: $("card-reveal-about-text"), link: $("card-reveal-about-link"), credit: $("card-reveal-about-credit") },
   cardOptions: $("card-options"),
   cardSide: $("card-side"), cardSideTitle: $("card-side-title"),
   cardSideFinished: $("card-side-finished"), cardSidePlaying: $("card-side-playing"), cardSideWaiting: $("card-side-waiting"),
@@ -506,6 +507,7 @@ function renderCard() {
       ? t("revealPick")
       : t("revealFailed", { answer: reveal.answer.name });
     if (reveal.answer?.bornIn) el.cardRevealText.textContent += ` ${t("revealBorn", { city: reveal.answer.bornIn })}`;
+    renderAbout(el.revealAbout, reveal.answer);
     el.cardRevealNext.textContent = done ? t("seeResult") : t("continueChallenge");
   } else {
     help(kind);

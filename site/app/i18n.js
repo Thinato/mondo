@@ -36,6 +36,10 @@ const PT_BR = {
   // one. "Era Rússia" alone teaches a player that the game is strange; "nasceu
   // em Kaliningrado" teaches them where Königsberg went.
   revealBorn: "Nasceu em {city}.",
+  // D-81 — the bio under a finished `person` challenge. The credit is the
+  // licence the paragraph is shown under, not a flourish.
+  revealWiki: "Ler na Wikipédia",
+  revealWikiCredit: "Wikipédia · CC BY-SA 4.0",
   continueChallenge: "Próximo desafio",
   seeResult: "Ver o resultado",
   // FR-6.9 / D-56 — "?" explains the hints of the challenge on screen. Two

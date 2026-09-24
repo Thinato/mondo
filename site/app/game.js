@@ -16,7 +16,7 @@ import * as api from "./api.js";
 import { applyIdentity, ask, attachAccount, showAccount } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, isPick, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
+import { guessRow, isPick, renderAbout, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
@@ -32,6 +32,7 @@ const el = {
   helpBody: $("help-body"), helpClose: $("help-close"),
   giveUpBtn: $("giveup-btn"), giveUpDialog: $("giveup-dialog"), giveUpText: $("giveup-text"),
   reveal: $("reveal"), revealText: $("reveal-text"), revealNext: $("reveal-next"),
+  revealAbout: { box: $("reveal-about"), text: $("reveal-about-text"), link: $("reveal-about-link"), credit: $("reveal-about-credit") },
   side: $("side"), sideTitle: $("side-title"), sideGroup: $("side-group"), sideToday: $("side-today"),
   sideFinished: $("side-finished"), sidePlaying: $("side-playing"), sideWaiting: $("side-waiting"),
   sideGated: $("side-gated"), sideStats: $("side-stats"),
@@ -296,6 +297,7 @@ function render() {
       : isPick(kind)
       ? t("revealPick")
       : t("revealFailed", { answer: reveal.answer.name })) + born;
+    renderAbout(el.revealAbout, reveal.answer);
     el.revealNext.textContent = inProgress ? t("continueChallenge") : t("seeResult");
   } else {
     // FR-6.9 — the first challenge of each hint vocabulary explains itself.
