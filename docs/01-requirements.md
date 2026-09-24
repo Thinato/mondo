@@ -238,8 +238,10 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   kinds reached players through practice and a tournament preset first, which is what FR-9 exists
   for, and joined the daily once they had been played; `person` is at that first stage now.
 - **FR-8.8** *(added 2026-09-24, D-78)* The `person` kind asks **"where was this person born?"**:
-  the prompt is a name and a photograph, the answer is a country, and the scoring is `capital`'s —
-  three guesses at 6/4/2 with distance, compass and proximity between them.
+  the prompt is a name and a photograph, the answer is a country, and the scoring is `shape`'s —
+  **six guesses at 6/5/4/3/2/1** with distance, compass and proximity between them (amended
+  2026-09-24, same day: it shipped on `capital`'s three and Paulo raised it, because recognising
+  the face is only the first half of the question and the rest is geography).
   - The answer is the country the birthplace is **in today**. This MUST be stated in the in-game
     help and in `regras.html`, and the reveal MUST show the birth city beside the country.
   - The person MUST be chosen once, when the card is built, and **stored** with the challenge, for

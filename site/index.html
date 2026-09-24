@@ -90,13 +90,19 @@
       </div>
 
       <!-- One prompt per kind; exactly one is visible at a time (D-52). -->
+      <!-- The question, above the artwork: for `person` the NAME is the
+           question and the photograph is the help (D-78/D-79). -->
+      <p id="capital" class="capital-prompt" hidden></p>
+      <figure class="portrait" id="person-wrap" hidden>
+        <img id="person-photo" alt="" width="400" height="400" loading="eager" decoding="async" />
+        <figcaption id="person-credit" class="fine"></figcaption>
+      </figure>
       <figure class="silhouette" id="shape-wrap" hidden>
         <svg id="shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
       </figure>
       <figure class="flag" id="flag-wrap" hidden>
         <svg id="flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
       </figure>
-      <p id="capital" class="capital-prompt" hidden></p>
 
       <!-- FR-8.7 / D-64: a multiple-choice challenge. Filled by renderOptions
            with artwork and nothing else — position is the whole identity, and

@@ -193,8 +193,8 @@ the first would give away the rest.
 
 **Done 2026-09-24 — a seventh kind: "onde nasceu essa pessoa?" (FR-8.8, D-78).** Practice and one
 tournament preset, not the daily, which is the route D-64 and D-72 both took. The kind is `capital`
-with a different prompt — a typed country answer, so the compass, the proximity bar and the 6/4/2
-ladder are all reused — and the work was `tools/build-people.mjs`: Pantheon for who and where,
+with a different prompt — a typed country answer, so the compass, the proximity bar and the
+scoring ladder are all reused — and the work was `tools/build-people.mjs`: Pantheon for who and where,
 Wikidata for the photograph and the Portuguese name, Commons for the licence and the credit.
 **173 of 196 countries** field at least one usable person, 1,013 people in all, 569 of them public
 domain. The photograph is **hotlinked from Wikimedia** rather than vendored (Paulo's call), so

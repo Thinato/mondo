@@ -9,7 +9,8 @@ const countriesJson = JSON.parse(readFileSync(new URL("../../backend/functions/s
 const flagsJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/flags.json", import.meta.url)));
 const gdpJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/gdp.json", import.meta.url)));
 const shapesJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/shapes.json", import.meta.url)));
-const pools = poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson);
+const peopleJson = JSON.parse(readFileSync(new URL("../../backend/functions/src/data/people.json", import.meta.url)));
+const pools = poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson, peopleJson);
 const tierOf = new Map(countriesJson.countries.map((c) => [c.code, c.tier]));
 const base = { pools, seed: 20260908, start: "2026-09-15" };
 
@@ -151,8 +152,13 @@ test("prng is deterministic and in [0, 1)", () => {
 
 // --- FR-8.7 / D-66, D-75: the daily's fifth and sixth challenges ------------
 
-test("D-75: a day is six challenges, and both pick kinds are among them", () => {
-  assert.deepEqual(KINDS, ["shape", "flag", "capital", "gdp", "flagPick", "shapePick"]);
+test("D-79: a day is seven challenges, and both pick kinds are among them", () => {
+  assert.deepEqual(KINDS, ["shape", "flag", "capital", "gdp", "flagPick", "shapePick", "person"]);
+  // D-79 — `person` has a pool of its own and a hole of its own: 23 countries
+  // have nobody with a usable photograph, so it is read off people.json rather
+  // than assumed to be the world, exactly as `shape` is.
+  assert.ok(pools.person.length > KIND_WINDOW, "the person pool must clear the 30-day window");
+  assert.ok(pools.person.length < countriesJson.countries.length, "and it is not every country");
   assert.deepEqual(pools.flagPick, pools.flag, "flagPick asks about exactly what flag asks about");
   // D-75 — and the same for silhouettes, the two atoll nations' absence
   // included: a kind cannot offer as a distractor what it cannot offer as an
@@ -160,11 +166,11 @@ test("D-75: a day is six challenges, and both pick kinds are among them", () => 
   assert.deepEqual(pools.shapePick, pools.shape, "shapePick asks about exactly what shape asks about");
 });
 
-test("D-75: a day is worth 0-36, six challenges of six points", () => {
+test("D-79: a day is worth 0-42, seven challenges of six points", () => {
   // The number nobody can derive from this module: `lib/round.ts` sums the
   // card's own kinds, so the day's maximum follows from KINDS.length and there
   // is no constant to forget. This pins the arithmetic the seam is made of.
-  assert.equal(KINDS.length * 6, 36);
+  assert.equal(KINDS.length * 6, 42);
 });
 
 test("D-66: the generator fills a choice kind's options, and only that kind's", () => {
