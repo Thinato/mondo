@@ -16,7 +16,7 @@ import * as api from "./api.js";
 import { applyIdentity, ask, attachAccount, showAccount } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, isPick, renderFlag, renderOptions, renderShape } from "./geo.js";
+import { guessRow, isPick, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
@@ -36,6 +36,7 @@ const el = {
   sideFinished: $("side-finished"), sidePlaying: $("side-playing"), sideWaiting: $("side-waiting"),
   sideGated: $("side-gated"), sideStats: $("side-stats"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
+  personWrap: $("person-wrap"), personPhoto: $("person-photo"), personCredit: $("person-credit"),
   options: $("options"),
   guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
@@ -244,12 +245,19 @@ function render() {
   const kind = revealing ? (isPick(shownPrompt?.kind) ? shownPrompt.kind : null) : round.prompt?.kind ?? null;
   el.shapeWrap.hidden = kind !== "shape";
   el.flagWrap.hidden = kind !== "flag";
-  el.capital.hidden = kind !== "capital" && kind !== "gdp" && !isPick(kind);
+  // renderPerson un-hides this itself, and hides it again if Wikimedia does
+  // not answer — so the only thing to do here is put it away for other kinds.
+  if (kind !== "person") el.personWrap.hidden = true;
+  el.capital.hidden = kind !== "capital" && kind !== "gdp" && kind !== "person" && !isPick(kind);
   el.options.hidden = !isPick(kind);
   if (kind === "shape") renderShape(el.shape, round.prompt.shape);
   else if (kind === "flag") renderFlag(el.flag, round.prompt.flag);
   else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: round.prompt.capital });
   else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: round.prompt.country, year: round.prompt.year });
+  else if (kind === "person") {
+    el.capital.textContent = t("personPrompt", { name: round.prompt.name });
+    renderPerson(el.personWrap, el.personPhoto, el.personCredit, round.prompt);
+  }
   else if (isPick(kind)) {
     // `flagPickPrompt` or `shapePickPrompt`: the sentence differs by one noun,
     // so the key is derived rather than branched on (D-72).
@@ -282,11 +290,12 @@ function render() {
 
   el.reveal.hidden = !revealing;
   if (revealing) {
-    el.revealText.textContent = reveal.status === "solved"
+    const born = reveal.answer?.bornIn ? ` ${t("revealBorn", { city: reveal.answer.bornIn })}` : "";
+    el.revealText.textContent = (reveal.status === "solved"
       ? t("revealSolved", { points: reveal.points })
       : isPick(kind)
       ? t("revealPick")
-      : t("revealFailed", { answer: reveal.answer.name });
+      : t("revealFailed", { answer: reveal.answer.name })) + born;
     el.revealNext.textContent = inProgress ? t("continueChallenge") : t("seeResult");
   } else {
     // FR-6.9 — the first challenge of each hint vocabulary explains itself.

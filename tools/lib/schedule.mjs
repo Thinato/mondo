@@ -39,7 +39,7 @@ export const DEFAULT_WEIGHTS = { 1: 0.5, 2: 0.35, 3: 0.15 };
 /** FR-2.3 as amended (D-67): the same country, by the same kind, not within 30 days. */
 export const KIND_WINDOW = 30;
 /** The order challenges are drawn in. The order they are PLAYED in is shuffled. */
-export const KINDS = ["shape", "flag", "capital", "gdp", "flagPick", "shapePick"];
+export const KINDS = ["shape", "flag", "capital", "gdp", "flagPick", "shapePick", "person"];
 
 /** mulberry32 — small, seedable, good enough for shuffling countries. */
 export function prng(seed) {
@@ -66,7 +66,7 @@ export function prng(seed) {
  * drift is that both sides pin their pool sizes in tests, so a change to either
  * rule fails one of them loudly.
  */
-export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson) {
+export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson, peopleJson) {
   const fold = (x) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const namesItsCapital = (c) => {
     const cap = fold(c.capital?.["pt-BR"] ?? "");
@@ -82,6 +82,10 @@ export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson) {
   // assumed before, which would have scheduled Tuvalu and then thrown
   // "No silhouette for this challenge" at whoever opened the day.
   const hasShape = new Set(Object.keys(shapesJson.shapes));
+  // D-79 — and `person` is not every country either: 23 of the 196 have nobody
+  // in people.json with a usable photograph, for the same reason shapes has a
+  // hole. Built from the file, never assumed.
+  const hasPerson = new Set(Object.keys(peopleJson.people));
   const flag = withTier(countriesJson.countries.filter((c) => hasFlag.has(c.code)));
   const shape = withTier(countriesJson.countries.filter((c) => hasShape.has(c.code)));
   return {
@@ -96,6 +100,7 @@ export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson) {
     // same reason — including the two atoll nations' absence, which has to hold
     // for the distractors as much as for the answer.
     shapePick: shape,
+    person: withTier(countriesJson.countries.filter((c) => hasPerson.has(c.code))),
   };
 }
 
