@@ -179,6 +179,18 @@ backend.
   the 196 countries have nobody with a usable photograph, and scheduling one of them would throw
   "no person" at noon for whoever opened the day — the same hole `shapes.json` has and the same
   fix. The day it joined, the seeded year holds 36 shared-country days and 16 hand-overs.
+- **The seeder builds every prompt before it writes a day** (D-80). `seed-schedule.mjs` runs the
+  server's own `prompt()` over every item in the schedule file and refuses the whole seed if any
+  throws. It is deliberately not a schema check: a schema has to be kept in step with `kinds.ts`
+  by hand, and that is precisely what failed — twice. D-66 caught a seed naming a kind the backend
+  had not deployed; on 2026-09-24 every `person` item went out with **no person on it**, because
+  D-78's `buildDetail` hook was never wired into `generate-schedule.mjs` beside D-66's
+  `buildOptions`. Both are the same shape — valid JSON that cannot be served — and both die at
+  noon, for the whole day, for everyone. What made the second one silent is worth holding on to:
+  **a kind with no detail to fix legitimately gets nothing back**, so six kinds made the omission
+  look correct. If you add a hook to `Kind` that the card must FIX at build time, wire it into
+  `tools/generate-schedule.mjs` in the same commit; `schedule.test.mjs` pins that it is called,
+  and the pre-flight is what stops it reaching production if you forget.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).

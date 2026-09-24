@@ -125,9 +125,22 @@ export function poolsFrom(countriesJson, flagsJson, gdpJson, shapesJson, peopleJ
  *        CLI wires in the real one so there is no second implementation to
  *        drift; `rand` is this generator's seeded stream, so the schedule stays
  *        byte-reproducible from its seed.
+ * @param {(kind:string,subject:string,rand:()=>number)=>string|undefined} [o.buildDetail]
+ *        D-78 — anything else a kind FIXES when the card is built rather than
+ *        derives when it is read; today, which of a country's people the
+ *        question is about. Injected for the same reason as `buildOptions` and
+ *        stored under the same field name `buildCard` uses.
+ *
+ *        Leaving this out is what broke 2026-09-24: D-66 wired `buildOptions`
+ *        through and D-78's `buildDetail` was never added beside it, so every
+ *        seeded `person` item went out as `{kind, subject}` with no person and
+ *        `mustPerson` threw `not-found` at noon. A kind with no detail to fix
+ *        legitimately gets nothing, which is exactly why the omission was
+ *        silent — so `seed-schedule.mjs` now builds every prompt before it
+ *        writes, and that check, not this comment, is the guard.
  * @returns {{puzzleId:string,items:{kind:string,subject:string}[],opensAt:string}[]}
  */
-export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WINDOW, weights = DEFAULT_WEIGHTS, history = [], buildOptions = null }) {
+export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WINDOW, weights = DEFAULT_WEIGHTS, history = [], buildOptions = null, buildDetail = null }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) throw new Error(`start must be YYYY-MM-DD, got ${start}`);
   for (const kind of KINDS) {
     const pool = pools[kind];
@@ -196,8 +209,13 @@ export function generate({ pools, seed, start, days = 365, kindWindow = KIND_WIN
     // Options come second, when `today` holds EVERY subject of the day: a
     // distractor that is another challenge's answer would let a player cross
     // off half of it for free (FR-8.7). Same two-pass shape as buildCard.
-    if (buildOptions) {
-      for (const item of items) {
+    for (const item of items) {
+      // Same order as `buildCard`'s second pass: the detail, then the options.
+      if (buildDetail) {
+        const detail = buildDetail(item.kind, item.subject, rand);
+        if (detail !== undefined) item.person = detail;
+      }
+      if (buildOptions) {
         const options = buildOptions(item.kind, item.subject, today, rand);
         if (options) item.options = options;
       }

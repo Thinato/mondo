@@ -12,6 +12,9 @@
 // ever touches it.
 
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
@@ -39,6 +42,51 @@ if (args.emulator) {
 
 const projectId = args.emulator ? (args.project ?? "demo-mondo") : args.project;
 const { puzzles } = JSON.parse(readFileSync(args.file, "utf8"));
+
+// ---------------------------------------------------------------------------
+// Pre-flight: build every prompt this file would serve, against the SERVER's
+// own kinds, before a single document is written.
+//
+// This is the last gate in front of production and it used to have none — the
+// seeder copied `items` through and found out at noon. Two outages came out of
+// that gap: D-66 nearly seeded a kind the deployed backend had never heard of,
+// and on 2026-09-24 every `person` item went out with no person on it, because
+// the generator was never taught D-78's `buildDetail`. Both are the same shape
+// — an item that is well-formed JSON and unservable — and both are caught by
+// asking the only question that matters: does this item make a prompt?
+//
+// It is deliberately not a schema check. A schema would have to be kept in step
+// with `kinds.ts` by hand, which is the very thing that failed; `prompt()` IS
+// the specification, so it is what runs here. It costs one pass over the file
+// and needs the backend built, same as the generator.
+const require = createRequire(import.meta.url);
+const TOOLS = dirname(fileURLToPath(import.meta.url));
+let KINDS_IMPL;
+try {
+  KINDS_IMPL = require(join(TOOLS, "../backend/functions/lib/lib/kinds.js")).KINDS;
+} catch {
+  console.error("build the backend first: npm --prefix backend/functions run build");
+  process.exit(2);
+}
+const problems = [];
+for (const p of puzzles) {
+  for (const item of p.items ?? []) {
+    const kind = KINDS_IMPL[item.kind];
+    if (!kind) { problems.push(`${p.puzzleId}: the backend does not ship the kind "${item.kind}"`); continue; }
+    try {
+      kind.prompt(item);
+    } catch (err) {
+      problems.push(`${p.puzzleId}: ${item.kind}/${item.subject} builds no prompt — ${err.message}`);
+    }
+  }
+}
+if (problems.length > 0) {
+  console.error(`refusing to seed: ${problems.length} item(s) the deployed server cannot serve\n`);
+  for (const line of problems.slice(0, 10)) console.error(`  ${line}`);
+  if (problems.length > 10) console.error(`  … and ${problems.length - 10} more`);
+  process.exit(2);
+}
+console.log(`✓ pre-flight: ${puzzles.length} days, every item builds a prompt`);
 
 initializeApp({ projectId });
 const db = getFirestore();
