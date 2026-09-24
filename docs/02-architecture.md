@@ -197,7 +197,7 @@ items          array<{ kind, guesses[], solved, points, startedAt, finishedAt, e
                            a gdp guess is { value, higher, proximity, at } (D-53)
 guessCount     number      across the whole day
 solved         boolean     EVERY challenge solved — a perfect day
-points         number      the day's sum, 0–36 (FR-3.1)
+points         number      the day's sum, 0–42 (FR-3.1)
 elapsedMs      number
 suspicious     boolean     set when any first-guess solve came back in under 2 s
 history        Attempt[]   only after an admin retry (D-30): the earlier tries, oldest first

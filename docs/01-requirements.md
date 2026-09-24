@@ -40,10 +40,11 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-2.1** There MUST be exactly one daily puzzle, identified by `puzzleId` in `YYYY-MM-DD`
   form. The day boundary is **12:00 `America/Sao_Paulo`** (OQ-2, resolved). `puzzleId` names the
   date the puzzle *opens*; the puzzle stays live until 12:00 the following day.
-- **FR-2.1a** *(amended 2026-09-22, D-75)* (D-52, D-53, D-66, D-72) A day MUST hold **one challenge
-  of every kind the schedule asks** — silhouette, flag, capital, GDP per capita, "which of these
-  eight flags" and "which of these eight silhouettes" — played strictly in order, one at a time.
-  The order MUST be shuffled per day, so that no kind is always first. A day is worth 0–36. It is
+- **FR-2.1a** *(amended 2026-09-24, D-79)* (D-52, D-53, D-66, D-72, D-75) A day MUST hold **one
+  challenge of every kind the schedule asks** — silhouette, flag, capital, GDP per capita, "which of
+  these eight flags", "which of these eight silhouettes" and "where was this person born" — played
+  strictly in order, one at a time. The order MUST be shuffled per day, so that no kind is always
+  first. A day is worth 0–42. It is
   **not** "every shipped kind": a new kind reaches players through practice and a tournament preset
   first (FR-9, D-64), and joins the daily only when the schedule is regenerated to include it,
   which is a decision with a cost — the all-time column gains a seam (D-66, D-75). The authority on
@@ -111,11 +112,11 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   (`min/max >= 0.9`), which is symmetric, so there is nothing to argue about. Nothing is paid for
   a near miss, exactly as a silhouette guessed 200 km away pays what one 10 000 km away pays.
 
-  A **day** is the sum of its challenges, so it is worth **0–36** (D-75). Earlier days are worth
+  A **day** is the sum of its challenges, so it is worth **0–42** (D-79). Earlier days are worth
   less — 0–6 before D-52, 0–18 between D-52 and D-53, 0–24 between D-53 and D-66, 0–30 between
-  D-66 and D-75 — and are left alone: the 7- and 30-day windows heal themselves within a month,
-  and the all-time column keeps its seams rather than a rewrite of history. There are four of them
-  now, and that is the cost of adding a kind: it is paid once, in a column nobody settles an
+  D-66 and D-75, 0–36 between D-75 and D-79 — and are left alone: the 7- and 30-day windows heal
+  themselves within a month, and the all-time column keeps its seams rather than a rewrite of
+  history. There are five of them now, and that is the cost of adding a kind: it is paid once, in a column nobody settles an
   argument with.
 
 - **FR-3.2** Elapsed time (server `finishedAt - startedAt`, in ms) MUST be recorded and used as

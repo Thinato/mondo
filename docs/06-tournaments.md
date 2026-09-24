@@ -322,7 +322,7 @@ what a *day* has that a round does not: the schedule, the streak, the share grid
 | `gdp` | a country name (public) | a number | 3 | higher / lower + how close | `gdp.json`, GDP per capita PPP for one pinned year | **exists** (§5.4) |
 | `flagPick` | a country name (public) + **eight flags, anonymous** | one of the eight | 2 | none while open; the reveal names all eight (D-76) | `flags.json`, the same set `flag` uses | **exists** (§5.5) |
 | `shapePick` | a country name (public) + **eight silhouettes, anonymous** | one of the eight | 2 | none while open; the reveal names all eight (D-76) | `shapes.json`, the same set `shape` uses | **exists** (§5.5), and in the daily since D-75 |
-| `person` | a person's name + **a photograph hotlinked from Wikimedia** | country | 6 | km + compass + proximity, exactly `shape`'s | `people.json`, from Pantheon + Wikidata + Commons | **exists** (D-78); practice and one preset, not the daily |
+| `person` | a person's name + **a photograph hotlinked from Wikimedia** | country | 6 | km + compass + proximity, exactly `shape`'s | `people.json`, from Pantheon + Wikidata + Commons | **exists** (D-78), and in the daily since D-79 |
 
 **Not every country can be asked as a `capital`.** Fifteen name themselves in their own capital
 — Brasília/Brasil, Cidade do México/México, Singapura/Singapura, Bissau/Guiné-Bissau,
