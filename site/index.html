@@ -115,6 +115,14 @@
            guess list above it stays frozen on the challenge that just ended. -->
       <section id="reveal" class="reveal" hidden aria-live="polite">
         <p id="reveal-text"></p>
+        <!-- D-81: who that was. Only ever here — the first line of a biography
+             names the country, so this block does not exist while the challenge
+             is open. Hidden outright for the 24 people with no article. -->
+        <div id="reveal-about" class="about" hidden>
+          <p id="reveal-about-text"></p>
+          <a id="reveal-about-link" class="secondary" target="_blank" rel="noopener noreferrer"></a>
+          <small id="reveal-about-credit" class="credit"></small>
+        </div>
         <button id="reveal-next" type="button" class="primary"></button>
       </section>
 

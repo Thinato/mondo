@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { avoidWords, birthPlace, creditFrom, displayLicence, isFreeLicence, keepBest, leaksCountry, normalize, photoUrl, vet } from "./people.mjs";
+import { avoidWords, birthPlace, creditFrom, displayLicence, isFreeLicence, keepBest, leadParagraph, leaksCountry, normalize, photoUrl, vet } from "./people.mjs";
 
 const BR = { code: "BR", code3: "BRA", names: { en: "Brazil", "pt-BR": "Brasil" } };
 const IT = { code: "IT", code3: "ITA", names: { en: "Italy", "pt-BR": "Itália" } };
@@ -145,4 +145,42 @@ test("an author repeated twice is one author", () => {
   // Two different people stay two.
   assert.equal(creditFrom("Joseph Karl Stieler"), "Joseph Karl Stieler");
   assert.equal(creditFrom("Anna Bianchi Carlo Rossi"), "Anna Bianchi Carlo Rossi");
+});
+
+// --- D-81: the lead paragraph shown at the reveal ----------------------------
+
+test("D-81: a short lead is kept whole, and only the first paragraph is taken", () => {
+  assert.equal(leadParagraph("Foi uma condessa húngara."), "Foi uma condessa húngara.");
+  assert.equal(leadParagraph("Primeiro parágrafo.\nSegundo parágrafo."), "Primeiro parágrafo.");
+  assert.equal(leadParagraph("  espaços   colapsados  "), "espaços colapsados");
+});
+
+test("D-81: nothing to say is null, not an empty string", () => {
+  // The reveal hides the whole block on null; "" would render an empty <p> and
+  // a button to an article that may not exist.
+  assert.equal(leadParagraph(""), null);
+  assert.equal(leadParagraph(null), null);
+  assert.equal(leadParagraph(undefined), null);
+});
+
+test("D-81: a long lead is cut on a sentence boundary, not mid-word", () => {
+  const text = `${"a".repeat(60)}. ${"B".repeat(60)}. ${"c".repeat(400)}`;
+  const cut = leadParagraph(text, 150);
+  assert.ok(cut.endsWith("."), `expected a sentence end, got …${cut.slice(-20)}`);
+  assert.ok(cut.length <= 151, `too long: ${cut.length}`);
+  assert.equal(cut.includes("c".repeat(10)), false, "the third sentence should be gone");
+});
+
+test("D-81: an abbreviation does not end a sentence", () => {
+  // A period ends a sentence only before a space and a capital. Getting this
+  // wrong costs a truncated bio, which is why it is worth the lookahead.
+  const text = `Nasceu em 100 a.C. e foi ${"x".repeat(200)}. Depois ${"y".repeat(200)}.`;
+  const cut = leadParagraph(text, 260);
+  assert.equal(cut.includes("a.C. e foi"), true, "cut at the abbreviation");
+});
+
+test("D-81: with no sentence boundary at all it cuts on a word and says so", () => {
+  const cut = leadParagraph(`${"palavra ".repeat(100)}`, 50);
+  assert.ok(cut.endsWith("…"), `expected an ellipsis, got …${cut.slice(-10)}`);
+  assert.equal(cut.includes("palav…"), false, "must not cut mid-word");
 });

@@ -180,6 +180,17 @@ export interface Reveal {
   /** `person` only — the city, shown beside the country so the answer teaches
    *  something instead of reading as a trick (D-78). */
   bornIn?: string;
+  /**
+   * `person` only — a paragraph on who they were, and the article it came from
+   * (D-81). Players asked for it to help the names stick, and the reveal is the
+   * only place it can go: the lead of a biography names the country in its
+   * first line, which is the whole of SEC-17 in four words.
+   *
+   * Always together. The text is CC BY-SA 4.0 and `wiki` is the attribution,
+   * so a bio without its link is not something we are licensed to show.
+   */
+  about?: string;
+  wiki?: string;
   /** A choice kind only: which option was the right one (FR-8.7). */
   pick?: number;
   /**
@@ -566,8 +577,14 @@ const person: Kind = {
   grade: gradeCountryGuess,
   wasCorrect: countryWasCorrect,
   reveal: (item) => {
-    const bornIn = mustPerson(item).bplace;
-    return bornIn === null ? nameOf(item.subject) : { ...nameOf(item.subject), bornIn };
+    const p = mustPerson(item);
+    return {
+      ...nameOf(item.subject),
+      ...(p.bplace === null ? {} : { bornIn: p.bplace }),
+      // Both or neither (D-81) — `wiki` is the attribution `about` is shown
+      // under, so half of the pair is not a thing this game may render.
+      ...(p.about && p.wiki ? { about: p.about, wiki: p.wiki } : {}),
+    };
   },
 };
 

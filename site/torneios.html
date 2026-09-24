@@ -135,6 +135,13 @@
            until the player moves on. -->
       <section id="card-reveal" class="reveal" hidden aria-live="polite">
         <p id="card-reveal-text"></p>
+        <!-- D-81, as on the daily and in practice. Three reveal panels, one
+             helper: `renderAbout` in geo.js. -->
+        <div id="card-reveal-about" class="about" hidden>
+          <p id="card-reveal-about-text"></p>
+          <a id="card-reveal-about-link" class="secondary" target="_blank" rel="noopener noreferrer"></a>
+          <small id="card-reveal-about-credit" class="credit"></small>
+        </div>
         <button id="card-reveal-next" type="button" class="primary"></button>
       </section>
 
