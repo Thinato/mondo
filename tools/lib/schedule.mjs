@@ -17,12 +17,16 @@
 // more than 30 countries, and the smallest pool has 172.
 //
 // **What it costs is real and was accepted knowingly.** Two challenges on one
-// day share a country about 26 days a year, and on about 21 of those one of them
-// gives the other away, because `gdp`, `flagPick` and `shapePick` all name their
-// country in the prompt: "qual o PIB do Brasil?" beside an unsolved silhouette
-// of Brazil. Paulo, 2026-09-16: "it can appear again in the challenge, no
-// problem". Those were 19 and 14 at five kinds; D-75 added the sixth and they
-// were re-measured over 20 seeds x 365 days rather than re-estimated.
+// day share a country, and on some of those one of them gives the other away,
+// because `gdp`, `flagPick` and `shapePick` all name their country in the
+// prompt: "qual o PIB do Brasil?" beside an unsolved silhouette of Brazil.
+// Paulo, 2026-09-16: "it can appear again in the challenge, no problem". The
+// numbers climb with every kind, and each count is the year actually seeded
+// rather than an estimate: 19 and 14 at five kinds, 26 and 21 at six (measured
+// over 20 seeds), and **36 and 16 on the seven-kind year seeded 2026-09-24**.
+// The hand-over count fell while the sharing count rose, which is what a
+// seventh kind that does NOT name its country in the prompt looks like:
+// `person` adds a country to the day without adding a way to give one away.
 //
 // The sharpest pair is the one where the ARTWORK repeats — `shape` beside
 // `shapePick` on the same country, which names it and then shows it among eight

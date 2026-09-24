@@ -191,6 +191,16 @@ answer — measured, put in front of Paulo, and accepted. Worldle's single-count
 considered and does not fit our kinds: four of the five ask "which country is this?", so solving
 the first would give away the rest.
 
+**Done 2026-09-24 — `person` joins the daily, hours later (FR-2.1a, D-79).** A day is seven
+challenges worth 0–42 and the all-time column gets its fifth seam. Two lines of
+`tools/lib/schedule.mjs`, with one difference from D-75: the person pool is read off
+`people.json` rather than assumed to be the world, because 23 countries have nobody with a usable
+photograph and scheduling one would throw at noon. Seeded at **11:50:29 -03 with nine minutes to
+spare**, after confirming the deployed bytes carried the kind — the D-66 hazard, checked rather
+than assumed. The frontend was the near miss: `person` had shipped to practice and tournaments, so
+`game.js` had never rendered it and the day's second challenge would have read "invalid-argument"
+for everyone. Deployed at 11:52.
+
 **Done 2026-09-24 — a seventh kind: "onde nasceu essa pessoa?" (FR-8.8, D-78).** Practice and one
 tournament preset, not the daily, which is the route D-64 and D-72 both took. The kind is `capital`
 with a different prompt — a typed country answer, so the compass, the proximity bar and the

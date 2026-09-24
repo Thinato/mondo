@@ -6,9 +6,9 @@ Context for AI coding agents working in this repo. Read `docs/00-brief.md` throu
 ## What this is
 
 A daily country-guessing game served at `lisecki.dev/mondo/`, built for a small competitive
-group. A day is **six** challenges — silhouette, flag, capital, GDP per capita, "which of
-these eight flags" and "which of these eight silhouettes" — played in order, one at a time, worth
-0–36 (D-52, D-53, D-66, D-75). There is also a practice mode: one kind, as many challenges as you like, scored
+group. A day is **seven** challenges — silhouette, flag, capital, GDP per capita, "which of
+these eight flags", "which of these eight silhouettes" and "where was this person born" — played
+in order, one at a time, worth 0–42 (D-52, D-53, D-66, D-75, D-79). There is also a practice mode: one kind, as many challenges as you like, scored
 for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages, Firebase
 backend.
 
@@ -173,10 +173,12 @@ backend.
   `Special:FilePath` form because it survives a rename on Commons, which a direct
   `upload.wikimedia.org` thumb path does not. The credit under the photo is the condition the
   picture is shown under, not decoration.
-- **`person` is not in the daily** (D-78). It went to practice and one tournament preset first, the
-  route D-64 and D-72 both took. `tools/lib/schedule.mjs`'s `KINDS` still holds six and its test
-  still pins them, so no day, no seam and no seed changed. Adding it later is that list plus a
-  regeneration and a reseed.
+- **`person` joined the daily on 2026-09-24** (D-79), the same day it shipped to practice — by the
+  route D-64 and D-72 both took, at the price they both quoted: a day of seven worth 0–42, a fifth
+  seam, a regeneration and a reseed. **Its pool is read off `people.json`, never assumed**: 23 of
+  the 196 countries have nobody with a usable photograph, and scheduling one of them would throw
+  "no person" at noon for whoever opened the day — the same hole `shapes.json` has and the same
+  fix. The day it joined, the seeded year holds 36 shared-country days and 16 hand-overs.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).
@@ -193,11 +195,11 @@ backend.
   card of N challenges played one at a time, so the transitions live once in `lib/card.ts` and
   `lib/round.ts` keeps only what a *day* has — the schedule, the streak, the share grid, and the
   `puzzleId`. A daily attempt carries `puzzleId`; a tournament play must not (D-40).
-- **A day is worth 0–36, and earlier days are worth less** (0–6 before D-52, 0–18 before D-53,
-  0–24 before D-66, 0–30 before D-75). Do not "fix" the seams in the all-time column: leaving them
-  is a deliberate call, and there are four now. Nothing hardcodes 36 — `lib/round.ts` sums the
-  card's own kinds, so the maximum follows from the schedule's `KINDS` and a seventh kind would
-  need no arithmetic changed.
+- **A day is worth 0–42, and earlier days are worth less** (0–6 before D-52, 0–18 before D-53,
+  0–24 before D-66, 0–30 before D-75, 0–36 before D-79). Do not "fix" the seams in the all-time
+  column: leaving them is a deliberate call, and there are five now. Nothing hardcodes 42 —
+  `lib/round.ts` sums the card's own kinds, so the maximum follows from the schedule's `KINDS`, and
+  the seventh kind needed no arithmetic changed, exactly as this sentence predicted it would not.
 - **The daily schedule has exactly one rule** (FR-2.3, D-67): the same country is not asked by
   the **same kind** within 30 days. Nothing else. A country may be two challenges on one day, and
   about 26 days a year it is — 31 in the year seeded on 2026-09-24. There is no ceiling on how many kinds a day can hold — a kind needs
