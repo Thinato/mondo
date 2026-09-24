@@ -200,6 +200,46 @@ test("D-66: the generator fills a choice kind's options, and only that kind's", 
   }
 });
 
+test("D-78: the generator fixes a person on every person item, and only that kind's", () => {
+  // The regression test for 2026-09-24. `buildDetail` is injected exactly like
+  // `buildOptions`, and the bug was that it was not injected at all: a kind
+  // with no detail to fix legitimately gets nothing back, so a generator that
+  // never called it produced a year of `{kind:"person", subject}` that looked
+  // perfectly well-formed and threw `not-found` at noon.
+  const seen = [];
+  const buildDetail = (kind, subject) => {
+    if (kind !== "person") return undefined;
+    seen.push(subject);
+    return `Q-${subject}`;
+  };
+  const days = generate({ pools, seed: 7, start: "2026-01-01", days: 10, buildDetail });
+  let people = 0;
+  for (const day of days) {
+    for (const it of day.items) {
+      if (it.kind === "person") {
+        people++;
+        assert.equal(it.person, `Q-${it.subject}`, `${day.puzzleId}: person item carries no person`);
+      } else {
+        assert.equal(it.person, undefined, `${it.kind} must carry no person`);
+      }
+    }
+  }
+  assert.equal(people, 10, "every day has exactly one person item");
+  assert.equal(seen.length, 10, "buildDetail is called once per person item");
+});
+
+test("D-78: a person item with no person is what the seeder must refuse", () => {
+  // The other half, stated as the property the seeder's pre-flight enforces:
+  // omitting the hook is silent HERE, which is why the gate lives at the write
+  // boundary in seed-schedule.mjs and runs the server's own `prompt()`.
+  const days = generate({ pools, seed: 7, start: "2026-01-01", days: 3 });
+  for (const day of days) {
+    const person = day.items.find((i) => i.kind === "person");
+    assert.ok(person, "the day still holds a person item");
+    assert.equal(person.person, undefined, "…and without the hook it carries no person, silently");
+  }
+});
+
 test("D-76: over a whole year, no day's board can name another of its challenges", () => {
   // The lock this test guards used to be one of two. D-64 also refused to name
   // a wrong pick at all, and between them a board could not teach artwork that

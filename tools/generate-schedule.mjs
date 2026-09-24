@@ -74,9 +74,14 @@ if (missing.length > 0) {
   process.exit(2);
 }
 const buildOptions = (kind, subject, exclude, rand) => KINDS_IMPL[kind]?.buildOptions?.(subject, exclude, rand);
+// D-78, and the same bargain as `buildOptions` right above: which of a
+// country's people a `person` challenge asks about is FIXED here and stored,
+// never derived when the day is read, because a choice made twice can differ
+// the second time — and the second time is somebody mid-challenge (D-64).
+const buildDetail = (kind, subject, rand) => KINDS_IMPL[kind]?.buildDetail?.(subject, rand);
 
 const seed = Number(args.seed);
-const puzzles = generate({ pools, seed, start: args.start, days: Number(args.days), history, buildOptions });
+const puzzles = generate({ pools, seed, start: args.start, days: Number(args.days), history, buildOptions, buildDetail });
 
 const outPath = join(TOOLS, "out", `schedule-${seed}.json`);
 mkdirSync(dirname(outPath), { recursive: true });
