@@ -166,6 +166,21 @@ backend.
   without being named — Inglaterra for Reino Unido, Pérsia for Irã — **keyed per country on
   purpose**: "Isabel I de Inglaterra" is the answer written out, while "Catarina I da Rússia" was
   born in Estonia and is the best kind of question here. Do not make that list global.
+- **The reveal says who that was, and that paragraph is the answer** (D-81). The lead of each
+  person's pt.wikipedia article is vendored into `people.json` and shown when the challenge ends,
+  because players asked for something to make the names stick. It opens "foi uma condessa
+  húngara", so it is answer-bearing in its FIRST LINE and belongs to `Reveal` exactly as `bplace`
+  does — `kinds.test.ts` walks all 1,013 people pinning the `person` prompt to its four keys, and
+  that test is what makes this safe, not care. It is **vendored rather than fetched**, which is the
+  opposite of D-78's call on the photographs and right for the same reason it was right there: a
+  paragraph is 240 bytes and its licence is satisfied by a link, so nothing new talks to a third
+  party at play time and the leak is impossible by construction rather than gated. **`about` and
+  `wiki` are one thing**: the text is CC BY-SA 4.0 and the link is the attribution, so half a bio
+  is not something this game may render, and `renderAbout` in `geo.js` is the single place all
+  three reveal panels draw it (D-79's lesson — one helper cannot ship to two of three). 24 people
+  have no article and their reveal is unchanged. Re-running the build with `--only-about` adds the
+  two fields **without touching the set**, because production's seeded days name their person by
+  `wd` and a full rebuild re-draws from Pantheon (D-80).
 - **The photo comes from Wikimedia, and it is the only thing in the game that does** (D-78). Paulo
   chose hotlinking over vendoring, so a challenge must survive the image never arriving —
   `renderPerson` hides the whole figure and the name carries the question alone — and
