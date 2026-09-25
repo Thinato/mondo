@@ -2,6 +2,7 @@
 // and renders. A non-admin gets one sentence and nothing else.
 
 import { ask, watchAuth } from "./auth-ui.js";
+import "./theme.js";
 import { mountProfile } from "./profile.js";
 import * as api from "./api.js";
 import { errorMessage, t } from "./i18n.js";

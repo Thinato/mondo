@@ -109,6 +109,18 @@ header nav a[aria-current="page"]:hover { text-decoration: none; }
 /* The account menu — a <details>, because the platform already ships a
    disclosure that works with a keyboard and closes on Escape. The only script
    is the click-outside in auth-ui.js. */
+/* FR-6.6 — the theme switch, sized as the avatar's twin so the two read as a
+   pair in the corner rather than a button next to an avatar. */
+.theme-btn { flex: none; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--card); color: var(--muted); cursor: pointer; }
+.theme-btn:hover { border-color: var(--fg); color: var(--fg); }
+.theme-btn svg { width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+/* One icon at a time, chosen by the class theme.js toggles. `hidden` is no use
+   here: it is an HTMLElement property and an <svg> is not one, so setting it
+   from script reflects to nothing. */
+.theme-btn .sun { display: none; }
+.theme-btn.is-dark .sun { display: block; }
+.theme-btn.is-dark .moon { display: none; }
+
 .account { position: relative; flex: none; }
 .account > summary { list-style: none; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 1px solid var(--line); border-radius: 50%; background: var(--card); font-size: .8rem; font-weight: 600; cursor: pointer; }
 .account > summary::-webkit-details-marker { display: none; }

@@ -11,6 +11,7 @@
 // and an item's answer arrives only once that item is over (SEC-1).
 
 import { ask, watchAuth } from "./auth-ui.js";
+import "./theme.js";
 import { mountProfile } from "./profile.js";
 import * as api from "./api.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";

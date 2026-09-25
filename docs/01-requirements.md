@@ -302,8 +302,13 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
 - **FR-6.4** The UI MUST be usable by keyboard alone: type, arrow to select, Enter to submit.
 - **FR-6.5** Loading and error states MUST be explicit. A failed guess submission MUST NOT
   consume a guess and MUST be retryable.
-- **FR-6.6** The game MUST respect `prefers-color-scheme` and reuse the existing site's
-  `theme.js` toggle.
+- **FR-6.6** *(amended 2026-09-25)* The game MUST respect `prefers-color-scheme` when no choice
+  has been made, and MUST share the rest of lisecki.dev's theme state: the `light-mode` /
+  `dark-mode` class and the `lisecki-theme` storage key. It MUST offer a switch of its own in the
+  header. The original wording said to reuse the parent site's `theme.js` toggle, which D-18 had
+  already ruled out loading — so until now there was no switch inside Mondo at all, only the choice
+  inherited from elsewhere. `site/app/theme.js` writes the same key, so a choice made here is still
+  one theme across the domain.
 - **FR-6.7** Colour MUST NOT be the only channel conveying proximity — always pair with the
   number and the arrow.
 - **FR-6.8** *(added 2026-09-11, D-54)* Every place a `gdp` figure is shown or asked for — the

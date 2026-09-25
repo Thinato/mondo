@@ -11,6 +11,7 @@
 // the answer to the one just played went past unread.
 
 import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+import "./theme.js";
 import { auth, googleProvider } from "./firebase.js";
 import * as api from "./api.js";
 import { applyIdentity, ask, attachAccount, showAccount } from "./auth-ui.js";

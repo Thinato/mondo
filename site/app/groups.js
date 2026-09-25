@@ -11,6 +11,7 @@
 // not a group screen.
 
 import { ask, watchAuth } from "./auth-ui.js";
+import "./theme.js";
 import * as api from "./api.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
