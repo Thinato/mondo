@@ -155,6 +155,11 @@ const PT_BR = {
   roleSaved: "Papel atualizado.",
   retryGranted: "Nova chance concedida.",
   loadMore: "Carregar mais",
+  adminChallenges: "desafios",
+  adminColChallenge: "Desafio",
+  adminColGuess: "Chute",
+  adminColSeconds: "Tempo (s)",
+  adminGaveUp: "desistiu",
   state: { not_started: "não jogou", in_progress: "jogando", finished: "terminou" },
   role: { admin: "admin", organizer: "organizador", player: "jogador" },
   // tournaments (FR-5 as rewritten, FR-8)

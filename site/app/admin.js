@@ -173,20 +173,68 @@ function intervalsCell(a) {
   return td;
 }
 
-/** suspicious badge, retries, and the guesses when the server chose to send them. */
+/** suspicious badge, retries, and the day's challenges as a table. */
 function extrasCell(a) {
   const td = document.createElement("td");
   if (a.suspicious) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = "suspeito"; td.append(b, " "); }
   if (a.retries > 0) { const b = document.createElement("span"); b.className = "badge"; b.textContent = `${a.retries}× nova chance`; td.append(b, " "); }
-  if (a.guesses) {
-    const d = document.createElement("details"); d.className = "guesses";
-    const sum = document.createElement("summary"); sum.textContent = "chutes";
-    const ul = document.createElement("ul");
-    for (const g of a.guesses) { const li = document.createElement("li"); li.textContent = `${g.name} · ${Math.round(g.distanceKm)} km · ${Math.round(g.proximity * 100)}%`; ul.append(li); }
-    d.append(sum, ul);
-    td.append(d);
-  }
+  if (a.items?.length) td.append(guessTable(a));
   return td;
+}
+
+/**
+ * One row per guess: which challenge it was, what was guessed, how long it took.
+ * The flat "Intervalos" column is for scanning every player at once; this is for
+ * reading one of them, which is why the kind repeats on every row rather than
+ * spanning — a table you read top to bottom should not need you to look upwards
+ * to know what a row is about.
+ */
+function guessTable(a) {
+  const d = document.createElement("details"); d.className = "guesses";
+  const sum = document.createElement("summary"); sum.textContent = t("adminChallenges");
+  // Its own class, because `table.board`'s padding, borders and mono font are
+  // written as descendant selectors and a table inside one of its cells inherits
+  // the lot. Cheaper to name this table than to out-specify each rule.
+  const table = document.createElement("table"); table.className = "detail";
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  for (const k of ["adminColChallenge", "adminColGuess", "adminColSeconds"]) {
+    const th = document.createElement("th"); th.textContent = t(k); hr.append(th);
+  }
+  thead.append(hr);
+  const tbody = document.createElement("tbody");
+  // Highlighted across the whole day, not per challenge, so this column and the
+  // flat one agree about which gap was the fast one.
+  const all = a.items.flatMap((it) => it.intervalsMs);
+  const min = all.length > 1 ? Math.min(...all) : null;
+  for (const it of a.items) {
+    const kind = t(`kindName.${it.kind}`);
+    // A challenge someone gave up on has no guesses (FR-2.13, D-61) and a blank
+    // row would read as a bug, so it says so and shows the clock it still has.
+    if (it.intervalsMs.length === 0) {
+      tbody.append(guessRow(kind, t("adminGaveUp"), it.elapsedMs, null));
+      continue;
+    }
+    it.intervalsMs.forEach((ms, i) => {
+      // `guesses` is null until the D-31 gate opens; the timings never wait.
+      const g = it.guesses?.[i];
+      tbody.append(guessRow(kind, g ? guessLabel(g) : "–", ms, ms === min ? "fast" : null));
+    });
+  }
+  table.append(thead, tbody);
+  d.append(sum, table);
+  return d;
+}
+
+function guessRow(kind, guess, ms, cls) {
+  const tr = document.createElement("tr");
+  tr.append(cell(kind), cell(guess), cell(formatSecs(ms), cls));
+  return tr;
+}
+
+/** A country guess carries how close it was; a number and a pick do not (D-53, D-64). */
+function guessLabel(g) {
+  return g.code ? `${g.name} · ${Math.round(g.distanceKm)} km · ${Math.round(g.proximity * 100)}%` : g.name;
 }
 
 // ---------------------------------------------------------------------------
@@ -208,6 +256,10 @@ function formatMs(ms) {
   const s = Math.round(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
+
+/** One decimal, pt-BR comma: at this scale the tenths are the tell (SEC-5's floor is 0,4). */
+const secsFmt = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+function formatSecs(ms) { return ms === null || ms === undefined ? "–" : secsFmt.format(ms / 1000); }
 
 function setStatus(text, cls = "") {
   el.status.textContent = text;

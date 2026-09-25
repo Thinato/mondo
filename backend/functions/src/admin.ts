@@ -16,7 +16,8 @@ import { cardIntervalsMs, totalGuesses, type CardPlay } from "./lib/card";
 import { countryByCode } from "./lib/countries";
 import { mondoError } from "./lib/errors";
 import { todayState, type Group, type TodayState } from "./lib/groups";
-import { intervalsMs, isChoiceGuess, isNumberGuess, puzzleItems, resetAttempt, type Attempt, type Profile, type Puzzle, type Role } from "./lib/round";
+import type { KindId } from "./lib/kinds";
+import { intervalsMs, isChoiceGuess, isNumberGuess, puzzleItems, resetAttempt, upgradeAttempt, type Attempt, type Profile, type Puzzle, type Role, type StoredGuess } from "./lib/round";
 import { windowDays } from "./lib/standings";
 import { playId, type TournamentRound } from "./lib/tournament";
 import { requireObject, requirePuzzleId, requireRole, requireUid } from "./lib/validate";
@@ -114,13 +115,37 @@ export const listAllGroups = callable<unknown, { groups: { groupId: string; name
   };
 });
 
+/** One guess as the panel shows it. No country for a number or a pick — see `guessRow`. */
+export interface GuessRow { code: string; name: string; distanceKm: number; proximity: number }
+
+/**
+ * One challenge of the day (D-52), for the panel's per-challenge table.
+ *
+ * The **kind and the timings go out whatever D-31 says**: neither names a
+ * country, and they are the cheating material the panel exists for — the same
+ * line the row's own `guessCount` and `intervalsMs` already draw. What waits for
+ * the gate is the guess VALUES and the outcome.
+ */
+export interface AttemptItemRow {
+  kind: KindId;
+  /** Served→first guess, then guess→guess (SEC-3, server clock). One per guess. */
+  intervalsMs: number[];
+  /** Null while the challenge is still open; pure timing, so never gated. */
+  elapsedMs: number | null;
+  /** Null until the outcome is revealable (D-31). */
+  solved: boolean | null; points: number | null;
+  /** Null until revealable (D-31); otherwise one entry per interval above. */
+  guesses: GuessRow[] | null;
+}
+
 export interface AttemptRow {
   uid: string; displayName: string; puzzleId: string; state: TodayState;
   guessCount: number; elapsedMs: number | null; retries: number;
   intervalsMs: number[]; startedAt: string; finishedAt: string | null;
   /** Null for today until the admin has finished their own round (D-31), like FR-4.11 on the board. */
   solved: boolean | null; points: number | null; suspicious: boolean | null;
-  guesses?: { code: string; name: string; distanceKm: number; proximity: number }[];
+  /** The day's challenges in play order. Always present; half of each row is gated. */
+  items: AttemptItemRow[];
 }
 
 export interface MatchRow {
@@ -132,6 +157,43 @@ export interface MatchRow {
   startedAt: string; finishedAt: string | null;
   /** Per item: served→first guess, then guess→guess. */
   intervalsMs: number[][];
+}
+
+/**
+ * One stored guess, named for a human.
+ *
+ * D-53: a `gdp` guess is a number, so it has no code and no distance. D-64: a
+ * pick has neither either, and is shown **by position** — resolving it to a
+ * country would mean re-reading the card's stored `options`, and naming it is
+ * not what the panel is for. What matters here — how close and how fast — is the
+ * same for all three.
+ */
+const guessRow = (g: StoredGuess): GuessRow =>
+  isChoiceGuess(g)
+    ? { code: "", name: `opção ${g.pick + 1}`, distanceKm: 0, proximity: g.proximity }
+    : isNumberGuess(g)
+    ? { code: "", name: String(g.value), distanceKm: 0, proximity: g.proximity }
+    : { code: g.code, name: countryByCode(g.code)?.names["pt-BR"] ?? g.code, distanceKm: g.distanceKm, proximity: g.proximity };
+
+/**
+ * The day's challenges, one row each — which challenge, how fast, and (once the
+ * gate opens) what was guessed and what it scored.
+ *
+ * Read through `upgradeAttempt` so a pre-D-52 attempt — one flat `guesses`, no
+ * `items` — comes through as the one-challenge `shape` day it was, which is
+ * exactly what that function is for. One code path instead of a branch.
+ */
+function itemRows(attempt: Attempt, reveal: boolean): AttemptItemRow[] {
+  const a = upgradeAttempt(attempt);
+  const gaps = cardIntervalsMs(a);
+  return a.items.map((it, i) => ({
+    kind: it.kind,
+    intervalsMs: gaps[i] ?? [],
+    elapsedMs: it.elapsedMs,
+    solved: reveal ? it.solved : null,
+    points: reveal ? it.points : null,
+    guesses: reveal ? it.guesses.map(guessRow) : null,
+  }));
 }
 
 /**
@@ -248,25 +310,12 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
         // unrevealed outcome by itself (D-31). Guess count and timings are the
         // cheating material the panel is for and stay live.
         solved: reveal ? a.solved : null, points: reveal ? a.points : null, suspicious: reveal ? a.suspicious : null,
+        // D-52: the day's guesses live per challenge, and the panel shows them
+        // that way. The flat `intervalsMs` above stays because it is the column
+        // you SCAN — across every player, and for rows whose outcome is still
+        // hidden. Two shapes, two jobs.
+        items: itemRows(a, reveal),
       };
-      if (reveal) {
-        // D-52: the day's guesses live per challenge. Flattened for the table,
-        // which shows one row of guesses per player either way; pre-D-52
-        // attempts keep their single flat list.
-        const guesses = a.items ? a.items.flatMap((it) => it.guesses) : (a.guesses ?? []);
-        row.guesses = guesses.map((g) =>
-          // D-53: a `gdp` guess is a number, so it has no code and no distance.
-          // D-64: a pick has neither either, and is shown by position — the
-          // panel would have to re-read the card to name it, and naming it is
-          // not what the panel is for. What matters here — how close and how
-          // fast — is the same for all three.
-          isChoiceGuess(g)
-            ? { code: "", name: `opção ${g.pick + 1}`, distanceKm: 0, proximity: g.proximity }
-            : isNumberGuess(g)
-            ? { code: "", name: String(g.value), distanceKm: 0, proximity: g.proximity }
-            : { code: g.code, name: countryByCode(g.code)?.names["pt-BR"] ?? g.code, distanceKm: g.distanceKm, proximity: g.proximity },
-        );
-      }
       return row;
     }),
   };

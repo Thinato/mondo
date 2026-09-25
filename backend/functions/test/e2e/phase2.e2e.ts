@@ -358,19 +358,36 @@ test("6. FR-7.2: admin dashboard callables, gates, retry", async () => {
   const today = ok(await admin.call("listAttempts", { puzzleId: TODAY }), "listAttempts today");
   assert.ok(today.attempts.length >= 2);
   for (const a of today.attempts) {
-    assert.equal("guesses" in a, false, "D-31: today's guesses hidden until the admin plays");
     assert.equal(a.points, null, "D-31: today's outcome hidden until the admin plays");
     assert.equal(a.solved, null);
     assert.equal(a.suspicious, null, "suspicious is only set on a solve, so it would leak the outcome");
     assert.ok(Array.isArray(a.intervalsMs));
     assert.equal(typeof a.displayName, "string");
+    // The per-challenge table: the kind and the timings are not answer-bearing
+    // and go out now; the guess values and the outcome wait for the gate.
+    assert.ok(a.items.length >= 1, "the day's challenges are always listed");
+    for (const it of a.items) {
+      assert.equal(typeof it.kind, "string");
+      assert.ok(Array.isArray(it.intervalsMs), "D-31: timings are the cheating material and stay live");
+      assert.equal(it.guesses, null, "D-31: today's guesses hidden until the admin plays");
+      assert.equal(it.points, null);
+      assert.equal(it.solved, null);
+    }
+    assert.deepEqual(a.items.flatMap((it: Any) => it.intervalsMs), a.intervalsMs, "the flat column is the same gaps");
   }
   const yesterday = ok(await admin.call("listAttempts", { puzzleId: YESTERDAY }), "listAttempts yesterday");
   const seeded = yesterday.attempts.find((a: Any) => a.uid === player.uid);
   assert.equal(seeded.points, 5, "a closed day carries its outcome");
   assert.equal(seeded.solved, true);
-  assert.deepEqual(seeded.guesses.map((x: Any) => x.code), ["BR", "AR"]);
-  assert.equal(seeded.guesses[1].name, "Argentina");
+  // A closed day: one item per challenge, each carrying its guesses and its gaps.
+  // The seeded attempt is pre-D-52 (a flat `guesses`, no `items`), so this also
+  // pins `upgradeAttempt` reading it back as the one-challenge `shape` day it was.
+  assert.equal(seeded.items.length, 1);
+  assert.equal(seeded.items[0].kind, "shape");
+  assert.deepEqual(seeded.items[0].guesses.map((x: Any) => x.code), ["BR", "AR"]);
+  assert.equal(seeded.items[0].guesses[1].name, "Argentina");
+  assert.deepEqual(seeded.items[0].intervalsMs, [5000, 5000]);
+  assert.equal(seeded.items[0].solved, true);
   assert.deepEqual(seeded.intervalsMs, [5000, 5000]);
   const byUid = ok(await admin.call("listAttempts", { uid: player.uid }), "listAttempts by uid");
   assert.deepEqual(byUid.attempts.map((a: Any) => a.puzzleId).sort(), [YESTERDAY, TODAY].sort());
