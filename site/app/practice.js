@@ -13,6 +13,7 @@
 // and no way to render a reveal the server did not send.
 
 import { auth } from "./firebase.js";
+import "./theme.js";
 import * as api from "./api.js";
 import { ask, watchAuth } from "./auth-ui.js";
 import { mountProfile } from "./profile.js";
