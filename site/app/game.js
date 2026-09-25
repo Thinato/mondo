@@ -309,8 +309,11 @@ function render() {
 
   el.result.hidden = inProgress || revealing;
   if (!inProgress && !revealing) {
-    el.resultText.textContent =
-      round.points === round.maxPoints
+    // FR-7.7, D-82: being told beats a zero you cannot explain. The score is
+    // still shown, because nothing was deleted — it just stopped counting.
+    el.resultText.textContent = round.cheated
+      ? t("dayVoided", { points: round.points, max: round.maxPoints })
+      : round.points === round.maxPoints
         ? t("dayPerfect", { points: round.points, max: round.maxPoints })
         : t("dayDone", { points: round.points, max: round.maxPoints });
     el.shareBtn.textContent = t("share");

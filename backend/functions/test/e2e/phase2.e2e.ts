@@ -457,6 +457,89 @@ test("7. D-11 / D-25: rebuildStandings is consistent with the attempts and idemp
   assert.equal(await healthCheckNow(Timestamp.now()), 1, "only today's puzzle is ahead → SCHEDULE_LOW logged");
 });
 
+test("7b. FR-7.7 / D-82: voiding a day removes it from every board and puts nothing back", async () => {
+  // Compared field by field rather than as JSON: a Firestore update rewrites the
+  // document's key ORDER, and this test is about the values.
+  const strip = (m: Any) => { const { updatedAt, ...rest } = m; void updatedAt; return rest; };
+  const memberDoc = () => doc(`groups/${gid}/members/${player.uid}`);
+  const before = await memberDoc();
+  const profileBefore = await doc(`users/${player.uid}`);
+  // Test 7 left YESTERDAY folded into all-time, which is the case that cannot
+  // heal on its own: `advanceAllTime` is watermarked and never revisits a day.
+  assert.equal(before.allTimeThrough, YESTERDAY);
+  assert.equal(before.allTime.points, 5);
+
+  // --- guards ---------------------------------------------------------------
+  assert.equal(code(await player.call("setCheated", { uid: player.uid, puzzleId: YESTERDAY, cheated: true })), "permission-denied");
+  assert.equal(code(await admin.call("setCheated", { uid: admin.uid, puzzleId: YESTERDAY, cheated: true })), "invalid-argument", "no voiding your own day");
+  assert.equal(code(await admin.call("setCheated", { uid: player.uid, puzzleId: YESTERDAY, cheated: "yes" })), "invalid-argument");
+  assert.equal(code(await admin.call("setCheated", { uid: third.uid, puzzleId: YESTERDAY, cheated: true })), "not-found");
+
+  // --- void a day that is already in all-time --------------------------------
+  ok(await admin.call("setCheated", { uid: player.uid, puzzleId: YESTERDAY, cheated: true }), "setCheated");
+  const voided = await memberDoc();
+  assert.equal(voided.allTime.points, 0, "moved by hand: the nightly job would never revisit it");
+  assert.equal(voided.allTime.played, 0);
+  assert.equal(voided.allTime.avgGuesses, null);
+  assert.equal(voided.allTimeThrough, YESTERDAY, "the watermark does not move");
+  assert.equal(voided.last30.points, 0, "and the windows are recomputed now, not at 12:05");
+  assert.equal(voided.last30.played, 0);
+  assert.equal(voided.last7.points, 0);
+
+  // NOTHING was destroyed: the attempt is exactly as it was played.
+  const kept = await doc(`attempts/${player.uid}_${YESTERDAY}`);
+  assert.equal(kept.points, 5);
+  assert.equal(kept.guessCount, 2);
+  assert.equal(kept.solved, true);
+  assert.equal(kept.cheated.by, admin.uid);
+  assert.ok(kept.cheated.at);
+
+  // Idempotent — the all-time arithmetic MOVES numbers, so a second click must
+  // not move them twice.
+  ok(await admin.call("setCheated", { uid: player.uid, puzzleId: YESTERDAY, cheated: true }), "setCheated again");
+  assert.equal((await memberDoc()).allTime.points, 0);
+
+  // The nightly job agrees and does not put it back.
+  await rebuildStandingsNow(Timestamp.now());
+  assert.equal((await memberDoc()).allTime.points, 0, "the job cannot refold a day behind its watermark");
+  assert.equal((await memberDoc()).last30.points, 0);
+
+  // --- un-void: an exact round trip, because nothing was stored to restore ----
+  ok(await admin.call("setCheated", { uid: player.uid, puzzleId: YESTERDAY, cheated: false }), "un-void");
+  assert.deepEqual(strip(await memberDoc()), strip(before), "every field back where it was");
+  assert.equal((await doc(`attempts/${player.uid}_${YESTERDAY}`)).cheated, null);
+
+  // The streak is RECOMPUTED from the record rather than restored, so it lands
+  // on what the record actually says — two consecutive finished days — and not
+  // on the 1 the profile was carrying. That 1 was a fixture artefact: test 3
+  // seeded yesterday's attempt straight into Firestore, so `recordCompletion`
+  // never saw it. Converging on the record is the point of the walk.
+  assert.equal(profileBefore.currentStreak, 1);
+  const settled = await doc(`users/${player.uid}`);
+  assert.equal(settled.currentStreak, 2, "the walk counts the days that happened");
+  assert.equal(settled.lastPlayedOn, TODAY);
+
+  // Against that settled baseline, voiding a day IS the streak breaking.
+  ok(await admin.call("setCheated", { uid: player.uid, puzzleId: YESTERDAY, cheated: true }), "void again");
+  assert.equal((await doc(`users/${player.uid}`)).currentStreak, 1, "the run is cut where the day stopped counting");
+  ok(await admin.call("setCheated", { uid: player.uid, puzzleId: YESTERDAY, cheated: false }), "and back");
+  assert.deepEqual(strip(await doc(`users/${player.uid}`)), strip(settled), "a round trip from a settled profile");
+  assert.deepEqual(strip(await memberDoc()), strip(before));
+
+  // --- today: the group is told, and it is not a retry ------------------------
+  ok(await admin.call("setCheated", { uid: player.uid, puzzleId: TODAY, cheated: true }), "void today");
+  const board = ok(await organizer.call("getLeaderboard", { groupId: gid }), "another member reads the board");
+  const row = board.today.players.find((p: Any) => p.uid === player.uid);
+  assert.equal(row.cheated, true, "D-82: the group sees it, not just the admin");
+  assert.equal(row.points, 0);
+  assert.equal(ok(await player.call("getRound", {}), "own round").cheated, true, "and so does the player");
+  assert.equal(code(await admin.call("grantRetry", { uid: player.uid, puzzleId: TODAY })), "invalid-argument", "a voided day is not a second chance");
+
+  ok(await admin.call("setCheated", { uid: player.uid, puzzleId: TODAY, cheated: false }), "un-void today");
+  assert.deepEqual(strip(await doc(`users/${player.uid}`)), strip(settled), "the streak survives the round trip");
+  ok(await admin.call("grantRetry", { uid: player.uid, puzzleId: TODAY }), "retryable again once un-voided");
+});
+
 test("8. D-23: owner succession and dissolution", async () => {
   const owner = await withRole("owner2", "organizer");
   const member = await newAccount("member2");

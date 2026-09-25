@@ -28,7 +28,7 @@ export {
   createGroup, createInvite, listInvites, revokeInvite, acceptInvite, leaveGroup, removeMember, renameGroup, listGroups,
 } from "./groups";
 export { getLeaderboard } from "./leaderboard";
-export { listUsers, setRole, listAllGroups, listAttempts, grantRetry } from "./admin";
+export { listUsers, setRole, listAllGroups, listAttempts, grantRetry, setCheated } from "./admin";
 export { deleteAccount } from "./account";
 export {
   createTournament, setParticipation, startTournament, advanceTournament, cancelTournament,

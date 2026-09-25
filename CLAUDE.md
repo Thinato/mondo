@@ -206,6 +206,31 @@ backend.
   look correct. If you add a hook to `Kind` that the card must FIX at build time, wire it into
   `tools/generate-schedule.mjs` in the same commit; `schedule.test.mjs` pins that it is called,
   and the pre-flight is what stops it reaching production if you forget.
+- **Voiding a day deletes nothing, and that is what makes it reversible** (FR-7.7, D-82).
+  `setCheated` writes one marker on the attempt and changes nothing else on it — every guess, the
+  points and the clock stay exactly as played, because the panel exists to look at them. What stops
+  the day counting is **`resultOf` returning null**, one line that drops it out of `last7`, out of
+  `last30`, out of all-time going forward and out of a joiner's backfill at once; so undoing it needs
+  no saved copy, because there is nothing to put back. Three stored snapshots cannot heal themselves
+  and are moved in the same transaction: `allTime` is watermarked and folded exactly once (D-25), so
+  a day the nightly job has already eaten would sit in it forever — **`shiftAllTime` must be an exact
+  inverse at ±1 or void/un-void stops being a round trip**; `last7`/`last30` are recomputed now rather
+  than at 12:05; and `profile.currentStreak` is recomputed by `streakFrom` walking the days back,
+  because `recordCompletion` maintains it forwards and can say "another day" but never "that day did
+  not happen". The call is **idempotent on the boolean transition**, and that is load-bearing: the
+  all-time arithmetic MOVES numbers, so a second click that was not a no-op would move them twice.
+  `totalPlayed` and `totalSolved` are left alone on purpose — `listUsers` is their only reader, so
+  they are the admin's own record of what really happened; `longestStreak` too, being a high-water
+  mark over a history nothing here can bound. The group is told (OQ-8), the player is told, and a
+  voided day is not retryable. Two things to know before touching it: **in the 30-day window one
+  voided day often changes nothing**, because D-24 already drops your two worst, and **tournaments
+  are out of scope** — voiding a round can change who advanced.
+- **The admin panel shows a day challenge by challenge, and only half of that waits** (D-31, D-82).
+  `listAttempts` sends `items[]` — kind, per-guess gaps and per-item clock always; guess values,
+  points and `solved` only once the gate opens. The kind and a timestamp name no country, and they
+  are the cheating material the panel is for, so withholding them only blinded it on the one day it
+  is needed. The flat `intervalsMs` stays beside `items[]` and is not redundant: it is the column you
+  scan across every player, and it ships for rows whose outcome is hidden.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).

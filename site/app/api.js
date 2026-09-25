@@ -31,6 +31,7 @@ export const setRole = call("setRole");
 export const listAllGroups = call("listAllGroups");
 export const listAttempts = call("listAttempts");
 export const grantRetry = call("grantRetry");
+export const setCheated = call("setCheated");
 export const deleteAccount = call("deleteAccount");
 
 // Phase 3 — tournaments (FR-5 as rewritten, FR-8; docs/06-tournaments.md §9).

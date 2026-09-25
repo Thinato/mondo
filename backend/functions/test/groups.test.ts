@@ -76,6 +76,36 @@ test("resultOf: unfinished → null, finished → the four numbers", () => {
   assert.deepEqual(resultOf({ ...a, finishedAt: T0, points: 4, guessCount: 3, elapsedMs: 9000 }), { puzzleId: CLOSED, points: 4, guessCount: 3, elapsedMs: 9000 });
 });
 
+test("FR-7.7 / D-82: a voided day is not a result, and that is the whole feature", () => {
+  const done = { ...newAttempt("u", CLOSED, CARD, T0), finishedAt: T0, points: 6, guessCount: 1, elapsedMs: 9000 };
+  assert.notEqual(resultOf(done), null, "the fixture is a day that would otherwise count");
+  assert.equal(resultOf({ ...done, cheated: { by: "admin", at: T0 } }), null);
+
+  // Every user-facing number comes through resultOf, so voiding one day of a
+  // full window drops it out of all of them at once.
+  const days = windowDays(CLOSED, 30);
+  const all = days.map((d) => ({ ...done, puzzleId: d }));
+  const stats = (xs: typeof all) => memberStats({ allTime: EMPTY_STATS, allTimeThrough: null }, xs.flatMap((x) => resultOf(x) ?? []), CLOSED);
+  const before = stats(all);
+  const voided = [...all.slice(0, 29), { ...all[29]!, cheated: { by: "admin", at: T0 } }];
+  const after = stats(voided);
+
+  assert.equal(before.allTime.points - after.allTime.points, 6, "all-time loses the day outright");
+  assert.equal(before.last7.points - after.last7.points, 6, "so does the 7-day window, which drops nothing");
+  assert.equal(before.last30.played - after.last30.played, 1, "and it stops being a day they played");
+
+  // **The 30-day column does not move, and that is D-24 working as written**:
+  // it already drops your two worst days, so the first voided day of a full
+  // window falls into a hole that was there anyway. Voiding a second one bites.
+  assert.equal(after.last30.points, before.last30.points);
+  const twice = stats([...all.slice(0, 27), ...all.slice(27).map((x) => ({ ...x, cheated: { by: "admin", at: T0 } }))]);
+  assert.equal(before.last30.points - twice.last30.points, 6);
+
+  // Nothing on the attempt itself moved — the panel still sees what happened.
+  assert.equal(voided[29]!.points, 6);
+  assert.equal(voided[29]!.guessCount, 1);
+});
+
 test("backfillStats: only the last 30 closed days count, and all-time starts there", () => {
   const days = windowDays(CLOSED, 30);
   const results = [

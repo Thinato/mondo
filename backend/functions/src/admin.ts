@@ -9,16 +9,16 @@
  */
 
 import { FieldPath, Timestamp } from "firebase-admin/firestore";
-import { attemptRef, db, groupsCol, playRef, puzzleDays, roundRef, userRef } from "./db";
+import { attemptRef, db, groupsCol, memberRef, playRef, puzzleDays, roundRef, userRef } from "./db";
 import { groupsOf, requireAdmin, roleOf } from "./lib/authz";
 import { callable } from "./lib/callable";
 import { cardIntervalsMs, totalGuesses, type CardPlay } from "./lib/card";
 import { countryByCode } from "./lib/countries";
 import { mondoError } from "./lib/errors";
-import { todayState, type Group, type TodayState } from "./lib/groups";
+import { memberStats, resultOf, todayState, WINDOW_30, type Group, type Member, type TodayState } from "./lib/groups";
 import type { KindId } from "./lib/kinds";
 import { intervalsMs, isChoiceGuess, isNumberGuess, puzzleItems, resetAttempt, upgradeAttempt, type Attempt, type Profile, type Puzzle, type Role, type StoredGuess } from "./lib/round";
-import { windowDays } from "./lib/standings";
+import { shiftAllTime, streakFrom, windowDays } from "./lib/standings";
 import { playId, type TournamentRound } from "./lib/tournament";
 import { requireObject, requirePuzzleId, requireRole, requireUid } from "./lib/validate";
 
@@ -146,6 +146,11 @@ export interface AttemptRow {
   solved: boolean | null; points: number | null; suspicious: boolean | null;
   /** The day's challenges in play order. Always present; half of each row is gated. */
   items: AttemptItemRow[];
+  /**
+   * FR-7.7, D-82 — voided. Never gated: it is not a score, and it is the one
+   * thing on this row you may need to act on before your own round is over.
+   */
+  cheated: boolean;
 }
 
 export interface MatchRow {
@@ -315,6 +320,7 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
         // you SCAN — across every player, and for rows whose outcome is still
         // hidden. Two shapes, two jobs.
         items: itemRows(a, reveal),
+        cheated: Boolean(a.cheated),
       };
       return row;
     }),
@@ -343,8 +349,120 @@ export const grantRetry = callable<{ uid: unknown; puzzleId: unknown }, { ok: tr
     const [snap, puzzleSnap] = await Promise.all([tx.get(attemptRef(target, puzzleId)), tx.get(db().doc(`puzzles/${puzzleId}`))]);
     if (!snap.exists) throw mondoError("not-found", "That player has not started today.");
     if (!puzzleSnap.exists) throw mondoError("not-found", `No puzzle scheduled for ${puzzleId}.`);
+    const attempt = snap.data() as Attempt;
+    // FR-7.7, D-82: a voided day is not a second chance. `resetAttempt` would
+    // build a clean attempt and drop the marker with it, which is a retry with
+    // extra steps — un-void it first if that is really what you meant.
+    if (attempt.cheated) throw mondoError("invalid-argument", "A voided attempt cannot be retried. Undo the flag first.");
     const card = puzzleItems(puzzleSnap.data() as Puzzle);
-    tx.set(attemptRef(target, puzzleId), resetAttempt(snap.data() as Attempt, card, now, uid));
+    tx.set(attemptRef(target, puzzleId), resetAttempt(attempt, card, now, uid));
+  });
+  return { ok: true };
+});
+
+/**
+ * setCheated({ uid, puzzleId, cheated }) — void a day, or un-void it (FR-7.7, D-82).
+ *
+ * **Nothing is deleted.** The attempt keeps every guess, its points and its
+ * clock, because the panel exists to look at them and an admin needs to see what
+ * actually happened. What the marker does is make `resultOf` return null, and
+ * that one line is what drops the day out of both windows, out of all-time going
+ * forward, and out of the 30 days a player carries into a new group. Un-voiding
+ * therefore restores the score by itself — there is no saved copy to put back,
+ * which is why this is reversible at no cost.
+ *
+ * Three numbers are stored snapshots rather than projections, so they are moved
+ * here and moved back on the way out:
+ *   - **`allTime`** on each member document is watermarked at `allTimeThrough`
+ *     and folded exactly once (D-25), so a day the nightly job has already eaten
+ *     would otherwise sit in it forever. Only that case needs the hand
+ *     correction; a day not yet folded is simply never picked up.
+ *   - **`last7`/`last30`**, which would heal at 12:05 tonight — too late to be
+ *     the answer to "someone cheated today".
+ *   - **`profile.currentStreak`** and `lastPlayedOn`, which reach a board through
+ *     `effectiveStreak`, recomputed by walking the days back (`streakFrom`).
+ *
+ * Deliberately NOT corrected: `profile.totalPlayed` and `totalSolved`, which
+ * reach a client through `listUsers` and nowhere else — they are the admin's own
+ * record of what really happened, and Paulo asked to keep seeing it. Nor
+ * `longestStreak`: it is a high-water mark over a history this cannot bound, and
+ * it is on no board.
+ *
+ * Unlike `grantRetry` this accepts **any** day, because the corrections above are
+ * what earn it. Never your own attempt, for D-35's reason.
+ */
+export const setCheated = callable<{ uid: unknown; puzzleId: unknown; cheated: unknown }, { ok: true }>(async (uid, data) => {
+  await requireAdminCaller(uid);
+  const input = requireObject(data);
+  const target = requireUid(input.uid);
+  const puzzleId = requirePuzzleId(input.puzzleId);
+  if (typeof input.cheated !== "boolean") throw mondoError("invalid-argument", "cheated must be true or false.");
+  const cheated = input.cheated;
+  if (target === uid) throw mondoError("invalid-argument", "You cannot flag your own attempt.");
+
+  const now = Timestamp.now();
+  const { today, closedDay } = puzzleDays(now);
+
+  await db().runTransaction(async (tx) => {
+    const [attemptSnap, profileSnap] = await tx.getAll(attemptRef(target, puzzleId), userRef(target));
+    if (!attemptSnap?.exists) throw mondoError("not-found", "That player has no attempt on that day.");
+    const attempt = attemptSnap.data() as Attempt;
+    // Idempotent, and that is load-bearing: the all-time arithmetic below MOVES
+    // numbers, so applying it twice would move them twice. A second click is a
+    // no-op rather than a second subtraction.
+    if (Boolean(attempt.cheated) === cheated) return;
+    const profile = profileSnap?.exists ? (profileSnap.data() as Profile) : null;
+
+    // One read serves both corrections. It ends at TODAY, not `closedDay`: a
+    // player who has already finished today has `lastPlayedOn === today`, and a
+    // window that stopped yesterday would walk straight past it and break a
+    // streak that is fine. WINDOW_30 + 1 because `windowDays(closedDay, 30)`
+    // reaches one day further back than `windowDays(today, 30)` does.
+    const span = Math.max(WINDOW_30 + 1, (profile?.currentStreak ?? 0) + 2);
+    const days = windowDays(today, span);
+    const daySnaps = await tx.getAll(...days.map((d) => attemptRef(target, d)));
+    const groups = profile ? groupsOf(profile) : [];
+    const memberSnaps = groups.length > 0 ? await tx.getAll(...groups.map((g) => memberRef(g, target))) : [];
+
+    // The window as it will read once this commits — the flagged day included
+    // with its new marker, because nothing is written yet.
+    const byDay = new Map<string, Attempt>();
+    daySnaps.forEach((s, i) => { if (s.exists) byDay.set(days[i]!, s.data() as Attempt); });
+    const after: Attempt = { ...attempt, cheated: cheated ? { by: uid, at: now } : null };
+    if (byDay.has(puzzleId)) byDay.set(puzzleId, after);
+
+    const results = [...byDay.values()].flatMap((a) => resultOf(a) ?? []);
+    // What the day is worth with the marker set aside — which is the amount to
+    // move in EITHER direction. Reading it off the stored attempt would work
+    // when voiding and return null when un-voiding, because by then the marker
+    // is on the document and `resultOf` is doing its job.
+    const worth = resultOf({ ...attempt, cheated: null });
+
+    for (const snap of memberSnaps) {
+      if (!snap?.exists) continue;
+      const m = snap.data() as Member;
+      const stats = memberStats({ allTime: m.allTime, allTimeThrough: m.allTimeThrough }, results, closedDay);
+      // Already folded into the running total, which `advanceAllTime` will never
+      // revisit — so this is the only chance to move it.
+      const folded = worth !== null && m.allTimeThrough !== null && puzzleId <= m.allTimeThrough;
+      tx.update(snap.ref, {
+        ...stats,
+        allTime: folded ? shiftAllTime(stats.allTime, worth, cheated ? -1 : 1) : stats.allTime,
+        updatedAt: now,
+      });
+    }
+
+    if (profile) {
+      const walk = streakFrom(days, (d) => {
+        const a = byDay.get(d);
+        return a !== undefined && a.finishedAt !== null && !a.cheated;
+      });
+      if (walk.currentStreak !== profile.currentStreak || walk.lastPlayedOn !== profile.lastPlayedOn) {
+        tx.update(userRef(target), walk);
+      }
+    }
+
+    tx.update(attemptSnap.ref, { cheated: after.cheated });
   });
   return { ok: true };
 });

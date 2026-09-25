@@ -134,20 +134,46 @@ async function loadDay(puzzleId) {
     const { attempts } = await api.listAttempts({ puzzleId });
     el.dayRows.replaceChildren(...attempts.map((a) => {
       const tr = document.createElement("tr");
-      const retry = document.createElement("td");
-      if (puzzleId === TODAY) {
-        const b = document.createElement("button"); b.type = "button"; b.className = "link"; b.textContent = "Nova chance";
-        b.addEventListener("click", async () => {
-          if (!(await ask(el.confirmDialog, el.confirmText, t("confirmRetry", { name: a.displayName })))) return;
-          try { await api.grantRetry({ uid: a.uid, puzzleId }); setStatus(t("retryGranted"), "ok"); loadDay(puzzleId); }
-          catch (err) { fail(err); }
-        });
-        retry.append(b);
+      const actions = document.createElement("td");
+      // "Nova chance" is today's only (D-30) and never on a voided day — the
+      // server refuses that too, this just does not offer it.
+      if (puzzleId === TODAY && !a.cheated) {
+        actions.append(action("Nova chance", t("confirmRetry", { name: a.displayName }), async () => {
+          await api.grantRetry({ uid: a.uid, puzzleId });
+          return t("retryGranted");
+        }));
       }
-      tr.append(cell(a.displayName, "name"), cell(t(`state.${a.state}`)), cell(a.guessCount), cell(a.points), cell(formatMs(a.elapsedMs)), intervalsCell(a), extrasCell(a), retry);
+      // FR-7.7, D-82: any day, either direction.
+      const undo = a.cheated;
+      actions.append(action(
+        t(undo ? "uncheat" : "cheat"),
+        t(undo ? "confirmUncheat" : "confirmCheat", { name: a.displayName }),
+        async () => {
+          await api.setCheated({ uid: a.uid, puzzleId, cheated: !undo });
+          return t(undo ? "cheatCleared" : "cheatSet");
+        },
+      ));
+      tr.append(cell(a.displayName, "name"), cell(t(`state.${a.state}`)), cell(a.guessCount), cell(a.points), cell(formatMs(a.elapsedMs)), intervalsCell(a), extrasCell(a), actions);
       return tr;
     }));
   } catch (err) { fail(err); }
+}
+
+/**
+ * A confirm-then-call button. Two of these sit in the Dia row and both want the
+ * same five lines — confirm, call, say what happened, reload, and do not leave
+ * the button live while the call is in flight.
+ */
+function action(label, confirm, run) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "link"; b.textContent = label;
+  b.addEventListener("click", async () => {
+    if (!(await ask(el.confirmDialog, el.confirmText, confirm))) return;
+    b.disabled = true;
+    try { setStatus(await run(), "ok"); loadDay(currentDay); }
+    catch (err) { fail(err); b.disabled = false; }
+  });
+  return b;
 }
 
 // --- cells ----------------------------------------------------------------------
@@ -176,6 +202,7 @@ function intervalsCell(a) {
 /** suspicious badge, retries, and the day's challenges as a table. */
 function extrasCell(a) {
   const td = document.createElement("td");
+  if (a.cheated) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = t("badgeCheated"); td.append(b, " "); }
   if (a.suspicious) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = "suspeito"; td.append(b, " "); }
   if (a.retries > 0) { const b = document.createElement("span"); b.className = "badge"; b.textContent = `${a.retries}× nova chance`; td.append(b, " "); }
   if (a.items?.length) td.append(guessTable(a));

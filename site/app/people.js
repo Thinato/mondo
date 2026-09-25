@@ -13,12 +13,21 @@
 
 import { t } from "./i18n.js";
 
-/** @param {{displayName:string, points?:number|null, guessCount?:number|null}} p */
+/** @param {{displayName:string, points?:number|null, guessCount?:number|null, cheated?:boolean}} p */
 export function playerRow(p, withScore = false) {
   const li = document.createElement("li");
   const name = document.createElement("span");
   name.textContent = p.displayName;
   li.append(name);
+  // FR-7.7, D-82 — an admin voided this day, and the group is told. Not gated on
+  // `withScore`: it is not a score, and a zero nobody can explain is exactly what
+  // OQ-8 was trying to avoid. A tournament row never carries the field.
+  if (p.cheated) {
+    const b = document.createElement("span");
+    b.className = "badge warn";
+    b.textContent = t("badgeCheated");
+    li.append(b);
+  }
   if (withScore && p.points !== null && p.points !== undefined) {
     const score = document.createElement("span");
     score.className = "score";
