@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  advanceAllTime, effectiveStreak, nextDay, rankBy, statsFor, windowDays, EMPTY_STATS, type FinishedResult,
+  advanceAllTime, effectiveStreak, nextDay, rankBy, shiftAllTime, statsFor, streakFrom, windowDays, EMPTY_STATS, type FinishedResult,
 } from "../src/lib/standings";
 
 // ---------------------------------------------------------------------------
@@ -145,4 +145,48 @@ test("effectiveStreak: stands only when the last play was the closed day or toda
   assert.equal(effectiveStreak(p("2026-10-31"), "2026-10-30", "2026-10-31"), 7);
   assert.equal(effectiveStreak(p("2026-10-29"), "2026-10-30", "2026-10-31"), 0);
   assert.equal(effectiveStreak(p(null), "2026-10-30", "2026-10-31"), 0);
+});
+
+// ---------------------------------------------------------------------------
+// FR-7.7, D-82 — voiding a day.
+
+test("shiftAllTime: -1 then +1 is the identity, on every field", () => {
+  const before = { points: 120, played: 30, totalGuesses: 71, avgGuesses: 2.4, totalElapsedMs: 900_000 };
+  const day: FinishedResult = { puzzleId: "2026-10-30", points: 6, guessCount: 1, elapsedMs: 42_000 };
+  const out = shiftAllTime(before, day, -1);
+  assert.deepEqual(out, { points: 114, played: 29, totalGuesses: 70, avgGuesses: 2.4, totalElapsedMs: 858_000 });
+  // The round trip is what makes un-voiding honest rather than approximate.
+  assert.deepEqual(shiftAllTime(out, day, 1), before);
+});
+
+test("shiftAllTime: the last day out leaves no average to report", () => {
+  const one = { points: 6, played: 1, totalGuesses: 3, avgGuesses: 3, totalElapsedMs: 1000 };
+  const out = shiftAllTime(one, { puzzleId: "2026-10-30", points: 6, guessCount: 3, elapsedMs: 1000 }, -1);
+  assert.deepEqual(out, { points: 0, played: 0, totalGuesses: 0, avgGuesses: null, totalElapsedMs: 0 });
+});
+
+test("streakFrom: the run of days that count, ending at the last one that did", () => {
+  const days = windowDays("2026-10-30", 6); // 25, 26, 27, 28, 29, 30
+  const played = (set: string[]) => (d: string) => set.includes(d);
+
+  // An unbroken run to the end.
+  assert.deepEqual(streakFrom(days, played(["2026-10-28", "2026-10-29", "2026-10-30"])),
+    { lastPlayedOn: "2026-10-30", currentStreak: 3 });
+
+  // The most recent day stops counting: the streak ends earlier AND is shorter,
+  // which is what makes effectiveStreak read it as 0 the next morning.
+  assert.deepEqual(streakFrom(days, played(["2026-10-28", "2026-10-29"])),
+    { lastPlayedOn: "2026-10-29", currentStreak: 2 });
+
+  // A day in the MIDDLE stops counting: only the run after it survives.
+  assert.deepEqual(streakFrom(days, played(["2026-10-27", "2026-10-29", "2026-10-30"])),
+    { lastPlayedOn: "2026-10-30", currentStreak: 2 });
+
+  // Nothing survives in the window at all.
+  assert.deepEqual(streakFrom(days, played([])), { lastPlayedOn: null, currentStreak: 0 });
+
+  // A run that reaches the start of the window returns what it found. The
+  // caller reads back further than the streak it is checking, so under-counting
+  // here is the safe direction: the next day starts fresh.
+  assert.deepEqual(streakFrom(days, played(days)), { lastPlayedOn: "2026-10-30", currentStreak: 6 });
 });

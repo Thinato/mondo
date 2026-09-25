@@ -114,6 +114,13 @@ export interface Attempt extends CardCore {
   /** D-30: set only on attempts an admin has reset. Earlier tries, oldest first. */
   history?: AttemptSnapshot[];
   retries?: number;
+  /**
+   * D-82 — an admin has voided this day (FR-7.7). **Nothing else on the document
+   * changes**: every guess, the points and the clock stay exactly as they were
+   * played, because the panel exists to look at them. `resultOf` returning null
+   * for a marked attempt is the single place that stops it counting for anyone.
+   */
+  cheated?: { by: string; at: Timestamp } | null;
   /** Pre-D-52 attempts: one country, one flat list. Read, never written. */
   guesses?: StoredGuess[];
 }
@@ -380,6 +387,12 @@ export interface RoundView {
   maxPoints: number;
   elapsedMs: number | null;
   shareGrid: string | null;
+  /**
+   * FR-7.7, D-82 — an admin voided this day. The player is told rather than left
+   * to wonder at a zero: being told is most of what makes OQ-8's "socially
+   * expensive" mean anything.
+   */
+  cheated: boolean;
   serverTime: string;
   /**
    * The caller's own profile bits the UI needs (FR-1.2, FR-1.3, FR-7). Never
@@ -446,6 +459,7 @@ export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timesta
     maxPoints: maxPointsFor(card),
     elapsedMs: finished ? attempt.elapsedMs : null,
     shareGrid: finished ? shareGrid(puzzle.puzzleId, shareItems(attempt, card), attempt.points, maxPointsFor(card)) : null,
+    cheated: Boolean(attempt.cheated),
     serverTime: now.toDate().toISOString(),
     me: profile
       ? {

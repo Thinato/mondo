@@ -489,12 +489,21 @@ document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
 - `setRole({ uid, role })` — `organizer` | `player`; never `admin` in either direction, never yourself (FR-7.6, D-35)
 - `listAllGroups({})`
 - `listAttempts({ puzzleId } | { uid })` → per attempt: state, counts, `elapsedMs`, `suspicious`,
-  `retries`, `intervalsMs` (start→first guess, guess→guess); `guesses`, `points`, `solved` and
-  `suspicious` only for closed days or once the admin has finished today (D-31) — `suspicious` is only
-  ever set on a solve, so it would announce an outcome by itself. The `uid` path also returns
+  `retries`, `intervalsMs` (start→first guess, guess→guess), `cheated`, and `items[]` — one row per
+  challenge with its `kind`, its own `intervalsMs` and `elapsedMs`, and (gated) its `guesses`,
+  `points`, `solved`. `points`, `solved` and `suspicious` only for closed days or once the admin has
+  finished today (D-31) — `suspicious` is only ever set on a solve, so it would announce an outcome
+  by itself. **A challenge's kind and timings are never gated**: they name no country, and they are
+  the cheating material the panel is for. The `uid` path also returns
   `matches`: that player's tournament cards with per-item timings, under the same D-31 gate —
   outcomes only for a closed round, or one the admin has already played
-- `grantRetry({ uid, puzzleId })` — today only, never for yourself; resets the attempt, keeps `history` (D-30, D-35)
+- `grantRetry({ uid, puzzleId })` — today only, never for yourself, never on a voided day; resets the attempt, keeps `history` (D-30, D-35, D-82)
+- `setCheated({ uid, puzzleId, cheated })` — void a day or undo it, any day, never your own (FR-7.7, D-82).
+  Writes only a `cheated` marker; `resultOf` returning null is what stops the day counting. Corrects
+  the three stored snapshots that cannot heal themselves: each member doc's `allTime` (watermarked,
+  D-25), its `last7`/`last30` (which would otherwise wait for 12:05), and `profile.currentStreak` /
+  `lastPlayedOn` (recomputed by walking the days back). Idempotent — a repeat call is a no-op, which
+  is what stops the all-time arithmetic being applied twice
 
 ### Scheduled (Cloud Scheduler, `America/Sao_Paulo`)
 - `rebuildStandings` — `5 12 * * *` (D-11, D-25). Also advances any tournament round past its

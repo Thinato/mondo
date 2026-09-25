@@ -19,6 +19,7 @@ const PT_BR = {
   // D-52: a day is three challenges, so the result talks about the day.
   dayDone: "{points} de {max} pontos hoje.",
   dayPerfect: "Dia perfeito! {points} de {max} pontos.",
+  dayVoided: "Dia anulado pelo administrador. Os {points} de {max} pontos não contam em nenhum ranking.",
   kindName: { shape: "silhueta", flag: "bandeira", capital: "capital", gdp: "PIB per capita", flagPick: "qual bandeira", shapePick: "qual silhueta", person: "quem nasceu onde" },
   // FR-9.9 — the five continents practice can be narrowed to. The server's own
   // ids are English (`world-countries`' `region`); these are the labels. América
@@ -155,6 +156,20 @@ const PT_BR = {
   roleSaved: "Papel atualizado.",
   retryGranted: "Nova chance concedida.",
   loadMore: "Carregar mais",
+  adminChallenges: "desafios",
+  adminColChallenge: "Desafio",
+  adminColGuess: "Chute",
+  adminColSeconds: "Tempo (s)",
+  adminGaveUp: "desistiu",
+  // FR-7.7, D-82 — voiding a day. "Anular" rather than "trapaça" on the badge:
+  // the badge says what happened to the day, and the confirm says why.
+  cheat: "Anular (trapaça)",
+  uncheat: "Desfazer anulação",
+  confirmCheat: "Anular o dia de {name} por trapaça? A tentativa fica guardada inteira e você continua vendo tudo, mas ela deixa de contar em qualquer ranking — e o grupo vê que foi anulada.",
+  confirmUncheat: "Desfazer a anulação do dia de {name}? A pontuação volta a valer como era.",
+  cheatSet: "Dia anulado.",
+  cheatCleared: "Anulação desfeita.",
+  badgeCheated: "anulado",
   state: { not_started: "não jogou", in_progress: "jogando", finished: "terminou" },
   role: { admin: "admin", organizer: "organizador", player: "jogador" },
   // tournaments (FR-5 as rewritten, FR-8)

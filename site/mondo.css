@@ -439,6 +439,21 @@ table.board .name { max-width: 10rem; overflow: hidden; text-overflow: ellipsis;
 select { font: inherit; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: .35rem; background: var(--field); color: inherit; }
 details.guesses { font-size: .85rem; }
 details.guesses summary { cursor: pointer; color: var(--muted); }
+/* One row per guess, in a cell of the outer board. Every rule here has to say
+   `table.detail` to out-specify `table.board td`, which is a descendant selector
+   and therefore reaches into this table too. */
+details.guesses table.detail { border-collapse: collapse; margin: .3rem 0 .1rem; min-width: 15rem; }
+details.guesses table.detail th, details.guesses table.detail td {
+  padding: .15rem 1rem .15rem 0; text-align: left; border-bottom: 0; white-space: nowrap;
+  font-family: inherit; font-size: .85rem;
+}
+details.guesses table.detail th { font-weight: 500; color: var(--muted); font-size: .8rem; padding-bottom: .25rem; }
+details.guesses table.detail td { border-top: 1px solid var(--line); }
+details.guesses table.detail th:first-child, details.guesses table.detail td:first-child { color: var(--muted); }
+/* The seconds are the column you read down, so they line up and nothing else does. */
+details.guesses table.detail th:last-child, details.guesses table.detail td:last-child {
+  text-align: right; padding-right: 0; font-family: var(--mono); font-variant-numeric: tabular-nums;
+}
 h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; letter-spacing: -.01em; margin: 0 0 .25rem; }
 
 /* --- tournaments (Phase 3) ------------------------------------------------ */

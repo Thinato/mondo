@@ -387,6 +387,12 @@ to test new challenges."*
 - **FR-7.6** `admin` is granted only out of band (a maintainer script with ADC, D-29). The API
   MUST refuse to grant or revoke `admin`, and MUST refuse a role change on the caller's own
   account.
+- **FR-7.7** *(added 2026-09-24, D-82)* `admin` MAY **void** any player's day on any past or
+  present puzzle, and MAY undo it. A voided day MUST stop counting for that player everywhere a
+  user can see — both windows, all-time, the streak and the "days played" count — and MUST NOT be
+  retryable. It MUST NOT be deleted, edited or zeroed in storage: the admin surfaces go on showing
+  exactly what was played, which is what makes undoing it exact. The player's group MUST be told
+  the day was voided (OQ-8), and so MUST the player. Never the caller's own attempt (D-35).
 
 ## SEC — Security and anti-cheat
 

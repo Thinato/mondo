@@ -40,8 +40,18 @@ export interface Member extends AllTime {
 
 export type MemberStats = Pick<Member, "allTime" | "allTimeThrough" | "last7" | "last30">;
 
-/** A finished attempt, reduced to what the standings need. Unfinished → null. */
-export function resultOf(attempt: Pick<Attempt, "puzzleId" | "finishedAt" | "points" | "guessCount" | "elapsedMs">): FinishedResult | null {
+/**
+ * A finished attempt, reduced to what the standings need. Unfinished → null.
+ *
+ * **Voided → null too (FR-7.7, D-82), and this is the whole of that feature.**
+ * Every user-facing number about a day comes through here, so one line drops a
+ * voided day out of `last7`, out of `last30` (where D-24 already scores an absent
+ * day 0 and still counts it as a day, which is the streak breaking), out of
+ * all-time going forward, and out of the 30 days a player carries into a new
+ * group. Nothing is deleted to achieve it; the attempt is untouched.
+ */
+export function resultOf(attempt: Pick<Attempt, "puzzleId" | "finishedAt" | "points" | "guessCount" | "elapsedMs" | "cheated">): FinishedResult | null {
+  if (attempt.cheated) return null;
   if (attempt.finishedAt === null || attempt.elapsedMs === null) return null;
   return { puzzleId: attempt.puzzleId, points: attempt.points, guessCount: attempt.guessCount, elapsedMs: attempt.elapsedMs };
 }
@@ -139,6 +149,13 @@ export interface TodayPlayer {
   /** Only once the viewer has finished today (FR-4.11); null otherwise. */
   points: number | null;
   guessCount: number | null;
+  /**
+   * FR-7.7, D-82 — an admin voided this day, and the group is told. OQ-8 chose to
+   * make cheating socially expensive rather than technically impossible, and a
+   * zero nobody can explain does neither. Not gated on FR-4.11: it says nothing
+   * about the answer, and it is the one fact here that is not a score.
+   */
+  cheated: boolean;
 }
 
 export interface LeaderboardView {
@@ -184,8 +201,11 @@ export function leaderboardView(input: {
       uid: m.uid,
       displayName: names.get(m.uid) ?? m.displayName,
       state,
-      points: reveal ? a.points : null,
+      // A voided day scores nothing for anybody, so there is no point to wait
+      // for and nothing FR-4.11 is protecting (D-82).
+      points: a?.cheated ? 0 : reveal ? a.points : null,
       guessCount: reveal ? a.guessCount : null,
+      cheated: Boolean(a?.cheated),
     };
   });
 
