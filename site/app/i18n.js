@@ -161,6 +161,13 @@ const PT_BR = {
   adminColGuess: "Chute",
   adminColSeconds: "Tempo (s)",
   adminGaveUp: "desistiu",
+  // D-77 — the page's own claim, beside the interval the server timed.
+  adminColAway: "Saiu da página",
+  awayNoReport: "sem relato",
+  awayHides: "{n}× {secs} s",
+  awayBlurs: "{n}× foco",
+  badgeImpossible: "{n} relato fora do tempo|{n} relatos fora do tempo",
+  platform: { mobile: "celular", desktop: "computador" },
   // FR-7.7, D-82 — voiding a day. "Anular" rather than "trapaça" on the badge:
   // the badge says what happened to the day, and the confirm says why.
   cheat: "Anular (trapaça)",

@@ -204,6 +204,11 @@ function intervalsCell(a) {
 function extrasCell(a) {
   const td = document.createElement("td");
   if (a.cheated) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = t("badgeCheated"); td.append(b, " "); }
+  // D-77: a phone backgrounds itself constantly and a desktop tab may honestly
+  // never hide, so "no hides" means two different things and the device has to
+  // travel with the claims for the column to be readable at all.
+  if (a.reportPlatform) { const b = document.createElement("span"); b.className = "badge"; b.textContent = t(`platform.${a.reportPlatform}`); td.append(b, " "); }
+  if (a.impossibleReports > 0) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = t("badgeImpossible", { n: a.impossibleReports }); td.append(b, " "); }
   if (a.suspicious) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = "suspeito"; td.append(b, " "); }
   if (a.retries > 0) { const b = document.createElement("span"); b.className = "badge"; b.textContent = `${a.retries}× nova chance`; td.append(b, " "); }
   if (a.items?.length) td.append(guessTable(a));
@@ -226,7 +231,7 @@ function guessTable(a) {
   const table = document.createElement("table"); table.className = "detail";
   const thead = document.createElement("thead");
   const hr = document.createElement("tr");
-  for (const k of ["adminColChallenge", "adminColGuess", "adminColSeconds"]) {
+  for (const k of ["adminColChallenge", "adminColGuess", "adminColSeconds", "adminColAway"]) {
     const th = document.createElement("th"); th.textContent = t(k); hr.append(th);
   }
   thead.append(hr);
@@ -240,13 +245,15 @@ function guessTable(a) {
     // A challenge someone gave up on has no guesses (FR-2.13, D-61) and a blank
     // row would read as a bug, so it says so and shows the clock it still has.
     if (it.intervalsMs.length === 0) {
-      tbody.append(guessRow(kind, t("adminGaveUp"), it.elapsedMs, null));
+      tbody.append(guessRow(kind, t("adminGaveUp"), it.elapsedMs, null, undefined));
       continue;
     }
     it.intervalsMs.forEach((ms, i) => {
       // `guesses` is null until the D-31 gate opens; the timings never wait.
       const g = it.guesses?.[i];
-      tbody.append(guessRow(kind, g ? guessLabel(g) : "–", ms, ms === min ? "fast" : null));
+      // D-77: the claim sits in the column beside the interval it claims about,
+      // which is the comparison the whole signal rests on.
+      tbody.append(guessRow(kind, g ? guessLabel(g) : "–", ms, ms === min ? "fast" : null, it.selfReports?.[i] ?? null));
     });
   }
   table.append(thead, tbody);
@@ -254,10 +261,45 @@ function guessTable(a) {
   return d;
 }
 
-function guessRow(kind, guess, ms, cls) {
+function guessRow(kind, guess, ms, cls, report) {
   const tr = document.createElement("tr");
-  tr.append(cell(kind), cell(guess), cell(formatSecs(ms), cls));
+  tr.append(cell(kind), cell(guess), cell(formatSecs(ms), cls), awayCell(report));
   return tr;
+}
+
+/**
+ * D-77 — what the page claimed for this guess.
+ *
+ * The **empty cell is the one to read**: a guess that carried no claim at all
+ * means the page never reported, and a player whose every row is empty while
+ * everyone else's are noisy is the whole reason the field exists. A row of
+ * zeros is not suspicious — most people finish a challenge without leaving the
+ * page — so that case is a quiet dash rather than a badge.
+ *
+ * Never a verdict. `impossible` is the server's own comparison against the
+ * interval it timed (`reportExceedsInterval`), not a re-derivation here: the
+ * jitter allowance is a server rule and a second copy of it on the client is
+ * the drift D-66 and D-80 already charged us for.
+ */
+function awayCell(report) {
+  const td = document.createElement("td");
+  // Two different absences, and conflating them would put the loud one on the
+  // wrong row. `undefined` is a row with NO GUESS on it — a challenge given up
+  // on (D-61) — which claims nothing and was never going to. `null` is a guess
+  // that carried no claim, and that is the absence this column exists to show.
+  if (report === undefined) { td.textContent = "–"; return td; }
+  if (report === null) {
+    td.className = "claim-none";
+    td.textContent = t("awayNoReport");
+    return td;
+  }
+  if (report.hides === 0 && report.blurs === 0) { td.textContent = "–"; return td; }
+  const bits = [];
+  if (report.hides > 0) bits.push(t("awayHides", { n: report.hides, secs: formatSecs(report.hiddenMs) }));
+  if (report.blurs > 0) bits.push(t("awayBlurs", { n: report.blurs }));
+  td.textContent = bits.join(" · ");
+  if (report.impossible) td.className = "claim-off";
+  return td;
 }
 
 /** A country guess carries how close it was; a number and a pick do not (D-53, D-64). */

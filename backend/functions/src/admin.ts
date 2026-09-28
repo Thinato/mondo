@@ -18,7 +18,7 @@ import { mondoError } from "./lib/errors";
 import { memberStats, resultOf, todayState, WINDOW_30, type Group, type Member, type TodayState } from "./lib/groups";
 import type { KindId } from "./lib/kinds";
 import { countImpossible, reportExceedsInterval, type SelfReport } from "./lib/report";
-import { intervalsMs, isChoiceGuess, isNumberGuess, puzzleItems, resetAttempt, upgradeAttempt, type Attempt, type Profile, type Puzzle, type Role, type StoredGuess } from "./lib/round";
+import { intervalsMs, isChoiceGuess, isNumberGuess, puzzleItems, resetAttempt, selfReports, upgradeAttempt, type Attempt, type Profile, type Puzzle, type Role, type StoredGuess } from "./lib/round";
 import { shiftAllTime, streakFrom, windowDays } from "./lib/standings";
 import { playId, type TournamentRound } from "./lib/tournament";
 import { requireObject, requirePuzzleId, requireRole, requireUid } from "./lib/validate";
@@ -127,10 +127,30 @@ export interface GuessRow { code: string; name: string; distanceKm: number; prox
  * line the row's own `guessCount` and `intervalsMs` already draw. What waits for
  * the gate is the guess VALUES and the outcome.
  */
+/**
+ * D-77 — one guess's claim, plus whether the clock can support it.
+ *
+ * `impossible` is DERIVED here and never stored: it is a comparison between two
+ * numbers that are both still on the row, so freezing the verdict would be a
+ * fact with a shelf life (`lib/report.ts`). The panel gets it rather than
+ * recomputing it, because the jitter allowance is the server's rule and a
+ * second copy of it in `admin.js` is exactly the drift D-66 and D-80 cost us.
+ */
+export type SelfReportRow = SelfReport & { impossible: boolean };
+
 export interface AttemptItemRow {
   kind: KindId;
   /** Served→first guess, then guess→guess (SEC-3, server clock). One per guess. */
   intervalsMs: number[];
+  /**
+   * D-77 — what the PAGE claimed about each of those windows, same order, so a
+   * reader lays the two side by side. A **null is the interesting entry**: that
+   * guess carried no claim at all, and a player whose every guess is null while
+   * everyone else's are populated is the anomaly the field exists for. A run of
+   * zeros is not suspicious — most people finish a challenge without leaving
+   * the page. Never gated, for the same reason the intervals beside it are not.
+   */
+  selfReports: (SelfReportRow | null)[];
   /** Null while the challenge is still open; pure timing, so never gated. */
   elapsedMs: number | null;
   /** Null until the outcome is revealable (D-31). */
@@ -144,17 +164,14 @@ export interface AttemptRow {
   guessCount: number; elapsedMs: number | null; retries: number;
   intervalsMs: number[]; startedAt: string; finishedAt: string | null;
   /**
-   * D-77 — what the PAGE claimed, one entry per guess, in `intervalsMs` order,
-   * so the two read side by side. A **null is the interesting entry**: it means
-   * that guess carried no claim at all, and a player whose every guess is null
-   * while everyone else's are populated is the anomaly this field exists for.
-   * A run of zeros is not suspicious — most people finish a challenge without
-   * leaving the page. Weigh it, never accuse on it: none of this sees a second
-   * device.
+   * D-77 — guesses claiming more hidden time than the challenge was open. The
+   * per-guess claims live on `items[]`, beside the intervals they describe;
+   * this is the one number worth seeing without expanding a player. Weigh it,
+   * never accuse on it: none of this sees a second device.
    */
-  selfReports: (SelfReport | null)[];
-  /** Guesses claiming more hidden time than the server's interval allows. */
   impossibleReports: number;
+  /** D-77 — the device the claims came from, or null if no guess carried one. */
+  reportPlatform: SelfReport["platform"] | null;
   /** Null for today until the admin has finished their own round (D-31), like FR-4.11 on the board. */
   solved: boolean | null; points: number | null; suspicious: boolean | null;
   /** The day's challenges in play order. Always present; half of each row is gated. */
@@ -210,6 +227,12 @@ function itemRows(attempt: Attempt, reveal: boolean): AttemptItemRow[] {
   return a.items.map((it, i) => ({
     kind: it.kind,
     intervalsMs: gaps[i] ?? [],
+    selfReports: it.guesses.map((g, j) => {
+      const r = g.selfReport;
+      // The interval this claim covers is the one the SERVER timed for the same
+      // guess, which is the bound the whole signal rests on (D-77).
+      return r === undefined ? null : { ...r, impossible: reportExceedsInterval(r, gaps[i]?.[j] ?? 0) };
+    }),
     elapsedMs: it.elapsedMs,
     solved: reveal ? it.solved : null,
     points: reveal ? it.points : null,
@@ -331,7 +354,8 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
         retries: a.retries ?? 0, intervalsMs: intervalsMs(a), startedAt: a.startedAt.toDate().toISOString(), finishedAt: iso(a.finishedAt),
         // D-77 — timings and the claims about them are the cheating material
         // the panel exists for, so they stay live with the rest of it (D-31).
-        selfReports: selfReports(a), impossibleReports: countImpossible(selfReports(a), intervalsMs(a)),
+        impossibleReports: countImpossible(selfReports(a), intervalsMs(a)),
+        reportPlatform: selfReports(a).find((r) => r !== null)?.platform ?? null,
         // `suspicious` is only ever set on a solve, so it would announce an
         // unrevealed outcome by itself (D-31). Guess count and timings are the
         // cheating material the panel is for and stay live.
