@@ -19,6 +19,7 @@ import { requireCanPlay } from "./lib/authz";
 import { callable } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { puzzleIdAt } from "./lib/puzzle-day";
+import { parseSelfReport } from "./lib/report";
 import {
   applyGuess, giveUp as giveUpAttempt, newAttempt, puzzleItems, recordCompletion, roundView,
   type Attempt, type Profile, type Puzzle, type RoundView,
@@ -82,13 +83,16 @@ export const getRound = callable<{ puzzleId?: unknown } | null | undefined, Roun
  * guesses (SEC-4); the 400 ms floor is enforced against the previous guess's
  * server timestamp (SEC-5).
  */
-export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?: unknown }, RoundView>(async (uid, data) => {
+export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?: unknown; selfReport?: unknown }, RoundView>(async (uid, data) => {
   const input = requireObject(data);
   const puzzleId = requirePuzzleId(input.puzzleId);
   const raw = input.guess ?? input.code;
   // A shape guard only: anything that is not a scalar cannot be any kind's
   // guess, and rejecting it here costs no reads.
   if (typeof raw !== "string" && typeof raw !== "number") throw mondoError("invalid-argument", "A guess must be a country or a number.");
+  // D-77 — optional, and validated like everything else that arrives. Absent is
+  // an older page; present and malformed is refused rather than coerced.
+  const selfReport = parseSelfReport(input.selfReport);
   const now = Timestamp.now();
   const puzzle = await loadOpenPuzzle(puzzleId, now);
 
@@ -100,7 +104,7 @@ export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?:
     const before = profileSnap.exists ? (profileSnap.data() as Profile) : null;
     requireCanPlay(before); // losing your last group closes the round too
     if (!snap.exists) throw mondoError("not-found", "Call getRound before guessing.");
-    const attempt = applyGuess(snap.data() as Attempt, puzzleItems(puzzle), raw, now);
+    const attempt = applyGuess(snap.data() as Attempt, puzzleItems(puzzle), raw, now, selfReport);
     tx.set(attemptRef(uid, puzzleId), attempt);
     // The streak the caller is told about must be the one this guess just
     // wrote, not the one it replaced (D-57). The guess that ends a day is

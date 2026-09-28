@@ -641,3 +641,75 @@ test("10. FR-2.13 / D-61: giving up scores zero, hands over the answer, and stil
   // FR-1.7 applies here as everywhere else.
   assert.equal(code(await third.call("giveUp", { puzzleId: TODAY })), "not-invited");
 });
+
+test("11. SEC-16 / D-77: a self-report rides with the guess, is bounded by the server's clock, and never has to be there", async () => {
+  // Its own group, like test 10: nothing here moves a board another test asserts on.
+  const owner = await withRole("owner5", "organizer");
+  const reporter = await newAccount("reporter");
+  const g5 = ok(await owner.call("createGroup", { name: "Relatos" }), "createGroup").groupId;
+  ok(await reporter.call("acceptInvite", { token: ok(await owner.call("createInvite", { groupId: g5 }), "inv").token }), "join");
+  ok(await reporter.call("getRound", {}), "getRound");
+
+  // --- it travels with the guess and is stored on it, untouched ---------------
+  // The wait is real: the claim below has to sit inside the interval the SERVER
+  // times for this guess, which is the bound the whole signal rests on.
+  await sleep(1200);
+  const claim = { hides: 1, blurs: 2, hiddenMs: 800, platform: "mobile" };
+  const first = ok(await reporter.call("submitGuess", { puzzleId: TODAY, code: "BR", selfReport: claim }), "guess carrying a report");
+  assert.equal(first.status, "in_progress");
+  assert.equal(first.guessesUsed, 1);
+  assert.deepEqual((await doc(`attempts/${reporter.uid}_${TODAY}`)).items[0].guesses[0].selfReport, claim);
+  // SEC-1: nothing about the claim may come back to the player.
+  assert.equal(JSON.stringify(first).includes("selfReport"), false, "the report echoed back to the client");
+
+  // --- the shape is closed, and a bad one costs nothing ----------------------
+  // `parseSelfReport` runs before the transaction and before SEC-5's floor, so
+  // a malformed report cannot spend a guess or trip the throttle. That is what
+  // makes it safe to refuse rather than coerce.
+  for (const bad of [
+    { hides: 1 },                                                           // incomplete
+    { hides: 1, blurs: 0, hiddenMs: 0, platform: "watch" },                 // a platform nobody agreed on
+    { hides: 1, blurs: 0, hiddenMs: 0, platform: "mobile", mouseMoves: 9 }, // a field the server does not collect
+    { hides: -1, blurs: 0, hiddenMs: 0, platform: "mobile" },
+    { hides: 1.5, blurs: 0, hiddenMs: 0, platform: "mobile" },
+    { hides: 0, blurs: 0, hiddenMs: 25 * 60 * 60 * 1000, platform: "mobile" },
+    "{}", 3, true, [],
+  ]) {
+    assert.equal(
+      code(await reporter.call("submitGuess", { puzzleId: TODAY, code: "AR", selfReport: bad })),
+      "invalid-argument", `accepted a bad report: ${JSON.stringify(bad)}`,
+    );
+  }
+  assert.equal((await doc(`attempts/${reporter.uid}_${TODAY}`)).items[0].guesses.length, 1, "a refused report spent a guess");
+
+  // --- and it never has to be there ------------------------------------------
+  // The field is optional forever, so a browser holding a page from before D-77
+  // keeps playing and simply reports nothing.
+  await sleep(450);
+  ok(await reporter.call("submitGuess", { puzzleId: TODAY, code: "AR" }), "a guess with no report at all");
+
+  // --- the panel lays the claim beside the interval it claims about -----------
+  const seen = ok(await admin.call("listAttempts", { uid: reporter.uid }), "listAttempts").attempts.find((a: Any) => a.puzzleId === TODAY);
+  const item = seen.items[0];
+  assert.equal(item.selfReports.length, item.intervalsMs.length, "one claim slot per timed interval");
+  assert.deepEqual(item.selfReports[0], { ...claim, impossible: false });
+  assert.equal(item.selfReports[1], null, "a guess that carried nothing must read as null — that absence is the signal");
+  assert.ok(item.intervalsMs[0] >= 1200, `the 800 ms claim must sit inside the server's ${item.intervalsMs[0]} ms`);
+  assert.equal(seen.impossibleReports, 0);
+  assert.equal(seen.reportPlatform, "mobile", "the device travels with the row, since silence means different things on each");
+  // D-31 is drawn between the OUTCOME and the evidence: the admin has not
+  // finished their own round, so the guesses are withheld — and the claims and
+  // timings are not, because they are the cheating material the panel is for.
+  assert.equal(item.guesses, null, "D-31: today's guesses are not the admin's to see yet");
+  assert.equal(item.points, null);
+
+  // --- over-report and the clock shows ---------------------------------------
+  // Stored, never refused: it is a claim, and the panel's job is to show that
+  // the clock cannot support it. `impossible` is derived on read, never frozen.
+  await sleep(450);
+  ok(await reporter.call("submitGuess", { puzzleId: TODAY, code: "CL", selfReport: { hides: 1, blurs: 0, hiddenMs: 9_000_000, platform: "desktop" } }), "an absurd claim is kept, not rejected");
+  const after = ok(await admin.call("listAttempts", { uid: reporter.uid }), "listAttempts again").attempts.find((a: Any) => a.puzzleId === TODAY);
+  assert.equal(after.items[0].selfReports[2].impossible, true, "claimed more hidden time than the challenge was open");
+  assert.equal(after.items[0].selfReports[2].hiddenMs, 9_000_000, "the claim itself is kept exactly as made");
+  assert.equal(after.impossibleReports, 1);
+});

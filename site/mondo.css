@@ -459,9 +459,16 @@ details.guesses table.detail th, details.guesses table.detail td {
   padding: .15rem 1rem .15rem 0; text-align: left; border-bottom: 0; white-space: nowrap;
   font-family: inherit; font-size: .85rem;
 }
-details.guesses table.detail th { font-weight: 500; color: var(--muted); font-size: .8rem; padding-bottom: .25rem; }
+details.guesses table.detail th { font-weight: 500; color: var(--muted); font-size: .8rem; padding-bottom: .25rem;
+  /* Headers may wrap; values may not. A two-line heading costs nothing, while
+     a heading on one line pushed the whole board past the viewport. */
+  white-space: normal; }
 details.guesses table.detail td { border-top: 1px solid var(--line); }
 details.guesses table.detail th:first-child, details.guesses table.detail td:first-child { color: var(--muted); }
+/* D-77 — the absent claim is the one worth seeing, so it is drawn rather than
+   left blank; a claim the clock refuses is drawn louder still. */
+details.guesses table.detail td.claim-none { color: var(--warn); font-style: italic; }
+details.guesses table.detail td.claim-off { color: var(--err); font-weight: 600; }
 /* The seconds are the column you read down, so they line up and nothing else does. */
 details.guesses table.detail th:last-child, details.guesses table.detail td:last-child {
   text-align: right; padding-right: 0; font-family: var(--mono); font-variant-numeric: tabular-nums;

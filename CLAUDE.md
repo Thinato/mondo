@@ -231,6 +231,18 @@ backend.
   are the cheating material the panel is for, so withholding them only blinded it on the one day it
   is needed. The flat `intervalsMs` stays beside `items[]` and is not redundant: it is the column you
   scan across every player, and it ships for rows whose outcome is hidden.
+- **A guess may carry a self-report, and it is a CLAIM** (SEC-16, D-77). Each guess can hold what
+  the page saw while the challenge was open — tab hides, window blurs, hidden milliseconds,
+  phone-or-desktop. Three rules, and the third is the one that keeps it worth having. It is sent
+  **unconditionally, zeros included**: a report only sent when something happened would make "no
+  data" mean nothing-happened, stripped, or failed all at once, and the signal exists precisely
+  because **silence is conspicuous** when everybody else is noisy. It is **validated like any
+  input** — closed shape, integer bounds — and stored next to, never merged into, the server's own
+  timestamps. And it **must never reach scoring, ordering or a tiebreak**: the moment a
+  self-report moves points it is worth forging, and the property it has is gone. `report.test.ts`
+  pins that by scoring the same guess twice. Do not "improve" it into an enforcement mechanism, do
+  not obfuscate it to resist tampering (that only makes tampering quieter), and do not read it as
+  proof — **it cannot see a second device at all**.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).
