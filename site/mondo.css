@@ -449,29 +449,106 @@ table.board .name { max-width: 10rem; overflow: hidden; text-overflow: ellipsis;
 .choice { display: flex; gap: .5rem; align-items: baseline; margin-bottom: .6rem; font-size: .95rem; }
 .choice input { width: auto; }
 select { font: inherit; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: .35rem; background: var(--field); color: inherit; }
-details.guesses { font-size: .85rem; }
-details.guesses summary { cursor: pointer; color: var(--muted); }
-/* One row per guess, in a cell of the outer board. Every rule here has to say
-   `table.detail` to out-specify `table.board td`, which is a descendant selector
-   and therefore reaches into this table too. */
-details.guesses table.detail { border-collapse: collapse; margin: .3rem 0 .1rem; min-width: 15rem; }
-details.guesses table.detail th, details.guesses table.detail td {
-  padding: .15rem 1rem .15rem 0; text-align: left; border-bottom: 0; white-space: nowrap;
+/* --- the admin's attempt tables (FR-7.2) ---------------------------------
+   A row here is about a person (or about a day), and everything else on it is
+   how that went. `.board` gives every cell the same weight and puts column two
+   on the left, which was right when column two was the name; here it is the
+   score, so both are restated. */
+table.board.admin th:first-child, table.board.admin td:first-child { text-align: left; }
+table.board.admin th:nth-child(2), table.board.admin td:nth-child(2) { text-align: right; }
+table.board.admin td { vertical-align: middle; }
+/* The subject of the row, at the weight of a subject, with everything that
+   qualifies it rather than measures it underneath. */
+table.board.admin td.subject { font-family: inherit; font-size: 1rem; max-width: 16rem; }
+td.subject b { font-weight: 600; }
+td.subject .sub { display: block; margin-top: .05rem; font-size: .8rem; font-weight: 400; color: var(--muted); }
+/* A hairline where the row changes subject: who, then how it went, then what
+   you can do about it. */
+table.board.admin th.div, table.board.admin td.div { border-left: 1px solid var(--line); }
+/* The numbers are read down their columns and line up on the right; a control
+   is read from its left edge, like the name is. */
+table.board.admin th.ctrl, table.board.admin td.ctrl { text-align: left; }
+table.board.admin td.pts { font-size: 1.05rem; font-weight: 600; }
+/* A voided day keeps every number it ever had and stops counting, so the row
+   has to read as struck rather than as missing (D-82). */
+table.board.admin tr.voided > td { color: var(--muted); }
+table.board.admin tr.voided > td.pts { text-decoration: line-through; }
+/* Muting the row must not mute the evidence. A voided day is exactly the one
+   you came to look at, and the fast mark is the reason you are looking. */
+table.board.admin tr.voided > td.fast { color: var(--err); }
+
+/* The disclosure that opens the row below. A button rather than a <summary>,
+   because <details> cannot span table rows and spanning them is the point. */
+.disc { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem 0; border: 0; background: none; font: inherit; font-size: .85rem; color: var(--muted); cursor: pointer; }
+.disc:hover { color: var(--fg); }
+.disc svg { width: .7rem; height: .7rem; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.disc[aria-expanded="true"] svg { transform: rotate(90deg); }
+
+/* Two actions, one of them destructive. Touching and identical they read as one
+   sentence, which is what they were; the rule makes them two and the colour on
+   hover makes one of them the dangerous one. */
+.acts { display: inline-flex; align-items: center; gap: .6rem; }
+.acts .sep { color: var(--line); }
+.acts button.danger:hover { color: var(--err); }
+
+/* One row per guess, given the whole width of the row it belongs to rather than
+   one cell of it. Every rule still has to say `table.detail` to out-specify
+   `table.board td`, which is a descendant selector and reaches in here too. */
+table.board.admin tr.detail > td { padding: 0; background: var(--card); }
+table.board.admin tr.detail > td > div { padding: .7rem .75rem .9rem; }
+table.detail { border-collapse: collapse; width: 100%; }
+table.board.admin table.detail th, table.board.admin table.detail td {
+  padding: .22rem 1.25rem .22rem 0; text-align: left; border-bottom: 0; white-space: nowrap;
   font-family: inherit; font-size: .85rem;
 }
-details.guesses table.detail th { font-weight: 500; color: var(--muted); font-size: .8rem; padding-bottom: .25rem;
-  /* Headers may wrap; values may not. A two-line heading costs nothing, while
-     a heading on one line pushed the whole board past the viewport. */
-  white-space: normal; }
-details.guesses table.detail td { border-top: 1px solid var(--line); }
-details.guesses table.detail th:first-child, details.guesses table.detail td:first-child { color: var(--muted); }
+table.board.admin table.detail th { font-weight: 500; color: var(--muted); font-size: .8rem; padding-bottom: .35rem; }
+/* A rule where each challenge starts, so the seven blocks are visible without
+   the kind having to span rows. */
+table.board.admin table.detail tr.start > td { border-top: 1px solid var(--line); }
+table.board.admin table.detail td.kind { color: var(--muted); }
+/* `.said` and not `.guess`: `.guess` is the game's own guess card, three
+   hundred lines up, and it brought its background and its 8px radius in here. */
+table.board.admin table.detail td.said { font-family: var(--mono); }
+/* The seconds are the column you read down, so they line up and nothing else
+   does. This used to be written as `:last-child` and stopped being the seconds
+   the moment D-77 added a fifth column beside them. */
+table.board.admin table.detail th:nth-child(3), table.board.admin table.detail td.secs {
+  text-align: right; padding-right: 1.6rem; font-family: var(--mono); font-variant-numeric: tabular-nums;
+}
 /* D-77 — the absent claim is the one worth seeing, so it is drawn rather than
    left blank; a claim the clock refuses is drawn louder still. */
-details.guesses table.detail td.claim-none { color: var(--warn); font-style: italic; }
-details.guesses table.detail td.claim-off { color: var(--err); font-weight: 600; }
-/* The seconds are the column you read down, so they line up and nothing else does. */
-details.guesses table.detail th:last-child, details.guesses table.detail td:last-child {
-  text-align: right; padding-right: 0; font-family: var(--mono); font-variant-numeric: tabular-nums;
+table.board.admin table.detail td.claim-none { color: var(--warn); font-style: italic; }
+table.board.admin table.detail td.claim-off { color: var(--err); font-weight: 600; }
+/* An empty last column takes the slack: four columns handed a whole row spread
+   themselves across it, and a guess a hand away from its own time is worse than
+   the cramped version this replaced. */
+table.board.admin table.detail th:last-child, table.board.admin table.detail td:last-child { width: 100%; padding-right: 0; }
+
+/* The date is this tab's heading, so it sits on the baseline with its picker
+   rather than above it. */
+.day-head { margin-bottom: .75rem; padding-bottom: .6rem; border-bottom: 1px solid var(--line); }
+.day-head .row { align-items: baseline; }
+.day-head .title { margin: 0; }
+.day-head p { margin: 0; }
+
+/* The long note about how to read the table. It is worth every word the first
+   time and nothing after that, so it folds. */
+details.note { margin: .25rem 0 1rem; font-size: .9rem; }
+details.note > summary { cursor: pointer; color: var(--muted); }
+details.note > summary:hover { color: var(--fg); }
+details.note p { margin: .5rem 0 0; }
+
+/* Below the breakpoint the board scrolls inside `.table-wrap`, and the first
+   thing to go off the left edge is whose row you are reading. */
+@media (max-width: 60rem) {
+  /* Child combinators throughout: the challenges table is a table inside a cell
+     of this one, so a plain descendant selector pins ITS first column too and
+     the guesses slide away underneath the kinds. */
+  table.board.admin > thead > tr > th:first-child,
+  table.board.admin > tbody > tr > td:first-child { position: sticky; left: 0; background: var(--bg); }
+  /* The detail row IS its own first cell, and it spans everything: pinning it
+     would pin the whole thing to the left edge. */
+  table.board.admin > tbody > tr.detail > td { position: static; background: var(--card); }
 }
 h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; letter-spacing: -.01em; margin: 0 0 .25rem; }
 

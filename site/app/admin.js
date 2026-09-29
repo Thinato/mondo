@@ -12,7 +12,7 @@ const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"), panel: $("panel"), tabs: $("tabs"),
   account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
   usersRows: $("users-rows"), usersMore: $("users-more"), userAttempts: $("user-attempts"), userAttemptsTitle: $("user-attempts-title"), userAttemptsRows: $("user-attempts-rows"),
-  groupsRows: $("groups-rows"), dayInput: $("day-input"), dayRows: $("day-rows"),
+  groupsRows: $("groups-rows"), dayInput: $("day-input"), dayRows: $("day-rows"), dayTitle: $("day-title"), dayCounts: $("day-counts"),
   confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
 
@@ -100,11 +100,12 @@ async function loadUserAttempts(u) {
   try {
     const { attempts } = await api.listAttempts({ uid: u.uid });
     el.userAttemptsTitle.textContent = `Tentativas de ${u.displayName} (31 dias)`;
-    el.userAttemptsRows.replaceChildren(...attempts.map((a) => {
-      const tr = document.createElement("tr");
-      tr.append(cell(formatDay(a.puzzleId)), cell(t(`state.${a.state}`)), cell(a.guessCount), cell(a.points), cell(formatMs(a.elapsedMs)), intervalsCell(a), extrasCell(a));
-      return tr;
-    }));
+    const quickest = quickestOf(attempts);
+    // Same six columns as the day, one column short of it: here the subject of
+    // a row is the day rather than the person, and there is nothing to do to it.
+    el.userAttemptsRows.replaceChildren(...attempts.flatMap((a) => attemptRows(a, {
+      subject: subjectCell(formatDay(a.puzzleId), a), cols: 6, quickest,
+    })));
     el.userAttempts.hidden = false;
   } catch (err) { fail(err); }
 }
@@ -133,31 +134,70 @@ async function loadDay(puzzleId) {
   currentDay = puzzleId;
   try {
     const { attempts } = await api.listAttempts({ puzzleId });
-    el.dayRows.replaceChildren(...attempts.map((a) => {
-      const tr = document.createElement("tr");
-      const actions = document.createElement("td");
-      // "Nova chance" is today's only (D-30) and never on a voided day — the
-      // server refuses that too, this just does not offer it.
-      if (puzzleId === TODAY && !a.cheated) {
-        actions.append(action("Nova chance", t("confirmRetry", { name: a.displayName }), async () => {
-          await api.grantRetry({ uid: a.uid, puzzleId });
-          return t("retryGranted");
-        }));
-      }
-      // FR-7.7, D-82: any day, either direction.
-      const undo = a.cheated;
-      actions.append(action(
-        t(undo ? "uncheat" : "cheat"),
-        t(undo ? "confirmUncheat" : "confirmCheat", { name: a.displayName }),
-        async () => {
-          await api.setCheated({ uid: a.uid, puzzleId, cheated: !undo });
-          return t(undo ? "cheatCleared" : "cheatSet");
-        },
-      ));
-      tr.append(cell(a.displayName, "name"), cell(t(`state.${a.state}`)), cell(a.guessCount), cell(a.points), cell(formatMs(a.elapsedMs)), intervalsCell(a), extrasCell(a), actions);
-      return tr;
-    }));
+    el.dayTitle.textContent = formatLongDay(puzzleId);
+    el.dayCounts.textContent = dayCounts(attempts);
+    const quickest = quickestOf(attempts);
+    el.dayRows.replaceChildren(...attempts.flatMap((a) => attemptRows(a, {
+      subject: subjectCell(a.displayName, a), cols: 7, quickest, actions: dayActions(a, puzzleId),
+    })));
   } catch (err) { fail(err); }
+}
+
+/** What the day looks like before you read a single row. */
+function dayCounts(attempts) {
+  const bits = [
+    t("adminDayPlayers", { n: attempts.length }),
+    t("adminDayFinished", { n: attempts.filter((a) => a.state === "finished").length }),
+  ];
+  const voided = attempts.filter((a) => a.cheated).length;
+  if (voided > 0) bits.push(t("adminDayVoided", { n: voided }));
+  return bits.join(" · ");
+}
+
+/**
+ * The two things you can do to a day, with something between them.
+ *
+ * Side by side, identical and touching, they read as one long sentence — which
+ * is exactly what they were. The rule makes them two controls and the colour on
+ * hover makes one of them the destructive one, so neither is told apart by
+ * position alone.
+ */
+function dayActions(a, puzzleId) {
+  const td = document.createElement("td");
+  td.className = "div ctrl";
+  const box = document.createElement("span");
+  box.className = "acts";
+  // "Nova chance" is today's only (D-30) and never on a voided day — the
+  // server refuses that too, this just does not offer it.
+  if (puzzleId === TODAY && !a.cheated) {
+    box.append(action("Nova chance", t("confirmRetry", { name: a.displayName }), async () => {
+      await api.grantRetry({ uid: a.uid, puzzleId });
+      return t("retryGranted");
+    }), separator());
+  }
+  // FR-7.7, D-82: any day, either direction.
+  const undo = a.cheated;
+  const b = action(
+    t(undo ? "uncheat" : "cheat"),
+    t(undo ? "confirmUncheat" : "confirmCheat", { name: a.displayName }),
+    async () => {
+      await api.setCheated({ uid: a.uid, puzzleId, cheated: !undo });
+      return t(undo ? "cheatCleared" : "cheatSet");
+    },
+  );
+  // Undoing is not destructive, so it does not get the colour that says so.
+  if (!undo) b.classList.add("danger");
+  box.append(b);
+  td.append(box);
+  return td;
+}
+
+function separator() {
+  const s = document.createElement("span");
+  s.className = "sep";
+  s.setAttribute("aria-hidden", "true");
+  s.textContent = "|";
+  return s;
 }
 
 /**
@@ -186,33 +226,160 @@ function cell(text, cls) {
   return td;
 }
 
-/** ms gaps, shortest highlighted (cheating material, D-31). */
-function intervalsCell(a) {
+/**
+ * One attempt: the row itself, and the hidden row under it holding its
+ * challenges.
+ *
+ * The challenges table used to live inside a cell of this row, which made the
+ * widest thing on the page the narrowest column on it — four columns squeezed
+ * into one column's width, with the headings wrapping to two lines to get
+ * there, and the whole board pushed past the viewport for the trouble. A
+ * `colspan` row gives it the width the row already has.
+ */
+function attemptRows(a, { subject, cols, quickest, actions = null }) {
+  const tr = document.createElement("tr");
+  // A voided day still shows every number it ever had; what it stops doing is
+  // counting, and the row has to say so at a glance (D-82).
+  if (a.cheated) tr.className = "voided";
+
+  const fast = fastestMs(a);
+  tr.append(
+    subject,
+    cell(a.points, "pts div"),
+    cell(a.guessCount),
+    cell(formatMs(a.elapsedMs)),
+    cell(formatSecs(fast), fast !== null && fast === quickest ? "fast" : null),
+  );
+
+  const detail = a.items?.length ? detailRow(a, cols) : null;
+  const disc = document.createElement("td");
+  disc.className = "div ctrl";
+  disc.append(detail ? disclosure(detail, a.items.length) : "–");
+  tr.append(disc);
+  if (actions) tr.append(actions);
+
+  return detail ? [tr, detail] : [tr];
+}
+
+/**
+ * The row's subject, and under it everything that qualifies the row rather than
+ * measures it.
+ *
+ * The state was a column of its own and the badges were a column with no
+ * heading, which gave a number the same weight as the person a row is about.
+ */
+function subjectCell(text, a) {
   const td = document.createElement("td");
-  const min = Math.min(...a.intervalsMs);
-  a.intervalsMs.forEach((ms, i) => {
-    const s = document.createElement("span");
-    if (ms === min && a.intervalsMs.length > 1) s.className = "fast";
-    s.textContent = String(ms);
-    td.append(i ? " · " : "", s);
-  });
-  if (a.intervalsMs.length === 0) td.textContent = "–";
+  td.className = "subject";
+  const name = document.createElement("b");
+  name.textContent = text;
+  const sub = document.createElement("span");
+  sub.className = "sub";
+  sub.append(...badges(a));
+  td.append(name, sub);
   return td;
 }
 
-/** suspicious badge, retries, and the day's challenges as a table. */
-function extrasCell(a) {
-  const td = document.createElement("td");
-  if (a.cheated) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = t("badgeCheated"); td.append(b, " "); }
+/** The state, then anything unusual about the attempt. */
+function badges(a) {
+  const out = [t(`state.${a.state}`)];
+  const add = (text, warn) => {
+    const b = document.createElement("span");
+    b.className = warn ? "badge warn" : "badge";
+    b.textContent = text;
+    out.push(" ", b);
+  };
+  if (a.cheated) add(t("badgeCheated"), true);
   // D-77: a phone backgrounds itself constantly and a desktop tab may honestly
   // never hide, so "no hides" means two different things and the device has to
   // travel with the claims for the column to be readable at all.
-  if (a.reportPlatform) { const b = document.createElement("span"); b.className = "badge"; b.textContent = t(`platform.${a.reportPlatform}`); td.append(b, " "); }
-  if (a.impossibleReports > 0) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = t("badgeImpossible", { n: a.impossibleReports }); td.append(b, " "); }
-  if (a.suspicious) { const b = document.createElement("span"); b.className = "badge warn"; b.textContent = "suspeito"; td.append(b, " "); }
-  if (a.retries > 0) { const b = document.createElement("span"); b.className = "badge"; b.textContent = `${a.retries}× nova chance`; td.append(b, " "); }
-  if (a.items?.length) td.append(guessTable(a));
-  return td;
+  if (a.reportPlatform) add(t(`platform.${a.reportPlatform}`));
+  if (a.impossibleReports > 0) add(t("badgeImpossible", { n: a.impossibleReports }), true);
+  if (a.suspicious) add("suspeito", true);
+  if (a.retries > 0) add(`${a.retries}× nova chance`);
+  return out;
+}
+
+/**
+ * The shortest gap between two of this attempt's guesses (cheating material,
+ * D-31).
+ *
+ * The column used to be every gap, in milliseconds — up to twenty numbers in
+ * one cell on a seven-challenge day, and by far the widest thing on the board.
+ * Only one of them was ever read down the page, which is why only one of them
+ * was highlighted. The rest are in the challenges table, in seconds, beside the
+ * guess they belong to.
+ */
+function fastestMs(a) {
+  return a.intervalsMs.length > 0 ? Math.min(...a.intervalsMs) : null;
+}
+
+/**
+ * The fastest gap on the whole table.
+ *
+ * The flat column highlighted the smallest gap within a row, which is the right
+ * mark when the whole row is on show. One number per row is read DOWN the
+ * column instead, so the mark moves with it. Both are orderings and neither is
+ * a threshold: what counts as too fast is the server's rule (SEC-5's floor) and
+ * a second copy of it here is the drift D-66 and D-80 already charged us for.
+ */
+function quickestOf(attempts) {
+  const all = attempts.flatMap((a) => a.intervalsMs);
+  return all.length > 1 ? Math.min(...all) : null;
+}
+
+/** The hidden row that holds one attempt's challenges, full width. */
+function detailRow(a, cols) {
+  const tr = document.createElement("tr");
+  tr.className = "detail";
+  tr.hidden = true;
+  const td = document.createElement("td");
+  td.colSpan = cols;
+  const box = document.createElement("div");
+  box.append(guessTable(a));
+  td.append(box);
+  tr.append(td);
+  return tr;
+}
+
+let discId = 0;
+
+/**
+ * A disclosure that opens a sibling row.
+ *
+ * `<details>` cannot span table rows and spanning them is the whole point, so
+ * the two states are written out. Nothing is lost by it: `aria-expanded` is
+ * what a screen reader announces either way, and Enter and Space come free with
+ * a real `<button>`.
+ */
+function disclosure(row, n) {
+  row.id = `detail-${++discId}`;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "disc";
+  b.setAttribute("aria-expanded", "false");
+  b.setAttribute("aria-controls", row.id);
+  b.append(chevron(), t("adminChallenges", { n }));
+  b.addEventListener("click", () => {
+    const open = b.getAttribute("aria-expanded") === "true";
+    b.setAttribute("aria-expanded", String(!open));
+    // `hidden` on a <tr> is an HTMLElement property and reflects to the
+    // attribute, which `[hidden]` in mondo.css then wins with. (It would NOT
+    // have worked on the <svg> beside it — see theme.js.)
+    row.hidden = open;
+  });
+  return b;
+}
+
+function chevron() {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("d", "M9 5l7 7-7 7");
+  svg.append(path);
+  return svg;
 }
 
 /**
@@ -223,8 +390,6 @@ function extrasCell(a) {
  * to know what a row is about.
  */
 function guessTable(a) {
-  const d = document.createElement("details"); d.className = "guesses";
-  const sum = document.createElement("summary"); sum.textContent = t("adminChallenges");
   // Its own class, because `table.board`'s padding, borders and mono font are
   // written as descendant selectors and a table inside one of its cells inherits
   // the lot. Cheaper to name this table than to out-specify each rule.
@@ -234,6 +399,10 @@ function guessTable(a) {
   for (const k of ["adminColChallenge", "adminColGuess", "adminColSeconds", "adminColAway"]) {
     const th = document.createElement("th"); th.textContent = t(k); hr.append(th);
   }
+  // A fifth, empty column takes the slack. Four columns given a whole row to
+  // themselves spread across it, and a guess a hand away from its own time is
+  // worse than the cramped version this replaced.
+  hr.append(document.createElement("th"));
   thead.append(hr);
   const tbody = document.createElement("tbody");
   // Highlighted across the whole day, not per challenge, so this column and the
@@ -245,7 +414,7 @@ function guessTable(a) {
     // A challenge someone gave up on has no guesses (FR-2.13, D-61) and a blank
     // row would read as a bug, so it says so and shows the clock it still has.
     if (it.intervalsMs.length === 0) {
-      tbody.append(guessRow(kind, t("adminGaveUp"), it.elapsedMs, null, undefined));
+      tbody.append(guessRow(kind, t("adminGaveUp"), it.elapsedMs, null, undefined, true));
       continue;
     }
     it.intervalsMs.forEach((ms, i) => {
@@ -253,17 +422,20 @@ function guessTable(a) {
       const g = it.guesses?.[i];
       // D-77: the claim sits in the column beside the interval it claims about,
       // which is the comparison the whole signal rests on.
-      tbody.append(guessRow(kind, g ? guessLabel(g) : "–", ms, ms === min ? "fast" : null, it.selfReports?.[i] ?? null));
+      tbody.append(guessRow(kind, g ? guessLabel(g) : "–", ms, ms === min ? "fast" : null, it.selfReports?.[i] ?? null, i === 0));
     });
   }
   table.append(thead, tbody);
-  d.append(sum, table);
-  return d;
+  return table;
 }
 
-function guessRow(kind, guess, ms, cls, report) {
+function guessRow(kind, guess, ms, cls, report, first) {
   const tr = document.createElement("tr");
-  tr.append(cell(kind), cell(guess), cell(formatSecs(ms), cls), awayCell(report));
+  // A rule where each challenge starts. The kind still repeats on every row —
+  // a table you read top to bottom should not need you to look upwards to know
+  // what a row is about — but the seven blocks are visible without counting.
+  if (first) tr.className = "start";
+  tr.append(cell(kind, "kind"), cell(guess, "said"), cell(formatSecs(ms), cls ? `secs ${cls}` : "secs"), awayCell(report), cell(""));
   return tr;
 }
 
@@ -321,6 +493,10 @@ function puzzleToday() {
 
 const dayFmt = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 function formatDay(iso) { return dayFmt.format(new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso)); }
+
+/** The day is the heading of its tab, and a heading is not a form field. */
+const longDayFmt = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long" });
+function formatLongDay(iso) { return longDayFmt.format(new Date(`${iso}T12:00:00Z`)); }
 function formatMs(ms) {
   if (ms === null || ms === undefined) return "–";
   const s = Math.round(ms / 1000);

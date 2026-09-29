@@ -65,7 +65,12 @@
       <p class="row"><button id="users-more" type="button" class="link" hidden>Carregar mais</button></p>
       <section id="user-attempts" hidden>
         <h2 id="user-attempts-title" class="title"></h2>
-        <div class="table-wrap"><table class="board" aria-label="Tentativas do jogador"><thead><tr><th>Dia</th><th>Estado</th><th>Chutes</th><th>Pts</th><th>Tempo</th><th>Intervalos (ms)</th><th></th></tr></thead><tbody id="user-attempts-rows"></tbody></table></div>
+        <div class="table-wrap">
+          <table class="board admin" aria-label="Tentativas do jogador">
+            <thead><tr><th>Dia</th><th class="div">Pts</th><th>Chutes</th><th>Tempo</th><th>Mais rápido</th><th class="div ctrl">Detalhe</th></tr></thead>
+            <tbody id="user-attempts-rows"></tbody>
+          </table>
+        </div>
       </section>
     </section>
 
@@ -79,14 +84,22 @@
     </section>
 
     <section id="tab-day" hidden>
-      <div class="row">
-        <label for="day-input" class="fine">Dia do puzzle</label>
-        <input id="day-input" type="date">
+      <div class="board-head day-head">
+        <div class="row">
+          <h2 id="day-title" class="title">Dia</h2>
+          <label for="day-input" class="fine">Dia do puzzle</label>
+          <input id="day-input" type="date">
+        </div>
+        <p id="day-counts" class="fine"></p>
       </div>
-      <p class="fine">Tempo é do servidor. Intervalos são os milissegundos entre chutes; o menor fica em destaque. Abra <em>desafios</em> para ver chute por chute — inclusive o que a página relatou sobre o jogador sair dela. <strong>Relato é o que o navegador diz, não o que o servidor mediu</strong>: dá para apagar, e é justamente por isso que <em>sem relato</em> em tudo chama mais atenção do que qualquer número. Zeros são normais. Dias anteriores a setembro de 2026 não têm relato nenhum. Nada disso enxerga um segundo aparelho, então serve para pesar, nunca para acusar. Quais foram os chutes de hoje e quanto valeram só aparece depois que você terminar o seu — quanto tempo cada um levou aparece na hora.</p>
+      <p class="fine">Tempo e intervalos são do servidor. Quais foram os chutes de hoje e quanto valeram só aparece depois que você terminar o seu — quanto tempo cada um levou aparece na hora.</p>
+      <details class="note">
+        <summary>Como ler esta tabela</summary>
+        <p class="fine"><strong>Mais rápido</strong> é o menor intervalo entre dois chutes do jogador; o menor do dia inteiro fica em destaque. Abra <em>desafios</em> para ver chute por chute — inclusive o que a página relatou sobre o jogador sair dela. <strong>Relato é o que o navegador diz, não o que o servidor mediu</strong>: dá para apagar, e é justamente por isso que <em>sem relato</em> em tudo chama mais atenção do que qualquer número. Zeros são normais. Dias anteriores a setembro de 2026 não têm relato nenhum. Nada disso enxerga um segundo aparelho, então serve para pesar, nunca para acusar.</p>
+      </details>
       <div class="table-wrap">
-        <table class="board" aria-label="Tentativas do dia">
-          <thead><tr><th>Nome</th><th>Estado</th><th>Chutes</th><th>Pts</th><th>Tempo</th><th>Intervalos (ms)</th><th></th><th></th></tr></thead>
+        <table class="board admin" aria-label="Tentativas do dia">
+          <thead><tr><th>Jogador</th><th class="div">Pts</th><th>Chutes</th><th>Tempo</th><th>Mais rápido</th><th class="div ctrl">Detalhe</th><th class="div ctrl">Ações</th></tr></thead>
           <tbody id="day-rows"></tbody>
         </table>
       </div>
