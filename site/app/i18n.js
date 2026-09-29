@@ -156,7 +156,11 @@ const PT_BR = {
   roleSaved: "Papel atualizado.",
   retryGranted: "Nova chance concedida.",
   loadMore: "Carregar mais",
-  adminChallenges: "desafios",
+  adminChallenges: "{n} desafio|{n} desafios",
+  // The three numbers worth knowing before reading any row of the day.
+  adminDayPlayers: "{n} jogador|{n} jogadores",
+  adminDayFinished: "{n} terminou|{n} terminaram",
+  adminDayVoided: "{n} anulado|{n} anulados",
   adminColChallenge: "Desafio",
   adminColGuess: "Chute",
   adminColSeconds: "Tempo (s)",
@@ -169,8 +173,12 @@ const PT_BR = {
   badgeImpossible: "{n} relato fora do tempo|{n} relatos fora do tempo",
   platform: { mobile: "celular", desktop: "computador" },
   // FR-7.7, D-82 — voiding a day. "Anular" rather than "trapaça" on the badge:
-  // the badge says what happened to the day, and the confirm says why.
-  cheat: "Anular (trapaça)",
+  // the badge says what happened to the day, and the confirm says why. The
+  // button says the same for the same reason — beside "Nova chance" it is the
+  // verb that has to be legible, and "(trapaça)" was making one long phrase of
+  // two controls. The word is in the confirm, which is where the accusation
+  // belongs anyway.
+  cheat: "Anular",
   uncheat: "Desfazer anulação",
   confirmCheat: "Anular o dia de {name} por trapaça? A tentativa fica guardada inteira e você continua vendo tudo, mas ela deixa de contar em qualquer ranking — e o grupo vê que foi anulada.",
   confirmUncheat: "Desfazer a anulação do dia de {name}? A pontuação volta a valer como era.",
