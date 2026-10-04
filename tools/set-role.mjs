@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Set a player's role (FR-7.1). This is the ONLY way anyone becomes admin (D-29);
-// the setRole callable hands out organizer/player from the dashboard.
+// the setRole callable hands out invited/user from the dashboard (D-84).
 //
 //   node set-role.mjs --uid <uid> --role admin --emulator
 //   node set-role.mjs --uid <uid> --role admin --project lisecki-dev
@@ -15,7 +15,7 @@ import { parseArgs } from "node:util";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-const ROLES = ["admin", "organizer", "player"];
+const ROLES = ["admin", "invited", "user"];
 
 const { values: args } = parseArgs({
   options: {
@@ -26,7 +26,7 @@ const { values: args } = parseArgs({
   },
 });
 if (!args.uid || !ROLES.includes(args.role) || (!args.emulator && !args.project)) {
-  console.error("usage: set-role.mjs --uid <uid> --role admin|organizer|player (--emulator | --project <gcp-project>)");
+  console.error("usage: set-role.mjs --uid <uid> --role admin|invited|user (--emulator | --project <gcp-project>)");
   process.exit(2);
 }
 
