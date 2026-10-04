@@ -75,6 +75,6 @@ pool, open a PR.
 
 ## Licence
 
-Code is [MIT](LICENSE). Map and country data come from Natural Earth and
-`mledoze/countries` under their own terms — see [NOTICE](NOTICE), which you
-should read before redistributing the generated data files.
+Proprietary, all rights reserved — see [LICENSE](LICENSE). Versions published
+before 2026-10-04 were MIT. Third-party data stays under its own terms — see
+[NOTICE](NOTICE), whose attributions are shown to players on `site/creditos.html`.
