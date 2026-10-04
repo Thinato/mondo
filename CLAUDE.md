@@ -110,10 +110,12 @@ backend.
   justification — read it before shortening the token, lengthening the 48 hours, or dropping the use
   counter, because each of those is the mitigation the trade rests on. **Single-use is the default**
   for a request that names no mode, so a cached client keeps minting what it always did.
-- **Inviting is the owner's, not the organizer's** (FR-4.8, FR-7.5). `createInvite` calls
-  `requireOwner`, so an organizer invites to the groups they made and an admin to theirs; the role
-  is what lets you *create* a group, never what lets you into someone else's. A `player` who
-  inherits a group under D-23 can invite to it, and that is correct.
+- **Inviting needs the group AND the rank** (FR-4.8, FR-7.5, FR-10.3). `createInvite` calls
+  `requireOwner` — the role never lets you into someone else's group — and then
+  `requireCanCreateGroup`, because since D-84 an invite is what grows a group and growing is what
+  invited players and subscribers have. A `user` who inherits a group under D-23, or a subscriber
+  who lapses, keeps the group playing and cannot invite; listing and revoking stay owner-only so
+  they can always shut a link.
 - **The practice continent filter is an exclusion, not a second pool** (FR-9.9, D-70). Every
   country outside the chosen continents joins the set `buildCard` already excludes, so tier
   weighting, option-building and the empty-pool error keep working without knowing the filter
@@ -257,9 +259,16 @@ backend.
   build. Do not add a read of `assets/` back.
 - Local runs use the `demo-mondo` project id and `npx firebase-tools`, not the Homebrew
   `firebase` binary. See `docs/02-architecture.md` §8.
-- **Playing is invite-only** (FR-1.7, D-28): a `player` with no group gets `not-invited`. Groups
-  have no public code; invitations are single-use 7-day tokens (D-32). Roles `admin > organizer
-  > player` (FR-7) live on the profile; admin is granted only by `tools/set-role.mjs` (D-29).
+- **Playing is open; Invited is a closed list** (FR-10, D-84, which reversed D-28). Anyone signed
+  in plays and practises, a guest included. Five ranks — `admin`, `invited`, `subscriber`, `user`,
+  `guest` — and only `role` (`admin | invited | user`) is stored: a guest is read off the token's
+  `sign_in_provider`, a subscriber off `subscription.currentPeriodEnd`, so neither needs anything to
+  demote it. **Accepting an invite grants membership and never a rank**; `invited` came from
+  `tools/migrate-tiers.mjs` once and since then only from an admin's `setRole`. Do not "simplify"
+  that into joining-makes-you-invited: every invited player could then make anyone ad-free, and
+  ads and subscriptions would have nothing left to sell. `me.ads` decides what is drawn and
+  authorizes nothing. Groups still have no public code (D-32); admin is still granted only by
+  `tools/set-role.mjs` (D-29).
 - **The daily and a tournament round are the same act** (D-52, which reversed D-45): both are a
   card of N challenges played one at a time, so the transitions live once in `lib/card.ts` and
   `lib/round.ts` keeps only what a *day* has — the schedule, the streak, the share grid, and the

@@ -75,10 +75,13 @@ can spend the daily allowance; the budget alert is the backstop, and the upgrade
 path is written at the top of `backend/functions/src/leaderboard.ts`. Accepted
 because the real groups are 5-20 people and the caller must already be a member.
 
-The nightly job itself reads every attempt of the last 30 closed days once
-(players × 30, D-21) — about 3,000 at 100 players, regardless of how many groups
-they are in. Past ~1,000 players switch to per-member `getAll` of group members
-only; the ceiling is marked in `backend/functions/src/standings.ts`.
+The nightly job itself reads each **group member's** attempts for the last 30
+closed days once, by document id (members × 30, D-21) — about 3,000 at 100
+members, regardless of how many groups they are in. Since D-84 opened play to the
+public it no longer reads anyone outside a group: a guest's day reaches no board,
+and reading it 30 nights running would have made the free tier a function of
+traffic rather than of the groups. A missing document is billed as a read, so
+this is an upper bound. The admin panel's day view is bounded the same way.
 
 Keep that in mind before "just querying attempts directly" from a per-viewer path.
 
