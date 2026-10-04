@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo — créditos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<link rel="stylesheet" href="./mondo.css">
+<script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+</head>
+<body>
+<header>
+  <a class="wordmark" href="./">Mondo</a>
+  <nav aria-label="Principal">
+    <a href="./">Hoje</a>
+    <a href="./grupos.html">Grupo</a>
+    <a href="./praticar.html">Treinar</a>
+  </nav>
+  <div class="head-right">
+    <button type="button" id="theme-btn" class="theme-btn" aria-label="Mudar o tema">
+      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="prose">
+  <!-- The public half of NOTICE (D-83). The repository is private, so a notice
+       that lives only there reaches nobody: ODbL, CC BY and CC BY-SA all ask for
+       attribution where the work is USED, and this page is where it is used.
+       Keep it in step with NOTICE. -->
+  <h2>Créditos</h2>
+  <p>Mondo é feito por Paulo Lisecki. © 2026, todos os direitos reservados sobre o código e o
+  desenho do jogo. Os dados abaixo são de terceiros e seguem as licenças deles.</p>
+
+  <h2>Mapas e países</h2>
+  <ul>
+    <li><strong>Natural Earth</strong> — o centro de cada país, e portanto cada distância e cada seta.
+    Domínio público. <em>Made with Natural Earth. Free vector and raster map data at
+    <a href="https://www.naturalearthdata.com/">naturalearthdata.com</a>.</em></li>
+    <li><strong>world-atlas</strong>, de Mike Bostock — Natural Earth em TopoJSON.
+    <a href="https://github.com/topojson/world-atlas">Licença ISC</a>.</li>
+    <li><strong>mledoze/countries</strong> — códigos ISO e nomes dos países em português e inglês.
+    <em>Contains information from <a href="https://github.com/mledoze/countries">mledoze/countries</a>,
+    which is made available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/">Open
+    Database License (ODbL) v1.0</a>.</em> O arquivo <a href="./data/countries.min.json">countries.min.json</a>
+    servido por este site é um extrato dessa base e é distribuído sob a mesma ODbL.</li>
+    <li><strong>Contornos dos países</strong> — traçados de ilustrações cuja origem não foi registrada
+    quando foram obtidas. Se você é o autor de algum desses desenhos, fale com o Paulo: o crédito
+    entra aqui, ou o desenho sai.</li>
+  </ul>
+
+  <h2>Bandeiras</h2>
+  <ul>
+    <li><strong><a href="https://github.com/hjnilsson/country-flags">svg-country-flags</a></strong>,
+    a partir da Wikimedia Commons. Domínio público.</li>
+  </ul>
+
+  <h2>PIB per capita</h2>
+  <ul>
+    <li><strong>Banco Mundial, World Development Indicators</strong> —
+    <a href="https://data.worldbank.org/indicator/NY.GDP.PCAP.PP.CD">NY.GDP.PCAP.PP.CD</a>, PIB per capita
+    em PPC. <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Um valor por país, de um
+    único ano (o ano aparece na pergunta), arredondado para o inteiro mais próximo; nada mais foi alterado.
+    O Banco Mundial não endossa este jogo.</li>
+  </ul>
+
+  <h2>Pessoas</h2>
+  <ul>
+    <li><strong><a href="https://pantheon.world/data/api">Pantheon</a></strong> (MIT Media Lab, Collective
+    Learning) — quem são, onde nasceram e o quanto são conhecidas.
+    <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Yu, A.Z., Ronen, S., Hu, K.,
+    Lu, T., Hidalgo, C.A. “Pantheon 1.0, a manually verified dataset of globally famous biographies.”
+    <em>Scientific Data</em> 2:150075.</li>
+    <li><strong><a href="https://www.wikidata.org">Wikidata</a></strong> — a foto de cada pessoa e o nome dela
+    em português. <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0 1.0</a>.</li>
+    <li><strong><a href="https://commons.wikimedia.org">Wikimedia Commons</a></strong> — as fotos. Cada uma tem
+    autor e licença próprios, e o crédito aparece embaixo dela no desafio.</li>
+    <li><strong><a href="https://pt.wikipedia.org">Wikipédia</a></strong> — o parágrafo sobre quem a pessoa
+    foi, mostrado ao fim do desafio com o link para o artigo de onde veio.
+    <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Cortado no fim de uma frase
+    para caber; sem outra alteração.</li>
+  </ul>
+
+  <h2>Software</h2>
+  <ul>
+    <li><strong><a href="https://github.com/firebase/firebase-js-sdk">Firebase JavaScript SDK</a></strong> —
+    Apache License 2.0, carregado do CDN do Google.</li>
+  </ul>
+</main>
+
+<footer><a href="./">Jogar</a> · <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a></footer>
+<nav class="tabbar" aria-label="Seções">
+  <a href="./">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3.3 9.2h17.4M3.3 14.8h17.4"/></svg>
+    Hoje
+  </a>
+  <a href="./praticar.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+    Treinar
+  </a>
+</nav>
+
+<script type="module" src="./app/theme.js"></script>
+</body>
+</html>
