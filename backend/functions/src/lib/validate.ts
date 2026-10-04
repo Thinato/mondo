@@ -144,11 +144,15 @@ export function requireBoolean(v: unknown, field: string): boolean {
   return v;
 }
 
-/** FR-7.2: the API grants organizer or player. Admin comes only from tools/set-role.mjs (D-29). */
-export const GRANTABLE_ROLES = ["organizer", "player"] as const;
+/**
+ * FR-7.2: the API grants invited or user (D-84). Admin comes only from
+ * tools/set-role.mjs (D-29). Granting `invited` is how an admin comps somebody
+ * ad-free — the one door into the closed list after the migration.
+ */
+export const GRANTABLE_ROLES = ["invited", "user"] as const;
 export function requireRole(v: unknown): (typeof GRANTABLE_ROLES)[number] {
   if (typeof v !== "string" || !(GRANTABLE_ROLES as readonly string[]).includes(v)) {
-    throw mondoError("invalid-argument", "Role must be organizer or player.");
+    throw mondoError("invalid-argument", "Role must be invited or user.");
   }
   return v as (typeof GRANTABLE_ROLES)[number];
 }

@@ -173,6 +173,17 @@ test("FR-7.1 / D-27: a player cannot grant themselves a role or a group", async 
   await assertFails(carol().doc(`users/${CAROL}`).update({ displayName: "carol-tres", groups: [GROUP] }));
 });
 
+test("FR-10 / FR-11 / D-84: nobody grants themselves a rank, an ad switch or a subscription", async () => {
+  const me = carol().doc(`users/${CAROL}`);
+  await assertFails(me.update({ role: "invited" }));
+  await assertFails(me.update({ role: "user" }));
+  await assertFails(me.update({ showAds: true }));
+  await assertFails(me.update({ showAds: false }));
+  await assertFails(me.update({ subscription: { status: "active", currentPeriodEnd: new Date(4102444800000) } }));
+  await assertFails(me.update({ displayName: "carol-tres", subscription: { status: "active" } }));
+  await assertFails(me.set({ displayName: "carol-tres", locale: "pt-BR", role: "invited" }, { merge: true }));
+});
+
 // --- groups (FR-4.10) --------------------------------------------------------
 
 test("FR-4.10: members read the group and its member list; a non-member reads neither", async () => {

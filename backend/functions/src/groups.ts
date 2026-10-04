@@ -9,8 +9,8 @@ import { Timestamp, type DocumentSnapshot, type Transaction } from "firebase-adm
 import {
   attemptRef, db, ensureProfile, groupRef, groupsCol, inviteRef, memberRef, membersCol, pendingInvitesOf, puzzleDays, tournamentsOf, userRef,
 } from "./db";
-import { canCreateGroup, groupsOf, requireOwner } from "./lib/authz";
-import { callable } from "./lib/callable";
+import { canCreateGroup, groupsOf, rankOf, requireCanCreateGroup, requireCanJoinGroup, requireOwner, roleOf, showsAds, type Rank } from "./lib/authz";
+import { callable, signInProvider } from "./lib/callable";
 import { GAME_URL } from "./lib/config";
 import { mondoError } from "./lib/errors";
 import {
@@ -55,7 +55,7 @@ export async function leaveTx(tx: Transaction, gid: string, uid: string): Promis
   // A membership is the member document; the profile array is an index of it
   // (D-27). If the document is gone but the index still lists the group, this
   // heals the index rather than refusing — otherwise a phantom membership would
-  // keep play access open under D-28 forever and could never be left.
+  // count against FR-4.4's ten forever and could never be left.
   if (!memberSnap.exists && !indexed) throw mondoError("not-found", "Not a member of this group.");
   const group = groupSnap.exists ? (groupSnap.data() as Group) : null;
 
@@ -83,7 +83,10 @@ export async function leaveTx(tx: Transaction, gid: string, uid: string): Promis
 
   // --- writes ---
   if (memberSnap.exists) tx.delete(memberRef(gid, uid));
-  if (indexed) tx.update(userRef(uid), { groups: groupsOf(profile).filter((g) => g !== gid) });
+  // `role` is frozen beside the index on every write to it (D-84): a legacy
+  // profile's rank is read off its groups until migrate-tiers runs, so leaving
+  // the last one must not demote an invited player in that window.
+  if (indexed) tx.update(userRef(uid), { groups: groupsOf(profile).filter((g) => g !== gid), role: roleOf(profile) });
   if (!group) return;
   if (dissolve) {
     tx.delete(groupRef(gid));
@@ -106,8 +109,8 @@ export async function leaveTx(tx: Transaction, gid: string, uid: string): Promis
 // Callables
 // ---------------------------------------------------------------------------
 
-/** createGroup({ name }) → { groupId }. Admin/organizer only (FR-4.1 as amended). */
-export const createGroup = callable<{ name: unknown }, { groupId: string }>(async (uid, data) => {
+/** createGroup({ name }) → { groupId }. Admin, invited or subscriber (FR-4.1 as amended by D-84). */
+export const createGroup = callable<{ name: unknown }, { groupId: string }>(async (uid, data, request) => {
   const name = requireGroupName(requireObject(data).name);
   const now = Timestamp.now();
   const { today, closedDay } = puzzleDays(now);
@@ -117,14 +120,14 @@ export const createGroup = callable<{ name: unknown }, { groupId: string }>(asyn
     // ensureProfile may write, so every read — the backfill included — comes first.
     const results = await backfillResults(tx, uid, closedDay);
     const profile = await ensureProfile(tx, uid, now);
-    if (!canCreateGroup(profile)) throw mondoError("permission-denied", "Only organizers and admins create groups.");
+    requireCanCreateGroup(rankOf(profile, signInProvider(request), now));
     const groups = groupsOf(profile);
     if (groups.length >= MAX_GROUPS_PER_USER) throw mondoError("too-many-groups", `At most ${MAX_GROUPS_PER_USER} groups per player.`);
 
     const group: Group = { name, ownerUid: uid, memberCount: 1, maxMembers: DEFAULT_MAX_MEMBERS, createdAt: now };
     tx.create(groupRef(gid), group);
     tx.create(memberRef(gid, uid), newMember(uid, profile.displayName, "owner", now, backfillStats(results, closedDay), effectiveStreak(profile, closedDay, today)));
-    tx.set(userRef(uid), { ...profile, groups: [...groups, gid] });
+    tx.set(userRef(uid), { ...profile, role: roleOf(profile), groups: [...groups, gid] });
   });
   return { groupId: gid };
 });
@@ -133,24 +136,28 @@ export const createGroup = callable<{ name: unknown }, { groupId: string }>(asyn
 const MAX_PENDING_INVITES = 20;
 
 /**
- * createInvite({ groupId, mode? }) → { token, url, expiresAt, mode }. Owner only —
- * and owner means owner, not organizer (FR-7.5): an organizer invites to the
- * groups they made and to no others.
+ * createInvite({ groupId, mode? }) → { token, url, expiresAt, mode }. The owner,
+ * and only while they could create a group themselves (FR-10.3, D-84): owning is
+ * what lets you into THIS group's invites (FR-7.5), the rank is what lets you
+ * grow anything. A subscriber who lapses, or a user who inherited a group under
+ * D-23, keeps a group that plays on and cannot grow until they resubscribe.
+ * Revoking and listing stay owner-only, so they can always shut a link.
  *
  * `mode` is FR-4.12 and defaults to the single-use link this has always minted.
  */
 export const createInvite = callable<
   { groupId: unknown; mode?: unknown },
   { token: string; url: string; expiresAt: string; mode: InviteMode }
->(async (uid, data) => {
+>(async (uid, data, request) => {
   const body = requireObject(data);
   const gid = requireGroupId(body.groupId);
   const mode = requireInviteMode(body.mode);
   const now = Timestamp.now();
-  const snap = await groupRef(gid).get();
+  const [snap, profileSnap] = await Promise.all([groupRef(gid).get(), userRef(uid).get()]);
   if (!snap.exists) throw mondoError("not-found", "No such group.");
   const group = snap.data() as Group;
   requireOwner(group, uid);
+  requireCanCreateGroup(rankOf(profileSnap.exists ? (profileSnap.data() as Profile) : null, signInProvider(request), now));
 
   const pending = (await pendingInvitesOf(gid).limit(MAX_PENDING_INVITES + 1).get()).docs
     .filter((d) => inviteState(d.data() as Invite, now) === "pending");
@@ -222,12 +229,14 @@ export const revokeInvite = callable<{ token: unknown }, { ok: true }>(async (ui
 
 /**
  * acceptInvite({ token }) → { groupId, name }. The single write path into a
- * group, and what unlocks play (D-28). Consumes a single-use token (FR-4.3 as
+ * group. It grants membership and nothing else: Invited is a closed list, so a
+ * user who joins stays a user and still sees ads (D-84). A guest is refused —
+ * a board needs an identity that outlives the browser. Consumes a single-use token (FR-4.3 as
  * amended); a multi-use one it only counts (FR-4.12). Every other gate — state,
  * group full, too many groups — is the same for both, which is the point of
  * modes being a field rather than a second path in.
  */
-export const acceptInvite = callable<{ token: unknown }, { groupId: string; name: string }>(async (uid, data) => {
+export const acceptInvite = callable<{ token: unknown }, { groupId: string; name: string }>(async (uid, data, request) => {
   const token = requireInviteToken(requireObject(data).token);
   const now = Timestamp.now();
   const { today, closedDay } = puzzleDays(now);
@@ -240,9 +249,12 @@ export const acceptInvite = callable<{ token: unknown }, { groupId: string; name
     const groupSnap = await tx.get(groupRef(invite.groupId));
     if (!groupSnap.exists) throw mondoError("invalid-invite", "The group no longer exists.");
     const group = groupSnap.data() as Group;
-    // ensureProfile may write (first sign-in through a link), so the backfill reads come before it.
+    // ensureProfile may write (first sign-in through a link), so the owner and
+    // the backfill are read before it.
+    const ownerSnap = await tx.get(userRef(group.ownerUid));
     const results = await backfillResults(tx, uid, closedDay);
     const profile = await ensureProfile(tx, uid, now);
+    requireCanJoinGroup(rankOf(profile, signInProvider(request), now));
     const groups = groupsOf(profile);
 
     if (groups.includes(invite.groupId)) {
@@ -250,12 +262,22 @@ export const acceptInvite = callable<{ token: unknown }, { groupId: string; name
       // forwarded link is not burned on someone who did not need it.
       return { groupId: invite.groupId, name: group.name };
     }
+    // FR-10.3 at the door as well as at createInvite: a link minted while the
+    // owner could grow the group must not keep growing it after they lapse, are
+    // demoted, or hand the group to an heir who cannot — single-use links live a
+    // week, and a lapsing subscription has no event to revoke them on.
+    if (!canCreateGroup(rankOf(ownerSnap.exists ? (ownerSnap.data() as Profile) : null, undefined, now))) {
+      throw mondoError("invalid-invite", "This group is not taking new members right now.");
+    }
     if (groups.length >= MAX_GROUPS_PER_USER) throw mondoError("too-many-groups", `At most ${MAX_GROUPS_PER_USER} groups per player.`);
     if (group.memberCount >= group.maxMembers) throw mondoError("group-full", "This group is full.");
 
     tx.create(memberRef(invite.groupId, uid), newMember(uid, profile.displayName, "member", now, backfillStats(results, closedDay), effectiveStreak(profile, closedDay, today)));
     tx.update(groupRef(invite.groupId), { memberCount: group.memberCount + 1 });
-    tx.set(userRef(uid), { ...profile, groups: [...groups, invite.groupId] });
+    // roleOf BEFORE the group is added, frozen into the document: a legacy
+    // player nobody had let in is a user, and joining must not make them read
+    // as invited once they have a group (FR-10.2, D-84).
+    tx.set(userRef(uid), { ...profile, role: roleOf(profile), groups: [...groups, invite.groupId] });
     // FR-4.12: a multi-use token is not spent by being used, only counted —
     // leaving `usedBy` null is what keeps `inviteState` calling it pending and
     // `pendingInvitesOf` still listing it for the owner.
@@ -311,13 +333,15 @@ export const renameGroup = callable<{ groupId: unknown; name: unknown }, { ok: t
  * knows anyone by.
  *
  * It authorizes nothing. `admin` here only decides whether a link is drawn;
- * admin.ts asserts the role itself on every call behind it (SEC-8).
+ * admin.ts asserts the role itself on every call behind it (SEC-8). `ads` is
+ * the same: it decides what the page draws (FR-10.4).
  */
-export const listGroups = callable<unknown, { groups: { groupId: string; name: string; memberCount: number; isOwner: boolean }[]; canCreate: boolean; me: { displayName: string; role: Role } | null }>(async (uid) => {
+export const listGroups = callable<unknown, { groups: { groupId: string; name: string; memberCount: number; isOwner: boolean }[]; canCreate: boolean; me: { displayName: string; role: Role; rank: Rank; ads: boolean } | null }>(async (uid, _data, request) => {
   const profileSnap = await userRef(uid).get();
   const profile = profileSnap.exists ? (profileSnap.data() as Profile) : null;
-  const canCreate = canCreateGroup(profile);
-  const me = profile ? { displayName: profile.displayName, role: profile.role ?? ("player" as Role) } : null;
+  const rank = rankOf(profile, signInProvider(request), Timestamp.now());
+  const canCreate = canCreateGroup(rank);
+  const me = profile ? { displayName: profile.displayName, role: roleOf(profile), rank, ads: showsAds(rank, profile) } : null;
   const gids = groupsOf(profile);
   if (gids.length === 0) return { groups: [], canCreate, me };
   const snaps = await db().getAll(...gids.map(groupRef));

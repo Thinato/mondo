@@ -9,14 +9,13 @@
  * attempt document `attempts/{uid}_{puzzleId}` (SEC-4), with server timestamps
  * only (SEC-3). The pure rules live in lib/round.ts; this file is I/O.
  *
- * Phase 2: playing needs an invitation (FR-1.7, D-28). The gate runs before the
- * attempt is created, so an outsider never starts a clock.
+ * Anyone signed in plays, a guest included (D-84 reversed D-28's invitation
+ * gate). What the rank still decides here is only what `me` says about ads.
  */
 
 import { Timestamp } from "firebase-admin/firestore";
 import { attemptRef, db, ensureProfile, userRef } from "./db";
-import { requireCanPlay } from "./lib/authz";
-import { callable } from "./lib/callable";
+import { callable, signInProvider } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { puzzleIdAt } from "./lib/puzzle-day";
 import { parseSelfReport } from "./lib/report";
@@ -44,18 +43,13 @@ async function loadOpenPuzzle(requested: string | undefined, now: Timestamp): Pr
  * getRound({ puzzleId? }) — the round the caller should see; creates the
  * attempt with a server `startedAt` on first call, which starts the clock.
  */
-export const getRound = callable<{ puzzleId?: unknown } | null | undefined, RoundView>(async (uid, data) => {
+export const getRound = callable<{ puzzleId?: unknown } | null | undefined, RoundView>(async (uid, data, request) => {
   // The web SDK sends `null` when the caller passes no argument.
   const input = data == null ? {} : requireObject(data);
   const requested = input.puzzleId === undefined ? undefined : requirePuzzleId(input.puzzleId);
   const now = Timestamp.now();
 
-  // The profile is created in its own transaction so that an uninvited sign-in
-  // still leaves a profile for the admin to see, while the gate keeps them from
-  // starting a round (FR-1.7). Both come before the puzzle is read: an outsider
-  // costs one read, not two, and hears the same answer whatever is scheduled.
   const profile = await db().runTransaction((tx) => ensureProfile(tx, uid, now));
-  requireCanPlay(profile);
   const puzzle = await loadOpenPuzzle(requested, now);
 
   const attempt = await db().runTransaction(async (tx) => {
@@ -66,7 +60,7 @@ export const getRound = callable<{ puzzleId?: unknown } | null | undefined, Roun
     return fresh;
   });
 
-  return roundView(attempt, puzzle, now, profile);
+  return roundView(attempt, puzzle, now, profile, signInProvider(request));
 });
 
 /**
@@ -83,7 +77,7 @@ export const getRound = callable<{ puzzleId?: unknown } | null | undefined, Roun
  * guesses (SEC-4); the 400 ms floor is enforced against the previous guess's
  * server timestamp (SEC-5).
  */
-export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?: unknown; selfReport?: unknown }, RoundView>(async (uid, data) => {
+export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?: unknown; selfReport?: unknown }, RoundView>(async (uid, data, request) => {
   const input = requireObject(data);
   const puzzleId = requirePuzzleId(input.puzzleId);
   const raw = input.guess ?? input.code;
@@ -99,10 +93,7 @@ export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?:
   const { attempt, profile } = await db().runTransaction(async (tx) => {
     // Every read before the first write (Firestore transaction rule).
     const [snap, profileSnap] = await Promise.all([tx.get(attemptRef(uid, puzzleId)), tx.get(userRef(uid))]);
-    // The invitation is checked before the attempt lookup, so an uninvited
-    // caller hears `not-invited` rather than `not-found` (FR-1.7, D-28).
     const before = profileSnap.exists ? (profileSnap.data() as Profile) : null;
-    requireCanPlay(before); // losing your last group closes the round too
     if (!snap.exists) throw mondoError("not-found", "Call getRound before guessing.");
     const attempt = applyGuess(snap.data() as Attempt, puzzleItems(puzzle), raw, now, selfReport);
     tx.set(attemptRef(uid, puzzleId), attempt);
@@ -117,20 +108,20 @@ export const submitGuess = callable<{ puzzleId: unknown; guess?: unknown; code?:
     return { attempt, profile };
   });
 
-  return roundView(attempt, puzzle, now, profile);
+  return roundView(attempt, puzzle, now, profile, signInProvider(request));
 });
 
 /**
  * giveUp({ puzzleId }) — end today's current challenge at zero and see the
  * answer (FR-2.13, D-61).
  *
- * The same transaction `submitGuess` runs, minus the guess: the same gate, the
- * same attempt document, the same `recordCompletion` on the challenge that ends
+ * The same transaction `submitGuess` runs, minus the guess: the same attempt
+ * document, the same `recordCompletion` on the challenge that ends
  * the day — because giving up on the last one finishes the day exactly as a
  * final wrong guess does, and the profile it returns must be the one this call
  * just wrote (D-58).
  */
-export const giveUp = callable<{ puzzleId: unknown }, RoundView>(async (uid, data) => {
+export const giveUp = callable<{ puzzleId: unknown }, RoundView>(async (uid, data, request) => {
   const puzzleId = requirePuzzleId(requireObject(data).puzzleId);
   const now = Timestamp.now();
   const puzzle = await loadOpenPuzzle(puzzleId, now);
@@ -138,7 +129,6 @@ export const giveUp = callable<{ puzzleId: unknown }, RoundView>(async (uid, dat
   const { attempt, profile } = await db().runTransaction(async (tx) => {
     const [snap, profileSnap] = await Promise.all([tx.get(attemptRef(uid, puzzleId)), tx.get(userRef(uid))]);
     const before = profileSnap.exists ? (profileSnap.data() as Profile) : null;
-    requireCanPlay(before);
     if (!snap.exists) throw mondoError("not-found", "Call getRound before giving up.");
     const attempt = giveUpAttempt(snap.data() as Attempt, puzzleItems(puzzle), now);
     tx.set(attemptRef(uid, puzzleId), attempt);
@@ -148,5 +138,5 @@ export const giveUp = callable<{ puzzleId: unknown }, RoundView>(async (uid, dat
     return { attempt, profile };
   });
 
-  return roundView(attempt, puzzle, now, profile);
+  return roundView(attempt, puzzle, now, profile, signInProvider(request));
 });

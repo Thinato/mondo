@@ -277,10 +277,16 @@ test("the view after the day reveals every answer, the total and the share grid"
   assert.deepEqual(
     roundView(play(["AR"]), puzzle, at(1000), newProfile(T0, "tatu-alegre-0001")).me,
     {
-      displayName: "tatu-alegre-0001", role: "player", groupCount: 0,
+      displayName: "tatu-alegre-0001", role: "user", rank: "user", ads: true, groupCount: 0,
       currentStreak: 0, longestStreak: 0, totalPlayed: 0, totalSolved: 0,
     },
   );
+  // FR-10: the rank comes from the token's sign-in provider, which the handler passes in.
+  const guest = roundView(play(["AR"]), puzzle, at(1000), newProfile(T0), "anonymous").me;
+  assert.equal(guest?.rank, "guest");
+  assert.equal(guest?.ads, true);
+  const invited = roundView(play(["AR"]), puzzle, at(1000), { ...newProfile(T0), role: "invited" }, "google.com").me;
+  assert.deepEqual([invited?.rank, invited?.ads], ["invited", false]);
 });
 
 test("D-57: `me` reports the streak the finished day just earned, not the one before it", () => {
@@ -485,9 +491,9 @@ test("FR-1.2 / FR-1.3: random handles are animal-adjective-digits, 3–24 chars,
   assert.equal(randomHandle(() => 0.9999), "ema-esperto-9999");
 });
 
-test("FR-7.1 / D-27: a new profile is a player with no groups", () => {
+test("FR-7.1 / D-27 / D-84: a new profile is a user with no groups", () => {
   const p = newProfile(T0);
-  assert.equal(p.role, "player");
+  assert.equal(p.role, "user");
   assert.deepEqual(p.groups, []);
 });
 

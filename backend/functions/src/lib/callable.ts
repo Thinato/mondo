@@ -49,6 +49,15 @@ export function callable<Req, Res>(
 }
 
 /**
+ * How the caller signed in — "google.com", or "anonymous" for a guest (FR-10.1).
+ * Verified by the SDK with the rest of the ID token, so a client cannot claim
+ * to be anything it is not; `rankOf` in lib/authz.ts is its reader.
+ */
+export function signInProvider(request: CallableRequest<unknown>): string | undefined {
+  return request.auth?.token.firebase?.sign_in_provider;
+}
+
+/**
  * Wraps `onSchedule` the same way: region, runtime SA and the puzzle time zone
  * (D-11) set once. Cloud Scheduler bills nothing for the first three jobs
  * (docs/05-cost.md §3.4); Mondo has two.

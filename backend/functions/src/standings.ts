@@ -2,14 +2,14 @@
  * rebuildStandings — nightly at 12:05 America/Sao_Paulo (D-11), five minutes
  * after the puzzle day flips, so yesterday's rounds are final (D-25).
  *
- * Reads every attempt in the last 30 closed days once, then rewrites the
- * stats on every member document (D-21, D-22). Arithmetic in lib/standings.ts
+ * Reads every group member's attempts in the last 30 closed days once, then
+ * rewrites the stats on every member document (D-21, D-22). Arithmetic in lib/standings.ts
  * and lib/groups.ts; this file is I/O.
  */
 
 import { Timestamp, type WriteBatch } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
-import { db, groupsCol, membersCol, puzzleDays, userRef } from "./db";
+import { attemptRef, db, groupsCol, membersCol, puzzleDays, userRef } from "./db";
 import { scheduled } from "./lib/callable";
 import { memberStats, resultOf, WINDOW_30, type Member } from "./lib/groups";
 import type { Attempt, Profile } from "./lib/round";
@@ -17,6 +17,7 @@ import { effectiveStreak, nextDay, windowDays, type FinishedResult } from "./lib
 import { advanceOpenRoundsNow } from "./tournaments";
 
 const BATCH = 400; // Firestore caps a batch at 500 writes
+const GET_ALL = 300; // documents per getAll round trip
 
 /**
  * How far back a single run will reach to catch up. All-time is advanced from
@@ -57,10 +58,20 @@ export async function rebuildStandingsNow(now: Timestamp): Promise<{ groups: num
   }
   if (clamped) logger.error("STANDINGS_CATCHUP_CLAMPED", { from, floor, closedDay });
 
-  // ponytail: one range query over all players' attempts; switch to per-member getAll of only group members past ~1 000 players.
-  const attempts = await db().collection("attempts").where("puzzleId", ">=", from).where("puzzleId", "<=", closedDay).get();
+  // Group members only, by deterministic id (D-84). This used to be one range
+  // query over everybody's attempts, which was the same thing while only
+  // invited group members could play; once play opened to the public it would
+  // have read every guest's day 30 nights running for boards they can never be
+  // on. members × days, and a missing document is one read like any other.
+  const days: string[] = [];
+  for (let d = from; d <= closedDay; d = nextDay(d)) days.push(d);
+  const refs = uids.flatMap((uid) => days.map((d) => attemptRef(uid, d)));
+  const attempts = [];
+  for (let i = 0; i < refs.length; i += GET_ALL) {
+    for (const snap of await db().getAll(...refs.slice(i, i + GET_ALL))) if (snap.exists) attempts.push(snap);
+  }
   const resultsByUid = new Map<string, FinishedResult[]>();
-  for (const doc of attempts.docs) {
+  for (const doc of attempts) {
     const a = doc.data() as Attempt;
     const r = resultOf(a);
     if (!r) continue;
@@ -90,7 +101,7 @@ export async function rebuildStandingsNow(now: Timestamp): Promise<{ groups: num
   }
   await flush();
 
-  logger.info("rebuildStandings", { closedDay, from, groups: groups.size, members, attemptsRead: attempts.size });
+  logger.info("rebuildStandings", { closedDay, from, groups: groups.size, members, attemptsRead: refs.length, attemptsFound: attempts.length });
   return { groups: groups.size, members };
 }
 

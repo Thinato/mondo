@@ -64,10 +64,10 @@ test("requireUid accepts 1–128 alphanumerics", () => {
   for (const bad of ["", "a".repeat(129), "a b", "a/b", "a@b", 1, null]) invalidArgument(() => requireUid(bad));
 });
 
-test("FR-7.2 / D-29: the API grants organizer or player, never admin", () => {
-  assert.equal(requireRole("organizer"), "organizer");
-  assert.equal(requireRole("player"), "player");
-  for (const bad of ["admin", "owner", "", "ADMIN", null, 1]) invalidArgument(() => requireRole(bad));
+test("FR-7.2 / D-29 / D-84: the API grants invited or user, never admin and never a legacy role", () => {
+  assert.equal(requireRole("invited"), "invited");
+  assert.equal(requireRole("user"), "user");
+  for (const bad of ["admin", "organizer", "player", "subscriber", "guest", "owner", "", "ADMIN", null, 1]) invalidArgument(() => requireRole(bad));
 });
 
 test("FR-9.9: regions default to every continent, and an empty list is a bug, not 'all'", () => {

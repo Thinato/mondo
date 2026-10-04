@@ -17,8 +17,7 @@
  */
 
 import { Timestamp } from "firebase-admin/firestore";
-import { dailySubjects, db, ensureProfile, practiceRef, userRef } from "./db";
-import { requireCanPlay } from "./lib/authz";
+import { dailySubjects, db, ensureProfile, practiceRef } from "./db";
 import { callable } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { kindById } from "./lib/kinds";
@@ -28,7 +27,6 @@ import {
   PRACTICE_EXCLUSION_DAYS, type PracticeSession, type PracticeView,
 } from "./lib/practice";
 import { puzzleIdAt } from "./lib/puzzle-day";
-import type { Profile } from "./lib/round";
 import { nextDay } from "./lib/standings";
 import { requireObject, requireRegions } from "./lib/validate";
 
@@ -62,9 +60,9 @@ async function withheld(now: Timestamp): Promise<string[]> {
  * session, like the kind — narrowing the field half way through would make the
  * totals beside it the sum of two different exercises (D-70).
  *
- * Invite-only, like the daily (FR-1.7, D-28). Practice is a thing the game
- * gives its players, not a demo; letting any signed-in Google account drill
- * against the pool would also let it write to Firestore for free.
+ * Open to anyone signed in, a guest included, like the daily (D-84 reversed
+ * FR-9.6). That is a door to Firestore writes for anybody who can mint a uid,
+ * which is what App Check closes (plan step 4) — not a rank check.
  */
 export const startPractice = callable<{ kind: unknown; regions?: unknown }, PracticeView>(async (uid, data) => {
   const body = requireObject(data);
@@ -76,8 +74,7 @@ export const startPractice = callable<{ kind: unknown; regions?: unknown }, Prac
   const regions = requireRegions(body.regions);
   const now = Timestamp.now();
 
-  const profile = await db().runTransaction((tx) => ensureProfile(tx, uid, now));
-  requireCanPlay(profile);
+  await db().runTransaction((tx) => ensureProfile(tx, uid, now));
 
   const session = newSession(uid, kind, await withheld(now), now, Math.random, regions);
   await practiceRef(uid).set(session);
@@ -92,8 +89,7 @@ export const startPractice = callable<{ kind: unknown; regions?: unknown }, Prac
 export const nextPractice = callable<unknown, PracticeView>(async (uid) => {
   const now = Timestamp.now();
   const session = await db().runTransaction(async (tx) => {
-    const [snap, profileSnap] = await Promise.all([tx.get(practiceRef(uid)), tx.get(userRef(uid))]);
-    requireCanPlay(profileSnap.exists ? (profileSnap.data() as Profile) : null);
+    const snap = await tx.get(practiceRef(uid));
     if (!snap.exists) throw mondoError("not-found", "Start a practice session first.");
     const after = serveNext(snap.data() as PracticeSession, now);
     tx.set(practiceRef(uid), after);
@@ -116,8 +112,7 @@ export const submitPracticeGuess = callable<{ guess: unknown; selfReport?: unkno
   const selfReport = parseSelfReport(input.selfReport);   // D-77
   const now = Timestamp.now();
   const session = await db().runTransaction(async (tx) => {
-    const [snap, profileSnap] = await Promise.all([tx.get(practiceRef(uid)), tx.get(userRef(uid))]);
-    requireCanPlay(profileSnap.exists ? (profileSnap.data() as Profile) : null);
+    const snap = await tx.get(practiceRef(uid));
     if (!snap.exists) throw mondoError("not-found", "Start a practice session first.");
     const after = applyPracticeGuess(snap.data() as PracticeSession, raw, now, selfReport);
     tx.set(practiceRef(uid), after);
@@ -134,8 +129,7 @@ export const submitPracticeGuess = callable<{ guess: unknown; selfReport?: unkno
 export const giveUpPractice = callable<unknown, PracticeView>(async (uid) => {
   const now = Timestamp.now();
   const session = await db().runTransaction(async (tx) => {
-    const [snap, profileSnap] = await Promise.all([tx.get(practiceRef(uid)), tx.get(userRef(uid))]);
-    requireCanPlay(profileSnap.exists ? (profileSnap.data() as Profile) : null);
+    const snap = await tx.get(practiceRef(uid));
     if (!snap.exists) throw mondoError("not-found", "Start a practice session first.");
     const after = giveUpSession(snap.data() as PracticeSession, now);
     tx.set(practiceRef(uid), after);

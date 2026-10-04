@@ -20,6 +20,7 @@
 import type { Timestamp } from "firebase-admin/firestore";
 import { applyCardGuess, giveUpCard, newCardCore, cardIntervalsMs, cardSelfReports, totalGuesses, type CardCore, type CardItem } from "./card";
 import { countryByCode, type Country } from "./countries";
+import { rankOf, roleOf, showsAds, type Rank } from "./authz";
 import { mondoError } from "./errors";
 import { compass8, type Compass } from "./geo";
 import { kindById, type KindId, type Prompt, type Reveal } from "./kinds";
@@ -142,8 +143,21 @@ export interface Attempt extends CardCore {
 /** An attempt as it was when an admin granted a retry (D-30). */
 export type AttemptSnapshot = Omit<Attempt, "history"> & { retryGrantedBy: string; retryGrantedAt: Timestamp };
 
-/** FR-7.1 — stored on the profile, written only by functions (D-27, D-29). */
-export type Role = "admin" | "organizer" | "player";
+/**
+ * FR-7.1 as amended by D-84 — stored on the profile, written only by functions
+ * (D-27, D-29). `organizer` and `player` are what profiles carried before D-84;
+ * lib/authz.ts `roleOf` reads them until tools/migrate-tiers.mjs has rewritten
+ * every one, and nothing writes them any more.
+ */
+export type Role = "admin" | "invited" | "user";
+export type LegacyRole = "organizer" | "player";
+
+/** What the Stripe webhook keeps on the profile (FR-11). Only rankOf reads it. */
+export interface Subscription {
+  /** Stripe's own status string: active, trialing, past_due, canceled, … */
+  status: string;
+  currentPeriodEnd: Timestamp;
+}
 
 export interface Profile {
   displayName: string;
@@ -154,8 +168,11 @@ export interface Profile {
   totalPlayed: number;
   totalSolved: number;
   locale: "pt-BR" | "en";
-  /** Absent on Phase 1 profiles → "player" (see lib/authz.ts). */
-  role?: Role;
+  /** Absent on Phase 1 profiles; see `roleOf` in lib/authz.ts. */
+  role?: Role | LegacyRole;
+  /** Admin only: draw the ads a user would see (FR-10.4). */
+  showAds?: boolean;
+  subscription?: Subscription;
   /** Membership index, ≤ 10 (FR-4.4, D-27). Absent on Phase 1 profiles → []. */
   groups?: string[];
 }
@@ -174,7 +191,7 @@ export function newProfile(now: Timestamp, displayName = randomHandle()): Profil
   return {
     displayName, createdAt: now, lastPlayedOn: null,
     currentStreak: 0, longestStreak: 0, totalPlayed: 0, totalSolved: 0, locale: "pt-BR",
-    role: "player", groups: [],
+    role: "user", groups: [],
   };
 }
 
@@ -436,6 +453,9 @@ export interface RoundView {
   me: {
     displayName: string;
     role: Role;
+    /** FR-10. `ads` decides what the page draws and authorizes nothing. */
+    rank: Rank;
+    ads: boolean;
     groupCount: number;
     currentStreak: number;
     longestStreak: number;
@@ -453,7 +473,7 @@ export function statusOf(attempt: Attempt): RoundStatus {
  * challenge is over, and never the ones still to come (SEC-1) — the same line
  * `cardView` draws, for the same reason.
  */
-export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timestamp, profile: Profile | null = null): RoundView {
+export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timestamp, profile: Profile | null = null, signInProvider?: string): RoundView {
   const attempt = upgradeAttempt(legacyOrCurrent);
   const card = puzzleItems(puzzle);
   // A day whose puzzle was re-seeded under a play already in progress. Rare and
@@ -464,6 +484,7 @@ export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timesta
   const current = attempt.items[attempt.cursor];
   const currentCard = card[attempt.cursor];
   const kind = currentCard ? kindById(currentCard.kind) : null;
+  const rank = profile ? rankOf(profile, signInProvider, now) : null;
 
   return {
     puzzleId: puzzle.puzzleId,
@@ -492,10 +513,12 @@ export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timesta
     shareGrid: finished ? shareGrid(puzzle.puzzleId, shareItems(attempt, card), attempt.points, maxPointsFor(card)) : null,
     cheated: Boolean(attempt.cheated),
     serverTime: now.toDate().toISOString(),
-    me: profile
+    me: profile && rank
       ? {
           displayName: profile.displayName,
-          role: profile.role ?? "player",
+          role: roleOf(profile),
+          rank,
+          ads: showsAds(rank, profile),
           groupCount: profile.groups?.length ?? 0,
           currentStreak: profile.currentStreak,
           longestStreak: profile.longestStreak,
