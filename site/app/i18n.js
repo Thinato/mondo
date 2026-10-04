@@ -123,7 +123,7 @@ const PT_BR = {
   copied: "Copiado!",
   copyFailed: "Não deu para copiar; selecione o link e copie.",
   noGroups: "Você ainda não está em nenhum grupo. Peça um convite a quem organiza.",
-  notOrganizer: "Só organizadores criam grupos. Peça ao Paulo.",
+  cannotCreate: "Só convidados e assinantes criam grupos.",
   confirmJoin: "Você recebeu um convite para um grupo. Entrar?",
   confirmLeave: "Sair de {name}? Seus resultados ficam, mas você some do ranking.",
   // FR-4.9 / D-23: the last member out dissolves the group. Say so before it
@@ -186,7 +186,7 @@ const PT_BR = {
   cheatCleared: "Anulação desfeita.",
   badgeCheated: "anulado",
   state: { not_started: "não jogou", in_progress: "jogando", finished: "terminou" },
-  role: { admin: "admin", organizer: "organizador", player: "jogador" },
+  role: { admin: "admin", invited: "convidado", user: "usuário" },
   // tournaments (FR-5 as rewritten, FR-8)
   tournaments: "Torneios",
   noTournaments: "Nenhum torneio por aqui ainda.",

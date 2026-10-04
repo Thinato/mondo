@@ -77,7 +77,7 @@ function userRow(u) {
   else {
     const sel = document.createElement("select");
     sel.setAttribute("aria-label", `Papel de ${u.displayName}`);
-    for (const r of ["player", "organizer"]) {
+    for (const r of ["user", "invited"]) {
       const o = document.createElement("option"); o.value = r; o.textContent = t(`role.${r}`); o.selected = r === u.role; sel.append(o);
     }
     sel.addEventListener("change", async () => {

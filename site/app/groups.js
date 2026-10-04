@@ -120,8 +120,8 @@ el.createForm.addEventListener("submit", async (ev) => {
     setStatus(t("created"), "ok");
     await loadBoard();
   } catch (err) {
-    // FR-4.1 as amended: only organizers create groups; say so plainly.
-    setStatus(err?.details?.code === "permission-denied" ? t("notOrganizer") : errorMessage(err), "err");
+    // FR-4.1 as amended by D-84: admins, invited players and subscribers create groups; say so plainly.
+    setStatus(err?.details?.code === "permission-denied" ? t("cannotCreate") : errorMessage(err), "err");
   } finally { button.disabled = false; }
 });
 
