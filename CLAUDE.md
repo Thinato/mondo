@@ -243,6 +243,11 @@ backend.
   pins that by scoring the same guess twice. Do not "improve" it into an enforcement mechanism, do
   not obfuscate it to resist tampering (that only makes tampering quieter), and do not read it as
   proof — **it cannot see a second device at all**.
+- **The repository is private and the credits are public** (D-83, NFR-9). `LICENSE` is
+  all-rights-reserved from 2026-10-04; earlier MIT copies keep MIT. Because nobody outside can read
+  `NOTICE` any more, `site/creditos.html` is where ODbL, CC BY and CC BY-SA attribution actually
+  happens — **adding a data source means adding it to both**. Do not link the GitHub repo from
+  `site/`: it 404s for everyone but Paulo.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).

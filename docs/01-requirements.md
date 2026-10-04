@@ -491,4 +491,5 @@ to test new challenges."*
 - **NFR-7** All infrastructure MUST be reproducible from Terraform + Firebase CLI in a fresh
   GCP project, documented well enough that someone else could stand it up.
 - **NFR-8** Scoring logic MUST be pure functions with unit tests. This is the part people will argue about.
-- **NFR-9** Repo MUST be licensed (MIT or Apache-2.0) with third-party data attributions in `NOTICE`.
+- **NFR-9** *(amended 2026-10-04, D-83)* Repo is proprietary (`LICENSE`); third-party data attributions
+  live in `NOTICE` and, where players see them, in `site/creditos.html`. The two MUST stay in step.
