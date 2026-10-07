@@ -451,7 +451,10 @@ test("D-76: a tournament board names all eight when it closes, and none before",
   // The prompt names the country it asks about; the other seven stay off the
   // wire until the challenge is over. Three views, three `over ?` gates —
   // round.ts, practice.ts and this one — and each is tested where it lives.
-  const before = JSON.stringify(cardView(open, card, T0));
+  // The subject's own name is cut out first: the board holds its nearest
+  // neighbours (D-65), so "Sudão" is a fair distractor for "Sudão do Sul" and
+  // sits inside the prompt that names it — a random board found that in CI.
+  const before = JSON.stringify(cardView(open, card, T0)).replaceAll(subject, "");
   for (const name of names.filter((n) => n !== subject)) {
     assert.ok(!before.includes(name), `"${name}" was on the wire while the board was open`);
   }

@@ -205,7 +205,9 @@ test("D-76: a board names all eight when it closes, and none of them before", ()
     // Open: the prompt names the country it ASKS about and nothing else. The
     // subject is skipped because the prompt says it out loud — what has to
     // stay secret is which tile it is.
-    const before = JSON.stringify(practiceView(open, T0));
+    // Cut the subject's own name out first: a neighbour's name can sit inside
+    // it ("Sudão" in "Sudão do Sul"), and that is the prompt, not a leak.
+    const before = JSON.stringify(practiceView(open, T0)).replaceAll(subject, "");
     for (const name of names.filter((n) => n !== subject)) {
       assert.ok(!before.includes(name), `${kind}: "${name}" was on the wire while the board was open`);
     }
