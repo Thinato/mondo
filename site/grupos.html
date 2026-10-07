@@ -41,8 +41,9 @@
 </header>
 
 <main>
-  <section id="signed-out">
-    <p class="sub">Entre para ver seus grupos e rankings.</p>
+  <!-- Shown to a guest, or if guest sign-in fails (D-85). -->
+  <section id="signed-out" hidden>
+    <p class="sub">Grupos e rankings são para quem entra com Google. Se essa conta ainda não joga aqui, seu jogo de hoje vem junto.</p>
     <button id="sign-in" type="button" class="primary">Entrar com Google</button>
   </section>
 
@@ -165,6 +166,8 @@
 <footer>
   <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> ·
   <a href="./creditos.html">Créditos</a>
+
+  <small class="recaptcha">Protegido pelo reCAPTCHA: valem a <a href="https://policies.google.com/privacy">Política de Privacidade</a> e os <a href="https://policies.google.com/terms">Termos de Serviço</a> do Google.</small>
 </footer>
 
 <nav class="tabbar" aria-label="Seções">

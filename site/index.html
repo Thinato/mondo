@@ -51,7 +51,8 @@
 </header>
 
 <main>
-  <section id="signed-out">
+  <!-- Shown only if guest sign-in fails (D-85). -->
+  <section id="signed-out" hidden>
     <p class="sub">Sete desafios por dia — uma silhueta, uma bandeira, uma capital, um PIB per capita,
     "qual destas oito é a bandeira?", "qual destas oito é a silhueta?" e "onde nasceu essa pessoa?".
     Adivinhe cada um; a cada erro você ganha uma pista de quão perto chegou.</p>
@@ -59,11 +60,10 @@
     <p class="fine">Só o nome de exibição aparece para os outros. <a href="./privacidade.html">Privacidade</a>.</p>
   </section>
 
-  <section id="not-invited" hidden>
-    <p class="sub">Você precisa de um convite para jogar.</p>
-    <p>O Mondo é jogado em grupos fechados. Peça o link de convite a quem te chamou; ao abrir o link, você entra no grupo e o jogo abre.</p>
-    <p class="fine">Já tem um link? Abra-o neste mesmo navegador, com esta mesma conta.</p>
-  </section>
+  <!-- D-85: a guest sees the game first, so this is how someone who already
+       plays finds their account BEFORE playing today a second time. -->
+  <p id="guest-note" class="fine" hidden>Jogando como visitante.
+    <button type="button" class="link" id="guest-sign-in">Entrar com Google</button> guarda seu jogo e abre os grupos — e, se você já joga, leva você à sua conta.</p>
 
   <section id="game" hidden>
     <!-- The day itself, and where you are in it. FIRST in the DOM because on a
@@ -186,6 +186,8 @@
 <footer>
   <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> ·
   <a href="./creditos.html">Créditos</a>
+
+  <small class="recaptcha">Protegido pelo reCAPTCHA: valem a <a href="https://policies.google.com/privacy">Política de Privacidade</a> e os <a href="https://policies.google.com/terms">Termos de Serviço</a> do Google.</small>
 </footer>
 
 <!-- The phone's two destinations (FR-6.1). Grupos, torneios and the painel are

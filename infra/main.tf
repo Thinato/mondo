@@ -37,14 +37,16 @@ locals {
     "firestore.googleapis.com",
     "identitytoolkit.googleapis.com", # Firebase Auth / Identity Platform
     "cloudfunctions.googleapis.com",
-    "run.googleapis.com",              # Functions v2 run on Cloud Run
-    "cloudbuild.googleapis.com",       # builds the function source
-    "artifactregistry.googleapis.com", # stores the built image
-    "eventarc.googleapis.com",         # scheduled + event triggers
-    "cloudscheduler.googleapis.com",   # rebuildStandings, scheduleHealthCheck
-    "pubsub.googleapis.com",           # scheduler -> function plumbing
-    "storage.googleapis.com",          # function source uploads, TF state
-    "billingbudgets.googleapis.com",   # SEC-11
+    "run.googleapis.com",                 # Functions v2 run on Cloud Run
+    "cloudbuild.googleapis.com",          # builds the function source
+    "artifactregistry.googleapis.com",    # stores the built image
+    "eventarc.googleapis.com",            # scheduled + event triggers
+    "cloudscheduler.googleapis.com",      # rebuildStandings, scheduleHealthCheck
+    "pubsub.googleapis.com",              # scheduler -> function plumbing
+    "storage.googleapis.com",             # function source uploads, TF state
+    "billingbudgets.googleapis.com",      # SEC-11
+    "recaptchaenterprise.googleapis.com", # App Check's attestation provider (SEC-18)
+    "firebaseappcheck.googleapis.com",    # SEC-18
     "logging.googleapis.com",
   ]
 }
@@ -66,6 +68,12 @@ resource "google_project_service" "services" {
 resource "time_sleep" "wait_for_services" {
   depends_on      = [google_project_service.services]
   create_duration = "60s"
+
+  # Wait again whenever the list grows: without this the sleep was created once,
+  # and an API added later (reCAPTCHA, App Check — D-85) raced its first resource.
+  triggers = {
+    services = join(",", local.services)
+  }
 }
 
 # ==============================================================================
@@ -169,9 +177,55 @@ resource "google_identity_platform_config" "auth" {
       enabled           = true
       password_required = false # email-link sign-in, no password storage (D-5)
     }
+
+    # FR-10.1 / D-84: a guest is an anonymous sign-in, made on first visit so the
+    # daily plays at once, and upgraded in place when it links Google. Anonymous
+    # accounts count as Identity Platform MAU (free tier: 49,999); cleaning up
+    # abandoned ones is plan step 7.
+    anonymous {
+      enabled = true
+    }
   }
 
   depends_on = [time_sleep.wait_for_services]
+}
+
+# ==============================================================================
+# App Check (SEC-18, D-85)
+#
+# Play is open to anyone who can mint a uid, so the callables need to know the
+# request came from the real page. reCAPTCHA Enterprise, not v3: its site key is
+# public and Terraform can create it, so nothing secret goes into the console by
+# hand. The site key is emitted by `terraform output app_check_site_key` and
+# pasted into site/app/firebase.js, like the rest of the web config.
+#
+# COST: reCAPTCHA's free tier is 10,000 assessments a month per project (since
+# 2026-04-02), and App Check spends one each time a browser refreshes its token.
+# token_ttl is therefore the lever: one day means roughly one assessment per
+# visitor per day. Longer is cheaper and lets a harvested token be replayed for
+# longer; see docs/05-cost.md.
+# ==============================================================================
+
+resource "google_recaptcha_enterprise_key" "app_check" {
+  project      = google_project.main.project_id
+  display_name = "Mondo web — App Check"
+
+  web_settings {
+    integration_type  = "SCORE"
+    allow_all_domains = false
+    allowed_domains   = ["lisecki.dev"]
+  }
+
+  depends_on = [time_sleep.wait_for_services]
+}
+
+resource "google_firebase_app_check_recaptcha_enterprise_config" "mondo" {
+  provider = google-beta
+
+  project   = google_project.main.project_id
+  app_id    = google_firebase_web_app.mondo.app_id
+  site_key  = google_recaptcha_enterprise_key.app_check.name
+  token_ttl = "86400s"
 }
 
 # ==============================================================================

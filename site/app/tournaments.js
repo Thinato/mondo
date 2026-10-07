@@ -75,6 +75,8 @@ watchAuth({
   onUser: (u) => {
     el.detail.hidden = el.card.hidden = true;
     if (!u) { view = null; card = null; reveal = null; return; }
+    // Tournaments are a group's, and a guest is in none (FR-10.5).
+    if (u.isAnonymous) { el.signedOut.hidden = false; return; }
     route();
   },
 });

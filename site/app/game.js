@@ -10,11 +10,11 @@
 // dismisses it. The old flow swapped the next prompt in on the same frame, so
 // the answer to the one just played went past unread.
 
-import { onAuthStateChanged, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import "./theme.js";
-import { auth, googleProvider } from "./firebase.js";
+import { auth } from "./firebase.js";
 import * as api from "./api.js";
-import { applyIdentity, ask, attachAccount, showAccount } from "./auth-ui.js";
+import { applyIdentity, ask, attachAccount, googleClick, labelAccountButton, playAsGuest, showAccount, wireAccountButton } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, isPick, renderAbout, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
@@ -44,7 +44,7 @@ const el = {
   guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
   shareBtn: $("share"), left: $("left"), profileBtn: $("profile-btn"),
-  notInvited: $("not-invited"), adminLink: $("admin-link"), account: $("account"),
+  adminLink: $("admin-link"), account: $("account"), guestNote: $("guest-note"), guestSignIn: $("guest-sign-in"),
   streak: $("streak"), dayTitle: $("day-title"), dayTotal: $("day-total"), recap: $("recap"),
 };
 
@@ -77,29 +77,29 @@ const help = attachHelp({
 // Auth
 // ---------------------------------------------------------------------------
 
-el.signIn.addEventListener("click", async () => {
-  el.signIn.disabled = true;
-  setStatus(t("openingLogin"));
-  try { await signInWithPopup(auth, googleProvider); }
-  catch (err) { setStatus(errorMessage(err), "err"); }
-  finally { el.signIn.disabled = false; }
-});
+el.signIn.addEventListener("click", () => googleClick(el.signIn, (text, cls) => setStatus(text, cls)));
+wireAccountButton(el.signOut, (text, cls) => setStatus(text, cls));
+el.guestSignIn.addEventListener("click", () => googleClick(el.guestSignIn, (text, cls) => setStatus(text, cls)));
 
-el.signOut.addEventListener("click", async () => {
-  await signOut(auth);
-  round = null; picked = null; reveal = null; revealPrompt = null; // FR-1.6: nothing survives sign-out
-  groups = []; boardGid = null;
-  el.input.value = "";
-  el.guesses.replaceChildren();
-  el.side.hidden = true;
-  el.streak.hidden = true;
-});
-
+// No session means a new guest (D-84), and it is also where sign-out lands:
+// whoever is next on this browser starts from nothing (FR-1.6).
 onAuthStateChanged(auth, (user) => {
-  el.signedOut.hidden = Boolean(user);
+  if (!user) {
+    round = null; picked = null; reveal = null; revealPrompt = null;
+    groups = []; boardGid = null;
+    el.input.value = "";
+    el.guesses.replaceChildren();
+    el.side.hidden = true;
+    el.streak.hidden = true;
+    profile.setName("");
+    playAsGuest(el.signedOut);
+  } else {
+    el.signedOut.hidden = true;
+  }
   el.game.hidden = !user;
-  el.notInvited.hidden = true;
+  el.guestNote.hidden = !user?.isAnonymous;
   el.adminLink.hidden = true;
+  labelAccountButton(el.signOut, user);
   showAccount(el.account, user);
   if (user) load();
 });
@@ -131,12 +131,6 @@ async function load() {
     render();
     loadPanel(groupsSoon).catch(() => { /* garnish; never the player's problem */ });
   } catch (err) {
-    if (err?.details?.code === "not-invited") {
-      // FR-1.7: signed in, not let in. The game stays hidden; Perfil/Sair remain.
-      el.game.hidden = true;
-      el.notInvited.hidden = false;
-      return;
-    }
     setStatus(errorMessage(err), "err");
   } finally {
     setBusy(false);

@@ -75,10 +75,13 @@ can spend the daily allowance; the budget alert is the backstop, and the upgrade
 path is written at the top of `backend/functions/src/leaderboard.ts`. Accepted
 because the real groups are 5-20 people and the caller must already be a member.
 
-The nightly job itself reads every attempt of the last 30 closed days once
-(players × 30, D-21) — about 3,000 at 100 players, regardless of how many groups
-they are in. Past ~1,000 players switch to per-member `getAll` of group members
-only; the ceiling is marked in `backend/functions/src/standings.ts`.
+The nightly job itself reads each **group member's** attempts for the last 30
+closed days once, by document id (members × 30, D-21) — about 3,000 at 100
+members, regardless of how many groups they are in. Since D-84 opened play to the
+public it no longer reads anyone outside a group: a guest's day reaches no board,
+and reading it 30 nights running would have made the free tier a function of
+traffic rather than of the groups. A missing document is billed as a read, so
+this is an upper bound. The admin panel's day view is bounded the same way.
 
 Keep that in mind before "just querying attempts directly" from a per-viewer path.
 
@@ -180,6 +183,21 @@ advancing was folded into the 12:05 job rather than taking a third (D-43) — so
 is shared with every other project on the same billing account. Beyond it the
 charge is about $0.10 per job per month, which is noise, but it is the one line
 item where an unrelated project can push Mondo over.
+
+### 3.5 reCAPTCHA behind App Check (SEC-18, D-85)
+
+App Check creates one reCAPTCHA assessment each time a browser refreshes its
+token, and since 2026-04-02 the free tier is **10,000 assessments a month per
+project**; above it, $8 a month covers up to 100,000. `token_ttl` is set to one day
+in `infra/main.tf`, and the page turns the SDK's proactive refresh off (it renews
+a token past half its life, which spends a second assessment on a player who
+comes back the next day), so the bill is about one assessment per visitor per day
+and at most two: between 165 and 330 daily visitors fit in the free tier. A longer TTL is cheaper and lets
+a harvested token be replayed for longer; a shorter one is the reverse. Revisit it
+when the ads start bringing strangers.
+
+Anonymous sign-in (guests, D-84) counts toward Identity Platform's monthly active
+users, which are free up to 49,999.
 
 Cloud Build (2,500 build-minutes/month) and Cloud Logging (50 GiB/month) have so
 much headroom they are not worth tracking.

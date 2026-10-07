@@ -106,12 +106,12 @@ export function uniqueNames(members: readonly { uid: string; displayName: string
  * member. Null when nobody is left, and then the group is deleted.
  *
  * The successor is NOT given a role. Management rights come from owning the
- * group (FR-7.5): `requireOwner` is what gates renaming, inviting and removing,
- * and the new owner passes it. Granting `organizer` instead would quietly
- * unlock the whole invite-only system — an organizer could create a group,
- * invite one player, leave, and that player would be free to create groups and
- * invite strangers (FR-4.1, FR-1.7). Creating NEW groups stays with admins and
- * organizers; owning this one does not.
+ * group (FR-7.5): `requireOwner` is what gates renaming and removing, and the
+ * new owner passes it. Granting `invited` instead would hand out the closed
+ * list (D-84) — an invited player could create a group, invite one user, leave,
+ * and that user would be ad-free for good. Creating new groups and inviting
+ * also need the rank (FR-10.3), so a user who inherits a group keeps it playing
+ * and cannot grow it.
  */
 export function nextOwner(others: readonly { uid: string; joinedAt: Timestamp }[]): string | null {
   if (others.length === 0) return null;

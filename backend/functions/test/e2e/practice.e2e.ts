@@ -82,8 +82,8 @@ before(async () => {
   });
 
   const owner = await newAccount("pr-owner");
-  await owner.call("getRound", {});
-  await db.doc(`users/${owner.uid}`).update({ role: "organizer" });
+  await owner.call("updateProfile", { locale: "pt-BR" });
+  await db.doc(`users/${owner.uid}`).update({ role: "invited" });
   gid = ok(await owner.call("createGroup", { name: "Treino e2e" }), "createGroup").groupId;
 
   ana = await newAccount("pr-ana");
@@ -91,15 +91,16 @@ before(async () => {
   ok(await ana.call("acceptInvite", { token }), "acceptInvite");
 
   carla = await newAccount("pr-carla");
-  await carla.call("getRound", {});
 });
 
 // ---------------------------------------------------------------------------
 
-test("FR-1.7: practice is invite-only, like the day is", async () => {
-  assert.equal(code(await carla.call("startPractice", { kind: "shape" })), "not-invited");
-  assert.equal(code(await carla.call("nextPractice", {})), "not-invited");
-  assert.equal(code(await carla.call("submitPracticeGuess", { guess: "BR" })), "not-invited");
+test("D-84: practice is open to anyone signed in, like the day is", async () => {
+  const view = ok(await carla.call("startPractice", { kind: "shape" }), "a user in no group practises");
+  assert.equal(view.totals.played, 0);
+  ok(await carla.call("giveUpPractice", {}), "and gives up");
+  ok(await carla.call("nextPractice", {}), "and moves on");
+  ok(await carla.call("endPractice", {}), "and stops");
   // No token at all: the wrapper refuses before the payload is read (SEC-8).
   // An HttpsError with no `details` surfaces as the protocol's own status.
   assert.equal(code(await post("startPractice", { kind: "shape" })), "UNAUTHENTICATED");
@@ -246,16 +247,14 @@ test("FR-2.13: giving up ends the challenge at zero and hands over the answer", 
   assert.equal(next.totals.solved, 0);
   assert.equal(next.totals.points, 0);
 
-  // And it is refused to someone who was never let in (FR-1.7).
-  assert.equal(code(await carla.call("giveUpPractice", {})), "not-invited");
   ok(await ana.call("endPractice", {}), "endPractice");
 });
 
 test("FR-1.5: deleting the account takes the practice session with it", async () => {
   const gone = await newAccount("pr-gone");
   const owner = await newAccount("pr-owner2");
-  await owner.call("getRound", {});
-  await db.doc(`users/${owner.uid}`).update({ role: "organizer" });
+  await owner.call("updateProfile", { locale: "pt-BR" });
+  await db.doc(`users/${owner.uid}`).update({ role: "invited" });
   const g = ok(await owner.call("createGroup", { name: "Treino saida" }), "createGroup").groupId;
   const { token } = ok(await owner.call("createInvite", { groupId: g }), "createInvite");
   ok(await gone.call("acceptInvite", { token }), "acceptInvite");

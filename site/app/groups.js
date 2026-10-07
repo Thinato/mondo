@@ -54,6 +54,14 @@ watchAuth({
   onUser: (u) => {
     el.list.hidden = el.board.hidden = true;
     if (!u) { view = null; tournaments = null; return; }
+    // FR-10.5: a guest joins nothing, so for them this page is the Google
+    // button. An invite link stays in the URL: signing in reloads the page as
+    // the same uid, and the branch below then accepts it.
+    if (u.isAnonymous) {
+      el.signedOut.hidden = false;
+      if (params.get("convite")) setStatus(t("guestInvite"), "warn");
+      return;
+    }
     const token = params.get("convite");
     if (token) return accept(token);
     if (gid) return loadBoard();
@@ -120,8 +128,8 @@ el.createForm.addEventListener("submit", async (ev) => {
     setStatus(t("created"), "ok");
     await loadBoard();
   } catch (err) {
-    // FR-4.1 as amended: only organizers create groups; say so plainly.
-    setStatus(err?.details?.code === "permission-denied" ? t("notOrganizer") : errorMessage(err), "err");
+    // FR-4.1 as amended by D-84: admins, invited players and subscribers create groups; say so plainly.
+    setStatus(err?.details?.code === "permission-denied" ? t("cannotCreate") : errorMessage(err), "err");
   } finally { button.disabled = false; }
 });
 

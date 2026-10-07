@@ -29,9 +29,15 @@
 <main class="prose">
   <h2>O que fica guardado</h2>
   <ul>
-    <li><strong>Sua conta Google</strong>: o identificador da conta e o e-mail, guardados pelo Firebase
+    <li><strong>Sem conta: um visitante</strong>. Quem abre o jogo sem entrar joga como visitante — o Firebase
+    Authentication cria um identificador anônimo e o guarda neste navegador. Não há e-mail nem nome real nele.
+    Apagar os dados do navegador faz você perder o acesso a esse visitante; o que ele jogou continua no servidor,
+    sem nome real nem e-mail, até ser apagado (use Perfil → Excluir conta antes, se quiser que suma na hora).</li>
+    <li><strong>Sua conta Google</strong>, se você entrar: o identificador da conta e o e-mail, guardados pelo Firebase
     Authentication para você conseguir entrar. <strong>O e-mail nunca aparece para outros jogadores</strong> e
-    não fica em nenhum lugar além do registro de login.</li>
+    não fica em nenhum lugar além do registro de login. Um visitante que entra com Google continua sendo a
+    mesma conta e o que já jogou vem junto — a menos que essa conta Google já jogasse aqui: aí você entra
+    nela, e o jogo do visitante fica para trás.</li>
     <li><strong>Nome de exibição</strong>: sorteado (algo como <em>capivara-veloz-4821</em>) e editável por você. É a
     única coisa que os outros veem. Não use seu nome completo se não quiser.</li>
     <li><strong>Resultados</strong>: cada chute, a distância e a direção, se acertou, em quantas tentativas, e o
@@ -39,7 +45,7 @@
     <li><strong>Treino</strong>: a sessão de treino em andamento — o desafio na tela e quantos pontos você fez
     nela. É uma coisa só, sobrescrita cada vez que você começa a treinar de novo, e some junto com a conta.
     Não aparece para ninguém, em lugar nenhum.</li>
-    <li><strong>Grupos</strong>: de quais grupos você faz parte e seu papel no jogo (jogador, organizador ou
+    <li><strong>Grupos</strong>: de quais grupos você faz parte e seu papel no jogo (usuário, convidado ou
     administrador). Um link de convite não guarda nada sobre quem vai recebê-lo; só o grupo e quem o criou.</li>
     <li><strong>Se você saiu da página durante um desafio</strong>: junto de cada chute vai um resumo do que
     a página viu — quantas vezes a aba ficou escondida, quantas vezes a janela perdeu o foco, e quanto tempo
@@ -48,15 +54,20 @@
     só — quando alguém desconfia de um resultado, olhar isso ao lado do tempo antes de acusar qualquer
     pessoa. Só quem administra vê, e só junto dos tempos que já ficavam guardados.</li>
   </ul>
-  <p>Não há anúncios, não há rastreamento, não há analytics além do log de erros do servidor.</p>
+  <p>Não há anúncios e não há analytics além do log de erros do servidor.</p>
 
   <h2>Onde fica</h2>
   <p>No Google Cloud (Firebase), na região de São Paulo. Use uma conta Google <strong>pessoal</strong>; o
   jogo não pede nem precisa de e-mail corporativo.</p>
-  <p>As páginas carregam duas coisas de servidores do Google: o SDK do Firebase e as duas fontes do jogo
-  (Newsreader e IBM Plex Mono). Como qualquer arquivo baixado da internet, isso mostra o seu IP a esses
-  servidores. Nada além disso é enviado, e não há rastreador, analytics nem cookie de publicidade em
-  lugar nenhum.</p>
+  <p>As páginas carregam três coisas de servidores do Google: o SDK do Firebase, as duas fontes do jogo
+  (Newsreader e IBM Plex Mono) e o <strong>reCAPTCHA</strong>. Como qualquer arquivo baixado da internet, isso
+  mostra o seu IP a esses servidores.</p>
+  <p>O reCAPTCHA é diferente dos outros dois: ele existe para o servidor saber que um pedido veio desta
+  página e não de um robô, e para isso o Google analisa o navegador e a forma como ele é usado, sob a
+  <a href="https://policies.google.com/privacy">Política de Privacidade</a> e os
+  <a href="https://policies.google.com/terms">Termos de Serviço</a> do Google. Ele não recebe seus
+  chutes nem quem você é no jogo. Sem ele, qualquer um poderia criar visitantes aos milhares e gastar o
+  jogo por conta própria.</p>
   <p>Há <strong>um terceiro servidor, e só no desafio "onde nasceu essa pessoa?"</strong>: a foto vem da
   <strong>Wikimedia Commons</strong>, então o seu navegador busca a imagem lá e a Wikimedia vê o seu IP,
   como veria se você abrisse a página da foto. Ela não recebe quem você é nem o que você chutou — só um
@@ -65,14 +76,16 @@
 
   <h2>Como apagar</h2>
   <p>Em <strong>Perfil → Excluir conta</strong>, pelo menu da sua inicial no canto da barra. Apaga na hora, sem fila e sem pedir a ninguém: o registro de
-  login no Google, o perfil, todos os resultados e a participação em todos os grupos. Se você era dono de um
+  login (no Google, ou o de visitante), o perfil, todos os resultados e a participação em todos os grupos. Se você era dono de um
   grupo, o membro mais antigo assume. Nada fica para trás nos rankings: quem saiu simplesmente não aparece.</p>
 
   <h2>Quem responde</h2>
   <p>Paulo Lisecki, que mantém o jogo. Dúvidas sobre este texto: fale direto com ele.</p>
 </main>
 
-<footer><a href="./">Jogar</a> · <a href="./regras.html">Regras</a> · <a href="./creditos.html">Créditos</a></footer>
+<footer><a href="./">Jogar</a> · <a href="./regras.html">Regras</a> · <a href="./creditos.html">Créditos</a>
+  <small class="recaptcha">Protegido pelo reCAPTCHA: valem a <a href="https://policies.google.com/privacy">Política de Privacidade</a> e os <a href="https://policies.google.com/terms">Termos de Serviço</a> do Google.</small>
+</footer>
 <nav class="tabbar" aria-label="Seções">
   <a href="./">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3.3 9.2h17.4M3.3 14.8h17.4"/></svg>

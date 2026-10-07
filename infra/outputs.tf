@@ -43,6 +43,11 @@ output "firebase_config" {
   }
 }
 
+output "app_check_site_key" {
+  description = "reCAPTCHA Enterprise site key for App Check. Public; paste into site/app/firebase.js (SEC-18)."
+  value       = google_recaptcha_enterprise_key.app_check.name
+}
+
 # ------------------------------------------------------------------------------
 # GitHub Actions — set these as repository variables (not secrets; neither is one)
 #

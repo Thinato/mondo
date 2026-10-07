@@ -28,8 +28,10 @@ watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
   account: el.account, adminLink: el.adminLink, profile, setStatus,
   onUser: (u) => {
-    el.panel.hidden = !u;
-    if (u) loadUsers(true);
+    // A guest is nobody's admin: show the Google button rather than a refusal (D-85).
+    if (u?.isAnonymous) el.signedOut.hidden = false;
+    el.panel.hidden = !u || u.isAnonymous;
+    if (u && !u.isAnonymous) loadUsers(true);
   },
 });
 
@@ -77,7 +79,7 @@ function userRow(u) {
   else {
     const sel = document.createElement("select");
     sel.setAttribute("aria-label", `Papel de ${u.displayName}`);
-    for (const r of ["player", "organizer"]) {
+    for (const r of ["user", "invited"]) {
       const o = document.createElement("option"); o.value = r; o.textContent = t(`role.${r}`); o.selected = r === u.role; sel.append(o);
     }
     sel.addEventListener("change", async () => {

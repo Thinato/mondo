@@ -7,7 +7,7 @@
  * `ping` is the Phase 0 smoke test and stays as a cheap end-to-end probe.
  * `getRound` and `submitGuess` are the daily game (Phase 1); see round.ts.
  * `updateProfile` lets a player rename themselves (FR-1.3); see profile.ts.
- * Groups, invites and the play gate are Phase 2 (FR-4, FR-7, FR-1.7); see groups.ts.
+ * Groups and invites are Phase 2 (FR-4, FR-7); ranks are FR-10 (lib/authz.ts); see groups.ts.
  * Boards: leaderboard.ts. Admin dashboard: admin.ts. Account deletion: account.ts.
  * Scheduled jobs (D-11, NFR-6): standings.ts, health.ts.
  * Tournaments are Phase 3 (FR-5 as rewritten, FR-8); see tournaments.ts and
@@ -28,7 +28,7 @@ export {
   createGroup, createInvite, listInvites, revokeInvite, acceptInvite, leaveGroup, removeMember, renameGroup, listGroups,
 } from "./groups";
 export { getLeaderboard } from "./leaderboard";
-export { listUsers, setRole, listAllGroups, listAttempts, grantRetry, setCheated } from "./admin";
+export { listUsers, setRole, setShowAds, listAllGroups, listAttempts, grantRetry, setCheated } from "./admin";
 export { deleteAccount } from "./account";
 export {
   createTournament, setParticipation, startTournament, advanceTournament, cancelTournament,

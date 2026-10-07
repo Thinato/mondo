@@ -16,7 +16,7 @@ import {
   cardRef, dailySubjects, db, groupRef, memberRef, playRef, roundRef, roundsCol,
   runningTournaments, tournamentRef, tournamentsCol, tournamentsOf, userRef,
 } from "./db";
-import { isAdmin, requireCanPlay, requireOwner } from "./lib/authz";
+import { isAdmin, requireOwner } from "./lib/authz";
 import { callable } from "./lib/callable";
 import { parseSelfReport } from "./lib/report";
 import {
@@ -132,8 +132,8 @@ async function requireGroupOwner(tx: Transaction, gid: string, uid: string): Pro
  * The same check outside a transaction, run BEFORE anything expensive.
  *
  * `scheduledSubjects` is ~121 document reads, and it used to run before the
- * permission check — so any signed-in account, including one FR-1.7 bars from
- * playing, could spend 121 reads per request against an id it had never seen
+ * permission check — so any signed-in account, a guest included, could spend
+ * 121 reads per request against an id it had never seen
  * and never be told no. Two cheap document reads authorize first now; the
  * transaction still re-checks, because this one is advisory.
  */
@@ -839,16 +839,15 @@ async function loadPlayable(uid: string, tid: string, now: Timestamp): Promise<{
   if (!tSnap.exists) throw mondoError("not-found", "No such tournament.");
   const t = tSnap.data() as Tournament;
   if (!t.participantUids.includes(uid)) throw mondoError("not-a-participant", "You are not in this tournament.");
-  // Membership is re-checked on every play call, exactly as submitGuess
-  // re-checks requireCanPlay ("losing your last group closes the round too").
-  // The participant list is frozen at start and a departed player keeps their
+  // Membership is re-checked on every play call. The participant list is frozen at start and a departed player keeps their
   // slot so the standings fold keeps its shape (D-46) — but a slot is not a
   // licence to keep playing inside a group they have left or been removed from
-  // (FR-5.3, FR-1.7). Without this, `getTournament` denied an ex-member while
+  // (FR-5.3). Without this, `getTournament` denied an ex-member while
   // `getCard` kept serving them prompts.
-  const [memberSnap, profileSnap] = await Promise.all([memberRef(t.groupId, uid).get(), userRef(uid).get()]);
+  // (D-84 dropped the profile read beside it: a member is in a group by
+  // definition, which is all the old invitation gate ever asked.)
+  const memberSnap = await memberRef(t.groupId, uid).get();
   if (!memberSnap.exists) throw mondoError("permission-denied", "Members of this group only.");
-  requireCanPlay(profileSnap.exists ? (profileSnap.data() as Profile) : null);
   if (t.status !== "running" || t.currentRound === null) throw mondoError("tournament-not-open", "This tournament has no open round.");
 
   const rSnap = await roundRef(tid, t.currentRound).get();

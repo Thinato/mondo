@@ -2,10 +2,74 @@
 // the game shares. game.js keeps its own auth listener because it also resets
 // round state, but it uses the menu helpers below like everyone else.
 
-import { onAuthStateChanged, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+import {
+  GoogleAuthProvider, linkWithPopup, onAuthStateChanged, signInAnonymously, signInWithCredential, signInWithPopup,
+} from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import { auth, googleProvider } from "./firebase.js";
 import * as api from "./api.js";
 import { errorMessage, t } from "./i18n.js";
+
+/**
+ * Google sign-in. A guest is upgraded IN PLACE (FR-10.1): linking keeps the
+ * uid, so the day they are halfway through is still theirs afterwards, and the
+ * new ID token says google.com — which is all the server reads the rank from.
+ *
+ * If that Google account already plays here, linking is refused and we switch
+ * to it instead; the guest's day stays with the guest.
+ *
+ * Either way the page reloads: nothing fires onAuthStateChanged on a link (the
+ * user did not change), and a reload is the one way every page re-asks the
+ * server who it is talking to — an invite link included, which is how a guest
+ * who opened one gets into the group.
+ */
+export async function signInWithGoogle() {
+  const user = auth.currentUser;
+  if (!user?.isAnonymous) return void await signInWithPopup(auth, googleProvider);
+  try {
+    await linkWithPopup(user, googleProvider);
+  } catch (err) {
+    if (err?.code !== "auth/credential-already-in-use") throw err;
+    const credential = GoogleAuthProvider.credentialFromError(err);
+    if (!credential) throw err;
+    // That account's day is its own, so whatever the guest played here stays
+    // behind — say so rather than drop it silently. confirm() and not a
+    // <dialog>: this runs on whichever page the button was on.
+    if (!confirm(t("guestSwitch"))) return;
+    await signInWithCredential(auth, credential);
+  }
+  location.reload();
+}
+
+/**
+ * No session at all: become a guest straight away, so the game plays without a
+ * sign-in wall (D-84). If the project refuses anonymous sign-in — the provider
+ * not yet enabled — show the Google button instead, which is how every page
+ * worked before guests existed.
+ */
+export function playAsGuest(signedOut) {
+  signInAnonymously(auth).catch(() => { if (signedOut) signedOut.hidden = false; });
+}
+
+/**
+ * The account menu's last item: Sair for an account, Entrar com Google for a
+ * guest. Signing a guest out would only orphan their day and make another.
+ */
+export function wireAccountButton(button, setStatus) {
+  button?.addEventListener("click", () => (auth.currentUser?.isAnonymous ? googleClick(button, setStatus) : auth.signOut()));
+}
+
+export async function googleClick(button, setStatus) {
+  button.disabled = true;
+  setStatus(t("openingLogin"));
+  try { await signInWithGoogle(); setStatus(""); }
+  catch (err) { setStatus(errorMessage(err), "err"); }
+  finally { button.disabled = false; }
+}
+
+/** Sair for an account, Entrar com Google for a guest — see wireAccountButton. */
+export function labelAccountButton(button, user) {
+  if (button) button.textContent = user?.isAnonymous ? t("signIn") : t("signOut");
+}
 
 /**
  * Wires #sign-in / #sign-out and calls onUser(user|null) on every change.
@@ -18,18 +82,15 @@ import { errorMessage, t } from "./i18n.js";
  * what it was sent rather than asking twice.
  */
 export function watchAuth({ signIn, signOut, signedOut, account, adminLink, profile, setStatus, onUser }) {
-  signIn?.addEventListener("click", async () => {
-    signIn.disabled = true;
-    setStatus(t("openingLogin"));
-    try { await signInWithPopup(auth, googleProvider); setStatus(""); }
-    catch (err) { setStatus(errorMessage(err), "err"); }
-    finally { signIn.disabled = false; }
-  });
-  signOut?.addEventListener("click", () => auth.signOut());
+  signIn?.addEventListener("click", () => googleClick(signIn, setStatus));
+  wireAccountButton(signOut, setStatus);
   attachAccount(account);
   onAuthStateChanged(auth, (user) => {
-    if (signedOut) signedOut.hidden = Boolean(user);
-    if (signOut) signOut.hidden = !user;
+    if (!user) {
+      profile?.setName(""); // FR-1.6: the next person on this browser must not inherit a name
+      playAsGuest(signedOut);
+    } else if (signedOut) signedOut.hidden = true;
+    labelAccountButton(signOut, user);
     showAccount(account, user);
     if (adminLink) adminLink.hidden = true;
     if (user && (adminLink || profile)) identify({ account, user, adminLink, profile });

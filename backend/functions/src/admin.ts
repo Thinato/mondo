@@ -4,12 +4,12 @@
  * here ever returns an e-mail (FR-1.4); admin sees display names like everyone.
  *
  * D-29: admin is granted by tools/set-role.mjs only; setRole hands out
- * organizer/player. D-30: grantRetry resets today's attempt and keeps history.
+ * invited/user (D-84). D-30: grantRetry resets today's attempt and keeps history.
  * D-31: today's guesses are hidden until the admin has finished their own round.
  */
 
 import { FieldPath, Timestamp } from "firebase-admin/firestore";
-import { attemptRef, db, groupsCol, memberRef, playRef, puzzleDays, roundRef, userRef } from "./db";
+import { attemptRef, db, groupsCol, memberRef, membersCol, playRef, puzzleDays, roundRef, userRef } from "./db";
 import { groupsOf, requireAdmin, roleOf } from "./lib/authz";
 import { callable } from "./lib/callable";
 import { cardIntervalsMs, cardSelfReports, totalGuesses, type CardPlay } from "./lib/card";
@@ -21,7 +21,7 @@ import { countImpossible, reportExceedsInterval, type SelfReport } from "./lib/r
 import { intervalsMs, isChoiceGuess, isNumberGuess, puzzleItems, resetAttempt, selfReports, upgradeAttempt, type Attempt, type Profile, type Puzzle, type Role, type StoredGuess } from "./lib/round";
 import { shiftAllTime, streakFrom, windowDays } from "./lib/standings";
 import { playId, type TournamentRound } from "./lib/tournament";
-import { requireObject, requirePuzzleId, requireRole, requireUid } from "./lib/validate";
+import { requireBoolean, requireObject, requirePuzzleId, requireRole, requireUid } from "./lib/validate";
 
 const PAGE = 50;
 const REMOVED = "[removido]";
@@ -80,7 +80,7 @@ export const listUsers = callable<{ cursor?: unknown } | null | undefined, { use
   return { users, nextCursor: users.length === PAGE && last ? cursorOf(last.get("createdAt") as Timestamp, last.id) : null };
 });
 
-/** setRole({ uid, role }) — organizer or player, never an admin in either direction (FR-7.6, D-29), never yourself. */
+/** setRole({ uid, role }) — invited or user, never an admin in either direction (FR-7.6, D-29), never yourself. */
 export const setRole = callable<{ uid: unknown; role: unknown }, { ok: true }>(async (uid, data) => {
   await requireAdminCaller(uid);
   const input = requireObject(data);
@@ -97,6 +97,18 @@ export const setRole = callable<{ uid: unknown; role: unknown }, { ok: true }>(a
     }
     tx.update(userRef(target), { role });
   });
+  return { ok: true };
+});
+
+/**
+ * setShowAds({ showAds }) — an admin chooses to see the ads a user would
+ * (FR-10.4). Their own profile only; nobody else has the switch, because for
+ * everyone else ads follow from the rank.
+ */
+export const setShowAds = callable<{ showAds: unknown }, { ok: true }>(async (uid, data) => {
+  await requireAdminCaller(uid);
+  const showAds = requireBoolean(requireObject(data).showAds, "showAds");
+  await userRef(uid).update({ showAds });
   return { ok: true };
 });
 
@@ -299,7 +311,14 @@ export const listAttempts = callable<{ puzzleId?: unknown; uid?: unknown }, { at
   let plays: CardPlay[] = [];
   if (input.puzzleId !== undefined) {
     const puzzleId = requirePuzzleId(input.puzzleId);
-    attempts = (await db().collection("attempts").where("puzzleId", "==", puzzleId).get()).docs.map((d) => d.data() as Attempt);
+    // Group members only (D-84): the day of a guest or of a user in no group
+    // reaches no board, so there is nothing on it to catch — and with play open
+    // to the public, "every attempt of the day" stopped being a bounded read.
+    const groups = await groupsCol().get();
+    const members = await Promise.all(groups.docs.map((g) => membersCol(g.id).get()));
+    const uids = [...new Set(members.flatMap((m) => m.docs.map((d) => d.id)))];
+    const snaps = uids.length === 0 ? [] : await db().getAll(...uids.map((u) => attemptRef(u, puzzleId)));
+    attempts = snaps.flatMap((s) => (s.exists ? [s.data() as Attempt] : []));
   } else {
     const target = requireUid(input.uid);
     const [snaps, matchSnap] = await Promise.all([

@@ -31,9 +31,9 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
   uid stays and the personal data goes.)* Deletion MUST complete within 30 days and SHOULD be
   immediate.
 - **FR-1.6** Sign-out MUST clear all client state.
-- **FR-1.7** *(added 2026-09-09)* A signed-in user with role `player` and no group membership
-  MUST NOT be able to start or continue a round. They see an "you need an invitation" screen.
-  Playing is unlocked by accepting an invite (FR-4.3) or by holding a higher role (FR-7).
+- **FR-1.7** *(added 2026-09-09; **reversed 2026-10-04 by D-84**)* ~~A signed-in user with role
+  `player` and no group membership MUST NOT be able to start or continue a round.~~ Anyone signed
+  in plays, a guest included (FR-10.5). Invitations now admit to a group, not to the game.
 
 ## FR-2 — Daily puzzle
 
@@ -131,8 +131,8 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 
 ## FR-4 — Groups
 
-- **FR-4.1** *(amended 2026-09-09)* Only users with role `admin` or `organizer` (FR-7) MAY
-  create a group, with a name (3–40 chars).
+- **FR-4.1** *(amended 2026-09-09, 2026-10-04)* Only users of rank `admin`, `invited` or
+  `subscriber` (FR-10.3) MAY create a group, with a name (3–40 chars).
 - **FR-4.2** *(amended 2026-09-09, 2026-09-20)* Groups have **no public invite code**. An
   invitation is a token of 16 chars from the ambiguity-free alphabet
   `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, created by the group owner and revocable by them (D-32).
@@ -150,7 +150,8 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-4.7** The leaderboard MUST be filterable by window (all-time / 7d / 30d).
 - **FR-4.8** *(amended 2026-09-09, 2026-09-20)* The owner MUST be able to rename the group, create
   and revoke invites, and remove a member. Management rights follow **ownership**, not role
-  (FR-7.5) — an organizer invites to the groups they own and to no others. The owner MUST be able
+  (FR-7.5) — an invited player invites to the groups they own and to no others. *Creating* an
+  invite also needs a rank that may create groups (FR-10.3, D-84); revoking and listing do not. The owner MUST be able
   to see every live invite of their group with its **kind**, its **expiry**, how many accounts have
   joined through it, a way to **copy the link again**, and a way to **revoke** it.
 - **FR-4.9** A member MUST be able to leave a group. Their historical results stay but they
@@ -352,7 +353,8 @@ to test new challenges."*
 - **FR-9.5** Practice MUST NOT ask about a country the daily schedule is about to use
   (D-60). Without this, practising `gdp` is a way to look up today's answer: that prompt names
   its own country, so a player could click through the pool until it came up.
-- **FR-9.6** Practice is **invite-only**, on the same gate as the daily (FR-1.7).
+- **FR-9.6** *(reversed 2026-10-04 by D-84)* ~~Practice is invite-only.~~ Practice is open to
+  anyone signed in, like the daily (FR-10.5).
 - **FR-9.7** A session need not survive a reload. Reopening the page MAY start over.
 - **FR-9.9** *(added 2026-09-18, D-70)* A player MUST be able to restrict a practice session to
   **one or more continents** — África, América, Ásia, Europa, Oceania — and the session MUST then
@@ -376,17 +378,18 @@ to test new challenges."*
 
 ## FR-7 — Roles *(added 2026-09-09)*
 
-- **FR-7.1** Every user has exactly one role: `admin` > `organizer` > `player`. Roles are stored
-  server-side and MUST NOT be client-writable. New users are `player`.
+- **FR-7.1** *(amended 2026-10-04, D-84)* Every user has exactly one stored role: `admin`,
+  `invited` or `user` (the rank built on it is FR-10.1). Roles are stored server-side and MUST NOT
+  be client-writable. New users are `user`. `organizer` and `player` are pre-D-84 values, read by
+  the server as FR-10.2 maps them until `tools/migrate-tiers.mjs` has rewritten them.
 - **FR-7.2** `admin` MAY do everything below plus: list all users and all groups, view any
-  group's board, grant or remove `organizer`, grant a player an extra chance on today's puzzle
+  group's board, grant or remove `invited`, grant a player an extra chance on today's puzzle
   (the previous try is kept, D-30), and inspect attempts — guess timings for cheating checks;
   today's guesses only after the admin has finished their own round (D-31). No admin surface
   MUST ever expose an e-mail address (FR-1.4 applies to the admin too).
-- **FR-7.3** `organizer` MAY create groups and manage the groups they own; in Phase 3, create
-  tournaments in them.
-- **FR-7.4** `player` MAY play the daily once invited, practise (FR-9), view the boards of their
-  groups, and take part in tournaments of their groups.
+- **FR-7.3** *(amended 2026-10-04)* What each rank may do is FR-10.
+- **FR-7.4** *(amended 2026-10-04)* Every rank MAY play the daily and practise (FR-9); members of
+  a group MAY view its boards and take part in its tournaments.
 - **FR-7.5** Group **management** rights come from owning the group, not from the role: an admin
   sees every group but manages only the ones they own.
 - **FR-7.6** `admin` is granted only out of band (a maintainer script with ADC, D-29). The API
@@ -398,6 +401,34 @@ to test new challenges."*
   retryable. It MUST NOT be deleted, edited or zeroed in storage: the admin surfaces go on showing
   exactly what was played, which is what makes undoing it exact. The player's group MUST be told
   the day was voided (OQ-8), and so MUST the player. Never the caller's own attempt (D-35).
+
+## FR-10 — Ranks and ads *(added 2026-10-04, D-84)*
+
+- **FR-10.1** Every signed-in user has exactly one **rank**: `admin`, `invited`, `subscriber`,
+  `user` or `guest`. Only the role is stored (FR-7.1). `subscriber` is a `user` whose subscription
+  is `active` or `trialing` with `currentPeriodEnd` in the future (FR-11) — a date, so it lapses on
+  its own. `guest` is a `user` signed in anonymously, read off the verified ID token — a sign-in,
+  so it ends the moment the account links Google. An anonymous sign-in is a `guest` whatever is
+  stored (a role or subscription granted to that uid takes effect once it links Google, which keeps
+  the uid); otherwise a stored role outranks a subscription.
+- **FR-10.2** `invited` is a **closed list**. It is granted once, by `tools/migrate-tiers.mjs`, to
+  everyone who could play on 2026-10-04 — every `organizer`, and every `player` in at least one
+  group — and afterwards only by an admin through `setRole`. Accepting an invite MUST NOT grant it:
+  a user who joins a group stays a user.
+- **FR-10.3** `admin`, `invited` and `subscriber` MAY create groups. Creating an invite needs that
+  rank **and** owning the group (FR-7.5); listing and revoking need ownership only. A `user` who
+  owns a group — an heir under D-23, a lapsed subscriber — keeps it playing and cannot grow it.
+- **FR-10.4** `user` and `guest` see ads; `invited` and `subscriber` never do; an `admin` does only
+  after opting in (`setShowAds`). The server tells the page through `me.ads`. It decides what is
+  drawn and authorizes nothing — ads can be blocked — and a page whose `me.ads` is false MUST NOT
+  load an ad script at all.
+- **FR-10.5** Every rank MAY play the daily and practise. A `guest` MUST NOT join a group: a board
+  needs an identity that outlives the browser it was made in.
+
+## FR-11 — Subscriptions *(added 2026-10-04; Stripe, built in a later step)*
+
+- **FR-11.1** A subscription is kept on `users/{uid}.subscription` as Stripe's `status` and the
+  `currentPeriodEnd`, written by the Stripe webhook alone (never a client, FR-10.1 reads it).
 
 ## SEC — Security and anti-cheat
 
@@ -469,6 +500,11 @@ to test new challenges."*
   two together solve for the answer's centroid in closed form (D-36) — so a readable attempt
   defeated SEC-1 in one guess over the Firestore REST API, with no SDK involved. Every read the
   game performs goes through a callable that projects the 8-point compass instead.
+- **SEC-18** *(added 2026-10-07, D-85)* With play open to any uid, every callable MUST carry a valid
+  Firebase App Check token (reCAPTCHA Enterprise, site key restricted to `lisecki.dev`). It ships in
+  **monitor mode** — a missing token is logged as `APP_CHECK_MISSING`, not refused — and is enforced
+  by flipping `APP_CHECK_ENFORCED` once production shows the real page always carries one. The
+  emulator is exempt: it mints no tokens.
 
 ---
 

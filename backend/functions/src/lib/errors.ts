@@ -11,7 +11,6 @@ export type MondoErrorCode =
   | "invalid-argument"
   | "not-found"
   | "permission-denied"
-  | "not-invited"
   | "already-completed"
   | "no-guesses-remaining"
   | "rate-limited"
@@ -32,7 +31,6 @@ const HTTPS_CODE: Record<MondoErrorCode, FunctionsErrorCode> = {
   "invalid-argument": "invalid-argument",
   "not-found": "not-found",
   "permission-denied": "permission-denied",
-  "not-invited": "permission-denied", // FR-1.7: signed in, but nobody let them in yet
   "already-completed": "failed-precondition",
   "no-guesses-remaining": "failed-precondition",
   "rate-limited": "resource-exhausted",

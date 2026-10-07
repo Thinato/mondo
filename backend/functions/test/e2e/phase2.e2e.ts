@@ -57,10 +57,36 @@ async function newAccount(label: string): Promise<Account> {
 const code = (r: Res) => r.error?.details?.code ?? r.error?.status ?? null;
 const ok = (r: Res, what: string) => { assert.equal(r.status, 200, `${what}: ${JSON.stringify(r.error)}`); return r.result; };
 
-/** Creates the profile (getRound fails not-invited for a fresh player) then sets the role. */
-async function withRole(label: string, role: "admin" | "organizer"): Promise<Account> {
+/** A guest: the emulator signs up with no credential at all, which is what signInAnonymously does (FR-10.1). */
+async function newGuest(): Promise<Account> {
+  const r = await fetch(`${AUTH}/accounts:signUp?key=fake`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ returnSecureToken: true }),
+  }).then((x) => x.json() as Promise<Any>);
+  return { uid: r.localId, token: r.idToken, call: (fn, data = {}) => post(fn, data, r.idToken) };
+}
+
+/**
+ * What linkWithPopup does for a guest (FR-10.1): the emulator's fake Google
+ * IdP, given the guest's own ID token, links instead of signing in — same uid,
+ * a new token that says google.com.
+ */
+async function linkGoogle(guest: Account): Promise<Account> {
+  const idToken = encodeURIComponent(JSON.stringify({ sub: `g-${guest.uid}`, email: `${guest.uid.toLowerCase()}@example.com`, email_verified: true }));
+  const r = await fetch(`${AUTH}/accounts:signInWithIdp?key=fake`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ postBody: `id_token=${idToken}&providerId=google.com`, requestUri: "http://localhost", idToken: guest.token, returnSecureToken: true }),
+  }).then((x) => x.json() as Promise<Any>);
+  return { uid: r.localId, token: r.idToken, call: (fn, data = {}) => post(fn, data, r.idToken) };
+}
+
+/**
+ * Creates the profile, then sets the role. Through updateProfile rather than
+ * getRound: since D-84 getRound succeeds for anybody and would start a day the
+ * later tests do not expect this account to have open.
+ */
+async function withRole(label: string, role: "admin" | "invited"): Promise<Account> {
   const a = await newAccount(label);
-  await a.call("getRound", {});
+  ok(await a.call("updateProfile", { locale: "pt-BR" }), "create profile");
   await db.doc(`users/${a.uid}`).update({ role });
   return a;
 }
@@ -104,22 +130,48 @@ before(async () => {
     opensAt: Timestamp.fromDate(opensAt(TODAY)),
   });
   await db.doc(`puzzles/${YESTERDAY}`).set({ puzzleId: YESTERDAY, countryCode: "AR", tier: 1, opensAt: Timestamp.fromDate(opensAt(YESTERDAY)) });
-  organizer = await withRole("org", "organizer");
+  organizer = await withRole("org", "invited");
   player = await newAccount("player");
   third = await newAccount("third");
-  await third.call("getRound", {}); // profile exists, still uninvited
+  ok(await third.call("updateProfile", { locale: "pt-BR" }), "third's profile"); // a profile and no day open
 });
 
-test("1. FR-1.7: a fresh player is not invited — profile exists, no attempt is created", async () => {
-  const r = await player.call("getRound", {});
-  assert.equal(code(r), "not-invited");
-  assert.equal(await exists(`users/${player.uid}`), true);
-  assert.equal(await exists(`attempts/${player.uid}_${TODAY}`), false);
-  const g = await player.call("submitGuess", { puzzleId: TODAY, code: "PY" });
-  assert.ok(["not-invited", "not-found"].includes(code(g)), `submitGuess for an outsider: ${code(g)}`);
+test("1. D-84: nobody needs an invitation to play — a user and a guest both open the day", async () => {
+  const fresh = await newAccount("fresh");
+  const r = ok(await fresh.call("getRound", {}), "getRound for a user with no group");
+  assert.equal(r.status, "in_progress");
+  assert.deepEqual([r.me.role, r.me.rank, r.me.ads, r.me.groupCount], ["user", "user", true, 0]);
+  assert.equal(await exists(`attempts/${fresh.uid}_${TODAY}`), true);
+  await sleep(450);
+  ok(await fresh.call("submitGuess", { puzzleId: TODAY, code: "PY" }), "a user guesses");
+
+  const guest = await newGuest();
+  const g = ok(await guest.call("getRound", {}), "getRound for a guest");
+  assert.deepEqual([g.me.role, g.me.rank, g.me.ads], ["user", "guest", true]);
+  assert.equal((await doc(`users/${guest.uid}`)).role, "user", "a guest is a sign-in, never a stored role");
+  ok(await guest.call("startPractice", { kind: "flag" }), "a guest practises");
+  const list = ok(await guest.call("listGroups", {}), "listGroups for a guest");
+  assert.equal(list.canCreate, false);
+  assert.equal(list.me.rank, "guest");
+  assert.equal(code(await guest.call("createGroup", { name: "Visitas" })), "permission-denied");
+  // Even a guest whose rank could create one: the creator is the first member, and guests join nothing (FR-10.5).
+  await db.doc(`users/${guest.uid}`).update({ subscription: { status: "active", currentPeriodEnd: Timestamp.fromMillis(Date.now() + 86_400_000) } });
+  assert.equal(code(await guest.call("createGroup", { name: "Visitas" })), "permission-denied");
+
+  // Linking Google upgrades the guest in place: same uid, the day already open
+  // carries on, and the rank is now read off the new token (FR-10.1).
+  await sleep(450);
+  ok(await guest.call("submitGuess", { puzzleId: TODAY, code: "PY" }), "the guest guesses");
+  const linked = await linkGoogle(guest);
+  assert.equal(linked.uid, guest.uid, "linking keeps the uid");
+  const after = ok(await linked.call("getRound", {}), "getRound after linking");
+  assert.equal(after.cursor, 1, "the guest's day is the user's day");
+  // The subscription written above waited on the guest and applies now that it links (FR-10.1).
+  assert.equal(after.me.rank, "subscriber");
+  assert.equal(after.me.ads, false);
 });
 
-test("2. FR-4.1: organizer creates a group; a player cannot", async () => {
+test("2. FR-4.1: an invited player creates a group; a user cannot", async () => {
   const r = ok(await organizer.call("createGroup", { name: "Almoço" }), "createGroup");
   gid = r.groupId;
   assert.match(gid, /^[A-Za-z0-9]{20}$/);
@@ -144,6 +196,8 @@ test("3. FR-4.3: invite link → accept → the player can play", async () => {
   assert.ok(inv.url.endsWith(`grupos.html?convite=${inv.token}`));
   assert.equal(code(await player.call("createInvite", { groupId: gid })), "permission-denied");
 
+  // D-84: a guest is refused, and the refusal does not spend the single-use token.
+  assert.equal(code(await (await newGuest()).call("acceptInvite", { token: inv.token })), "permission-denied");
   const acc = ok(await player.call("acceptInvite", { token: inv.token.toLowerCase() }), "acceptInvite");
   assert.deepEqual(acc, { groupId: gid, name: "Almoço" });
   const m = await doc(`groups/${gid}/members/${player.uid}`);
@@ -158,9 +212,20 @@ test("3. FR-4.3: invite link → accept → the player can play", async () => {
   const round = ok(await player.call("getRound", {}), "getRound after invite");
   assert.equal(round.status, "in_progress");
   assert.deepEqual(round.me, {
-    displayName: (await doc(`users/${player.uid}`)).displayName, role: "player", groupCount: 1,
+    displayName: (await doc(`users/${player.uid}`)).displayName, role: "user", rank: "user", ads: true, groupCount: 1,
     currentStreak: 0, longestStreak: 0, totalPlayed: 0, totalSolved: 0,
-  });
+  }, "D-84: Invited is a closed list — joining a group is not an invitation to the tier");
+  assert.equal(code(await player.call("createGroup", { name: "Meu grupo" })), "permission-denied", "still a user after joining");
+
+  // The migration window (D-84): a legacy player nobody had let in joins, and the
+  // role is frozen as it read BEFORE the join — never as "player in a group".
+  const legacy = await newAccount("legacy");
+  ok(await legacy.call("updateProfile", { locale: "pt-BR" }), "legacy profile");
+  await db.doc(`users/${legacy.uid}`).update({ role: "player" });
+  ok(await legacy.call("acceptInvite", { token: ok(await organizer.call("createInvite", { groupId: gid }), "inv").token }), "legacy joins");
+  assert.equal((await doc(`users/${legacy.uid}`)).role, "user");
+  assert.equal(ok(await legacy.call("listGroups", {}), "listGroups").me.rank, "user");
+  ok(await legacy.call("leaveGroup", { groupId: gid }), "legacy leaves");
   assert.equal(round.itemCount, 4, "D-52/D-53: a day is one challenge of every kind");
   const jp = gdpFor("JP")!;
   const done = ok(await play(player, ["PY", "BR", "IT", jp]), "solve the day");
@@ -346,7 +411,7 @@ test("6. FR-7.2: admin dashboard callables, gates, retry", async () => {
   const users = ok(await admin.call("listUsers", {}), "listUsers");
   assert.ok(users.users.length >= 4);
   assert.ok(!JSON.stringify(users).includes("@"), "no e-mail leaves listUsers (FR-1.4)");
-  assert.equal(users.users.find((u: Any) => u.uid === organizer.uid).role, "organizer");
+  assert.equal(users.users.find((u: Any) => u.uid === organizer.uid).role, "invited");
   assert.equal(users.users.find((u: Any) => u.uid === player.uid).groupCount, 1);
 
   const groups = ok(await admin.call("listAllGroups", {}), "listAllGroups");
@@ -395,18 +460,28 @@ test("6. FR-7.2: admin dashboard callables, gates, retry", async () => {
   assert.equal(code(await admin.call("listAttempts", { uid: player.uid, puzzleId: TODAY })), "invalid-argument");
 
   for (const fn of ["listUsers", "listAllGroups"]) assert.equal(code(await organizer.call(fn, {})), "permission-denied", fn);
-  assert.equal(code(await organizer.call("setRole", { uid: player.uid, role: "organizer" })), "permission-denied");
+  assert.equal(code(await organizer.call("setRole", { uid: player.uid, role: "invited" })), "permission-denied");
   assert.equal(code(await player.call("grantRetry", { uid: player.uid, puzzleId: TODAY })), "permission-denied");
   assert.equal(code(await admin.call("setRole", { uid: player.uid, role: "admin" })), "invalid-argument");
-  assert.equal(code(await admin.call("setRole", { uid: admin.uid, role: "player" })), "invalid-argument");
+  assert.equal(code(await admin.call("setRole", { uid: admin.uid, role: "user" })), "invalid-argument");
+  assert.equal(code(await admin.call("setRole", { uid: third.uid, role: "organizer" })), "invalid-argument", "D-84: legacy roles are not grantable");
   // FR-7.6: an admin is not demotable through the API either, only by tools/set-role.mjs.
   await db.doc(`users/${third.uid}`).update({ role: "admin" });
-  assert.equal(code(await admin.call("setRole", { uid: third.uid, role: "player" })), "invalid-argument", "admin cannot demote an admin");
-  await db.doc(`users/${third.uid}`).update({ role: "player" });
-  assert.equal(code(await admin.call("setRole", { uid: "nobodyHere000000000000000001", role: "player" })), "not-found");
-  ok(await admin.call("setRole", { uid: third.uid, role: "organizer" }), "setRole");
-  assert.equal((await doc(`users/${third.uid}`)).role, "organizer");
-  ok(await admin.call("setRole", { uid: third.uid, role: "player" }), "setRole back");
+  assert.equal(code(await admin.call("setRole", { uid: third.uid, role: "user" })), "invalid-argument", "admin cannot demote an admin");
+  await db.doc(`users/${third.uid}`).update({ role: "user" });
+  assert.equal(code(await admin.call("setRole", { uid: "nobodyHere000000000000000001", role: "user" })), "not-found");
+  ok(await admin.call("setRole", { uid: third.uid, role: "invited" }), "setRole");
+  assert.equal((await doc(`users/${third.uid}`)).role, "invited");
+  ok(await admin.call("setRole", { uid: third.uid, role: "user" }), "setRole back");
+
+  // FR-10.4: the admin's own ad switch, and nobody else's.
+  assert.equal(code(await organizer.call("setShowAds", { showAds: true })), "permission-denied");
+  assert.equal(code(await admin.call("setShowAds", { showAds: "yes" })), "invalid-argument");
+  assert.equal(ok(await admin.call("listGroups", {}), "listGroups").me.ads, false, "an admin sees no ads by default");
+  ok(await admin.call("setShowAds", { showAds: true }), "setShowAds on");
+  assert.deepEqual(ok(await admin.call("listGroups", {}), "listGroups").me, { displayName: (await doc(`users/${admin.uid}`)).displayName, role: "admin", rank: "admin", ads: true });
+  ok(await admin.call("setShowAds", { showAds: false }), "setShowAds off");
+  assert.equal(ok(await admin.call("listGroups", {}), "listGroups").me.ads, false);
 
   assert.equal(code(await admin.call("grantRetry", { uid: player.uid, puzzleId: YESTERDAY })), "puzzle-not-open");
   assert.equal(code(await admin.call("grantRetry", { uid: admin.uid, puzzleId: TODAY })), "invalid-argument", "no self-granted retry");
@@ -541,11 +616,12 @@ test("7b. FR-7.7 / D-82: voiding a day removes it from every board and puts noth
 });
 
 test("8. D-23: owner succession and dissolution", async () => {
-  const owner = await withRole("owner2", "organizer");
+  const owner = await withRole("owner2", "invited");
   const member = await newAccount("member2");
   const g2 = ok(await owner.call("createGroup", { name: "Família" }), "createGroup").groupId;
   const inv = ok(await owner.call("createInvite", { groupId: g2 }), "createInvite");
   ok(await member.call("acceptInvite", { token: inv.token }), "acceptInvite");
+  const pending = ok(await owner.call("createInvite", { groupId: g2 }), "an invite left waiting");
   assert.equal(code(await member.call("removeMember", { groupId: g2, uid: owner.uid })), "permission-denied");
   assert.equal(code(await owner.call("removeMember", { groupId: g2, uid: owner.uid })), "invalid-argument");
 
@@ -554,16 +630,32 @@ test("8. D-23: owner succession and dissolution", async () => {
   assert.equal((await doc(`groups/${g2}`)).memberCount, 1);
   assert.equal((await doc(`groups/${g2}/members/${member.uid}`)).role, "owner");
   assert.equal(await exists(`groups/${g2}/members/${owner.uid}`), false);
-  assert.equal((await doc(`users/${member.uid}`)).role, "player", "no global role is granted: ownership carries the rights (FR-7.5)");
+  assert.equal((await doc(`users/${member.uid}`)).role, "user", "no global role is granted: ownership carries the rights (FR-7.5)");
   assert.equal(code(await member.call("createGroup", { name: "Outro" })), "permission-denied", "owning a group does not unlock creating them (FR-4.1)");
   assert.deepEqual((await doc(`users/${owner.uid}`)).groups, []);
   assert.equal(code(await owner.call("leaveGroup", { groupId: g2 })), "not-found");
 
-  ok(await member.call("renameGroup", { groupId: g2, name: "Família Nova" }), "new owner renames despite being a player");
-  const pending = ok(await member.call("createInvite", { groupId: g2 }), "new owner invites");
+  ok(await member.call("renameGroup", { groupId: g2, name: "Família Nova" }), "new owner renames despite being a user");
+  // FR-10.3 / D-84: an heir who is a user keeps the group playing and cannot grow it,
+  // but can still see and shut the links already out there.
+  assert.equal(code(await member.call("createInvite", { groupId: g2 })), "permission-denied");
+  assert.equal(ok(await member.call("listInvites", { groupId: g2 }), "listInvites").invites.length, 1);
+  // ...and the link the old owner left out there stops working too, without being spent.
+  const newcomer = await newAccount("newcomer2");
+  assert.equal(code(await newcomer.call("acceptInvite", { token: pending.token })), "invalid-invite");
+  assert.equal((await doc(`invites/${pending.token}`)).usedBy, null);
+  // A subscription is the door back in, and it is a date: a lapsed one is no door at all.
+  const sub = (ms: number) => db.doc(`users/${member.uid}`).update({ subscription: { status: "active", currentPeriodEnd: Timestamp.fromMillis(Date.now() + ms) } });
+  await sub(-60_000);
+  assert.equal(code(await member.call("createInvite", { groupId: g2 })), "permission-denied", "a lapsed subscriber");
+  await sub(30 * 86_400_000);
+  const fresh = ok(await member.call("createInvite", { groupId: g2 }), "a subscriber invites");
+  assert.equal(ok(await member.call("listGroups", {}), "listGroups").canCreate, true);
+  assert.equal(ok(await member.call("getRound", {}), "getRound").me.ads, false, "a subscriber sees no ads");
   ok(await member.call("leaveGroup", { groupId: g2 }), "last member leaves");
   assert.equal(await exists(`groups/${g2}`), false);
   assert.equal(await exists(`invites/${pending.token}`), false, "pending invites go with the group");
+  assert.equal(await exists(`invites/${fresh.token}`), false);
   assert.deepEqual((await doc(`users/${member.uid}`)).groups, []);
 });
 
@@ -579,7 +671,7 @@ test("8b. finding 6: expired invites are swept and deletion takes the uid with i
 });
 
 test("9. FR-1.5: deleteAccount removes the user everywhere and hands the group over", async () => {
-  const owner = await withRole("owner3", "organizer");
+  const owner = await withRole("owner3", "invited");
   const other = await newAccount("member3");
   const g3 = ok(await owner.call("createGroup", { name: "Escritório" }), "createGroup").groupId;
   ok(await other.call("acceptInvite", { token: ok(await owner.call("createInvite", { groupId: g3 }), "inv").token }), "join");
@@ -605,7 +697,7 @@ test("9. FR-1.5: deleteAccount removes the user everywhere and hands the group o
 
 test("10. FR-2.13 / D-61: giving up scores zero, hands over the answer, and still finishes the day", async () => {
   // Its own group, so nothing here moves a board another test asserts on.
-  const owner = await withRole("owner4", "organizer");
+  const owner = await withRole("owner4", "invited");
   const quitter = await newAccount("quitter");
   const g4 = ok(await owner.call("createGroup", { name: "Desistentes" }), "createGroup").groupId;
   ok(await quitter.call("acceptInvite", { token: ok(await owner.call("createInvite", { groupId: g4 }), "inv").token }), "join");
@@ -638,13 +730,13 @@ test("10. FR-2.13 / D-61: giving up scores zero, hands over the answer, and stil
   assert.ok(stored.finishedAt, "the attempt was never closed");
 
   assert.equal(code(await quitter.call("giveUp", { puzzleId: TODAY })), "already-completed");
-  // FR-1.7 applies here as everywhere else.
-  assert.equal(code(await third.call("giveUp", { puzzleId: TODAY })), "not-invited");
+  // No invitation gate since D-84: someone who never opened the day has nothing to give up on.
+  assert.equal(code(await third.call("giveUp", { puzzleId: TODAY })), "not-found");
 });
 
 test("11. SEC-16 / D-77: a self-report rides with the guess, is bounded by the server's clock, and never has to be there", async () => {
   // Its own group, like test 10: nothing here moves a board another test asserts on.
-  const owner = await withRole("owner5", "organizer");
+  const owner = await withRole("owner5", "invited");
   const reporter = await newAccount("reporter");
   const g5 = ok(await owner.call("createGroup", { name: "Relatos" }), "createGroup").groupId;
   ok(await reporter.call("acceptInvite", { token: ok(await owner.call("createInvite", { groupId: g5 }), "inv").token }), "join");

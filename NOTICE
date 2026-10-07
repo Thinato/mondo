@@ -9,10 +9,11 @@ step. Data listed here is processed offline at
 build time by tools/build-geo.mjs, tools/build-flags.mjs, tools/build-gdp.mjs and
 tools/build-people.mjs; none of it is fetched at request time.
 
-The ONE exception is the photograph in a "where was this person born?" challenge
-(D-78), which the player's browser fetches from Wikimedia Commons as the page
-renders. Nothing else in the game reaches outside lisecki.dev at play time, and
-site/privacidade.html says so.
+Two things are fetched by the player's browser at play time, and
+site/privacidade.html names both: the photograph in a "where was this person
+born?" challenge (D-78), from Wikimedia Commons, and Google reCAPTCHA Enterprise,
+which App Check uses to tell the real page from a script (SEC-18, D-85). Google's
+fonts and the Firebase SDK load from Google's CDN as they always have.
 
 
 -------------------------------------------------------------------------------

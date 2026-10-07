@@ -1,6 +1,10 @@
+import * as logger from "firebase-functions/logger";
 import { onCall, type CallableRequest, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule, type ScheduledEvent } from "firebase-functions/v2/scheduler";
-import { ALLOWED_ORIGINS, PUZZLE_TIMEZONE, REGION, RUNTIME_SERVICE_ACCOUNT } from "./config";
+import { ALLOWED_ORIGINS, APP_CHECK_ENFORCED, PUZZLE_TIMEZONE, REGION, RUNTIME_SERVICE_ACCOUNT } from "./config";
+
+/** The emulator mints no App Check tokens, and the e2e suite posts raw HTTP. */
+const EMULATED = process.env.FUNCTIONS_EMULATOR === "true";
 
 /**
  * Wraps `onCall` so that region and CORS are set identically everywhere (SEC-9),
@@ -18,6 +22,9 @@ export function callable<Req, Res>(
       region: REGION,
       cors: ALLOWED_ORIGINS,
       serviceAccount: RUNTIME_SERVICE_ACCOUNT,
+      // SEC-18 / D-85: with play open to anyone who can mint a uid, App Check is
+      // what keeps a script from spending Firestore on the game's behalf.
+      enforceAppCheck: APP_CHECK_ENFORCED && !EMULATED,
       // Generous enough for a guess round-trip (NFR-1: p95 < 600ms) without
       // letting a wedged handler burn budget.
       timeoutSeconds: 30,
@@ -43,9 +50,21 @@ export function callable<Req, Res>(
       if (!request.auth?.uid) {
         throw new HttpsError("unauthenticated", "Sign in to play.");
       }
+      // Monitor mode (SEC-18): count the calls enforcement would refuse. When
+      // this goes quiet for the real site, APP_CHECK_ENFORCED can be flipped.
+      if (!request.app && !EMULATED) logger.warn("APP_CHECK_MISSING", { origin: request.rawRequest.headers.origin ?? null });
       return handler(request.auth.uid, request.data, request);
     },
   );
+}
+
+/**
+ * How the caller signed in — "google.com", or "anonymous" for a guest (FR-10.1).
+ * Verified by the SDK with the rest of the ID token, so a client cannot claim
+ * to be anything it is not; `rankOf` in lib/authz.ts is its reader.
+ */
+export function signInProvider(request: CallableRequest<unknown>): string | undefined {
+  return request.auth?.token.firebase?.sign_in_provider;
 }
 
 /**

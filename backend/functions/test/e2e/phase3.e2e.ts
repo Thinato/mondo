@@ -58,18 +58,18 @@ const code = (r: Res) => r.error?.details?.code ?? r.error?.status ?? null;
 const ok = (r: Res, what: string) => { assert.equal(r.status, 200, `${what}: ${JSON.stringify(r.error)}`); return r.result; };
 const doc = async (path: string) => (await db.doc(path).get()).data() as Any;
 
-let owner: Account;   // organizer, owns the group
+let owner: Account;   // invited, owns the group
 let ana: Account;     // member and participant
 let bruno: Account;   // member who joins but never plays — the forfeit (FR-5.7)
 let carla: Account;   // in NO group: the outsider
 let gid: string;
 let tid: string;
 
-/** A fresh account with the organizer role, so it can own a group. */
+/** A fresh account with the invited role, so it can own a group (D-84). */
 async function withOrganizer(label: string): Promise<Account> {
   const a = await newAccount(label);
-  await a.call("getRound", {});
-  await db.doc(`users/${a.uid}`).update({ role: "organizer" });
+  await a.call("updateProfile", { locale: "pt-BR" });
+  await db.doc(`users/${a.uid}`).update({ role: "invited" });
   return a;
 }
 
@@ -86,8 +86,8 @@ before(async () => {
   });
 
   owner = await newAccount("t3-owner");
-  await owner.call("getRound", {});
-  await db.doc(`users/${owner.uid}`).update({ role: "organizer" });
+  await owner.call("updateProfile", { locale: "pt-BR" });
+  await db.doc(`users/${owner.uid}`).update({ role: "invited" });
   gid = ok(await owner.call("createGroup", { name: "Torneios e2e" }), "createGroup").groupId;
 
   for (const label of ["t3-ana", "t3-bruno"]) {

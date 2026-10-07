@@ -149,11 +149,15 @@ longestStreak  number
 totalPlayed    number
 totalSolved    number
 locale         "pt-BR" | "en"
-role           "admin" | "organizer" | "player"   FR-7; functions-only (D-27, D-29); absent → player
+role           "admin" | "invited" | "user"       FR-7.1; functions-only (D-27, D-29, D-84);
+                                                  legacy "organizer"/"player"/absent read per FR-10.2
 groups         string[]                          membership index, ≤ 10 (FR-4.4, D-27); absent → []
+showAds?       boolean                           admin only, setShowAds (FR-10.4)
+subscription?  { status, currentPeriodEnd }      Stripe webhook only (FR-11.1)
 ```
 
-Play is allowed when `role !== "player" || groups.length > 0` (FR-1.7, D-28).
+The rank (FR-10.1) is derived per request by `rankOf` in `lib/authz.ts` from `role`,
+`subscription` and the token's `firebase.sign_in_provider`. Nothing gates play (D-84).
 
 Note: **email is deliberately not stored here.** It lives only in the Auth record, which
 clients cannot enumerate. This is the mechanism behind FR-1.4.
@@ -456,22 +460,28 @@ minus the guess — same gate, same attempt document, same `recordCompletion` wh
 challenge that ends the day, so the profile in the response is the one this call just wrote
 (D-58). Not rate-limited: it can happen once per challenge.
 
-### Play gate (FR-1.7)
-`getRound` and `submitGuess` throw `not-invited` for a `player` with no groups, before any attempt
-document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
+### Ranks (FR-10; the FR-1.7 play gate is gone, D-84)
+Anyone signed in may play and practise. `getRound.me` and `listGroups.me` carry
+`{ displayName, role, rank, ads }` (plus the counters on `getRound`); `ads` decides what is drawn
+and authorizes nothing (FR-10.4).
+
+A browser with no session signs in anonymously on load (a guest, D-85); "Entrar com Google" on a
+guest is `linkWithPopup`, same uid. Every callable is behind App Check with reCAPTCHA Enterprise
+(SEC-18), in monitor mode until `APP_CHECK_ENFORCED` is flipped: a call without a token is logged
+as `APP_CHECK_MISSING` and served.
 
 ### Groups (FR-4 as amended)
-- `createGroup({ name })` → `{ groupId }` — admin/organizer only
-- `createInvite({ groupId })` → `{ token, url, expiresAt }` — owner only; `url` is `…/grupos.html?convite=<token>`;
+- `createGroup({ name })` → `{ groupId }` — admin, invited or subscriber (FR-10.3)
+- `createInvite({ groupId })` → `{ token, url, expiresAt }` — owner who may create groups (FR-10.3); `url` is `…/grupos.html?convite=<token>`;
   at most 20 may be pending per group
 - `listInvites({ groupId })` → pending invites — owner only
 - `revokeInvite({ token })` — owner only, idempotent
-- `acceptInvite({ token })` → `{ groupId, name }` — transactional, consumes the token, backfills the
+- `acceptInvite({ token })` → `{ groupId, name }` — never a guest (FR-10.5); grants membership, never a rank (FR-10.2); transactional, consumes the token, backfills the
   joiner's last 30 closed days from their attempts; errors `invalid-invite`, `group-full`, `too-many-groups`.
   A caller who is already a member is sent to the board **without** consuming the token, so a forwarded
   link is not burned on someone who did not need it
 - `leaveGroup({ groupId })`, `removeMember({ groupId, uid })` (owner), `renameGroup({ groupId, name })` (owner)
-- `listGroups({})` → `[{ groupId, name, memberCount, isOwner }]`
+- `listGroups({})` → `{ groups: [{ groupId, name, memberCount, isOwner }], canCreate, me }`
 - `getLeaderboard({ groupId })` → members or admin only:
   ```jsonc
   { "group": { "groupId", "name", "memberCount", "maxMembers", "isOwner", "ownerDisplayName" },
@@ -486,7 +496,8 @@ document is created. `getRound.me` carries `{ displayName, role, groupCount }`.
 
 ### Admin (FR-7.2; role `admin`, else `permission-denied`)
 - `listUsers({ cursor? })` → 50 per page by `createdAt`; no e-mail, ever
-- `setRole({ uid, role })` — `organizer` | `player`; never `admin` in either direction, never yourself (FR-7.6, D-35)
+- `setRole({ uid, role })` — `invited` | `user`; never `admin` in either direction, never yourself (FR-7.6, D-35)
+- `setShowAds({ showAds })` — the calling admin's own ad switch (FR-10.4)
 - `listAllGroups({})`
 - `listAttempts({ puzzleId } | { uid })` → per attempt: state, counts, `elapsedMs`, `suspicious`,
   `retries`, `intervalsMs` (start→first guess, guess→guess), `cheated`, and `items[]` — one row per
@@ -555,7 +566,7 @@ path into a screen with no state worth defending.
   user last; every step idempotent
 
 ### Error codes
-`unauthenticated`, `invalid-argument`, `not-found`, `permission-denied`, `not-invited`,
+`unauthenticated`, `invalid-argument`, `not-found`, `permission-denied`,
 `already-completed`, `no-guesses-remaining`, `rate-limited`, `puzzle-not-open`, `group-full`,
 `too-many-groups`, `invalid-invite`, `challenge-expired`.
 

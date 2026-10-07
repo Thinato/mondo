@@ -110,10 +110,12 @@ backend.
   justification — read it before shortening the token, lengthening the 48 hours, or dropping the use
   counter, because each of those is the mitigation the trade rests on. **Single-use is the default**
   for a request that names no mode, so a cached client keeps minting what it always did.
-- **Inviting is the owner's, not the organizer's** (FR-4.8, FR-7.5). `createInvite` calls
-  `requireOwner`, so an organizer invites to the groups they made and an admin to theirs; the role
-  is what lets you *create* a group, never what lets you into someone else's. A `player` who
-  inherits a group under D-23 can invite to it, and that is correct.
+- **Inviting needs the group AND the rank** (FR-4.8, FR-7.5, FR-10.3). `createInvite` calls
+  `requireOwner` — the role never lets you into someone else's group — and then
+  `requireCanCreateGroup`, because since D-84 an invite is what grows a group and growing is what
+  invited players and subscribers have. A `user` who inherits a group under D-23, or a subscriber
+  who lapses, keeps the group playing and cannot invite; listing and revoking stay owner-only so
+  they can always shut a link.
 - **The practice continent filter is an exclusion, not a second pool** (FR-9.9, D-70). Every
   country outside the chosen continents joins the set `buildCard` already excludes, so tier
   weighting, option-building and the empty-pool error keep working without knowing the filter
@@ -181,7 +183,8 @@ backend.
   have no article and their reveal is unchanged. Re-running the build with `--only-about` adds the
   two fields **without touching the set**, because production's seeded days name their person by
   `wd` and a full rebuild re-draws from Pantheon (D-80).
-- **The photo comes from Wikimedia, and it is the only thing in the game that does** (D-78). Paulo
+- **The photo comes from Wikimedia, and it is the only game CONTENT that does** (D-78). (reCAPTCHA,
+  D-85, is the other third party at play time, and it carries nothing of the game.) Paulo
   chose hotlinking over vendoring, so a challenge must survive the image never arriving —
   `renderPerson` hides the whole figure and the name carries the question alone — and
   `site/privacidade.html` has to keep saying the request happens. The URL is the
@@ -257,9 +260,25 @@ backend.
   build. Do not add a read of `assets/` back.
 - Local runs use the `demo-mondo` project id and `npx firebase-tools`, not the Homebrew
   `firebase` binary. See `docs/02-architecture.md` §8.
-- **Playing is invite-only** (FR-1.7, D-28): a `player` with no group gets `not-invited`. Groups
-  have no public code; invitations are single-use 7-day tokens (D-32). Roles `admin > organizer
-  > player` (FR-7) live on the profile; admin is granted only by `tools/set-role.mjs` (D-29).
+- **A visitor is a guest before they are anything else** (FR-10.1, D-85). Every page signs a
+  sessionless browser in anonymously, so the daily plays with no wall; "Entrar com Google" on a guest
+  is `linkWithPopup`, which keeps the uid and so keeps the day, then reloads so every page re-asks the
+  server who it is — an invite link in the URL included. `#signed-out` is the fallback for a project
+  that refuses anonymous sign-in, never the front door. **App Check (SEC-18) ships in monitor mode**:
+  `APP_CHECK_ENFORCED` in `lib/config.ts` is false and `callable()` logs `APP_CHECK_MISSING` instead
+  of refusing. Flip it in a commit of its own once production logs show only stray callers — a key
+  whose allowed domain is wrong fails closed, for every player at once. App Check costs one reCAPTCHA
+  assessment per token refresh (10,000 free a month), so `token_ttl` in `infra/main.tf` is the lever.
+- **Playing is open; Invited is a closed list** (FR-10, D-84, which reversed D-28). Anyone signed
+  in plays and practises, a guest included. Five ranks — `admin`, `invited`, `subscriber`, `user`,
+  `guest` — and only `role` (`admin | invited | user`) is stored: a guest is read off the token's
+  `sign_in_provider`, a subscriber off `subscription.currentPeriodEnd`, so neither needs anything to
+  demote it. **Accepting an invite grants membership and never a rank**; `invited` came from
+  `tools/migrate-tiers.mjs` once and since then only from an admin's `setRole`. Do not "simplify"
+  that into joining-makes-you-invited: every invited player could then make anyone ad-free, and
+  ads and subscriptions would have nothing left to sell. `me.ads` decides what is drawn and
+  authorizes nothing. Groups still have no public code (D-32); admin is still granted only by
+  `tools/set-role.mjs` (D-29).
 - **The daily and a tournament round are the same act** (D-52, which reversed D-45): both are a
   card of N challenges played one at a time, so the transitions live once in `lib/card.ts` and
   `lib/round.ts` keeps only what a *day* has — the schedule, the streak, the share grid, and the
