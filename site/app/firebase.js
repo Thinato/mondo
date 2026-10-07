@@ -36,7 +36,7 @@ const firebaseConfig = {
 // From `cd infra && terraform output -raw app_check_site_key`. Empty means App
 // Check is not started, which the server tolerates while APP_CHECK_ENFORCED is
 // false — so this file can ship before the key exists.
-const APP_CHECK_SITE_KEY = "";
+const APP_CHECK_SITE_KEY = "6Lfd8uMtAAAAAOOfTXLy1aTYL8ZwoQOdUIFcw25b";
 
 // Players are in São Paulo, and so is everything else (D-9).
 const REGION = "southamerica-east1";
