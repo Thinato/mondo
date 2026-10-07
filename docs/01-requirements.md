@@ -500,6 +500,11 @@ to test new challenges."*
   two together solve for the answer's centroid in closed form (D-36) — so a readable attempt
   defeated SEC-1 in one guess over the Firestore REST API, with no SDK involved. Every read the
   game performs goes through a callable that projects the 8-point compass instead.
+- **SEC-18** *(added 2026-10-07, D-85)* With play open to any uid, every callable MUST carry a valid
+  Firebase App Check token (reCAPTCHA Enterprise, site key restricted to `lisecki.dev`). It ships in
+  **monitor mode** — a missing token is logged as `APP_CHECK_MISSING`, not refused — and is enforced
+  by flipping `APP_CHECK_ENFORCED` once production shows the real page always carries one. The
+  emulator is exempt: it mints no tokens.
 
 ---
 

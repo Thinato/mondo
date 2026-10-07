@@ -183,7 +183,8 @@ backend.
   have no article and their reveal is unchanged. Re-running the build with `--only-about` adds the
   two fields **without touching the set**, because production's seeded days name their person by
   `wd` and a full rebuild re-draws from Pantheon (D-80).
-- **The photo comes from Wikimedia, and it is the only thing in the game that does** (D-78). Paulo
+- **The photo comes from Wikimedia, and it is the only game CONTENT that does** (D-78). (reCAPTCHA,
+  D-85, is the other third party at play time, and it carries nothing of the game.) Paulo
   chose hotlinking over vendoring, so a challenge must survive the image never arriving —
   `renderPerson` hides the whole figure and the name carries the question alone — and
   `site/privacidade.html` has to keep saying the request happens. The URL is the
@@ -259,6 +260,15 @@ backend.
   build. Do not add a read of `assets/` back.
 - Local runs use the `demo-mondo` project id and `npx firebase-tools`, not the Homebrew
   `firebase` binary. See `docs/02-architecture.md` §8.
+- **A visitor is a guest before they are anything else** (FR-10.1, D-85). Every page signs a
+  sessionless browser in anonymously, so the daily plays with no wall; "Entrar com Google" on a guest
+  is `linkWithPopup`, which keeps the uid and so keeps the day, then reloads so every page re-asks the
+  server who it is — an invite link in the URL included. `#signed-out` is the fallback for a project
+  that refuses anonymous sign-in, never the front door. **App Check (SEC-18) ships in monitor mode**:
+  `APP_CHECK_ENFORCED` in `lib/config.ts` is false and `callable()` logs `APP_CHECK_MISSING` instead
+  of refusing. Flip it in a commit of its own once production logs show only stray callers — a key
+  whose allowed domain is wrong fails closed, for every player at once. App Check costs one reCAPTCHA
+  assessment per token refresh (10,000 free a month), so `token_ttl` in `infra/main.tf` is the lever.
 - **Playing is open; Invited is a closed list** (FR-10, D-84, which reversed D-28). Anyone signed
   in plays and practises, a guest included. Five ranks — `admin`, `invited`, `subscriber`, `user`,
   `guest` — and only `role` (`admin | invited | user`) is stored: a guest is read off the token's

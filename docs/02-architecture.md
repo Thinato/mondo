@@ -465,6 +465,11 @@ Anyone signed in may play and practise. `getRound.me` and `listGroups.me` carry
 `{ displayName, role, rank, ads }` (plus the counters on `getRound`); `ads` decides what is drawn
 and authorizes nothing (FR-10.4).
 
+A browser with no session signs in anonymously on load (a guest, D-85); "Entrar com Google" on a
+guest is `linkWithPopup`, same uid. Every callable is behind App Check with reCAPTCHA Enterprise
+(SEC-18), in monitor mode until `APP_CHECK_ENFORCED` is flipped: a call without a token is logged
+as `APP_CHECK_MISSING` and served.
+
 ### Groups (FR-4 as amended)
 - `createGroup({ name })` → `{ groupId }` — admin, invited or subscriber (FR-10.3)
 - `createInvite({ groupId })` → `{ token, url, expiresAt }` — owner who may create groups (FR-10.3); `url` is `…/grupos.html?convite=<token>`;

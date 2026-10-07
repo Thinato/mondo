@@ -184,6 +184,21 @@ is shared with every other project on the same billing account. Beyond it the
 charge is about $0.10 per job per month, which is noise, but it is the one line
 item where an unrelated project can push Mondo over.
 
+### 3.5 reCAPTCHA behind App Check (SEC-18, D-85)
+
+App Check creates one reCAPTCHA assessment each time a browser refreshes its
+token, and since 2026-04-02 the free tier is **10,000 assessments a month per
+project**; above it, $8 a month covers up to 100,000. `token_ttl` is set to one day
+in `infra/main.tf`, and the page turns the SDK's proactive refresh off (it renews
+a token past half its life, which spends a second assessment on a player who
+comes back the next day), so the bill is about one assessment per visitor per day
+and at most two: between 165 and 330 daily visitors fit in the free tier. A longer TTL is cheaper and lets
+a harvested token be replayed for longer; a shorter one is the reverse. Revisit it
+when the ads start bringing strangers.
+
+Anonymous sign-in (guests, D-84) counts toward Identity Platform's monthly active
+users, which are free up to 49,999.
+
 Cloud Build (2,500 build-minutes/month) and Cloud Logging (50 GiB/month) have so
 much headroom they are not worth tracking.
 
