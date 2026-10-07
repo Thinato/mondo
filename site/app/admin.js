@@ -28,8 +28,10 @@ watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
   account: el.account, adminLink: el.adminLink, profile, setStatus,
   onUser: (u) => {
-    el.panel.hidden = !u;
-    if (u) loadUsers(true);
+    // A guest is nobody's admin: show the Google button rather than a refusal (D-85).
+    if (u?.isAnonymous) el.signedOut.hidden = false;
+    el.panel.hidden = !u || u.isAnonymous;
+    if (u && !u.isAnonymous) loadUsers(true);
   },
 });
 

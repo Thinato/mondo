@@ -2,11 +2,12 @@
 // the answer; it only relays what the server chose to send (SEC-1).
 
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js";
-import { functions } from "./firebase.js";
+import { appCheckReady, functions } from "./firebase.js";
 
 const call = (name) => {
   const fn = httpsCallable(functions, name);
-  return async (data) => (await fn(data)).data;
+  // SEC-18: never before App Check has started or been given up on (firebase.js).
+  return async (data) => { await appCheckReady; return (await fn(data)).data; };
 };
 
 export const getRound = call("getRound");

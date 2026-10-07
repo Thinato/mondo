@@ -40,7 +40,8 @@
 </header>
 
 <main>
-  <section id="signed-out">
+  <!-- Shown to a guest, or if guest sign-in fails (D-85). -->
+  <section id="signed-out" hidden>
     <p class="sub">Entre para ver os torneios dos seus grupos.</p>
     <button id="sign-in" type="button" class="primary">Entrar com Google</button>
   </section>
@@ -188,6 +189,8 @@
 <footer>
   <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> ·
   <a href="./creditos.html">Créditos</a>
+
+  <small class="recaptcha">Protegido pelo reCAPTCHA: valem a <a href="https://policies.google.com/privacy">Política de Privacidade</a> e os <a href="https://policies.google.com/terms">Termos de Serviço</a> do Google.</small>
 </footer>
 
 <nav class="tabbar" aria-label="Seções">
