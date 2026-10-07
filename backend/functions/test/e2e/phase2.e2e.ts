@@ -66,6 +66,20 @@ async function newGuest(): Promise<Account> {
 }
 
 /**
+ * What linkWithPopup does for a guest (FR-10.1): the emulator's fake Google
+ * IdP, given the guest's own ID token, links instead of signing in — same uid,
+ * a new token that says google.com.
+ */
+async function linkGoogle(guest: Account): Promise<Account> {
+  const idToken = encodeURIComponent(JSON.stringify({ sub: `g-${guest.uid}`, email: `${guest.uid.toLowerCase()}@example.com`, email_verified: true }));
+  const r = await fetch(`${AUTH}/accounts:signInWithIdp?key=fake`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ postBody: `id_token=${idToken}&providerId=google.com`, requestUri: "http://localhost", idToken: guest.token, returnSecureToken: true }),
+  }).then((x) => x.json() as Promise<Any>);
+  return { uid: r.localId, token: r.idToken, call: (fn, data = {}) => post(fn, data, r.idToken) };
+}
+
+/**
  * Creates the profile, then sets the role. Through updateProfile rather than
  * getRound: since D-84 getRound succeeds for anybody and would start a day the
  * later tests do not expect this account to have open.
@@ -143,6 +157,18 @@ test("1. D-84: nobody needs an invitation to play — a user and a guest both op
   // Even a guest whose rank could create one: the creator is the first member, and guests join nothing (FR-10.5).
   await db.doc(`users/${guest.uid}`).update({ subscription: { status: "active", currentPeriodEnd: Timestamp.fromMillis(Date.now() + 86_400_000) } });
   assert.equal(code(await guest.call("createGroup", { name: "Visitas" })), "permission-denied");
+
+  // Linking Google upgrades the guest in place: same uid, the day already open
+  // carries on, and the rank is now read off the new token (FR-10.1).
+  await sleep(450);
+  ok(await guest.call("submitGuess", { puzzleId: TODAY, code: "PY" }), "the guest guesses");
+  const linked = await linkGoogle(guest);
+  assert.equal(linked.uid, guest.uid, "linking keeps the uid");
+  const after = ok(await linked.call("getRound", {}), "getRound after linking");
+  assert.equal(after.cursor, 1, "the guest's day is the user's day");
+  // The subscription written above waited on the guest and applies now that it links (FR-10.1).
+  assert.equal(after.me.rank, "subscriber");
+  assert.equal(after.me.ads, false);
 });
 
 test("2. FR-4.1: an invited player creates a group; a user cannot", async () => {

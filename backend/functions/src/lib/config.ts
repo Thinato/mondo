@@ -28,6 +28,16 @@ export const ALLOWED_ORIGINS = [
   "http://localhost:5000",
 ];
 
+/**
+ * SEC-18 — refuse a callable that arrives without a valid App Check token.
+ *
+ * Off while the reCAPTCHA Enterprise key is new: until production's logs show
+ * `APP_CHECK_MISSING` has gone quiet for the real site, turning this on could
+ * refuse every player at once (a key whose allowed domain is wrong fails
+ * closed). Flip it in its own commit once the logs agree. D-85.
+ */
+export const APP_CHECK_ENFORCED = false;
+
 /** OQ-2 — the puzzle day flips at 12:00 in this zone. */
 export const PUZZLE_TIMEZONE = "America/Sao_Paulo";
 
