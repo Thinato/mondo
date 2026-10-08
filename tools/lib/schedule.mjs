@@ -238,6 +238,43 @@ function shuffle(xs, rand) {
   }
 }
 
+/**
+ * D-86 — what is wrong with a schedule's boards, as a list of problems; empty
+ * when nothing is.
+ *
+ * In a choice kind the POSITION of the answer is the answer (FR-8.7), and from
+ * 2026-09-17 every daily board went out with it at option 1, because the
+ * generator called the server's `buildOptions` — which returns the answer first
+ * — instead of the `boardOptions` that shuffles it. Every test of the generator
+ * mocked that hook, so the one place it was wrong was the one place no test
+ * looked. This looks at the OUTPUT instead, which no wiring mistake can hide
+ * from, and both the generator and the seeder refuse a file that fails it.
+ *
+ * Uniform over eight positions puts about 1/8 of boards at each. More than 40%
+ * at one position over 24 or more boards is over four standard deviations from
+ * that — a bug, not luck. Below 24 boards there is too little to judge.
+ */
+export function boardProblems(days) {
+  const at = new Map();
+  const problems = [];
+  let boards = 0;
+  for (const day of days) {
+    for (const item of itemsOf(day)) {
+      if (!item.options) continue;
+      boards++;
+      const i = item.options.indexOf(item.subject);
+      if (i < 0) problems.push(`${day.puzzleId}: ${item.kind}/${item.subject} does not offer its own answer`);
+      at.set(i, (at.get(i) ?? 0) + 1);
+    }
+  }
+  for (const [i, n] of at) {
+    if (i >= 0 && boards >= 24 && n / boards > 0.4) {
+      problems.push(`${n} of ${boards} boards put the answer at option ${i + 1} — the options were not shuffled`);
+    }
+  }
+  return problems;
+}
+
 /** A day's challenges, reading a pre-D-52 entry as a one-silhouette day. */
 export function itemsOf(day) {
   if (day.items?.length) return day.items;
