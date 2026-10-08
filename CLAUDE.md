@@ -306,8 +306,14 @@ backend.
   rule, which would reverse D-67.
 - **In a multiple-choice kind the POSITION of the right option is the answer** (FR-8.7, D-64).
   Three rules follow and each has a test. An option carries artwork and nothing else — no code,
-  no name, no id — so a guess is an index; **`buildCard` does the shuffling**, never the kind,
-  so a new choice kind cannot ship with the answer at index 0 by forgetting; and the options are
+  no name, no id — so a guess is an index; **`boardOptions` in `lib/card.ts` does the shuffling**, never the
+  kind, and it is the ONLY caller of `buildOptions` — `buildCard` uses it for tournaments and
+  practice, `tools/generate-schedule.mjs` for the daily. That last sentence is D-86: the generator
+  called `buildOptions` directly, every one of 737 daily boards seeded from 2026-09-17 had the answer
+  at option 1, and players found it before any test did, because every generator test mocked the
+  hook. So the boards are now also judged on OUTPUT — `boardProblems` in `tools/lib/schedule.mjs`,
+  run by the generator, the seeder and `tools/shuffle-boards.mjs`, refuses a schedule whose answers
+  pile onto one position; and the options are
   **stored on the card**, never derived from the subject, or a pool change reshuffles a challenge
   someone has open. A wrong pick is never named **while the challenge is open**; once it closes
   the reveal names all eight (D-76), which is the point of a board — you came to learn eight
