@@ -16,6 +16,7 @@
     "seed": "node seed-schedule.mjs",
     "set-role": "node set-role.mjs",
     "migrate-tiers": "node migrate-tiers.mjs",
+    "shuffle-boards": "node shuffle-boards.mjs",
     "test": "node --test 'lib/*.test.mjs'"
   },
   "dependencies": {

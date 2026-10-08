@@ -16,11 +16,12 @@ const asCountryView = (g: GuessView): CountryGuessView => g as CountryGuessView;
 import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import {
+  boardOptions,
   applyCardGuess, buildCard, cardIntervalsMs, cardView, giveUpCard, newCardPlay, totalGuesses,
   type CardItem, type CardPlay, type CardSpec,
 } from "../src/lib/card";
 import { COUNTRIES, peopleFor } from "../src/lib/countries";
-import { KINDS } from "../src/lib/kinds";
+import { KINDS, kindById } from "../src/lib/kinds";
 import { SUSPICIOUS_SOLVE_MS } from "../src/lib/config";
 
 const T0 = Timestamp.fromMillis(Date.parse("2026-09-15T15:30:00Z"));
@@ -379,6 +380,26 @@ test("SEC-1: the answer's position is not predictable — over 4000 cards it is 
       assert.ok(Math.abs(n - expected) < sigma3, `${kind}: index ${i} came up ${n} times, expected about ${expected}`);
     }
   }
+});
+
+test("D-86: boardOptions — the one way a board is built — shuffles on its own", () => {
+  // The daily's generator calls this directly, outside buildCard, so it is
+  // tested directly: it is what that path was missing.
+  for (const kind of ["flagPick", "shapePick"] as const) {
+    const counts = new Array(8).fill(0);
+    let state = 7;
+    const lcg = () => ((state = (state * 1103515245 + 12345) % 2147483648) / 2147483648);
+    for (let i = 0; i < 4000; i++) {
+      const options = boardOptions(kindById(kind), "BR", NONE, lcg)!;
+      assert.equal(options.length, 8);
+      counts[options.indexOf("BR")]!++;
+    }
+    const sigma3 = 3 * Math.sqrt(4000 * (1 / 8) * (7 / 8));
+    for (const [i, n] of counts.entries()) {
+      assert.ok(Math.abs(n - 500) < sigma3, `${kind}: the answer sat at index ${i} ${n} times out of 4000`);
+    }
+  }
+  assert.equal(boardOptions(kindById("flag"), "BR", NONE, Math.random), undefined, "a typed kind has no board");
 });
 
 test("FR-8.7: a distractor is never another challenge's answer on the same card", () => {

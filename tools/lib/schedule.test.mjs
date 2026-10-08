@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { generate, itemsOf, minDayGap, minRepeatGap, opensAt, poolsFrom, prng, tierMix, KINDS, KIND_WINDOW } from "./schedule.mjs";
+import { boardProblems, generate, itemsOf, minDayGap, minRepeatGap, opensAt, poolsFrom, prng, tierMix, KINDS, KIND_WINDOW } from "./schedule.mjs";
 
 // The real pools, so the tests exercise the real tension: the flag pool is the
 // tight one at 172 countries against a 120-day window.
@@ -306,4 +306,25 @@ test("D-67: a kind only has to outlast its OWN window, so there is no ceiling", 
     () => generate({ pools: tiny, seed: 1, start: "2026-01-01", days: 10 }),
     /pool of 20 is too small/,
   );
+});
+
+test("D-86: a schedule whose boards are not shuffled is refused, judged on the output", () => {
+  const board = (puzzleId, at, kind = "flagPick") => {
+    const options = ["A", "B", "C", "D", "E", "F", "G", "H"];
+    return { puzzleId, items: [{ kind, subject: options[at], options }] };
+  };
+  // What production held from 2026-09-17: every answer at option 1.
+  const stuck = Array.from({ length: 30 }, (_, i) => board(`d${i}`, 0));
+  assert.equal(boardProblems(stuck).length, 1);
+  assert.match(boardProblems(stuck)[0], /30 of 30 boards put the answer at option 1/);
+  // Any one position will do; it is the piling up that is wrong.
+  assert.equal(boardProblems(Array.from({ length: 30 }, (_, i) => board(`d${i}`, 5))).length, 1);
+  // Spread over all eight, as a shuffle leaves them.
+  assert.deepEqual(boardProblems(Array.from({ length: 40 }, (_, i) => board(`d${i}`, i % 8))), []);
+  // Too few boards to judge a position, but never too few to miss an answer.
+  assert.deepEqual(boardProblems(Array.from({ length: 10 }, (_, i) => board(`d${i}`, 0))), []);
+  const missing = { puzzleId: "dX", items: [{ kind: "shapePick", subject: "Z", options: ["A", "B"] }] };
+  assert.equal(boardProblems([missing]).length, 1);
+  // Kinds that are not boards are not looked at.
+  assert.deepEqual(boardProblems([{ puzzleId: "dY", items: [{ kind: "flag", subject: "A" }] }]), []);
 });

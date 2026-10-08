@@ -12,7 +12,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { generate, poolsFrom, tierMix, minRepeatGap, minDayGap, DEFAULT_WEIGHTS, KINDS, KIND_WINDOW } from "./lib/schedule.mjs";
+import { boardProblems, generate, poolsFrom, tierMix, minRepeatGap, minDayGap, DEFAULT_WEIGHTS, KINDS, KIND_WINDOW } from "./lib/schedule.mjs";
 
 const TOOLS = dirname(fileURLToPath(import.meta.url));
 const { values: args } = parseArgs({
@@ -53,9 +53,10 @@ const history = args.history ? JSON.parse(readFileSync(args.history, "utf8")).pu
  * byte-reproducible from seed + start + history.
  */
 const require = createRequire(import.meta.url);
-let KINDS_IMPL;
+let KINDS_IMPL, boardOptions;
 try {
   KINDS_IMPL = require(join(TOOLS, "../backend/functions/lib/lib/kinds.js")).KINDS;
+  ({ boardOptions } = require(join(TOOLS, "../backend/functions/lib/lib/card.js")));
 } catch {
   console.error("build the backend first: npm --prefix backend/functions run build");
   process.exit(2);
@@ -73,7 +74,10 @@ if (missing.length > 0) {
   console.error(`the backend does not ship ${missing.join(", ")} — rebuild it, or fix KINDS in lib/schedule.mjs`);
   process.exit(2);
 }
-const buildOptions = (kind, subject, exclude, rand) => KINDS_IMPL[kind]?.buildOptions?.(subject, exclude, rand);
+// Through `boardOptions`, which SHUFFLES — never `buildOptions` itself, which
+// puts the answer first. Calling that directly is what put every daily board's
+// answer at option 1 until 2026-10-08 (D-86).
+const buildOptions = (kind, subject, exclude, rand) => KINDS_IMPL[kind] && boardOptions(KINDS_IMPL[kind], subject, exclude, rand);
 // D-78, and the same bargain as `buildOptions` right above: which of a
 // country's people a `person` challenge asks about is FIXED here and stored,
 // never derived when the day is read, because a choice made twice can differ
@@ -82,6 +86,13 @@ const buildDetail = (kind, subject, rand) => KINDS_IMPL[kind]?.buildDetail?.(sub
 
 const seed = Number(args.seed);
 const puzzles = generate({ pools, seed, start: args.start, days: Number(args.days), history, buildOptions, buildDetail });
+
+// D-86: judged on the output, so no wiring mistake above can hide from it.
+const bias = boardProblems(puzzles);
+if (bias.length > 0) {
+  console.error(`refusing to write: ${bias.join("; ")}`);
+  process.exit(2);
+}
 
 const outPath = join(TOOLS, "out", `schedule-${seed}.json`);
 mkdirSync(dirname(outPath), { recursive: true });

@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { boardProblems } from "./lib/schedule.mjs";
 
 const { values: args } = parseArgs({
   options: {
@@ -68,7 +69,9 @@ try {
   console.error("build the backend first: npm --prefix backend/functions run build");
   process.exit(2);
 }
-const problems = [];
+// D-86: and every board must hide its answer's position. This is what keeps a
+// file generated before that fix from ever being seeded again.
+const problems = boardProblems(puzzles);
 for (const p of puzzles) {
   for (const item of p.items ?? []) {
     const kind = KINDS_IMPL[item.kind];
@@ -81,12 +84,12 @@ for (const p of puzzles) {
   }
 }
 if (problems.length > 0) {
-  console.error(`refusing to seed: ${problems.length} item(s) the deployed server cannot serve\n`);
+  console.error(`refusing to seed: ${problems.length} problem(s) in a file the deployed server should not serve\n`);
   for (const line of problems.slice(0, 10)) console.error(`  ${line}`);
   if (problems.length > 10) console.error(`  … and ${problems.length - 10} more`);
   process.exit(2);
 }
-console.log(`✓ pre-flight: ${puzzles.length} days, every item builds a prompt`);
+console.log(`✓ pre-flight: ${puzzles.length} days, every item builds a prompt, every board is shuffled`);
 
 initializeApp({ projectId });
 const db = getFirestore();
