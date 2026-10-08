@@ -17,7 +17,7 @@ import type { Timestamp } from "firebase-admin/firestore";
 import { GUESS_MIN_INTERVAL_MS, SUSPICIOUS_SOLVE_MS } from "./config";
 import type { Country } from "./countries";
 import { mondoError } from "./errors";
-import { kindById, scoreItem, type Challenge, type KindId, type Prompt, type Reveal } from "./kinds";
+import { kindById, scoreItem, type Challenge, type Kind, type KindId, type Prompt, type Reveal } from "./kinds";
 import type { SelfReport } from "./report";
 import { guessView, type GuessView, type StoredGuess } from "./round";
 
@@ -105,14 +105,27 @@ export function buildCard(
     // decided in the same pass and for the same reason as the options below.
     const person = kind.buildDetail?.(item.subject, rand);
     const withDetail = person === undefined ? item : { ...item, person };
-    const options = kind.buildOptions?.(item.subject, used, rand);
-    if (!options) return withDetail;
-    // SEC-1: the position of the answer IS the answer, so the shuffle lives
-    // here rather than in each kind. One place to be right, and a new choice
-    // kind cannot ship with the answer at index 0 by forgetting.
-    shuffle(options, rand);
-    return { ...withDetail, options };
+    const options = boardOptions(kind, item.subject, used, rand);
+    return options ? { ...withDetail, options } : withDetail;
   });
+}
+
+/**
+ * A choice kind's board, SHUFFLED — or undefined for a kind that has none.
+ *
+ * SEC-1: the position of the answer IS the answer, and every kind's
+ * `buildOptions` returns the answer first. So the shuffle lives in this one
+ * function, and every board is built through it: `buildCard` for tournaments
+ * and practice, and `tools/generate-schedule.mjs` for the daily (D-86). The
+ * generator used to call `buildOptions` itself and skip the shuffle, and every
+ * daily board seeded from 2026-09-17 to 2027-09-23 — 737 of them — had the
+ * answer at option 1 until players noticed. Never call `buildOptions` anywhere
+ * else.
+ */
+export function boardOptions(kind: Kind, subject: string, exclude: ReadonlySet<string>, rand: () => number): string[] | undefined {
+  const options = kind.buildOptions?.(subject, exclude, rand);
+  if (options) shuffle(options, rand);
+  return options;
 }
 
 function expand(spec: CardSpec): KindId[] {
