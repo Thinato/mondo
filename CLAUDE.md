@@ -1,7 +1,8 @@
 # CLAUDE.md
 
 Context for AI coding agents working in this repo. Read `docs/00-brief.md` through
-`docs/05-cost.md` before making changes.
+`docs/05-cost.md` before making changes. Monetization (ranks, ads, Stripe) has its own status page and
+to-do list: `docs/07-monetization.md`.
 
 ## What this is
 
