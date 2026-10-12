@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo — versus</title>
+<meta name="description" content="Jogue Mondo ao vivo contra quem tiver o link da sala.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<link rel="stylesheet" href="./mondo.css">
+<script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+<!-- D-37: no referrer policy on any page. The Firebase web API key is referrer-restricted
+     (SEC-9), so no-referrer would have the key rejected and break sign-in. -->
+</head>
+<body>
+<header>
+  <a class="wordmark" href="./">Mondo</a>
+  <nav aria-label="Principal">
+    <a href="./">Hoje</a>
+    <a href="./grupos.html">Grupo</a>
+    <a href="./praticar.html">Treinar</a>
+    <a href="./sala.html" aria-current="page">Versus</a>
+  </nav>
+  <div class="head-right">
+    <button type="button" id="theme-btn" class="theme-btn" aria-label="Mudar o tema">
+      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></svg>
+    </button>
+    <details class="account" id="account" hidden>
+      <summary aria-label="Conta e ajuda">?</summary>
+      <div class="account-menu">
+        <button type="button" id="profile-btn">Perfil</button>
+        <a id="admin-link" href="./admin.html" hidden>Painel</a>
+        <a href="./sala.html">Versus</a>
+        <a href="./grupos.html">Grupos</a>
+        <a href="./regras.html">Regras</a>
+        <a href="./privacidade.html">Privacidade</a>
+        <hr>
+        <button type="button" id="sign-out">Sair</button>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main>
+  <!-- Shown only if guest sign-in fails (D-85). -->
+  <section id="signed-out" hidden>
+    <p class="sub">Entre para jogar.</p>
+    <button id="sign-in" type="button" class="primary">Entrar com Google</button>
+  </section>
+
+  <!-- FR-12.1 — no room in the URL: make one. The modes are presets the server
+       resolves (D-48's reasoning); the page only names one. -->
+  <section id="create" hidden>
+    <h1>Versus</h1>
+    <p class="sub">Ao vivo, contra quem tiver o link. Ninguém precisa estar no seu grupo.</p>
+    <div id="create-form" hidden>
+      <ul id="modes" class="modes" aria-label="Jogo"></ul>
+      <button id="create-btn" type="button" class="primary">Criar sala</button>
+    </div>
+    <p id="create-locked" class="fine" hidden>Criar salas é para convidados e assinantes. Para jogar, peça o link a quem pode criar — qualquer pessoa entra.</p>
+  </section>
+
+  <div id="room-cols" hidden>
+    <div class="play-col">
+
+    <!-- The lobby: who is in, the link, and the host's start button. -->
+    <section id="lobby" hidden>
+      <h1 id="lobby-title"></h1>
+      <p id="lobby-mode" class="sub"></p>
+      <div class="row">
+        <input id="room-link" type="text" readonly aria-label="Link da sala">
+        <button id="copy-link" type="button" class="secondary">Copiar link</button>
+      </div>
+      <p id="lobby-wait" class="fine"></p>
+      <div class="row">
+        <button id="start-btn" type="button" class="primary" hidden>Começar</button>
+        <button id="leave-btn" type="button" class="link">Sair da sala</button>
+      </div>
+    </section>
+
+    <!-- Clássico (FR-12.2): the same prompt elements as the daily and practice,
+         because a Versus challenge IS one of those challenges, on a clock. -->
+    <section id="classic" hidden>
+      <div class="prompt-head">
+        <p id="classic-progress" class="fine" aria-live="polite"></p>
+        <div class="head-actions">
+          <button id="classic-giveup" type="button" class="link">Desistir deste</button>
+        </div>
+      </div>
+      <div class="timer" aria-hidden="true"><span id="classic-timer-bar"></span></div>
+      <p id="classic-clock" class="clock" aria-live="off"></p>
+
+      <p id="capital" class="capital-prompt" hidden></p>
+      <figure class="silhouette" id="shape-wrap" hidden>
+        <svg id="shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
+      </figure>
+      <figure class="flag" id="flag-wrap" hidden>
+        <svg id="flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
+      </figure>
+      <figure class="portrait" id="person-wrap" hidden>
+        <img id="person-photo" alt="" width="400" height="400" loading="eager" decoding="async" />
+        <figcaption id="person-credit" class="fine"></figcaption>
+      </figure>
+      <ol id="options" class="options" aria-label="Opções" hidden></ol>
+      <ol id="guesses" class="guesses" aria-label="Tentativas"></ol>
+
+      <section id="reveal" class="reveal" hidden aria-live="polite">
+        <p id="reveal-text"></p>
+        <div id="reveal-about" class="about" hidden>
+          <p id="reveal-about-text"></p>
+          <a id="reveal-about-link" class="secondary" target="_blank" rel="noopener noreferrer"></a>
+          <small id="reveal-about-credit" class="credit"></small>
+        </div>
+      </section>
+
+      <form id="guess-form" autocomplete="off">
+        <div class="combo" id="guess-combo">
+          <input id="guess-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="guess-list" aria-label="País" placeholder="Digite um país…"
+                 autocapitalize="off" spellcheck="false" enterkeyhint="go">
+          <ul id="guess-list" role="listbox" aria-label="Países" hidden></ul>
+        </div>
+        <div class="money" id="guess-money" hidden>
+          <span aria-hidden="true">US$</span>
+          <input id="guess-number" type="number" inputmode="numeric" min="1" step="1"
+                 aria-label="PIB per capita em dólares" placeholder="20.000" enterkeyhint="go">
+        </div>
+        <button id="guess-submit" type="submit" class="primary">Chutar</button>
+      </form>
+      <p id="left" class="fine" aria-live="polite"></p>
+    </section>
+
+    <!-- Batata Quente (FR-12.3): one map, filled in turn by turn. -->
+    <section id="potato" hidden>
+      <div class="prompt-head">
+        <p id="potato-turn" class="potato-turn" aria-live="polite"></p>
+        <div class="head-actions">
+          <button id="potato-giveup" type="button" class="link">Desistir</button>
+        </div>
+      </div>
+      <div class="timer" aria-hidden="true"><span id="potato-timer-bar"></span></div>
+      <p id="potato-round" class="fine"></p>
+      <figure class="world">
+        <svg id="world" role="img" aria-label="Mapa dos países já citados"><path class="land" id="world-land"/><g id="world-named"></g></svg>
+      </figure>
+      <p id="potato-count" class="fine"></p>
+      <!-- D-90: no autocomplete. Typed names only, one wrong letter forgiven. -->
+      <form id="potato-form" autocomplete="off">
+        <div class="row">
+          <input id="potato-input" type="text" aria-label="Nome de um país" placeholder="Nome de um país…"
+                 autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">
+          <button id="potato-send" type="submit" class="primary">Enviar</button>
+        </div>
+      </form>
+      <p id="potato-hint" class="fine"></p>
+      <ul id="potato-queue" class="chips" aria-label="Fila de países"></ul>
+      <ol id="potato-feed" class="card-items" aria-label="Últimos países"></ol>
+    </section>
+
+    <!-- The end: the board, and a way to go again. -->
+    <section id="finished" class="result" hidden>
+      <p id="finished-text"></p>
+      <div class="row">
+        <a href="./sala.html" class="primary">Nova sala</a>
+        <a href="./" class="link">Voltar ao jogo de hoje</a>
+      </div>
+    </section>
+
+    <p id="status" aria-live="polite"></p>
+    </div>
+
+    <!-- Everyone in the room, in score order. Counts only, never a rival's
+         guesses: their distances and arrows would be hints for you. -->
+    <aside id="room-side">
+      <h2 class="fine" id="board-title">Placar</h2>
+      <ol id="board" class="scoreboard"></ol>
+    </aside>
+  </div>
+</main>
+
+<footer>
+  <a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> ·
+  <a href="./creditos.html">Créditos</a>
+
+  <small class="recaptcha">Protegido pelo reCAPTCHA: valem a <a href="https://policies.google.com/privacy">Política de Privacidade</a> e os <a href="https://policies.google.com/terms">Termos de Serviço</a> do Google.</small>
+</footer>
+
+<nav class="tabbar" aria-label="Seções">
+  <a href="./">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3.3 9.2h17.4M3.3 14.8h17.4"/></svg>
+    Hoje
+  </a>
+  <a href="./praticar.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+    Treinar
+  </a>
+</nav>
+
+<dialog id="confirm-dialog">
+  <form method="dialog">
+    <p id="confirm-text"></p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Continuar jogando</button>
+      <button type="submit" value="ok" class="primary">Desistir</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="./app/versus.js"></script>
+</body>
+</html>
