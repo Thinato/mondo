@@ -28,7 +28,7 @@ const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"),
   account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
   create: $("create"), createForm: $("create-form"), createLocked: $("create-locked"), modes: $("modes"), createBtn: $("create-btn"),
-  createGuest: $("create-guest"), createSignIn: $("create-sign-in"),
+  createGuest: $("create-guest"), createSignIn: $("create-sign-in"), solo: $("solo-btn"),
   cols: $("room-cols"), lobby: $("lobby"), lobbyTitle: $("lobby-title"), lobbyMode: $("lobby-mode"), lobbyWait: $("lobby-wait"),
   link: $("room-link"), copy: $("copy-link"), start: $("start-btn"), leave: $("leave-btn"),
   classic: $("classic"), progress: $("classic-progress"), giveUp: $("classic-giveup"),
@@ -40,6 +40,7 @@ const el = {
   form: $("guess-form"), combo: $("guess-combo"), input: $("guess-input"), list: $("guess-list"),
   money: $("guess-money"), number: $("guess-number"), left: $("left"),
   potato: $("potato"), finished: $("finished"), finishedText: $("finished-text"),
+  missed: $("missed"), missedTitle: $("missed-title"), missedList: $("missed-list"),
   board: $("board"), boardTitle: $("board-title"), status: $("status"),
   confirm: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
@@ -62,6 +63,7 @@ let picked = null;
 let ac = null;
 let acLoading = null;
 let potato = null;
+let countryList = null;      // training's end: the public list of names, loaded once
 let unsubscribe = [];
 
 const setStatus = (text, cls = "") => { el.status.textContent = text; el.status.className = cls; };
@@ -130,19 +132,23 @@ function buildModes() {
 // the server again who this is.
 el.createSignIn.addEventListener("click", () => googleClick(el.createSignIn, setStatus));
 
-el.createBtn.addEventListener("click", async () => {
+el.createBtn.addEventListener("click", () => create(preset));
+// D-93: training is not in PRESETS — it is not something you host, and anyone signed in may.
+el.solo.addEventListener("click", () => create("treino"));
+
+async function create(presetId) {
   if (busy) return;
   busy = true;
   setStatus(t("loading"));
   try {
-    const r = await versus("create", { presetId: preset });
+    const r = await versus("create", { presetId });
     location.href = `./sala.html?s=${r.room}`;
   } catch (err) {
     setStatus(errorMessage(err, "versus"), "err");
   } finally {
     busy = false;
   }
-});
+}
 
 // ---------------------------------------------------------------------------
 // Join and listen
@@ -260,7 +266,8 @@ function confirmGiveUp(text) {
 // ---------------------------------------------------------------------------
 
 function countries() {
-  acLoading ??= loadCountries().then((list) => { ac = attachIndex(createIndex(list)); });
+  countryList ??= loadCountries();
+  acLoading ??= countryList.then((list) => { ac = attachIndex(createIndex(list)); });
   return acLoading;
 }
 
@@ -390,6 +397,22 @@ function renderBoard() {
   }));
 }
 
+/**
+ * Training's end (D-93): how many, and the names of the rest. The names are the
+ * public list the autocomplete already loads; the outlines stay on the server.
+ */
+function renderSoloEnd() {
+  const named = new Set(room.potato.named);
+  el.finishedText.textContent = t("versus.soloDone", { n: named.size, total: room.potato.total });
+  countryList ??= loadCountries();
+  countryList.then((list) => {
+    const missed = list.filter((c) => !named.has(c.code)).map((c) => c.pt).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    el.missed.hidden = missed.length === 0;
+    el.missedTitle.textContent = t("versus.missed", { n: missed.length });
+    el.missedList.textContent = missed.join(", ");
+  }).catch(() => { countryList = null; el.missed.hidden = true; });
+}
+
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
@@ -441,6 +464,7 @@ function render() {
     el.finishedText.textContent = !inRoom || !top ? t("versus.over")
       : top.uid === uid ? t("versus.youWon", { points: top.points }) : t("versus.won", { name: top.name, points: top.points });
     if (room.mode === "potato" && room.potato) el.finishedText.textContent += ` ${t(`versus.end.${room.potato.endReason}`)}`;
+    if (room.potato?.limitMs === null) renderSoloEnd();
   }
 
   renderBoard();

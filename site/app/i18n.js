@@ -312,6 +312,7 @@ const PT_BR = {
   versus: {
     preset: {
       mundo: "Batata Quente",
+      treino: "Batata Quente · treino",
       dia: "Clássico · o dia",
       bandeiras: "Clássico · bandeiras",
       formas: "Clássico · silhuetas",
@@ -320,6 +321,7 @@ const PT_BR = {
     },
     presetAbout: {
       mundo: "Cada um na sua vez diz um país que ainda não está no mapa. O tempo encolhe a cada rodada; quem responde rápido leva mais.",
+      treino: "Sozinho e sem relógio: quantos países você lembra?",
       dia: "Os sete desafios do dia, um de cada tipo, todos ao mesmo tempo.",
       bandeiras: "Três bandeiras e três 'qual bandeira'.",
       formas: "Três silhuetas e três 'qual silhueta'.",
@@ -340,6 +342,10 @@ const PT_BR = {
     revealSolved: "Era {answer}. +{points} pontos.",
     over: "Fim de jogo.",
     youWon: "Você venceu, com {points} pontos!",
+    soloDone: "Você lembrou {n} de {total} países.",
+    soloHint: "Uma letra errada passa. Duas não. Sem pressa.",
+    soloGiveUp: "Terminar o treino? Os países que faltaram aparecem no fim.",
+    missed: "Faltou {n}|Faltaram {n}",
     won: "{name} venceu, com {points} pontos.",
     end: {
       "map-full": "O mapa está completo.",
