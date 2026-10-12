@@ -1,4 +1,4 @@
-// Groups and boards (FR-4), and the tournaments that live inside them (FR-5).
+// Groups and boards (FR-4), and the running tournament, if any (FR-5, D-88).
 //
 // Everything on screen comes from getLeaderboard and listTournaments; this file
 // renders it and never computes a rank or a score itself.
@@ -9,6 +9,10 @@
 // were an extra column bolted onto the ranking table, visible only to the owner.
 // The card of a tournament round is still torneios.html: that is a game screen,
 // not a group screen.
+//
+// D-88: Versus replaced tournaments. The Torneios tab and the create form are
+// gone; what stays is the card for a tournament still running, because that is
+// how one already under way gets played to the end.
 
 import { ask, watchAuth } from "./auth-ui.js";
 import "./theme.js";
@@ -27,13 +31,11 @@ const el = {
   inviteDialog: $("invite-dialog"), inviteForm: $("invite-form"),
   renameBtn: $("rename-btn"), renameForm: $("rename-form"),
   renameName: $("rename-name"), renameCancel: $("rename-cancel"),
-  sections: $("sections"), tabRanking: $("tab-ranking"), tabTorneios: $("tab-torneios"), tabMembros: $("tab-membros"),
-  countTournaments: $("count-tournaments"), countMembers: $("count-members"),
+  sections: $("sections"), tabRanking: $("tab-ranking"), tabMembros: $("tab-membros"),
+  countMembers: $("count-members"),
   tabs: $("tabs"), rows: $("rows"), closedThrough: $("closed-through"),
   todayHint: $("today-hint"), todayFinished: $("today-finished"), todayPlaying: $("today-playing"), todayWaiting: $("today-waiting"),
   openRound: $("open-round"), openRoundName: $("open-round-name"), openRoundMeta: $("open-round-meta"),
-  tCards: $("t-cards"), noTournaments: $("no-tournaments"),
-  tCreateForm: $("t-create-form"), tCreateName: $("t-create-name"), presets: $("presets"),
   memberRows: $("member-rows"), memberActionsHead: $("member-actions-head"),
   pendingWrap: $("pending-wrap"), pending: $("pending"),
   leaveBtn: $("leave-btn"), confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
@@ -243,7 +245,6 @@ function showSection(name) {
   section = name;
   for (const x of el.sections.querySelectorAll("button")) x.setAttribute("aria-selected", String(x.dataset.tab === name));
   el.tabRanking.hidden = section !== "ranking";
-  el.tabTorneios.hidden = section !== "torneios";
   el.tabMembros.hidden = section !== "membros";
 }
 
@@ -265,7 +266,7 @@ el.tabs.addEventListener("click", (ev) => {
 // ---------------------------------------------------------------------------
 
 /** Never on the critical path: a group whose tournaments will not load is a
- *  group with an empty Torneios tab, not a group that failed to open. */
+ *  group without the running-tournament card, not a group that failed to open. */
 async function loadTournaments() {
   try {
     tournaments = await api.listTournaments({ groupId: gid });
@@ -274,19 +275,11 @@ async function loadTournaments() {
 }
 
 function renderTournaments() {
-  const { tournaments: list, presets, canManage } = tournaments;
-  el.countTournaments.textContent = list.length > 0 ? String(list.length) : "";
-  el.tCards.replaceChildren(...list.map(tournamentCard));
-  el.noTournaments.hidden = list.length > 0;
-  el.noTournaments.textContent = t("noTournaments");
-  el.tCreateForm.hidden = !canManage;
-  if (canManage) renderPresets(presets);
-
   // The one that is waiting on somebody, at the top of the panel beside the
   // board. If there are several running, the first is the one the server
   // listed first — picking a "most urgent" would need a round's closesAt, and
   // fetching every tournament to sort a card is not worth a round trip.
-  const running = list.find((x) => x.status === "running");
+  const running = tournaments.tournaments.find((x) => x.status === "running");
   el.openRound.hidden = !running;
   if (running) {
     el.openRound.href = `./torneios.html?g=${gid}&t=${running.tournamentId}`;
@@ -296,66 +289,6 @@ function renderTournaments() {
       : t("players", { n: running.participantCount });
   }
 }
-
-function tournamentCard(x) {
-  const li = document.createElement("li");
-  const a = document.createElement("a");
-  a.href = `./torneios.html?g=${gid}&t=${x.tournamentId}`;
-  const name = document.createElement("span");
-  name.textContent = x.name;
-  const meta = document.createElement("span");
-  meta.className = "meta";
-  const bits = [t(`statusOf.${x.status}`), t("players", { n: x.participantCount })];
-  if (x.status === "running" && x.currentRound) bits.push(t("roundOf", { n: x.currentRound, max: x.rounds }));
-  meta.textContent = bits.join(" · ");
-  if (x.isParticipant) {
-    const b = document.createElement("span");
-    b.className = "badge";
-    b.textContent = "você";
-    meta.prepend(b, " ");
-  }
-  a.append(name, meta);
-  li.append(a);
-  return li;
-}
-
-function renderPresets(presets) {
-  if (el.presets.children.length > 1) return;
-  const legend = document.createElement("legend");
-  legend.className = "fine";
-  legend.textContent = t("presetLabel");
-  el.presets.replaceChildren(legend, ...presets.map((p, i) => {
-    const label = document.createElement("label");
-    label.className = "preset";
-    const input = document.createElement("input");
-    input.type = "radio";
-    input.name = "preset";
-    input.value = p.id;
-    if (i === 0) input.checked = true;
-    const strong = document.createElement("strong");
-    strong.textContent = p.label;
-    const desc = document.createElement("span");
-    desc.className = "fine";
-    desc.textContent = p.description;
-    label.append(input, strong, desc);
-    return label;
-  }));
-}
-
-el.tCreateForm.addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  const preset = el.presets.querySelector("input[name=preset]:checked")?.value;
-  if (!preset) return;
-  const button = ev.submitter;
-  button.disabled = true;
-  try {
-    const { tournamentId } = await api.createTournament({ groupId: gid, name: el.tCreateName.value.trim(), preset });
-    location.href = `./torneios.html?g=${gid}&t=${tournamentId}`;
-  } catch (err) {
-    setStatus(errorMessage(err), "err");
-    button.disabled = false;
-  }
-});
 
 // --- owner actions (FR-4.8) --------------------------------------------------
 
