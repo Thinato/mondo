@@ -20,6 +20,7 @@ const GROUP = "g1group0000000000001";
 const GROUP2 = "g2group0000000000002"; // carol's group; alice and bob are not in it
 const TOKEN = "ABCDEFGHJKLMNPQR";
 const TOURNAMENT = "t1tournament0000001";
+const ROOM = "ROOMABCDEFGHJKLM"; // alice hosts, bob is in it, carol is not
 
 let env: RulesTestEnvironment;
 before(async () => {
@@ -58,6 +59,12 @@ before(async () => {
     await db.doc(`attempts/${BOB}_${TOURNAMENT}_r1`).set({ uid: BOB, tournamentId: TOURNAMENT, roundId: `${TOURNAMENT}_r1`, mode: "match", items: [], cursor: 0 });
     // FR-9: a practice session, whose `subject` is the answer on alice's screen.
     await db.doc(`practice/${ALICE}`).set({ uid: ALICE, kind: "shape", subject: "PY", asked: ["PY"], blocked: [], totals: { played: 0, solved: 0, points: 0 } });
+    // FR-12: a Versus room alice and bob are in, its first prompt, a named
+    // country on its map, and the card that holds the answers.
+    await db.doc(`rooms/${ROOM}`).set({ mode: "classic", hostUid: ALICE, state: "playing", playerUids: [ALICE, BOB], players: {} });
+    await db.doc(`rooms/${ROOM}/prompts/0`).set({ index: 0, prompt: { kind: "capital", capital: "Lima" }, reveal: null });
+    await db.doc(`rooms/${ROOM}/map/BR`).set({ code: "BR", by: ALICE, points: 9 });
+    await db.doc(`roomSecrets/${ROOM}`).set({ items: [{ kind: "capital", subject: "PE" }], plays: {} });
   });
 });
 after(async () => {
@@ -281,6 +288,50 @@ test("D-51: a tournament card play is closed to everyone, its own player include
 test("users: clients cannot create or delete profiles", async () => {
   await assertFails(alice().doc("users/newUid000000000000000000003").set({ displayName: "novo-um", locale: "pt-BR" }));
   await assertFails(alice().doc(`users/${ALICE}`).delete());
+});
+
+// --- Versus (FR-12, D-87) ---------------------------------------------------
+
+test("D-87: a room's players can read the room, its prompts and its map", async () => {
+  await assertSucceeds(alice().doc(`rooms/${ROOM}`).get());
+  await assertSucceeds(bob().doc(`rooms/${ROOM}`).get());
+  await assertSucceeds(bob().doc(`rooms/${ROOM}/prompts/0`).get());
+  await assertSucceeds(bob().collection(`rooms/${ROOM}/prompts`).get()); // what a listener does
+  await assertSucceeds(alice().collection(`rooms/${ROOM}/map`).get());
+});
+
+test("D-87: anyone outside the room reads none of it", async () => {
+  await assertFails(carol().doc(`rooms/${ROOM}`).get());
+  await assertFails(carol().doc(`rooms/${ROOM}/prompts/0`).get());
+  await assertFails(carol().collection(`rooms/${ROOM}/map`).get());
+  await assertFails(anon().doc(`rooms/${ROOM}`).get());
+  await assertFails(anon().collection(`rooms/${ROOM}/map`).get());
+  // A room that does not exist is not readable either — not an error that leaks.
+  await assertFails(alice().doc("rooms/NOSUCHROOM234567").get());
+  await assertFails(alice().collection("rooms/NOSUCHROOM234567/map").get());
+});
+
+test("D-87: nobody can list rooms — the id is the invite", async () => {
+  await assertFails(alice().collection("rooms").get());
+  await assertFails(alice().collection("rooms").where("playerUids", "array-contains", ALICE).get());
+  await assertFails(carol().collection("rooms").get());
+});
+
+test("SEC-1: roomSecrets, where the Clássico answers are, is closed to its own players", async () => {
+  await assertFails(alice().doc(`roomSecrets/${ROOM}`).get());
+  await assertFails(bob().doc(`roomSecrets/${ROOM}`).get());
+  await assertFails(alice().collection("roomSecrets").get());
+});
+
+test("SEC-6: no client writes anything in a room, its host included", async () => {
+  await assertFails(alice().doc(`rooms/${ROOM}`).update({ state: "finished" }));
+  await assertFails(alice().doc(`rooms/${ROOM}`).set({ playerUids: [ALICE, CAROL] }));
+  await assertFails(carol().doc(`rooms/${ROOM}`).update({ playerUids: [ALICE, BOB, CAROL] }));
+  await assertFails(alice().doc("rooms/NEWROOM234567890").set({ playerUids: [ALICE] }));
+  await assertFails(bob().doc(`rooms/${ROOM}/map/AR`).set({ code: "AR", by: BOB, points: 10 }));
+  await assertFails(bob().doc(`rooms/${ROOM}/prompts/0`).update({ reveal: { code: "PE" } }));
+  await assertFails(alice().doc(`roomSecrets/${ROOM}`).set({ items: [] }));
+  await assertFails(alice().doc(`rooms/${ROOM}`).delete());
 });
 
 // --- default deny -----------------------------------------------------------

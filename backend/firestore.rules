@@ -22,9 +22,10 @@ rules_version = '2';
 //
 // Default deny, then a handful of narrow read allows. Everything score-bearing
 // or membership-bearing is written by the Admin SDK only (SEC-6): puzzles,
-// attempts, challenges, groups and their members, invites. The client never
-// even loads the Firestore SDK — every read goes through a callable — so these
-// allows are defence in depth, not the access path. Tested in
+// attempts, challenges, groups and their members, invites, rooms. Every page
+// but one reads through callables, so these allows are defence in depth, not
+// the access path — except Versus's rooms, which sala.html listens to (D-87).
+// Tested in
 // functions/test/rules/, negative cases included; keep it that way.
 
 service cloud.firestore {
@@ -126,6 +127,36 @@ service cloud.firestore {
     // startPractice / nextPractice / submitPracticeGuess / endPractice, which
     // project it the way cardView does.
     match /practice/{uid} { allow read, write: if false; }
+
+    // Versus (FR-12, D-87). The ONE place in this file where a read allow is
+    // the access path rather than defence in depth: sala.html listens to its
+    // room, its prompts and its map with the Firestore SDK, which it loads and
+    // no other page does. Everything here is written by `versus` alone.
+    //
+    // What makes that safe is what the documents hold, not who may read them —
+    // anyone with the link can join, a guest included. `rooms/{id}` carries
+    // the prompt of the challenge on screen and per-player COUNTS, never a
+    // subject and never a rival's graded guesses; a prompt document gets its
+    // reveal only once the challenge is over; a map document is a country
+    // somebody in the room has already named. The Clássico card is in
+    // `roomSecrets`, which nobody reads, for the reason `cards` is (D-39).
+    //
+    // `get`, not `read`, on the room: a rule that let a player LIST `rooms`
+    // would hand out every room id in the database, and the id is the invite.
+    function inRoom(roomId) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.playerUids;
+    }
+    match /rooms/{roomId} {
+      allow get: if signedIn() && request.auth.uid in resource.data.playerUids;
+      allow list, write: if false;
+      // `map` and `prompts`. Read is get AND list: a listener on the collection is a list.
+      match /{sub}/{docId} {
+        allow read: if inRoom(roomId);
+        allow write: if false;
+      }
+    }
+    match /roomSecrets/{roomId} { allow read, write: if false; }   // the Clássico answers
 
     match /{document=**} { allow read, write: if false; }
   }
