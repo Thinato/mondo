@@ -14,7 +14,7 @@
 import { auth, realtime } from "./firebase.js";
 import "./theme.js";
 import * as api from "./api.js";
-import { ask, watchAuth } from "./auth-ui.js";
+import { ask, googleClick, watchAuth } from "./auth-ui.js";
 import { mountProfile } from "./profile.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
@@ -28,6 +28,7 @@ const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"),
   account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
   create: $("create"), createForm: $("create-form"), createLocked: $("create-locked"), modes: $("modes"), createBtn: $("create-btn"),
+  createGuest: $("create-guest"), createSignIn: $("create-sign-in"),
   cols: $("room-cols"), lobby: $("lobby"), lobbyTitle: $("lobby-title"), lobbyMode: $("lobby-mode"), lobbyWait: $("lobby-wait"),
   link: $("room-link"), copy: $("copy-link"), start: $("start-btn"), leave: $("leave-btn"),
   classic: $("classic"), progress: $("classic-progress"), giveUp: $("classic-giveup"),
@@ -124,6 +125,10 @@ function buildModes() {
     return li;
   }));
 }
+
+// Linking keeps the uid and reloads the page (auth-ui.js), so the page asks
+// the server again who this is.
+el.createSignIn.addEventListener("click", () => googleClick(el.createSignIn, setStatus));
 
 el.createBtn.addEventListener("click", async () => {
   if (busy) return;
@@ -394,10 +399,14 @@ function render() {
   el.create.hidden = !user || Boolean(roomId);
   if (!roomId && user) {
     buildModes();
-    // Drawn, not authorized: `create` asserts the rank itself (FR-10.3).
+    // Drawn, not authorized: `create` asserts the rank itself (FR-10.3). A
+    // guest is told to sign in, not that they lack a rank — an admin who has
+    // not signed in on this browser yet is a guest too.
+    const guest = Boolean(user.isAnonymous);
     const can = Boolean(gate?.canCreate);
     el.createForm.hidden = !can;
-    el.createLocked.hidden = gate === null || can;
+    el.createGuest.hidden = !guest;
+    el.createLocked.hidden = gate === null || can || guest;
     for (const b of el.modes.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.preset === preset));
   }
 

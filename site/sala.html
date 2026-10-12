@@ -60,6 +60,12 @@
       <button id="create-btn" type="button" class="primary">Criar sala</button>
     </div>
     <p id="create-locked" class="fine" hidden>Criar salas é para convidados e assinantes. Para jogar, peça o link a quem pode criar — qualquer pessoa entra.</p>
+    <!-- A guest's rank is read off the sign-in (FR-10.1), so whoever they are,
+         a visitor cannot host until they sign in. Say that, not "you lack the rank". -->
+    <div id="create-guest" hidden>
+      <p class="fine">Você está jogando como visitante. Para criar uma sala, entre com sua conta Google — para entrar numa sala, basta o link.</p>
+      <button id="create-sign-in" type="button" class="primary">Entrar com Google</button>
+    </div>
   </section>
 
   <div id="room-cols" hidden>
