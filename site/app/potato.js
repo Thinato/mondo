@@ -28,12 +28,15 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
   let queue = [];
   let lastTurn = null;
   let sending = false;
+  /** A turn came round while a send was still out: flush again when it lands. */
+  let flushAgain = false;
   const feed = [];
 
   const myTurn = () => room?.state === "playing" && room.potato?.turnUid === me();
 
   async function send(names) {
-    if (sending || names.length === 0) return;
+    if (names.length === 0) return;
+    if (sending) { flushAgain = true; return; }
     sending = true;
     try {
       const r = await versus("answer", { room: roomId(), names: names.slice(0, MAX_QUEUE) });
@@ -50,6 +53,10 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
       sending = false;
       renderQueue();
       el.input.focus();
+      if (flushAgain) {
+        flushAgain = false;
+        if (myTurn()) flush();
+      }
     }
   }
 
@@ -128,6 +135,12 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
     }));
   }
 
+  /** The queue and whatever is in the box, in that order: pre-written names go first. */
+  function flush() {
+    const typed = el.input.value.trim();
+    send([...queue, ...(typed ? [typed] : [])]);
+  }
+
   /** Every room snapshot. A new turn that is mine flushes the queue at once. */
   function onRoom(next) {
     room = next;
@@ -138,9 +151,7 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
       // Last turn's refusals are about last turn.
       if (lastTurn !== null && !sending) setStatus("");
       if (myTurn()) {
-        const typed = el.input.value.trim();
-        const names = [...queue, ...(typed ? [typed] : [])];
-        if (names.length) send(names);
+        flush();
         el.input.focus();
       }
     }
