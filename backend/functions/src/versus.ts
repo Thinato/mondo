@@ -70,6 +70,12 @@ const classicOf = (s: Secrets): ClassicSecrets => {
   return { items: s.items, plays: s.plays };
 };
 
+/** The server's clock (invariant 3), as a Timestamp and as epoch ms. */
+function clock(): { now: Timestamp; ms: number } {
+  const now = Timestamp.now();
+  return { now, ms: now.toMillis() };
+}
+
 /** A potato state that has ended ends the room with it. */
 const withPotato = (room: Room, potato: PotatoState): Room =>
   potato.endedAt !== null ? { ...room, potato, state: "finished", finishedAt: potato.endedAt } : { ...room, potato };
@@ -80,9 +86,10 @@ function writePrompt(tx: Transaction, id: string, doc: PromptDoc): void {
 
 export const versus = callable<unknown, Record<string, unknown>>(async (uid, data, request) => {
   const body = requireObject(data);
-  const now = Timestamp.now();
-  const ms = now.toMillis();
-  const reply = (extra: Record<string, unknown> = {}) => ({ serverNow: ms, ...extra });
+  // The clock is read INSIDE each transaction, not once per call: Firestore
+  // retries a contended transaction, and eight ticks racing one answer at a
+  // deadline must each be judged at the moment they actually commit.
+  const reply = (extra: Record<string, unknown> = {}) => ({ serverNow: Date.now(), ...extra });
 
   switch (body.op) {
     // ---------------------------------------------------------------- create
@@ -90,6 +97,7 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
       const preset = presetById(body.presetId);
       const id = inviteToken();
       await db().runTransaction(async (tx) => {
+        const { now, ms } = clock();
         const profile = await ensureProfile(tx, uid, now);
         // FR-10.3, D-84: hosting is what invited players and subscribers have,
         // like making a group. Joining is open to anyone signed in.
@@ -103,6 +111,7 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
     case "join": {
       const id = requireInviteToken(body.room);
       const mine = await db().runTransaction(async (tx) => {
+        const { now, ms } = clock();
         const room = await readRoom(tx, id);
         const secrets = room.mode === "classic" && room.state !== "lobby" ? await readSecrets(tx, id) : null;
         const profile = await ensureProfile(tx, uid, now);
@@ -119,6 +128,7 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
     case "leave": {
       const id = requireInviteToken(body.room);
       await db().runTransaction(async (tx) => {
+        const { ms } = clock();
         const room = await readRoom(tx, id);
         const after = leaveRoom(room, uid, ms);
         if (after !== room) tx.set(roomRef(id), after);
@@ -131,12 +141,15 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
       const id = requireInviteToken(body.room);
       const peek = (await roomRef(id).get()).data() as Room | undefined;
       if (!peek) throw mondoError("not-found", "No such room.");
+      // The host's checks before the week-ahead query, so no other player can spend it.
+      requireStartable(peek, uid, Date.now());
       const preset = presetById(peek.presetId);
       // D-91: the week of daily answers ahead is withheld, as in practice (D-60).
       // Read outside the transaction: it is a query over `puzzles`, which no
       // Versus write touches, and the card is built once either way.
-      const items = preset.spec ? buildCard(preset.spec, new Set(await dailyAhead(now))) : null;
+      const items = preset.spec ? buildCard(preset.spec, new Set(await dailyAhead(Timestamp.now()))) : null;
       await db().runTransaction(async (tx) => {
+        const { ms } = clock();
         const room = await readRoom(tx, id);
         requireStartable(room, uid, ms);
         if (items) {
@@ -156,6 +169,7 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
     case "tick": {
       const id = requireInviteToken(body.room);
       const moved = await db().runTransaction(async (tx) => {
+        const { ms } = clock();
         const room = await readRoom(tx, id);
         requirePlayer(room, uid);
         if (room.state !== "playing") return false;
@@ -183,6 +197,7 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
       if (typeof raw !== "string" && typeof raw !== "number") throw mondoError("invalid-argument", "A guess must be a country or a number.");
       const selfReport = parseSelfReport(body.selfReport); // D-77: stored beside the guess, never scored
       const mine = await db().runTransaction(async (tx) => {
+        const { ms } = clock();
         const room = await readRoom(tx, id);
         requirePlayer(room, uid);
         requirePlaying(room, "classic");
@@ -204,6 +219,7 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
         throw mondoError("invalid-argument", `Send 1 to ${MAX_QUEUE} names of at most ${MAX_NAME} characters.`);
       }
       const result = await db().runTransaction(async (tx) => {
+        const { ms } = clock();
         const room = await readRoom(tx, id);
         requirePlayer(room, uid);
         requirePlaying(room, "potato");
@@ -249,6 +265,7 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
     case "giveUp": {
       const id = requireInviteToken(body.room);
       const mine = await db().runTransaction(async (tx) => {
+        const { ms } = clock();
         const room = await readRoom(tx, id);
         requirePlayer(room, uid);
         if (room.mode === "potato") {

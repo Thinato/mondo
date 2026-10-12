@@ -123,7 +123,8 @@ export function checkTurn(s: PotatoState, uid: string, now: number): void {
 export function applyAnswer(s: PotatoState, uid: string, code: string, now: number): { state: PotatoState; points: number } {
   checkTurn(s, uid, now);
   if (s.named.includes(code)) throw mondoError("already-named", "That country is already on the map.");
-  const elapsed = now - s.turnStartedAt;
+  // Never negative: two instances' clocks can disagree by a few ms.
+  const elapsed = Math.max(0, now - s.turnStartedAt);
   const points = pointsFor(elapsed, s.limitMs);
   const prev = s.scores[uid] ?? { points: 0, timeMs: 0, named: 0 };
   const named = [...s.named, code];
