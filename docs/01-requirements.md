@@ -453,6 +453,10 @@ to test new challenges."*
 - **FR-12.4 Local multiplayer.** `tools/dev.sh` runs it all against the emulators; each browser
   and each origin (`localhost` vs `127.0.0.1`) is its own player; `MONDO_DEV_GRANT=0` leaves ranks
   alone so the hosting gate can be tested.
+- **FR-12.5 Batata Quente training (D-93).** Anyone signed in, a guest included, MAY start a
+  solo Batata Quente with no clock. Every country is worth 1 and every acceptable name in a queue
+  is taken. It ends when the map is full or the player stops, and the end screen lists by name the
+  countries not named. Nobody else can join, and no score reaches a board.
 
 ## SEC — Security and anti-cheat
 

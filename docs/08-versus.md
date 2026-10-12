@@ -47,7 +47,7 @@ sala.html ──callable──▶ versus({ op })          (one function, D-92)
 | `start { room }` | the host, ≥ 2 players | builds the card (Clássico) or the turn order and the land (Batata Quente) |
 | `tick { room }` | a player | moves the room on if — and only if — its deadline has passed |
 | `guess { room, guess, selfReport? }` | Clássico player | one guess on the challenge on screen |
-| `answer { room, names[] }` | Batata Quente player on turn | the first acceptable of ≤ 10 names |
+| `answer { room, names[] }` | Batata Quente player on turn | the first acceptable of ≤ 10 names (every acceptable one, in training); `accepted` is a list |
 | `giveUp { room }` | a player | Clássico: this challenge at 0. Batata Quente: out of the turn order |
 
 ### 2.2 What is pure
@@ -95,12 +95,31 @@ is I/O only.
   174 KB). Server-only. The grey land goes to `map/_base` at start; a country's mark is written
   only once it is named.
 
+### 4.1 Training (FR-12.5, D-93)
+
+The `treino` preset is Batata Quente for one, with no clock. `create` makes the room already
+`playing`: `newPotato([uid], now, false)`, with `limitMs` and `deadline` null. With a null deadline,
+`checkTurn` never says time-up, `tick` finds nothing due, and the page draws no timer.
+
+The other differences:
+
+- Anyone signed in may create one, a guest included, because nobody else is in it.
+- Every country is worth 1, so the score is the count.
+- `answer` takes **every** acceptable name it is sent, not the first.
+- The 400 ms floor is skipped. Each answer opens a new turn that is yours again, so the floor would only refuse names typed quickly.
+- Joining is refused (`room-started`).
+- Each account has one open training room (`users/{uid}.trainingRoom`), and creating another while it is open returns it.
+- It ends when the map is full or the player stops. The end screen lists the missed countries by name, from the public `countries.min.json`.
+
+Cost: a full map is about 197 writes and one listener's worth of reads.
+
 ## 5. Security notes
 
 - Room doc: prompts and counts only (§3). Prompts: reveal only after close. Map: only named
   countries. `roomSecrets`: closed to everyone.
 - **The residual** (D-89): a finished Batata Quente hands its players the outlines it named —
-  what an atlas shows. The gate is being in a room; anyone with a link is.
+  what an atlas shows. The gate is being in a room; anyone with a link is. Since D-93 anyone
+  signed in can open a training room alone, so the gate is now just being signed in.
 - A Versus result never reaches `attempts`, so it cannot reach a board (D-40's mechanism).
 - `selfReport` (D-77) rides along with a Clássico guess exactly as on the daily: stored, never
   scored.
