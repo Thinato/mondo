@@ -702,10 +702,11 @@ promotes every profile to admin in a loop; `MONDO_DEV_GRANT=0 tools/dev.sh` leav
 
 **Versus with several players on one machine (FR-12.4).** Auth lives in each origin's IndexedDB,
 so every one of these is a separate player: Chrome on `http://localhost:8000`, the same Chrome on
-`http://127.0.0.1:8000`, an incognito window, another browser. Host: sign in with a fake Google
-account, open the daily once (that creates the profile the grant loop promotes), then
-`sala.html` → pick a game → Criar sala → Copiar link. Everyone else opens the link — a guest is
-fine — and the host presses Começar.
+`http://127.0.0.1:8000`, an incognito window, another browser. Host: open `sala.html`, Entrar
+com Google (a fake emulator account), and within two seconds `tools/dev.sh` has made it admin —
+then pick a game → Criar sala → Copiar link. A production role means nothing here: the emulator
+is its own empty database. Everyone else opens the link — a guest is fine — and the host presses
+Começar.
 
 Tests: `npm test` in `tools/` and `backend/functions/` need nothing running; `npm run test:rules`
 in `backend/functions/` starts its own Firestore emulator; `npm run test:e2e` (D-33) starts
