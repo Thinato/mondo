@@ -54,3 +54,7 @@ export const nextPractice = call("nextPractice");
 export const submitPracticeGuess = call("submitPracticeGuess");
 export const giveUpPractice = call("giveUpPractice");
 export const endPractice = call("endPractice");
+
+// FR-12 — Versus. One callable for every action in a room (D-92); what
+// happened arrives through the room's listener, not the reply.
+export const versus = call("versus");

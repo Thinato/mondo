@@ -14,6 +14,8 @@
  * docs/06-tournaments.md. Slices 1-2: free-for-all, shape and capital kinds.
  * Practice is FR-9: one kind, one challenge at a time, scored for nobody but
  * the player; see practice.ts.
+ * Versus is FR-12: live rooms, Clássico and Batata Quente, one callable (D-92);
+ * see versus.ts.
  */
 
 import { initializeApp } from "firebase-admin/app";
@@ -35,6 +37,7 @@ export {
   listTournaments, getTournament, getCard, submitCardGuess,
 } from "./tournaments";
 export { startPractice, nextPractice, submitPracticeGuess, giveUpPractice, endPractice } from "./practice";
+export { versus } from "./versus";
 export { rebuildStandings } from "./standings";
 export { scheduleHealthCheck } from "./health";
 

@@ -430,6 +430,30 @@ to test new challenges."*
 - **FR-11.1** A subscription is kept on `users/{uid}.subscription` as Stripe's `status` and the
   `currentPeriodEnd`, written by the Stripe webhook alone (never a client, FR-10.1 reads it).
 
+## FR-12 — Versus *(added 2026-10-12; design in `docs/08-versus.md`)*
+
+- **FR-12.1 Rooms.** A room is reached by a link whose token (16 characters, D-32's alphabet) is
+  its id. `admin`, `invited` and `subscriber` MAY create one (FR-10.3's rank); anyone signed in,
+  a guest included, MAY join while it is a lobby. A room holds 2–8 players; only its host starts
+  it; a host who leaves the lobby hands it to the next to have joined. A lobby expires after two
+  hours. A room's results MUST NOT reach `attempts` or any board.
+- **FR-12.2 Clássico.** The host names a preset, resolved on the server. Every player gets the
+  same challenge at the same moment on one countdown (45 s; 20 s for a pick), with the kind's own
+  guess budget and SEC-5's floor. A challenge closes when everyone is done or the deadline passes;
+  then the answer and the board show for 5 s. A solve scores its 0–6 times up to 1.5 for the share
+  of the clock left; an unsolved challenge scores 0. Ties go to less time spent solving. A player
+  MUST NOT receive another player's guesses — only counts and whether they solved it.
+- **FR-12.3 Batata Quente.** Players take turns in join order; a round is every active player
+  once. The turn lasts `max(3, 21 − round)` seconds. An answer is a typed country name (D-90): a
+  valid one not yet on the map scores `max(1, round(10 × (1 − t/T)))` and passes the turn; an
+  unknown, ambiguous or already-named one does not pass the turn. A timeout passes it for nothing.
+  A player who gives up is skipped. The game ends when every country is named, after two full
+  rounds with no answer, or when everyone has given up; most points wins, ties to less time.
+  The client MAY send up to ten names at once (a queue); the server takes the first acceptable.
+- **FR-12.4 Local multiplayer.** `tools/dev.sh` runs it all against the emulators; each browser
+  and each origin (`localhost` vs `127.0.0.1`) is its own player; `MONDO_DEV_GRANT=0` leaves ranks
+  alone so the hosting gate can be tested.
+
 ## SEC — Security and anti-cheat
 
 - **SEC-1** *(critical)* The answer for an unfinished round MUST NOT be present in any payload

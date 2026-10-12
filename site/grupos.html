@@ -20,6 +20,7 @@
     <a href="./">Hoje</a>
     <a href="./grupos.html" aria-current="page">Grupo</a>
     <a href="./praticar.html">Treinar</a>
+    <a href="./sala.html">Versus</a>
   </nav>
   <div class="head-right">
     <button type="button" id="theme-btn" class="theme-btn" aria-label="Mudar o tema">
@@ -85,7 +86,6 @@
 
     <div id="sections" class="subtabs" role="tablist" aria-label="Seções do grupo">
       <button type="button" role="tab" data-tab="ranking" aria-selected="true">Ranking</button>
-      <button type="button" role="tab" data-tab="torneios" aria-selected="false">Torneios<span id="count-tournaments" class="count"></span></button>
       <button type="button" role="tab" data-tab="membros" aria-selected="false">Membros<span id="count-members" class="count"></span></button>
     </div>
 
@@ -111,7 +111,9 @@
         <section id="today" class="today" aria-label="Hoje">
           <!-- FR-5: a running tournament is the thing in this group most likely
                to be waiting on you, so it sits above the day's list rather than
-               a page away. -->
+               a page away. D-88 retired the Torneios tab and new tournaments —
+               Versus replaces them — and kept this card: it is how a tournament
+               already under way is finished. -->
           <a id="open-round" class="round-card" hidden href="./torneios.html">
             <span class="kicker">Torneio em andamento</span>
             <span id="open-round-name" class="name"></span>
@@ -127,21 +129,6 @@
       </div>
     </section>
 
-    <section id="tab-torneios" hidden>
-      <ul id="t-cards" class="cards" aria-label="Torneios"></ul>
-      <p id="no-tournaments" class="fine" hidden></p>
-      <form id="t-create-form" class="stack" autocomplete="off" hidden>
-        <h3 class="title">Novo torneio</h3>
-        <input id="t-create-name" type="text" minlength="3" maxlength="40" required
-               placeholder="Nome do torneio" aria-label="Nome do torneio">
-        <fieldset id="presets" class="presets">
-          <legend class="fine">Formato</legend>
-        </fieldset>
-        <button type="submit" class="primary">Criar torneio</button>
-      </form>
-      <p class="fine">Torneios acontecem dentro deste grupo e usam os mesmos tipos de desafio do jogo.
-      A pontuação de um torneio nunca entra no ranking diário.</p>
-    </section>
 
     <section id="tab-membros" hidden>
       <div class="table-wrap">

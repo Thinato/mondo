@@ -307,6 +307,67 @@ const PT_BR = {
     statSolved: "Acertos",
     statRate: "Taxa de acerto",
   },
+  // FR-12 — Versus. Batata Quente is the name the mode was asked for by; the
+  // presets are the server's ids (lib/versus.ts) and these are only labels.
+  versus: {
+    preset: {
+      mundo: "Batata Quente",
+      dia: "Clássico · o dia",
+      bandeiras: "Clássico · bandeiras",
+      formas: "Clássico · silhuetas",
+      capitais: "Clássico · capitais",
+      "misto-10": "Clássico · misto de 10",
+    },
+    presetAbout: {
+      mundo: "Cada um na sua vez diz um país que ainda não está no mapa. O tempo encolhe a cada rodada; quem responde rápido leva mais.",
+      dia: "Os sete desafios do dia, um de cada tipo, todos ao mesmo tempo.",
+      bandeiras: "Três bandeiras e três 'qual bandeira'.",
+      formas: "Três silhuetas e três 'qual silhueta'.",
+      capitais: "Cinco capitais. De onde é esta?",
+      "misto-10": "Dez desafios de todos os tipos.",
+    },
+    copied: "Link copiado.",
+    players: "{n} jogador|{n} jogadores",
+    host: "anfitrião",
+    board: "Placar",
+    readyHost: "Todos dentro? É só começar.",
+    needPlayers: "Mande o link: são pelo menos 2 jogadores.",
+    waitHost: "Esperando {name} começar.",
+    secondsLeft: "{n} s",
+    challengeOf: "Desafio {n} de {total} · {kind}",
+    waiting: "Feito! Esperando os outros.",
+    tries: "{n} chute|{n} chutes",
+    revealSolved: "Era {answer}. +{points} pontos.",
+    over: "Fim de jogo.",
+    youWon: "Você venceu, com {points} pontos!",
+    won: "{name} venceu, com {points} pontos.",
+    end: {
+      "map-full": "O mapa está completo.",
+      silence: "Duas rodadas sem ninguém dizer nada.",
+      "all-gave-up": "Todo mundo desistiu.",
+    },
+    yourTurn: "Sua vez!",
+    theirTurn: "Vez de {name}.",
+    round: "Rodada {n} · {s} s por vez",
+    namedCount: "{n} de {total} países no mapa",
+    send: "Enviar",
+    queue: "Guardar",
+    yourTurnHint: "Uma letra errada passa. Duas não.",
+    queueHint: "Escreva países enquanto espera: eles saem sozinhos na sua vez ({n} de {max}).",
+    unqueue: "Tirar {name} da fila",
+    confirmGiveUp: "Desistir sai do jogo: suas vezes passam a ser puladas e seus pontos ficam como estão.",
+    dropped: {
+      unknown: "Não reconheci “{name}”.",
+      ambiguous: "“{name}” pode ser mais de um país — escreva o nome inteiro.",
+      "already-named": "{name} já está no mapa.",
+    },
+    // Where the game-wide message would say the wrong thing in a room.
+    errors: {
+      "not-found": "Essa sala não existe ou já venceu.",
+      "already-completed": "Espere o próximo desafio.",
+      "invalid-argument": "Pedido inválido. Recarregue a página.",
+    },
+  },
   // account (FR-1.5)
   deleted: "Conta apagada.",
   compass: { N: "norte", NE: "nordeste", E: "leste", SE: "sudeste", S: "sul", SW: "sudoeste", W: "oeste", NW: "noroeste" },
@@ -324,6 +385,11 @@ const PT_BR = {
     "group-full": "Esse grupo está cheio.",
     "tournament-not-open": "Este torneio não tem rodada aberta agora.",
     "not-a-participant": "Você não está neste torneio.",
+    "room-full": "Essa sala está cheia: são 8 no máximo.",
+    "room-started": "Esse jogo já começou.",
+    "not-your-turn": "Ainda não é a sua vez.",
+    "already-named": "Esse país já está no mapa.",
+    "time-up": "O tempo acabou.",
     "no-countries-left": "Nenhum país sobrou nesses continentes para esse tipo. Marque outro continente ou treine outro tipo.",
     "unavailable": "Sem conexão com o servidor. Sua tentativa não foi gasta; tente de novo.",
     "internal": "Deu ruim no servidor. Sua tentativa não foi gasta; tente de novo.",
@@ -342,8 +408,12 @@ export function t(key, vars = {}) {
   return picked.replace(/\{(\w+)\}/g, (_, k) => (vars[k] === undefined ? `{${k}}` : String(vars[k])));
 }
 
-/** Human message for a callable error: typed Mondo code first, then the SDK's own code. */
-export function errorMessage(err) {
+/**
+ * Human message for a callable error: typed Mondo code first, then the SDK's own
+ * code. A `scope` with an `errors` table of its own is read first, for the
+ * screens where the game-wide wording is wrong ("no country today" for a room).
+ */
+export function errorMessage(err, scope) {
   const code = err?.details?.code ?? String(err?.code ?? "").replace(/^functions\//, "");
-  return strings.errors[code] ?? t("errors.default", { code: code || "?" });
+  return strings[scope]?.errors?.[code] ?? strings.errors[code] ?? t("errors.default", { code: code || "?" });
 }

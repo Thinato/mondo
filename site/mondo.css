@@ -853,3 +853,54 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
   .detail-cols > #round { grid-column: 2; grid-row: 1; position: sticky; top: 1rem; }
   .detail-main { grid-column: 1; grid-row: 1; min-width: 0; }
 }
+
+/* ---------------------------------------------------------------------------
+   Versus — FR-12 (sala.html). The room is the play column and a scoreboard;
+   the scoreboard stacks under the game on a phone, like practice's run list.
+   --------------------------------------------------------------------------- */
+.modes { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: .5rem; }
+.modes button {
+  width: 100%; text-align: left; font: inherit; padding: .75rem 1rem; cursor: pointer; display: grid; gap: .2rem;
+  border: 1px solid var(--line); border-radius: .75rem; background: transparent; color: var(--fg);
+}
+.modes button:hover, .modes button:focus-visible { border-color: var(--fg); }
+.modes button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.modes .name { font-weight: 600; }
+
+/* The countdown. A bar, because a number that changes ten times a second is
+   noise; the seconds are printed beside it once a second. */
+.timer { height: .35rem; background: var(--line); border-radius: 1rem; overflow: hidden; margin: 0 0 .5rem; }
+.timer span { display: block; height: 100%; width: 100%; background: var(--accent); }
+.timer span.low { background: var(--err); }
+.clock { font-family: var(--mono); text-align: right; margin: 0 0 .5rem; min-height: 1.2em; }
+
+.scoreboard { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .25rem; }
+.board-row { display: grid; grid-template-columns: .8rem 1fr auto; gap: .5rem; align-items: center; padding: .35rem 0; border-bottom: 1px solid var(--line); }
+.board-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-row .score { font-family: var(--mono); }
+.board-row.me .name { font-weight: 600; }
+.board-row.turn { background: var(--card); }
+.board-row.out { color: var(--muted); text-decoration: line-through; }
+.dot { width: .8rem; height: .8rem; border-radius: 50%; display: inline-block; }
+.card-item .dot { align-self: center; }
+
+/* Batata Quente. The map is the payoff, so it takes the column's full width;
+   each named country fades in, in the colour of whoever named it. */
+.potato-turn { font-family: var(--serif); font-size: 1.5rem; margin: 0; }
+.potato-turn.mine { color: var(--accent); font-weight: 500; }
+.world { margin: .5rem 0; background: var(--card); border-radius: .75rem; overflow: hidden; }
+.world svg { display: block; width: 100%; height: auto; }
+.world .land { fill: var(--band-0); }
+.world .named { stroke: var(--bg); stroke-width: .3; animation: named-in .6s ease-out; }
+@keyframes named-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .world .named { animation: none; } }
+#potato-queue { margin: .5rem 0; }
+#room-link { flex: 1; min-width: 8rem; font: inherit; font-family: var(--mono); font-size: .85rem; padding: .6rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--field); color: inherit; }
+
+@media (min-width: 60rem) {
+  body:has(#room-cols) header,
+  body:has(#room-cols) main,
+  body:has(#room-cols) footer { max-width: 69rem; }
+  #room-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem); gap: 2.5rem; align-items: start; }
+  #room-side { position: sticky; top: 1rem; }
+}

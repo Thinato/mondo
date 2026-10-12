@@ -89,6 +89,22 @@ export const auth = getAuth(app);
 export const functions = getFunctions(app, REGION);
 export const googleProvider = new GoogleAuthProvider();
 
+/**
+ * The Firestore SDK, for the one page that listens: sala.html (D-87). Loaded on
+ * first use rather than imported above, so every other page goes on never
+ * loading it — they read through callables, and a page that does not have the
+ * SDK cannot be talked into a read the rules would have refused anyway.
+ */
+let firestore = null;
+export function realtime() {
+  firestore ??= import("https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js").then((fs) => {
+    const db = fs.getFirestore(app);
+    if (isLocal) fs.connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    return { db, fs };
+  });
+  return firestore;
+}
+
 if (isLocal) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFunctionsEmulator(functions, "127.0.0.1", 5001);

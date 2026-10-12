@@ -17,38 +17,16 @@
  */
 
 import { Timestamp } from "firebase-admin/firestore";
-import { dailySubjects, db, ensureProfile, practiceRef } from "./db";
+import { dailyAhead, db, ensureProfile, practiceRef } from "./db";
 import { callable } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import { kindById } from "./lib/kinds";
 import { parseSelfReport } from "./lib/report";
 import {
   applyPracticeGuess, endSession, giveUpPractice as giveUpSession, newSession, practiceView, serveNext,
-  PRACTICE_EXCLUSION_DAYS, type PracticeSession, type PracticeView,
+  type PracticeSession, type PracticeView,
 } from "./lib/practice";
-import { puzzleIdAt } from "./lib/puzzle-day";
-import { nextDay } from "./lib/standings";
 import { requireObject, requireRegions } from "./lib/validate";
-
-/**
- * D-60 — the daily subjects a session will not ask about: today's, and the
- * week ahead. Without this, "practise the `gdp` kind" is a machine for grinding
- * out today's answer: the daily's `gdp` prompt names its country, so a player
- * need only click through the pool until that country comes up and read the
- * figure off the reveal. `capital` leaks the same way in the other direction.
- *
- * Read once, at the start of the session, and carried on the document: eight
- * documents per session rather than eight per challenge. A session left open
- * across the week would go stale, and a stale window is still seven days wide
- * measured from a day that has passed — it under-blocks the far end by a day
- * at a time, and never under-blocks today.
- */
-async function withheld(now: Timestamp): Promise<string[]> {
-  const today = puzzleIdAt(now.toDate());
-  let to = today;
-  for (let i = 0; i < PRACTICE_EXCLUSION_DAYS; i++) to = nextDay(to);
-  return [...(await dailySubjects(today, to))];
-}
 
 /**
  * startPractice({ kind, regions? }) — a new session of one kind, showing its
@@ -76,7 +54,7 @@ export const startPractice = callable<{ kind: unknown; regions?: unknown }, Prac
 
   await db().runTransaction((tx) => ensureProfile(tx, uid, now));
 
-  const session = newSession(uid, kind, await withheld(now), now, Math.random, regions);
+  const session = newSession(uid, kind, await dailyAhead(now), now, Math.random, regions);
   await practiceRef(uid).set(session);
   return practiceView(session, now);
 });

@@ -2,16 +2,26 @@
 #
 # Everything needed to play the local game, in one command:
 #
-#   tools/dev.sh
+#   tools/dev.sh                     every account is promoted to admin
+#   MONDO_DEV_GRANT=0 tools/dev.sh   ranks stay as they are (FR-12.4)
 #
 # Builds the functions, starts the emulators, seeds a week of puzzles, serves
 # `site/`, and opens the browser. Ctrl-C stops all of it.
 #
-# The one thing it does that the real app never would: every profile it finds
-# is granted `admin`, in a loop. Playing needs an invitation (FR-1.7, D-28) and
-# a fresh emulator account has no group, so without this the first thing you
-# see after signing in is "você precisa de um convite". It is scoped to the
-# `demo-mondo` emulator and refuses to run against anything else.
+# The one thing it does that the real app never would: every account that signs
+# in with Google is granted `admin`, in a loop — its profile made if it has none
+# — so a fresh emulator account can make groups and host Versus rooms straight
+# away (FR-10.3). The emulator is its own empty database: a production role
+# means nothing here, and a browser that has not signed in is a guest. It is scoped to the `demo-mondo`
+# emulator and refuses to run against anything else. Turn it off with
+# MONDO_DEV_GRANT=0 to test the rank gate itself — then grant ranks by hand:
+#
+#   node tools/set-role.mjs --emulator --uid <uid> --role invited
+#
+# Several players on one machine (Versus): every browser keeps its own session,
+# and so does every ORIGIN — http://localhost:8000 and http://127.0.0.1:8000 are
+# two players in one Chrome, an incognito window is a third, Firefox a fourth.
+# A window that never signs in with Google plays as a guest.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -20,6 +30,7 @@ LOG="$(mktemp -t mondo-emulators)"
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"   # the Firestore emulator needs a JRE
 
 EMU_PID=""; WEB_PID=""; GRANT_PID=""; STOPPING=""
+GRANT="${MONDO_DEV_GRANT:-1}"
 
 cleanup() {
   # INT (or TERM) fires the handler and then EXIT fires it again. Everything in
@@ -99,30 +110,46 @@ echo "==> serving site/ on :8000"
 (cd site && exec python3 -m http.server 8000 >/dev/null 2>&1) &
 WEB_PID=$!
 
-# Grant admin to whoever signs in. Polled rather than triggered, because the
-# profile is written by the first getRound call and there is nothing to hook.
-(cd backend/functions && FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 GCLOUD_PROJECT=demo-mondo exec node -e '
+# Grant admin to whoever signs in with Google. Polled rather than triggered:
+# there is nothing to hook. An account that has no profile yet — it went
+# straight to sala.html, which never creates one — gets one made here, so
+# "sign in with Google" is all it takes on any page. Guests are left alone:
+# a guest's rank is read off the token (FR-10.1), so a role would do nothing.
+if [ "$GRANT" != "0" ]; then
+(cd backend/functions && FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 GCLOUD_PROJECT=demo-mondo exec node -e '
 // mondo-dev-grant — the marker cleanup greps for. Do not remove: an orphan of
 // this loop grants admin to every profile in whatever is on port 8080.
 const admin = require("firebase-admin");
+const { newProfile } = require("./lib/lib/round");
 admin.initializeApp({ projectId: "demo-mondo" });
 const db = admin.firestore();
 setInterval(async () => {
-  const snap = await db.collection("users").where("role", "!=", "admin").get().catch(() => null);
-  for (const d of snap?.docs ?? []) {
-    await d.ref.update({ role: "admin" });
-    console.log("    granted admin to " + (d.data().displayName ?? d.id));
+  const users = await admin.auth().listUsers().catch(() => null);
+  for (const u of users?.users ?? []) {
+    if (u.providerData.length === 0) continue; // a guest
+    const ref = db.doc(`users/${u.uid}`);
+    const snap = await ref.get().catch(() => null);
+    if (!snap || (snap.exists && snap.data().role === "admin")) continue;
+    if (snap.exists) await ref.update({ role: "admin" });
+    else await ref.set({ ...newProfile(admin.firestore.Timestamp.now()), role: "admin" });
+    console.log("    granted admin to " + (u.email ?? u.uid));
   }
 }, 2000);
 ' 2>/dev/null) &
 GRANT_PID=$!
+else
+  echo "==> MONDO_DEV_GRANT=0: ranks are left alone"
+fi
 
 sleep 1
 echo ""
 echo "  treino (the pick kinds live here):  http://localhost:8000/praticar.html"
 echo "  o jogo do dia:                 http://localhost:8000/"
+echo "  versus, player 1:              http://localhost:8000/sala.html"
+echo "  versus, player 2 (same Chrome): http://127.0.0.1:8000/sala.html"
 echo "  emulator UI:                   http://127.0.0.1:4000/"
 echo ""
 echo "  Sign in with Google → 'Add new account' → any email. Ctrl-C to stop."
+echo "  More players: an incognito window, another browser — each is its own account."
 open http://localhost:8000/praticar.html 2>/dev/null || true
 wait

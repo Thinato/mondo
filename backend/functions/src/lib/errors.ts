@@ -24,7 +24,13 @@ export type MondoErrorCode =
   | "no-countries-left"
   // Phase 3 — tournaments (docs/06-tournaments.md §9)
   | "tournament-not-open"
-  | "not-a-participant";
+  | "not-a-participant"
+  // FR-12 — Versus rooms
+  | "room-full"
+  | "room-started"
+  | "not-your-turn"
+  | "already-named"
+  | "time-up";
 
 const HTTPS_CODE: Record<MondoErrorCode, FunctionsErrorCode> = {
   unauthenticated: "unauthenticated",
@@ -44,6 +50,14 @@ const HTTPS_CODE: Record<MondoErrorCode, FunctionsErrorCode> = {
   // act, and there is nothing they can retry (FR-5.7).
   "tournament-not-open": "failed-precondition",
   "not-a-participant": "permission-denied",
+  "room-full": "failed-precondition",
+  "room-started": "failed-precondition",
+  "not-your-turn": "failed-precondition",
+  // A name already on the map: the turn stays open and the player tries again.
+  "already-named": "failed-precondition",
+  // The server's clock passed the deadline first (invariant 3); the turn or
+  // challenge is gone whatever the client's countdown said.
+  "time-up": "failed-precondition",
 };
 
 export function mondoError(code: MondoErrorCode, message: string): HttpsError {
