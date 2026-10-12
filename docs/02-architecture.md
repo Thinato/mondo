@@ -689,17 +689,28 @@ npm run seed -- --file out/schedule-1.json --emulator
 cd site && python3 -m http.server 8000
 ```
 
-Then open `http://localhost:8000/`. Google sign-in goes to the Auth emulator's fake account
-picker. Playing needs an invitation (FR-1.7): make your emulator account an admin once with
-`cd tools && npm run set-role -- --uid <uid> --role admin --emulator` (the uid is in the Auth
-emulator UI at `http://127.0.0.1:4000/auth`), then create a group and invite the other test
-accounts from `grupos.html`. The emulator registers the scheduled jobs as Pub/Sub triggers (so the
-`pubsub` emulator is in `firebase.json`); run one locally from the Emulator UI's trigger button or
-call `rebuildStandingsNow` / `healthCheckNow` in-process, as the e2e does.
+Then open `http://localhost:8000/`. A fresh browser plays as a guest (D-85); Google sign-in goes to
+the Auth emulator's fake account picker ("Add new account", any email). To host a Versus room or
+create a group an account needs a rank (FR-10.3): `cd tools && npm run set-role -- --uid <uid>
+--role invited --emulator` (the uid is in the Auth emulator UI at `http://127.0.0.1:4000/auth`).
+The emulator registers the scheduled jobs as Pub/Sub triggers (so the `pubsub` emulator is in
+`firebase.json`); run one locally from the Emulator UI's trigger button or call
+`rebuildStandingsNow` / `healthCheckNow` in-process, as the e2e does.
+
+**Or one command:** `tools/dev.sh` builds, starts the emulators, seeds a week, serves `site/` and
+promotes every profile to admin in a loop; `MONDO_DEV_GRANT=0 tools/dev.sh` leaves ranks alone.
+
+**Versus with several players on one machine (FR-12.4).** Auth lives in each origin's IndexedDB,
+so every one of these is a separate player: Chrome on `http://localhost:8000`, the same Chrome on
+`http://127.0.0.1:8000`, an incognito window, another browser. Host: sign in with a fake Google
+account, open the daily once (that creates the profile the grant loop promotes), then
+`sala.html` → pick a game → Criar sala → Copiar link. Everyone else opens the link — a guest is
+fine — and the host presses Começar.
 
 Tests: `npm test` in `tools/` and `backend/functions/` need nothing running; `npm run test:rules`
 in `backend/functions/` starts its own Firestore emulator; `npm run test:e2e` (D-33) starts
-Functions + Firestore + Auth emulators and drives every Phase 2 callable with several accounts.
+Functions + Firestore + Auth emulators and drives every Phase 2 callable with several accounts,
+and plays a whole Batata Quente and a whole Clássico (`versus.e2e.ts`).
 
 Use `npx firebase-tools`, not the Homebrew `firebase` binary: on macOS the latter is killed with
 exit 137 on its first network call.

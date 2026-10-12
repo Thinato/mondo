@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Context for AI coding agents working in this repo. Read `docs/00-brief.md` through
-`docs/05-cost.md` before making changes.
+`docs/05-cost.md` before making changes, and `docs/08-versus.md` before touching Versus.
 
 ## What this is
 
@@ -9,7 +9,8 @@ A daily country-guessing game served at `lisecki.dev/mondo/`, built for a small 
 group. A day is **seven** challenges — silhouette, flag, capital, GDP per capita, "which of
 these eight flags", "which of these eight silhouettes" and "where was this person born" — played
 in order, one at a time, worth 0–42 (D-52, D-53, D-66, D-75, D-79). There is also a practice mode: one kind, as many challenges as you like, scored
-for nobody (FR-9, D-60). Vanilla frontend published from `site/` by GitHub Pages, Firebase
+for nobody (FR-9, D-60), and **Versus**: live rooms anyone with the link can join, playing Clássico
+or Batata Quente (FR-12, D-87–D-92, `docs/08-versus.md`), which replaced tournaments (D-88). Vanilla frontend published from `site/` by GitHub Pages, Firebase
 backend.
 
 ## Invariants — never violate these
@@ -21,9 +22,10 @@ backend.
    alongside the exact distance (D-36), because the two solve for the answer's centroid from a
    single guess. The client gets `compass`, the 8-point arrow.
 2. **No client writes to score-bearing or membership-bearing data.** `puzzles`, `attempts`,
-   `practice`, `challenges`, `groups/**`, `invites`, and the `role`/`groups` fields on `users` are
-   Admin-SDK-only. Firestore rules default-deny. The client never loads the Firestore SDK;
-   every read goes through a callable.
+   `practice`, `challenges`, `groups/**`, `invites`, `rooms/**`, `roomSecrets`, and the
+   `role`/`groups` fields on `users` are Admin-SDK-only. Firestore rules default-deny. The client
+   loads the Firestore SDK on exactly one page — `sala.html`, to LISTEN to its own Versus room
+   (D-87) — and every other read goes through a callable. Do not add a second listening page.
 3. **Server timestamps only.** Never trust client-supplied time for anything scored.
 4. **No build step on the frontend.** Vanilla ES modules, Firebase SDK via CDN ESM import.
    Do not introduce a bundler, framework, or transpiler into `site/`.
@@ -251,6 +253,33 @@ backend.
   `NOTICE` any more, `site/creditos.html` is where ODbL, CC BY and CC BY-SA attribution actually
   happens — **adding a data source means adding it to both**. Do not link the GitHub repo from
   `site/`: it 404s for everyone but Paulo.
+- **Versus is the one page that listens, and the room is safe because of what it holds** (D-87).
+  Anyone with a room's link can join — a guest included — so `rooms/{id}` and its `prompts/` and
+  `map/` must never hold an answer: the room carries prompts and per-player COUNTS (a rival's
+  graded guess is a hint), a prompt doc gets its `reveal` only once the challenge closed, and a
+  map doc is a country somebody already named. The Clássico card is in `roomSecrets`, closed like
+  `cards`. Rules allow `get` on a room, never `list`: the id is the invite. Deadlines are enforced
+  lazily — every client calls `tick` at zero and the server checks its own clock; there is no
+  scheduler, and do not add one.
+- **Versus is one callable, `versus({ op })`** (D-92), against the one-callable-per-action
+  convention, because each callable is its own Cloud Run service with its own cold start and a
+  two-second cold start decides a three-second Batata Quente turn. Each op still validates and
+  transacts on its own. A Clássico player plays the room's card through `lib/card.ts` UNCHANGED;
+  the room only opens and closes items. Versus withholds the daily's next week like practice
+  (D-91, `dailyAhead` in `db.ts`) and never writes `attempts`.
+- **Batata Quente reads text, and one letter is the whole rule** (D-90). `lib/match.ts`: pt-BR name
+  or alias, accents ignored, ONE edit for terms of 4+ characters, a one-edit guess that fits two
+  countries refused, two-letter terms not names. There is no autocomplete on that screen on
+  purpose — it would make the rule meaningless; the queue of pre-written names replaces it. Do not
+  widen it to two edits: that was the explicit line.
+- **The Batata Quente map is the one world map, and it is server-side** (D-89).
+  `tools/build-world.mjs` → `data/world.json` (Natural Earth 1:50m, Equal Earth). A room gets the
+  grey land at start and a country's path only once named there. Do not put it in `site/`: a
+  static world map is every outline and every centroid, which with the distance hints solves the
+  daily. This is not a silhouette and does not reopen D-69. Rebuild it after `build-geo`.
+- **Tournaments are retired from the UI, not yet from the backend** (D-88). No Torneios tab, no
+  creation; the running-tournament card and `torneios.html?t=` stay so anything under way
+  finishes. Delete the tournament backend in its own PR once production has none running.
 - Challenge creators do not choose the country and play blind. Decision D-10.
 - Territories and dependencies are excluded from the country pool. Changes go through
   `tools/include.json` via pull request. `VA` is excluded too: no usable geometry (D-20).
