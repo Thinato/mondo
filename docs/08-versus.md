@@ -93,7 +93,9 @@ is I/O only.
 - **The map** (D-89): Natural Earth 1:50m, Equal Earth, built by `tools/build-world.mjs` into
   `backend/functions/src/data/world.json` (167 outlines, 29 dots for countries too small to see,
   174 KB). Server-only. The grey land goes to `map/_base` at start; a country's mark is written
-  only once it is named.
+  only once it is named. Greenland, outside the pool (D-20) but a third of the northern map, is
+  painted as part of Denmark (`PAINTED_WITH` in `tools/build-world.mjs`), so the map can fill;
+  "Groenlândia" is still not an answer.
 
 ### 4.1 Training (FR-12.5, D-93)
 

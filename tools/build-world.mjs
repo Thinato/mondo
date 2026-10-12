@@ -18,6 +18,11 @@ const MAX_BYTES = 400 * 1024;
 
 // The same numeric-id mapping build-geo.mjs uses; Kosovo has no ISO id.
 const BY_NAME = { XK: "Kosovo" };
+// Territories outside the pool (D-20) that are painted with their country when
+// it is named, by world-atlas name. Without this they sit grey on a map that
+// can then never fill. Map only: the pool, the centroid and every hint are
+// untouched, and "Groenlândia" is still not an answer.
+const PAINTED_WITH = { DK: ["Greenland"] };
 
 const countries = read("backend/functions/src/data/countries.json").countries;
 const topo = read("tools/node_modules/world-atlas/countries-50m.json");
@@ -34,8 +39,11 @@ for (const g of topo.objects.countries.geometries) {
 // Same-id features (a sovereign and its dependency sharing an ISO id) merge into one shape.
 const features = new Map();
 for (const c of countries) {
-  const geoms = BY_NAME[c.code] ? byName.get(BY_NAME[c.code]) : byId.get(ccn3.get(c.code));
-  if (geoms?.length) features.set(c.code, merge(topo, geoms));
+  const geoms = [
+    ...(BY_NAME[c.code] ? byName.get(BY_NAME[c.code]) : byId.get(ccn3.get(c.code)) ?? []),
+    ...(PAINTED_WITH[c.code] ?? []).flatMap((name) => byName.get(name) ?? []),
+  ];
+  if (geoms.length) features.set(c.code, merge(topo, geoms));
 }
 
 const world = buildWorld({
