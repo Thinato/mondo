@@ -343,6 +343,7 @@ const PT_BR = {
     over: "Fim de jogo.",
     youWon: "Você venceu, com {points} pontos!",
     soloDone: "Você lembrou {n} de {total} países.",
+    trainAgain: "Treinar de novo",
     soloHint: "Uma letra errada passa. Duas não. Sem pressa.",
     soloGiveUp: "Terminar o treino? Os países que faltaram aparecem no fim.",
     missed: "Faltou {n}|Faltaram {n}",

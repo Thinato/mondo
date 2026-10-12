@@ -114,7 +114,38 @@ function buildPicker() {
     button.addEventListener("click", () => start(k));
     li.append(button);
     return li;
-  }));
+  }), potatoEntry());
+}
+
+/**
+ * D-93 — Batata Quente alone, with no clock. Not a kind: it is a Versus room of
+ * one, and its map is pushed by the listener only sala.html may load
+ * (invariant 2), so this button opens the room there.
+ */
+function potatoEntry() {
+  const li = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  const name = document.createElement("span");
+  name.className = "name";
+  name.textContent = t("versus.preset.mundo");
+  const about = document.createElement("span");
+  about.className = "fine";
+  about.textContent = t("versus.presetAbout.treino");
+  button.append(name, about);
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    setStatus(t("loading"));
+    try {
+      const r = await api.versus({ op: "create", presetId: "treino" });
+      location.href = `./sala.html?s=${r.room}`;
+    } catch (err) {
+      setStatus(errorMessage(err, "versus"), "err");
+      button.disabled = false;
+    }
+  });
+  li.append(button);
+  return li;
 }
 
 /**
