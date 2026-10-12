@@ -106,17 +106,17 @@ test("FR-12.3: Batata Quente, three players, to a full map", async () => {
 
   // The queue: nonsense is dropped, a name without its accent is still Japão.
   let a = ok(await host.call({ op: "answer", room: id, names: ["Atlântida", "Japao"] }), "host answers");
-  assert.deepEqual(a.accepted.code, "JP");
+  assert.deepEqual(a.accepted.map((x: Any) => x.code), ["JP"]);
   assert.deepEqual(a.dropped, [{ name: "Atlântida", reason: "unknown" }]);
   // Already on the map: dropped, and the turn stays with bia.
   a = ok(await bia.call({ op: "answer", room: id, names: ["Japão"] }), "bia repeats");
-  assert.equal(a.accepted, null);
+  assert.deepEqual(a.accepted, []);
   assert.deepEqual(a.dropped, [{ name: "Japão", reason: "already-named" }]);
   assert.equal((await room(id)).potato.turnUid, bia.uid);
   await sleep(450); // SEC-5's floor, within a turn
   // One wrong letter is forgiven.
   a = ok(await bia.call({ op: "answer", room: id, names: ["Brazil"] }), "bia, one typo");
-  assert.equal(a.accepted.code, "BR");
+  assert.deepEqual(a.accepted.map((x: Any) => x.code), ["BR"]);
 
   for (;;) {
     r = await room(id);
@@ -179,4 +179,29 @@ test("FR-12.2: Clássico, played to the end; no answer on the wire before its re
   assert.equal(r.state, "finished");
   assert.ok(r.players[host.uid].score >= 5 * 6, "five solves, each at least 6");
   assert.equal(r.players[bia.uid].score, 0);
+});
+
+test("D-93: a guest trains alone — started on create, no clock, nobody else gets in", async () => {
+  const { room: id } = ok(await guest.call({ op: "create", presetId: "treino" }), "guest creates a training room");
+  let r = await room(id);
+  assert.equal(r.state, "playing");
+  assert.deepEqual(r.playerUids, [guest.uid]);
+  assert.equal(r.potato.deadline, null);
+  assert.ok((await db.doc(`rooms/${id}/map/_base`).get()).exists, "the land is there from the start");
+  assert.equal(ok(await guest.call({ op: "create", presetId: "treino" }), "again").room, id, "one open training room: asking again goes back to it");
+
+  // Every acceptable name is taken, not just the first, and back to back: no turn, no floor.
+  const a = ok(await guest.call({ op: "answer", room: id, names: ["Brasil", "Jpão", "brasil", "Peru"] }), "answer");
+  assert.deepEqual(a.accepted.map((x: Any) => [x.code, x.points]), [["BR", 1], ["JP", 1], ["PE", 1]]);
+  assert.deepEqual(a.dropped, [{ name: "brasil", reason: "already-named" }]);
+  assert.deepEqual(ok(await guest.call({ op: "answer", room: id, names: ["Chile"] }), "at once").accepted.map((x: Any) => x.code), ["CL"]);
+  assert.equal((await db.collection(`rooms/${id}/map`).get()).size, 5, "the land and four countries");
+  assert.equal(ok(await guest.call({ op: "tick", room: id }), "tick").moved, false, "nothing to time out");
+  assert.equal(code(await bia.call({ op: "join", room: id })), "room-started");
+
+  ok(await guest.call({ op: "giveUp", room: id }), "stop");
+  r = await room(id);
+  assert.equal(r.state, "finished");
+  assert.equal(r.potato.scores[guest.uid].named, 4);
+  assert.notEqual(ok(await guest.call({ op: "create", presetId: "treino" }), "a new one").room, id, "a finished one is not reopened");
 });
