@@ -34,6 +34,12 @@ export interface Country {
    * would cut a silhouette's field from 194 to 12 in one lookup (SEC-2).
    */
   region: Region;
+  /**
+   * Other names the country goes by — the same list the client autocomplete
+   * matches (FR-6.3), so Batata Quente accepts by hand what the daily accepts
+   * by suggestion (D-90). Not secret: the client has had it since Phase 1.
+   */
+  aliases: string[];
 }
 
 /**
