@@ -61,7 +61,7 @@ export function presetById(id: unknown): VersusPreset {
 export const secondsFor = (kind: KindId): number => (kind === "flagPick" || kind === "shapePick" ? 20 : 45);
 /** How long the answer and the scoreboard stay up between challenges. */
 export const REVEAL_MS = 5000;
-export const MAX_SPEED_BONUS = 0.5;
+const MAX_SPEED_BONUS = 0.5;
 
 /** A solve's points, scaled up by the share of the clock left when it landed. Zero stays zero. */
 export function speedPoints(itemPoints: number, solvedAt: number, startedAt: number, deadline: number): number {
@@ -143,7 +143,7 @@ export function classicGiveUp(room: Room, secrets: ClassicSecrets, uid: string, 
  * The item on screen is over for everyone: give up for whoever is still at it,
  * score the room, and show the answer. Returns the reveal for the prompt doc.
  */
-export function closeQuestion(room: Room, secrets: ClassicSecrets, now: number): { room: Room; secrets: ClassicSecrets; reveal: Reveal } {
+function closeQuestion(room: Room, secrets: ClassicSecrets, now: number): { room: Room; secrets: ClassicSecrets; reveal: Reveal } {
   const c = room.classic!;
   const plays = { ...secrets.plays };
   const players = { ...room.players };

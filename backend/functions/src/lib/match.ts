@@ -51,7 +51,7 @@ export function editDistance(a: string, b: string): number {
   return Math.min(prev[b.length]!, 2);
 }
 
-export const MIN_TERM = 3;
+const MIN_TERM = 3;
 export const MIN_FUZZY = 4;
 
 /** normalised term → the one country it names. tools/build-geo.mjs refuses a term two countries share. */

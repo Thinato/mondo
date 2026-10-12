@@ -896,7 +896,6 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
 @media (prefers-reduced-motion: reduce) { .world .named { animation: none; } }
 #potato-queue { margin: .5rem 0; }
 #room-link { flex: 1; min-width: 8rem; font: inherit; font-family: var(--mono); font-size: .85rem; padding: .6rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--field); color: inherit; }
-#potato-form .row input { text-transform: none; }
 
 @media (min-width: 60rem) {
   body:has(#room-cols) header,

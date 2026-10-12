@@ -18,12 +18,12 @@
 import { COUNTRIES } from "./countries";
 import { mondoError } from "./errors";
 
-export const FIRST_TURN_S = 20;
-export const MIN_TURN_S = 3;
+const FIRST_TURN_S = 20;
+const MIN_TURN_S = 3;
 /** Points for an answer sent the instant the turn opened; the floor is 1. */
-export const MAX_ANSWER_POINTS = 10;
+const MAX_ANSWER_POINTS = 10;
 /** How many silent rounds end the game. */
-export const SILENT_ROUNDS = 2;
+const SILENT_ROUNDS = 2;
 
 /** The whole pool: every country Mondo knows is a valid answer exactly once. */
 export const POTATO_TOTAL = COUNTRIES.size;

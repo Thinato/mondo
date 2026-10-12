@@ -17,7 +17,7 @@ import type { PotatoState } from "./potato";
 import { mondoError } from "./errors";
 
 export const ROOM_MAX_PLAYERS = 8;
-export const ROOM_MIN_PLAYERS = 2;
+const ROOM_MIN_PLAYERS = 2;
 /** A lobby nobody started is gone after this long. */
 export const LOBBY_TTL_MS = 2 * 3_600_000;
 

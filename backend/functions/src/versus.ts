@@ -43,7 +43,7 @@ import {
 import { mapBase, mapPiece } from "./lib/world";
 
 /** At most this many queued names in one `answer` (FR-12.3). */
-export const MAX_QUEUE = 10;
+const MAX_QUEUE = 10;
 const MAX_NAME = 40;
 
 /** Server-only, beside the room: the Clássico card, and Batata Quente's per-player throttle. */
