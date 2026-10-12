@@ -207,8 +207,9 @@ much headroom they are not worth tracking.
 A listener is billed one read per changed document per listener, plus one per document when it
 attaches. An eight-player Batata Quente that fills the map is about 250 turns: 250 room updates ×
 8 listeners + 196 map documents × 8 ≈ **3,600 reads**, plus the transactions' own reads (~2 per
-answer). A five-challenge Clássico for eight is a few hundred. Against 50,000 free reads a day
-that is a dozen full Batata Quente games a day before anything is billed — and a game that ends
+answer). A Clássico rewrites the room on every guess, wrong ones included, so a five-challenge
+room of eight guessing ~6 times each is ~8 × 6 × 5 × 8 ≈ **2,000 reads**. Against 50,000 free reads a day
+that is a dozen full games a day before anything is billed — and a game that ends
 by silence or giving up is far smaller. Writes are ~2 per answer, well inside 20,000/day. Nothing
 here adds an instance: Versus is one callable (D-92), cold starts are free, and there is no
 `minInstances` (§3.1).
