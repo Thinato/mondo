@@ -163,3 +163,8 @@ test("the right and wrong guesses this file uses are right and wrong for every k
     }
   }
 });
+
+test("training is a Batata Quente for one (D-93)", () => {
+  assert.deepEqual(presetById("treino"), { id: "treino", mode: "potato", solo: true });
+  assert.ok(VERSUS_PRESETS.filter((p) => p.solo).every((p) => p.mode === "potato" && !p.spec));
+});

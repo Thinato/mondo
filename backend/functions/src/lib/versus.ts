@@ -28,12 +28,15 @@ import type { ClassicPublic, PromptDoc, Room, RoomMode } from "./room";
 export interface VersusPreset {
   id: string;
   mode: RoomMode;
+  /** Training (D-93): one player, no clock, open to anyone signed in, and started on create. */
+  solo?: boolean;
   /** Clássico only: the card every player in the room plays. */
   spec?: CardSpec;
 }
 
 export const VERSUS_PRESETS: readonly VersusPreset[] = [
   { id: "mundo", mode: "potato" },
+  { id: "treino", mode: "potato", solo: true },
   { id: "dia", mode: "classic", spec: { items: KIND_IDS.map((kind) => ({ kind, count: 1 })), order: "shuffled" } },
   { id: "bandeiras", mode: "classic", spec: { items: [{ kind: "flag", count: 3 }, { kind: "flagPick", count: 3 }], order: "shuffled" } },
   { id: "formas", mode: "classic", spec: { items: [{ kind: "shape", count: 3 }, { kind: "shapePick", count: 3 }], order: "shuffled" } },

@@ -24,7 +24,7 @@
  */
 
 import { Timestamp, type Transaction } from "firebase-admin/firestore";
-import { dailyAhead, db, ensureProfile, roomRef, roomSecretsRef, roomSubRef } from "./db";
+import { dailyAhead, db, ensureProfile, roomRef, roomSecretsRef, roomSubRef, userRef } from "./db";
 import { requireCanCreateGroup, rankOf } from "./lib/authz";
 import { buildCard } from "./lib/card";
 import { countryByCode } from "./lib/countries";
@@ -95,14 +95,28 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
     // ---------------------------------------------------------------- create
     case "create": {
       const preset = presetById(body.presetId);
-      const id = inviteToken();
-      await db().runTransaction(async (tx) => {
+      const fresh = inviteToken();
+      const id = await db().runTransaction(async (tx) => {
         const { now, ms } = clock();
         const profile = await ensureProfile(tx, uid, now);
+        const room = newRoom(uid, profile.displayName, preset.mode, preset.id, ms);
+        if (preset.solo) {
+          // D-93: training is practice, open to anyone signed in like FR-9, and
+          // there is nobody to wait for — it starts now, with no clock. One open
+          // training room per account: asking again goes back to it, so a guest
+          // cannot pile up rooms (and their 36 KB of land) by clicking.
+          const prev = profile.trainingRoom ? (await tx.get(roomRef(profile.trainingRoom))).data() as Room | undefined : undefined;
+          if (prev?.state === "playing") return profile.trainingRoom!;
+          tx.create(roomRef(fresh), { ...room, state: "playing", startedAt: ms, potato: newPotato([uid], ms, false) });
+          tx.set(roomSubRef(fresh, "map", "_base"), mapBase());
+          tx.set(userRef(uid), { trainingRoom: fresh }, { merge: true });
+          return fresh;
+        }
         // FR-10.3, D-84: hosting is what invited players and subscribers have,
         // like making a group. Joining is open to anyone signed in.
         requireCanCreateGroup(rankOf(profile, signInProvider(request), now));
-        tx.create(roomRef(id), newRoom(uid, profile.displayName, preset.mode, preset.id, ms));
+        tx.create(roomRef(fresh), room);
+        return fresh;
       });
       return reply({ room: id });
     }
@@ -175,7 +189,7 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
         if (room.state !== "playing") return false;
         if (room.mode === "potato") {
           const p = room.potato!;
-          if (ms < p.deadline) return false;
+          if (p.deadline === null || ms < p.deadline) return false;
           tx.set(roomRef(id), withPotato(room, applyTimeout(p, ms)));
           return true;
         }
@@ -225,38 +239,48 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
         requirePlaying(room, "potato");
         const p = room.potato!;
         checkTurn(p, uid, ms);
-        // SEC-5's floor, per player and within a turn, kept off the room
-        // document so a refused answer costs nobody else a read. A new turn
-        // starts clean: a queue sent the instant it opens is the whole point.
-        const secrets = await readSecrets(tx, id);
-        const last = secrets.lastTry?.[uid];
-        if (last !== undefined && last >= p.turnStartedAt && ms - last < GUESS_MIN_INTERVAL_MS) {
-          throw mondoError("rate-limited", "Too fast. Try again.");
+        // Training (D-93) has no turn to pass: every acceptable name is taken,
+        // and there is no floor, because there is no secret to brute-force and
+        // a floor between one player's own turns only refuses a fast typist.
+        const solo = p.limitMs === null;
+        if (!solo) {
+          // SEC-5's floor, per player and within a turn, kept off the room
+          // document so a refused answer costs nobody else a read. A new turn
+          // starts clean: a queue sent the instant it opens is the whole point.
+          const secrets = await readSecrets(tx, id);
+          const last = secrets.lastTry?.[uid];
+          if (last !== undefined && last >= p.turnStartedAt && ms - last < GUESS_MIN_INTERVAL_MS) {
+            throw mondoError("rate-limited", "Too fast. Try again.");
+          }
+          tx.set(roomSecretsRef(id), { lastTry: { [uid]: ms } }, { merge: true });
         }
-        tx.set(roomSecretsRef(id), { lastTry: { [uid]: ms } }, { merge: true });
 
         // The queue is tried in order and the first name that is a country not
-        // yet on the map is the answer. Everything before it is reported back,
-        // so the client can drop what was already taken.
+        // yet on the map is the answer — every such name, in training. What was
+        // refused before it is reported back, so the client can drop it.
+        const accepted: { name: string; code: string; points: number }[] = [];
         const dropped: { name: string; reason: string }[] = [];
+        let state = p;
         for (const name of names as string[]) {
           const m = matchCountry(name);
           if ("error" in m) { dropped.push({ name, reason: m.error }); continue; }
-          if (p.named.includes(m.code)) { dropped.push({ name, reason: "already-named" }); continue; }
-          const { state, points } = applyAnswer(p, uid, m.code, ms);
-          tx.set(roomRef(id), withPotato(room, state));
+          if (state.named.includes(m.code)) { dropped.push({ name, reason: "already-named" }); continue; }
+          const r = applyAnswer(state, uid, m.code, ms);
+          state = r.state;
+          accepted.push({ name, code: m.code, points: r.points });
           tx.set(roomSubRef(id, "map", m.code), {
             code: m.code,
             name: countryByCode(m.code)!.names["pt-BR"],
             by: uid,
             color: room.players[uid]!.color,
-            points,
+            points: r.points,
             at: ms,
             ...mapPiece(m.code),
           });
-          return { accepted: { name, code: m.code, points }, dropped };
+          if (!solo || state.endedAt !== null) break;
         }
-        return { accepted: null, dropped };
+        if (accepted.length > 0) tx.set(roomRef(id), withPotato(room, state));
+        return { accepted, dropped };
       });
       return reply(result);
     }

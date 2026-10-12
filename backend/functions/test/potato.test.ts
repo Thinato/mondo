@@ -93,21 +93,21 @@ test("two silent rounds end the game", () => {
   let s = newPotato(["a", "b"], T0);
   let now = T0;
   for (let i = 0; i < 3; i++) {
-    now = s.deadline;
+    now = s.deadline!;
     s = applyTimeout(s, now);
     assert.equal(s.endedAt, null);
   }
-  s = applyTimeout(s, s.deadline);
+  s = applyTimeout(s, s.deadline!);
   assert.equal(s.endReason, "silence");
   assert.equal(s.turnUid, null);
-  rejects(() => applyTimeout(s, s.deadline + 1), "already-completed");
+  rejects(() => applyTimeout(s, s.deadline! + 1), "already-completed");
 });
 
 test("an answer resets the silence", () => {
   let s = newPotato(["a", "b"], T0);
-  s = applyTimeout(s, s.deadline);
-  s = applyTimeout(s, s.deadline);
-  s = applyTimeout(s, s.deadline);
+  s = applyTimeout(s, s.deadline!);
+  s = applyTimeout(s, s.deadline!);
+  s = applyTimeout(s, s.deadline!);
   s = applyAnswer(s, "b", "BR", s.turnStartedAt + 100).state;
   assert.equal(s.passStreak, 0);
   assert.equal(s.endedAt, null);
@@ -137,4 +137,25 @@ test("ranking: most points, then least time", () => {
   s = applyAnswer(s, "a", "PE", s.turnStartedAt + 1_000).state; // a: +9 (1s of 19s ≈ 9.47 → 9) — 18 in 3s
   s = applyAnswer(s, "b", "UY", s.turnStartedAt + 1_400).state; // b: +9 — 18 in 3.4s
   assert.deepEqual(potatoRanking(s), ["a", "b", "c"]);
+});
+
+test("training has no clock: a country is worth 1 whenever it comes, and nothing times out (D-93)", () => {
+  let s = newPotato(["a"], T0, false);
+  assert.equal(s.deadline, null);
+  assert.equal(s.limitMs, null);
+  s = applyAnswer(s, "a", "BR", T0 + 3_600_000).state; // an hour in, still on time
+  rejects(() => applyTimeout(s, T0 + 7_200_000), "invalid-argument");
+  rejects(() => applyAnswer(s, "a", "BR", T0 + 3_600_001), "already-named");
+  s = applyAnswer(s, "a", "AR", T0 + 3_600_002).state;
+  assert.equal(s.turnUid, "a");
+  assert.equal(s.deadline, null);
+  assert.deepEqual(s.scores.a, { points: 2, timeMs: 3_600_000 + 2, named: 2 });
+});
+
+test("training ends when you stop, or when the map is full (D-93)", () => {
+  assert.equal(giveUpPotato(newPotato(["a"], T0, false), "a", T0 + 1).endReason, "all-gave-up");
+  let s = newPotato(["a"], T0, false);
+  for (const code of CODES) s = applyAnswer(s, "a", code, T0 + 10).state;
+  assert.equal(s.endReason, "map-full");
+  assert.equal(s.scores.a!.points, POTATO_TOTAL);
 });

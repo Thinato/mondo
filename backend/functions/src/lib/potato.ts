@@ -13,6 +13,10 @@
  * There is no elimination. The game ends when every country is on the map, when
  * two full rounds go by with nobody naming anything, or when everyone has given
  * up — and the most points wins, ties to whoever spent less time answering.
+ *
+ * Training (D-93) is the same game with one player and NO clock: `limitMs` and
+ * `deadline` are null, a turn never runs out, and every country is worth 1, so
+ * the score is how many you remembered. It ends when the map is full or you stop.
  */
 
 import { COUNTRIES } from "./countries";
@@ -52,8 +56,9 @@ export interface PotatoState {
   turnIdx: number;
   turnUid: string | null;
   turnStartedAt: number;
-  limitMs: number;
-  deadline: number;
+  /** Null in training (D-93): no clock, and nothing for `tick` to do. */
+  limitMs: number | null;
+  deadline: number | null;
   /** Codes on the map, in the order they were named. Not secret: every unnamed country is a right answer. */
   named: string[];
   /** How many there are to name: the map is full at this many. */
@@ -65,9 +70,9 @@ export interface PotatoState {
   endReason: PotatoEnd | null;
 }
 
-export function newPotato(order: readonly string[], now: number): PotatoState {
+export function newPotato(order: readonly string[], now: number, timed = true): PotatoState {
   if (order.length === 0) throw mondoError("invalid-argument", "A game needs players.");
-  const limitMs = turnLimitMs(1);
+  const limitMs = timed ? turnLimitMs(1) : null;
   return {
     order: [...order],
     gaveUp: [],
@@ -76,7 +81,7 @@ export function newPotato(order: readonly string[], now: number): PotatoState {
     turnUid: order[0]!,
     turnStartedAt: now,
     limitMs,
-    deadline: now + limitMs,
+    deadline: limitMs === null ? null : now + limitMs,
     named: [],
     total: POTATO_TOTAL,
     passStreak: 0,
@@ -104,8 +109,8 @@ function advance(s: PotatoState, now: number): PotatoState {
     }
     if (!s.gaveUp.includes(s.order[idx]!)) break;
   }
-  const limitMs = turnLimitMs(round);
-  return { ...s, round, turnIdx: idx, turnUid: s.order[idx]!, turnStartedAt: now, limitMs, deadline: now + limitMs };
+  const limitMs = s.limitMs === null ? null : turnLimitMs(round);
+  return { ...s, round, turnIdx: idx, turnUid: s.order[idx]!, turnStartedAt: now, limitMs, deadline: limitMs === null ? null : now + limitMs };
 }
 
 function end(s: PotatoState, reason: PotatoEnd, now: number): PotatoState {
@@ -116,7 +121,7 @@ function end(s: PotatoState, reason: PotatoEnd, now: number): PotatoState {
 export function checkTurn(s: PotatoState, uid: string, now: number): void {
   requireOpen(s);
   if (s.turnUid !== uid) throw mondoError("not-your-turn", "It is not your turn.");
-  if (now >= s.deadline) throw mondoError("time-up", "Time is up.");
+  if (s.deadline !== null && now >= s.deadline) throw mondoError("time-up", "Time is up.");
 }
 
 /** One accepted country. The caller has already matched the text and checked it is not on the map. */
@@ -125,7 +130,7 @@ export function applyAnswer(s: PotatoState, uid: string, code: string, now: numb
   if (s.named.includes(code)) throw mondoError("already-named", "That country is already on the map.");
   // Never negative: two instances' clocks can disagree by a few ms.
   const elapsed = Math.max(0, now - s.turnStartedAt);
-  const points = pointsFor(elapsed, s.limitMs);
+  const points = s.limitMs === null ? 1 : pointsFor(elapsed, s.limitMs);
   const prev = s.scores[uid] ?? { points: 0, timeMs: 0, named: 0 };
   const named = [...s.named, code];
   const after: PotatoState = {
@@ -140,7 +145,7 @@ export function applyAnswer(s: PotatoState, uid: string, code: string, now: numb
 /** The turn ran out. Idempotence is the caller's: it checks the room's version before calling. */
 export function applyTimeout(s: PotatoState, now: number): PotatoState {
   requireOpen(s);
-  if (now < s.deadline) throw mondoError("invalid-argument", "This turn has not run out.");
+  if (s.deadline === null || now < s.deadline) throw mondoError("invalid-argument", "This turn has not run out.");
   const after = { ...s, passStreak: s.passStreak + 1 };
   if (after.passStreak >= SILENT_ROUNDS * active(after).length) return end(after, "silence", now);
   return advance(after, now);

@@ -32,3 +32,11 @@ test("D-89: the committed world.json draws every country in the pool, within bud
   assert.equal(Object.keys(w.paths).length + Object.keys(w.dots).length, countries.length);
   assert.ok(readFileSync(new URL("../../backend/functions/src/data/world.json", import.meta.url)).length < 400 * 1024);
 });
+
+test("D-89: Greenland is painted with Denmark, so the map can fill", () => {
+  const w = read("backend/functions/src/data/world.json");
+  const xs = [...w.paths.DK.matchAll(/[ML]([\d.]+) /g)].map((m) => Number(m[1]));
+  // Denmark proper is east of Greenwich (x > 500); Greenland reaches past 70°W.
+  assert.ok(Math.min(...xs) < 400, `DK's path starts at x=${Math.min(...xs)}: no Greenland`);
+  assert.ok(Math.max(...xs) > 500, "and Denmark itself is still there");
+});

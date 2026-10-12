@@ -168,8 +168,13 @@
     <!-- The end: the board, and a way to go again. -->
     <section id="finished" class="result" hidden>
       <p id="finished-text"></p>
+      <!-- Training: the names you did not get to. Names only — the outlines stay on the server (D-89). -->
+      <details id="missed" hidden>
+        <summary id="missed-title"></summary>
+        <p id="missed-list" class="fine"></p>
+      </details>
       <div class="row">
-        <a href="./sala.html" class="primary">Nova sala</a>
+        <a id="again-link" href="./sala.html" class="primary">Nova sala</a>
         <a href="./" class="link">Voltar ao jogo de hoje</a>
       </div>
     </section>

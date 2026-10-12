@@ -40,6 +40,7 @@ const el = {
   form: $("guess-form"), combo: $("guess-combo"), input: $("guess-input"), list: $("guess-list"),
   money: $("guess-money"), number: $("guess-number"), left: $("left"),
   potato: $("potato"), finished: $("finished"), finishedText: $("finished-text"),
+  missed: $("missed"), missedTitle: $("missed-title"), missedList: $("missed-list"), again: $("again-link"),
   board: $("board"), boardTitle: $("board-title"), status: $("status"),
   confirm: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
@@ -62,6 +63,7 @@ let picked = null;
 let ac = null;
 let acLoading = null;
 let potato = null;
+let countryList = null;      // training's end: the public list of names, loaded once
 let unsubscribe = [];
 
 const setStatus = (text, cls = "") => { el.status.textContent = text; el.status.className = cls; };
@@ -260,7 +262,8 @@ function confirmGiveUp(text) {
 // ---------------------------------------------------------------------------
 
 function countries() {
-  acLoading ??= loadCountries().then((list) => { ac = attachIndex(createIndex(list)); });
+  countryList ??= loadCountries();
+  acLoading ??= countryList.then((list) => { ac = attachIndex(createIndex(list)); });
   return acLoading;
 }
 
@@ -390,6 +393,25 @@ function renderBoard() {
   }));
 }
 
+/**
+ * Training's end (D-93): how many, and the names of the rest. The names are the
+ * public list the autocomplete already loads; the outlines stay on the server.
+ */
+function renderSoloEnd() {
+  const named = new Set(room.potato.named);
+  el.finishedText.textContent = t("versus.soloDone", { n: named.size, total: room.potato.total });
+  // Started from the Treinar page (D-93), so that is where "again" goes.
+  el.again.href = "./praticar.html";
+  el.again.textContent = t("versus.trainAgain");
+  countryList ??= loadCountries();
+  countryList.then((list) => {
+    const missed = list.filter((c) => !named.has(c.code)).map((c) => c.pt).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    el.missed.hidden = missed.length === 0;
+    el.missedTitle.textContent = t("versus.missed", { n: missed.length });
+    el.missedList.textContent = missed.join(", ");
+  }).catch(() => { countryList = null; el.missed.hidden = true; });
+}
+
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
@@ -441,6 +463,7 @@ function render() {
     el.finishedText.textContent = !inRoom || !top ? t("versus.over")
       : top.uid === uid ? t("versus.youWon", { points: top.points }) : t("versus.won", { name: top.name, points: top.points });
     if (room.mode === "potato" && room.potato) el.finishedText.textContent += ` ${t(`versus.end.${room.potato.endReason}`)}`;
+    if (room.potato?.limitMs === null) renderSoloEnd();
   }
 
   renderBoard();

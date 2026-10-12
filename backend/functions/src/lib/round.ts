@@ -175,6 +175,8 @@ export interface Profile {
   subscription?: Subscription;
   /** Membership index, ≤ 10 (FR-4.4, D-27). Absent on Phase 1 profiles → []. */
   groups?: string[];
+  /** The player's Batata Quente training room (D-93): one open at a time. */
+  trainingRoom?: string;
 }
 
 export type RoundStatus = "in_progress" | "solved" | "failed";

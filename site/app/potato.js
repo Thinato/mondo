@@ -33,6 +33,8 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
   const feed = [];
 
   const myTurn = () => room?.state === "playing" && room.potato?.turnUid === me();
+  /** Training has no clock (D-93): every answer is a new turn, so nothing is sent on a turn change. */
+  const solo = () => room?.potato?.limitMs === null;
 
   async function send(names) {
     if (names.length === 0) return;
@@ -41,12 +43,12 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
     try {
       const r = await versus("answer", { room: roomId(), names: names.slice(0, MAX_QUEUE) });
       const gone = new Set(r.dropped.map((d) => d.name));
-      if (r.accepted) gone.add(r.accepted.name);
+      for (const a of r.accepted) gone.add(a.name);
       queue = queue.filter((n) => !gone.has(n));
       if (gone.has(el.input.value.trim())) el.input.value = "";
       // What was refused, in words: "já está no mapa", "não conheço".
       const why = r.dropped.map((d) => t(`versus.dropped.${d.reason}`, { name: d.name })).join(" ");
-      setStatus(r.accepted ? why : why || t("versus.dropped.unknown", { name: names[0] }), r.accepted ? "" : "warn");
+      setStatus(r.accepted.length ? why : why || t("versus.dropped.unknown", { name: names[0] }), r.accepted.length ? "" : "warn");
     } catch (err) {
       setStatus(errorMessage(err, "versus"), "err");
     } finally {
@@ -65,16 +67,21 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
   el.form.addEventListener("submit", (ev) => {
     ev.preventDefault();
     const name = el.input.value.trim();
-    if (myTurn()) return send([...queue, ...(name ? [name] : [])]);
-    // Not my turn: into the queue, to go the moment it is.
+    if (myTurn() && !sending) {
+      // Training: the box is for the next name at once, not for the reply to come back.
+      if (solo()) el.input.value = "";
+      return send([...queue, ...(name ? [name] : [])]);
+    }
+    // Not my turn, or my last answer is still out: into the queue, to go the moment it can.
     if (!name || queue.length >= MAX_QUEUE) return;
     if (!queue.includes(name)) queue.push(name);
     el.input.value = "";
+    if (sending) flushAgain = true;
     renderQueue();
   });
 
   el.giveUp.addEventListener("click", async () => {
-    if (!(await confirm(t("versus.confirmGiveUp")))) return;
+    if (!(await confirm(t(solo() ? "versus.soloGiveUp" : "versus.confirmGiveUp")))) return;
     try { await versus("giveUp", { room: roomId() }); }
     catch (err) { setStatus(errorMessage(err, "versus"), "err"); }
   });
@@ -90,7 +97,7 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
       li.append(b);
       return li;
     }));
-    el.hint.textContent = myTurn() ? t("versus.yourTurnHint") : t("versus.queueHint", { n: queue.length, max: MAX_QUEUE });
+    el.hint.textContent = solo() ? t("versus.soloHint") : myTurn() ? t("versus.yourTurnHint") : t("versus.queueHint", { n: queue.length, max: MAX_QUEUE });
   }
 
   /** New map documents: the land once, then each named country. */
@@ -126,7 +133,7 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
       dot.style.background = d.color;
       const name = document.createElement("span");
       name.className = "name";
-      name.textContent = `${d.name} — ${room?.players[d.by]?.name ?? ""}`;
+      name.textContent = solo() ? d.name : `${d.name} — ${room?.players[d.by]?.name ?? ""}`;
       const pts = document.createElement("span");
       pts.className = "score";
       pts.textContent = `+${d.points}`;
@@ -135,9 +142,13 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
     }));
   }
 
-  /** The queue and whatever is in the box, in that order: pre-written names go first. */
+  /**
+   * The queue and whatever is in the box, in that order: pre-written names go
+   * first. In training the box is left alone — it is a name half-typed, not one
+   * written ahead.
+   */
   function flush() {
-    const typed = el.input.value.trim();
+    const typed = solo() ? "" : el.input.value.trim();
     send([...queue, ...(typed ? [typed] : [])]);
   }
 
@@ -149,8 +160,9 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
     if (turnKey !== lastTurn) {
       lastTurn = turnKey;
       // Last turn's refusals are about last turn.
-      if (lastTurn !== null && !sending) setStatus("");
-      if (myTurn()) {
+      // In training every answer is a new turn, and the refusals beside it are news.
+      if (lastTurn !== null && !sending && !solo()) setStatus("");
+      if (myTurn() && !solo()) {
         flush();
         el.input.focus();
       }
@@ -165,13 +177,14 @@ export function mountPotato({ versus, me, setStatus, confirm }) {
     el.giveUp.hidden = !playing || gaveUp;
     el.form.hidden = !playing || gaveUp;
     const who = room.players[p.turnUid]?.name ?? "";
-    el.turn.textContent = !playing ? "" : myTurn() ? t("versus.yourTurn") : t("versus.theirTurn", { name: who });
+    el.turn.textContent = !playing || solo() ? "" : myTurn() ? t("versus.yourTurn") : t("versus.theirTurn", { name: who });
     el.turn.classList.toggle("mine", myTurn());
-    el.round.textContent = playing ? t("versus.round", { n: p.round, s: p.limitMs / 1000 }) : "";
-    $("potato-timer-bar").parentElement.hidden = !playing;
+    el.round.textContent = playing && !solo() ? t("versus.round", { n: p.round, s: p.limitMs / 1000 }) : "";
+    $("potato-timer-bar").parentElement.hidden = !playing || solo();
     el.count.textContent = t("versus.namedCount", { n: p.named.length, total: p.total });
     el.send.textContent = myTurn() ? t("versus.send") : t("versus.queue");
     renderQueue();
+    renderFeed(); // the map can arrive before the room on a reload
   }
 
   function drawClock(left) {

@@ -277,6 +277,11 @@ backend.
   grey land at start and a country's path only once named there. Do not put it in `site/`: a
   static world map is every outline and every centroid, which with the distance hints solves the
   daily. This is not a silhouette and does not reopen D-69. Rebuild it after `build-geo`.
+- **Batata Quente training is the same game with the clock set to null** (D-93). `treino` is a
+  room of one, started on `create`. A null `deadline` is the whole difference: no time-up, nothing
+  for `tick`, 1 point a country, every name in a queue taken, and no 400 ms floor. Open to anyone
+  signed in, like practice. That widens D-89's residual to "anyone signed in" — read D-93 before
+  showing a missed country's OUTLINE at the end. The end shows names only, and that is deliberate.
 - **Tournaments are retired from the UI, not yet from the backend** (D-88). No Torneios tab, no
   creation; the running-tournament card and `torneios.html?t=` stay so anything under way
   finishes. Delete the tournament backend in its own PR once production has none running.
