@@ -323,7 +323,7 @@ export function mountPotato({ versus, me, confirm }) {
  */
 function mountZoom(el) {
   const wide = matchMedia("(min-width: 60rem)");
-  const MAX = 16;
+  const MAX = 8;
   let vb = null;          // the map's own box: [x, y, w, h]
   let k = 1;
   let cx = 0, cy = 0;     // the map point at the centre of the view

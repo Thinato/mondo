@@ -7,12 +7,11 @@
 // a country's path only once someone in it has named that country.
 
 import { geoEqualEarth, geoPath } from "d3-geo";
-import { simplifyRings, toPathData } from "./shape.mjs";
+import { toPathData } from "./shape.mjs";
 
 export const WIDTH = 1000;
 /** Below this many square pixels a country is drawn as a dot: it would not be seen as a shape. */
 export const MIN_AREA_PX = 4;
-export const TOLERANCE_PX = 0.35;
 /** Antarctica is land but nobody's country; dropping it buys a third of the height. */
 const SOUTH_LIMIT = -58;
 
@@ -51,7 +50,10 @@ export function buildWorld({ land, features, centroids }) {
   projection.translate([projection.translate()[0], projection.translate()[1] - y0]);
   const height = Math.ceil(y1 - y0);
 
-  const draw = (geometry) => toPathData(simplifyRings(projectedRings(path, geometry), TOLERANCE_PX));
+  // No simplification here: the caller simplified the TOPOLOGY, so a border
+  // shared by two countries (and by the land under them) is the same line in
+  // all three. Simplifying each ring on its own is what used to pull them apart.
+  const draw = (geometry) => toPathData(projectedRings(path, geometry).filter((ring) => ring.length >= 4));
 
   const paths = {};
   const dots = {};
