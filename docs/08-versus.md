@@ -95,13 +95,16 @@ is I/O only.
   the bottom) and the map everywhere else, with the turn, the clock, the zoom and the field floating
   over it. The map pans and zooms by moving its viewBox: a trackpad's pinch (ctrl+wheel, or Safari's
   gesture events) zooms around the pointer, two fingers pan, a mouse wheel zooms, a drag pans,
-  1×–16×, and the borders stay a screen-pixel hairline so a small country left grey between two
+  1×–8×, and the borders stay a screen-pixel hairline so a small country left grey between two
   coloured ones can be seen. Below 60rem it is a page that scrolls, as before.
 - **The end**: every country named, or two full rounds with no answer (`passStreak ≥ 2 ×
   active`), or everyone gave up. Most points wins; ties to less total answer time.
 - **The map** (D-89): Natural Earth 1:50m, Equal Earth, built by `tools/build-world.mjs` into
   `backend/functions/src/data/world.json` (167 outlines, 29 dots for countries too small to see,
-  174 KB). Server-only. The grey land goes to `map/_base` at start; a country's mark is written
+  354 KB). One topology draws it all (D-96): the grey land is the union of the same 1:50m
+  countries, simplified once on the topology's shared arcs (`topojson-simplify`, keeping 18 % of
+  the points), so a border is the same line for both neighbours and for the land under them.
+  Server-only. The grey land goes to `map/_base` at start; a country's mark is written
   only once it is named. Greenland, outside the pool (D-20) but a third of the northern map, is
   painted as part of Denmark (`PAINTED_WITH` in `tools/build-world.mjs`), so the map can fill;
   "Groenlândia" is still not an answer.
