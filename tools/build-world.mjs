@@ -4,17 +4,29 @@
 // Natural Earth 1:50m via world-atlas, projected with Equal Earth. Server-only:
 // `versus.ts` hands a room one country's path at a time, as it is named. Run
 // after build-geo.mjs, which decides the pool and the centroids this reads.
+//
+// One topology draws everything (D-96): the grey land is the union of the same
+// countries, and the simplification runs on the topology's shared arcs, so a
+// border is one line for both neighbours and for the land beneath them. The
+// map is zoomed up to 8× (D-95), where a ring simplified on its own showed.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { feature, merge } from "topojson-client";
+import { merge } from "topojson-client";
+import { presimplify, quantile, simplify, sphericalTriangleArea } from "topojson-simplify";
 import wc from "world-countries";
 import { buildWorld } from "./lib/world.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => JSON.parse(readFileSync(join(ROOT, p), "utf8"));
 const MAX_BYTES = 400 * 1024;
+/**
+ * The share of the topology's points kept, the least important dropped first
+ * (Visvalingam, by spherical triangle area). 0.18 is sharp at 8× and fits the
+ * budget; 0.3 is barely different at 8× and half as big again.
+ */
+const KEEP = 0.18;
 
 // The same numeric-id mapping build-geo.mjs uses; Kosovo has no ISO id.
 const BY_NAME = { XK: "Kosovo" };
@@ -25,8 +37,8 @@ const BY_NAME = { XK: "Kosovo" };
 const PAINTED_WITH = { DK: ["Greenland"] };
 
 const countries = read("backend/functions/src/data/countries.json").countries;
-const topo = read("tools/node_modules/world-atlas/countries-50m.json");
-const landTopo = read("tools/node_modules/world-atlas/land-110m.json");
+const raw = presimplify(read("tools/node_modules/world-atlas/countries-50m.json"), sphericalTriangleArea);
+const topo = simplify(raw, quantile(raw, KEEP));
 
 const ccn3 = new Map(wc.map((c) => [c.cca2, c.ccn3]));
 const byId = new Map();
@@ -47,7 +59,7 @@ for (const c of countries) {
 }
 
 const world = buildWorld({
-  land: feature(landTopo, landTopo.objects.land).geometry ?? merge(landTopo, landTopo.objects.land.geometries),
+  land: merge(topo, topo.objects.countries.geometries),
   features,
   centroids: new Map(countries.map((c) => [c.code, c.centroid])),
 });

@@ -25,6 +25,7 @@
     "simplify-js": "^1.2.4",
     "svg-country-flags": "1.2.10",
     "topojson-client": "^3.1.0",
+    "topojson-simplify": "^3.0.3",
     "world-atlas": "^2.0.2",
     "world-countries": "^5.1.0"
   }
