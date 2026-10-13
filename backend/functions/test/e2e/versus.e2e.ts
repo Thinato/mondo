@@ -104,6 +104,8 @@ test("FR-12.3: Batata Quente, three players, to a full map", async () => {
   // Not due: a tick before the deadline moves nothing.
   assert.equal(ok(await bia.call({ op: "tick", room: id }), "early tick").moved, false);
 
+  // One queued name and the box (D-95): a third name is a hedge, and refused.
+  assert.equal(code(await host.call({ op: "answer", room: id, names: ["Peru", "Chile", "Japão"] })), "invalid-argument");
   // The queue: nonsense is dropped, a name without its accent is still Japão.
   let a = ok(await host.call({ op: "answer", room: id, names: ["Atlântida", "Japao"] }), "host answers");
   assert.deepEqual(a.accepted.map((x: Any) => x.code), ["JP"]);
