@@ -54,6 +54,17 @@ const MIN_POOL = 150; // below this something in the converter regressed; fail t
 
 const SET = "svg-country-flags";
 const SVG_DIR = join(TOOLS, "node_modules", SET, "svg");
+// A flag the set has not caught up with is redrawn in tools/flag-overrides/ and
+// read from there instead: Syria (sy.svg) changed flag after December 2024.
+const OVERRIDE_DIR = join(TOOLS, "flag-overrides");
+const sourceOf = (code) => {
+  const file = `${code.toLowerCase()}.svg`;
+  try {
+    return readFileSync(join(OVERRIDE_DIR, file), "utf8");
+  } catch {
+    return readFileSync(join(SVG_DIR, file), "utf8");
+  }
+};
 
 const pool = Object.keys(read("tools/include.json").countries);
 const { exclude } = read("tools/flags.json");
@@ -70,7 +81,7 @@ for (const code of pool) {
   }
   let source;
   try {
-    source = readFileSync(join(SVG_DIR, `${code.toLowerCase()}.svg`), "utf8");
+    source = sourceOf(code);
   } catch {
     dropped.push({ code, why: `${SET} has no ${code.toLowerCase()}.svg` });
     continue;
