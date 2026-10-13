@@ -270,7 +270,7 @@ backend.
 - **Batata Quente reads text, and one letter is the whole rule** (D-90). `lib/match.ts`: pt-BR name
   or alias, accents ignored, ONE edit for terms of 4+ characters, a one-edit guess that fits two
   countries refused, two-letter terms not names. There is no autocomplete on that screen on
-  purpose — it would make the rule meaningless; the queue of pre-written names replaces it. Do not
+  purpose — it would make the rule meaningless; one pre-written name, queued while waiting (D-95), replaces it. Do not
   widen it to two edits: that was the explicit line.
 - **The Batata Quente map is the one world map, and it is server-side** (D-89).
   `tools/build-world.mjs` → `data/world.json` (Natural Earth 1:50m, Equal Earth). A room gets the
