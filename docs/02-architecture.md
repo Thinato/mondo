@@ -555,7 +555,8 @@ as `APP_CHECK_MISSING` and served.
 - `endPractice({})` → ends the session and returns the total. Idempotent, so a double-tap on
   "sair" cannot count the last challenge twice
 
-There is no `getPractice` and no resume: reopening the page shows the picker, and starting
+There is no `getPractice` and no resume: reopening the chooser shows the chooser, reopening a
+run's URL (`praticar.html?k=<kind>`, D-94) starts a fresh run of that kind, and starting
 overwrites. A lost practice run costs a player nothing, and resuming would be a second entry
 path into a screen with no state worth defending.
 

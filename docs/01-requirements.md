@@ -372,7 +372,13 @@ to test new challenges."*
 - **FR-9.8** *(added 2026-09-13, D-63)* From 960px up, practice MUST show the run beside the
   challenge — the challenges already finished, and the totals they add up to: points, challenges,
   solves, and the share of challenges solved. Below 960px the layout MUST be unchanged from the
-  phone layout. This is FR-6.11 applied to a run rather than to a group.
+  phone layout. This is FR-6.11 applied to a run rather than to a group. *(Amended 2026-10-12 by
+  D-94: the totals are points, solves, average and streak; below 960px the run is a bar under the
+  game that opens as a sheet.)*
+- **FR-9.10** *(added 2026-10-12, D-94)* Choosing a kind and playing it MUST be two screens with
+  their own URL, so Back returns to the chooser. The chooser MUST lay the kinds out as a grid. A
+  run MUST fit the window at 360px and up without scrolling the page; the guesses and the run's
+  history MUST scroll inside their own boxes, newest first.
 
 ---
 
