@@ -47,7 +47,7 @@ sala.html ──callable──▶ versus({ op })          (one function, D-92)
 | `start { room }` | the host, ≥ 2 players | builds the card (Clássico) or the turn order and the land (Batata Quente) |
 | `tick { room }` | a player | moves the room on if — and only if — its deadline has passed |
 | `guess { room, guess, selfReport? }` | Clássico player | one guess on the challenge on screen |
-| `answer { room, names[] }` | Batata Quente player on turn | the first acceptable of ≤ 10 names (every acceptable one, in training); `accepted` is a list |
+| `answer { room, names[] }` | Batata Quente player on turn | the first acceptable of ≤ 2 names (≤ 10 in training, and every acceptable one); `accepted` is a list |
 | `giveUp { room }` | a player | Clássico: this challenge at 0. Batata Quente: out of the turn order |
 
 ### 2.2 What is pure
@@ -85,9 +85,18 @@ is I/O only.
   written to `map/{code}` in the namer's colour, and the turn passes. Unknown, ambiguous or
   already named: refused **and the turn stays** (with SEC-5's 400 ms floor between tries, within
   a turn). Timeout: the turn passes for nothing.
-- **The queue**: there is no autocomplete. Names typed while waiting go in a queue (≤ 10) and are
-  sent in one call the instant the turn comes round; the server takes the first acceptable and
-  reports the rest. A pre-written hit lands with almost the whole clock left.
+- **The queue**: there is no autocomplete. ONE name typed while waiting waits in a slot beside the
+  field (D-95) — typing another and pressing Enter swaps it — and goes, with whatever is in the box,
+  in one call the instant the turn comes round; the server takes the first acceptable and reports
+  the rest, and refuses a third name on a timed turn. A pre-written hit lands with almost the whole
+  clock left; a name somebody else said first is refused, and the turn stays.
+- **The desktop room** (D-95): from 60rem a game that has started is the whole window — a side
+  column (round and count, the board, every country named newest first, the page's footer links at
+  the bottom) and the map everywhere else, with the turn, the clock, the zoom and the field floating
+  over it. The map pans and zooms by moving its viewBox: a trackpad's pinch (ctrl+wheel, or Safari's
+  gesture events) zooms around the pointer, two fingers pan, a mouse wheel zooms, a drag pans,
+  1×–16×, and the borders stay a screen-pixel hairline so a small country left grey between two
+  coloured ones can be seen. Below 60rem it is a page that scrolls, as before.
 - **The end**: every country named, or two full rounds with no answer (`passStreak ≥ 2 ×
   active`), or everyone gave up. Most points wins; ties to less total answer time.
 - **The map** (D-89): Natural Earth 1:50m, Equal Earth, built by `tools/build-world.mjs` into

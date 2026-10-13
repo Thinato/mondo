@@ -455,7 +455,8 @@ to test new challenges."*
   unknown, ambiguous or already-named one does not pass the turn. A timeout passes it for nothing.
   A player who gives up is skipped. The game ends when every country is named, after two full
   rounds with no answer, or when everyone has given up; most points wins, ties to less time.
-  The client MAY send up to ten names at once (a queue); the server takes the first acceptable.
+  A player MAY keep ONE name queued while waiting (D-95); the turn's `answer` carries at most two
+  names — the queued one and whatever is in the box — and the server takes the first acceptable.
 - **FR-12.4 Local multiplayer.** `tools/dev.sh` runs it all against the emulators; each browser
   and each origin (`localhost` vs `127.0.0.1`) is its own player; `MONDO_DEV_GRANT=0` leaves ranks
   alone so the hosting gate can be tested.

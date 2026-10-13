@@ -42,8 +42,14 @@ import {
 } from "./lib/versus";
 import { mapBase, mapPiece } from "./lib/world";
 
-/** At most this many queued names in one `answer` (FR-12.3). */
+/** At most this many names in one `answer`: training's backlog (FR-12.5). */
 const MAX_QUEUE = 10;
+/**
+ * A timed game queues ONE name (D-95): what is sent when the turn comes round is
+ * that name and whatever is in the box. More would let a client hedge against
+ * a rival naming its pick first, which the one-slot queue is there to prevent.
+ */
+const MAX_TURN_NAMES = 2;
 const MAX_NAME = 40;
 
 /** Server-only, beside the room: the Clássico card, and Batata Quente's per-player throttle. */
@@ -243,6 +249,9 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
         // and there is no floor, because there is no secret to brute-force and
         // a floor between one player's own turns only refuses a fast typist.
         const solo = p.limitMs === null;
+        if (!solo && names.length > MAX_TURN_NAMES) {
+          throw mondoError("invalid-argument", `Send at most ${MAX_TURN_NAMES} names on a turn.`);
+        }
         if (!solo) {
           // SEC-5's floor, per player and within a turn, kept off the room
           // document so a refused answer costs nobody else a read. A new turn
