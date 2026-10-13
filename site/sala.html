@@ -138,31 +138,40 @@
       <p id="left" class="fine" aria-live="polite"></p>
     </section>
 
-    <!-- Batata Quente (FR-12.3): one map, filled in turn by turn. -->
+    <!-- Batata Quente (FR-12.3): one map, filled in turn by turn. On a desktop
+         the room is the whole window (D-95): the map fills it, and the turn, the
+         clock, the zoom and the field float over it. -->
     <section id="potato" hidden>
-      <div class="prompt-head">
-        <p id="potato-turn" class="potato-turn" aria-live="polite"></p>
-        <div class="head-actions">
-          <button id="potato-giveup" type="button" class="link">Desistir</button>
-        </div>
+      <div class="potato-actions">
+        <button id="potato-giveup" type="button" class="link">Desistir</button>
       </div>
-      <div class="timer" aria-hidden="true"><span id="potato-timer-bar"></span></div>
-      <p id="potato-round" class="fine"></p>
-      <figure class="world">
+      <figure class="world" id="world-wrap">
+        <div class="timer" aria-hidden="true"><span id="potato-timer-bar"></span></div>
+        <p class="turn-pill" id="turn-pill">
+          <span class="dot" id="potato-turn-dot"></span>
+          <span id="potato-turn" class="potato-turn" aria-live="polite"></span>
+          <span id="potato-secs" class="secs" aria-hidden="true"></span>
+        </p>
+        <!-- The trackpad zooms and pans; these are for a mouse and a keyboard. -->
+        <div class="zoom" role="group" aria-label="Zoom do mapa">
+          <button id="zoom-in" type="button" aria-label="Aproximar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button id="zoom-out" type="button" aria-label="Afastar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+          <button id="zoom-fit" type="button" aria-label="Ver o mundo todo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
         <svg id="world" role="img" aria-label="Mapa dos países já citados"><path class="land" id="world-land"/><g id="world-named"></g></svg>
+        <p class="zoom-hint" id="zoom-hint">Pinça para aproximar · dois dedos para mover</p>
       </figure>
-      <p id="potato-count" class="fine"></p>
-      <!-- D-90: no autocomplete. Typed names only, one wrong letter forgiven. -->
-      <form id="potato-form" autocomplete="off">
-        <div class="row">
+      <!-- D-90: no autocomplete. Typed names only, one wrong letter forgiven.
+           D-95: ONE name waits in the slot and goes the instant the turn comes. -->
+      <div class="dock">
+        <form id="potato-form" class="dock-bar" autocomplete="off">
+          <div id="potato-slot" class="slot" hidden></div>
           <input id="potato-input" type="text" aria-label="Nome de um país" placeholder="Nome de um país…"
                  autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">
           <button id="potato-send" type="submit" class="primary">Enviar</button>
-        </div>
-      </form>
-      <p id="potato-hint" class="fine"></p>
-      <ul id="potato-queue" class="chips" aria-label="Fila de países"></ul>
-      <ol id="potato-feed" class="card-items" aria-label="Últimos países"></ol>
+        </form>
+        <p id="potato-hint" class="fine" role="status"></p>
+      </div>
     </section>
 
     <!-- The end: the board, and a way to go again. -->
@@ -185,8 +194,23 @@
     <!-- Everyone in the room, in score order. Counts only, never a rival's
          guesses: their distances and arrows would be hints for you. -->
     <aside id="room-side">
+      <a class="wordmark rail-only" href="./">Mondo</a>
+      <!-- Batata Quente: how far the map has come. -->
+      <div id="potato-head" class="potato-head" hidden>
+        <p id="potato-title" class="potato-title"></p>
+        <p id="potato-round" class="label"></p>
+        <p id="potato-count" class="fine"></p>
+        <div class="meter" aria-hidden="true"><span id="potato-meter"></span></div>
+      </div>
       <h2 class="fine" id="board-title">Placar</h2>
       <ol id="board" class="scoreboard"></ol>
+      <h2 class="label" id="feed-title" hidden>Últimos países</h2>
+      <ol id="potato-feed" class="card-items feed" aria-labelledby="feed-title" hidden></ol>
+      <!-- The page footer, where a full-window room still has room for it. -->
+      <div class="rail-foot rail-only">
+        <p><a href="./regras.html">Regras</a> · <a href="./privacidade.html">Privacidade</a> · <a href="./creditos.html">Créditos</a></p>
+        <small class="recaptcha">Protegido pelo reCAPTCHA: valem a <a href="https://policies.google.com/privacy">Política de Privacidade</a> e os <a href="https://policies.google.com/terms">Termos de Serviço</a> do Google.</small>
+      </div>
     </aside>
   </div>
 </main>

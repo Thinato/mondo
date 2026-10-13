@@ -181,7 +181,7 @@ async function listen() {
 }
 
 function potatoView() {
-  potato ??= mountPotato({ versus, me: () => auth.currentUser?.uid, setStatus, confirm: confirmGiveUp });
+  potato ??= mountPotato({ versus, me: () => auth.currentUser?.uid, confirm: confirmGiveUp });
   return potato;
 }
 
@@ -433,6 +433,8 @@ function render() {
   }
 
   el.cols.hidden = !user || !room;
+  // D-95: a Batata Quente game, once it starts, is the whole window on a desktop.
+  document.body.classList.toggle("potato-room", Boolean(user && room?.mode === "potato" && room.state !== "lobby"));
   if (!room) return;
   const uid = user?.uid;
   const inRoom = room.playerUids.includes(uid);
