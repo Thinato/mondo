@@ -50,137 +50,151 @@
     <button id="sign-in" type="button" class="primary">Entrar com Google</button>
   </section>
 
-  <!-- Rail, game, history — the same three columns as the daily (D-57, D-63).
-       Below 60rem it is an ordinary block and everything stacks in document
-       order, which puts the kind chooser above the challenge, where a phone
-       wants it. -->
+  <!-- FR-9.1 — the chooser, a screen of its own again: what to practise is one
+       question and practising it is another, and a grid has room for the kinds
+       still to come where a rail beside the game did not. `?k=` is the other
+       screen, so Back returns here. -->
+  <section id="choose" hidden>
+    <div class="choose-head">
+      <div>
+        <h1>Treinar</h1>
+        <p class="fine">Um tipo de cada vez, quantas vezes quiser. Nada daqui conta para o ranking
+        nem aparece para o seu grupo.</p>
+      </div>
+      <!-- FR-9.9 — which continents to drill. Above the kinds because it is
+           chosen first and carried into whichever run is started. -->
+      <div class="filter">
+        <p class="label" id="continents-label"></p>
+        <ul id="continents" class="chips" aria-labelledby="continents-label"></ul>
+      </div>
+    </div>
+    <h2 class="label">Desafios</h2>
+    <ul id="kinds" class="kinds" aria-label="Tipo de desafio"></ul>
+    <h2 class="label">Jogos</h2>
+    <ul id="games" class="kinds" aria-label="Jogos"></ul>
+    <p id="choose-status" aria-live="polite"></p>
+  </section>
+
+  <!-- A run: a bar, the challenge, and the run so far. While it is up the page
+       is the height of the window and never scrolls; the guesses and the
+       history scroll inside their own boxes instead, newest first. -->
   <div id="run-cols" hidden>
-
-  <!-- FR-9.1 — the chooser. It used to be a screen you passed through and could
-       only return to by ending the run; it is the rail now, so switching from
-       capitais to bandeiras is one click. -->
-  <aside class="rail">
-    <div class="rail-head">
-      <h1>Treinar</h1>
-      <p class="fine">Um tipo de cada vez, quantas vezes quiser. Nada daqui conta para o ranking
-      nem aparece para o seu grupo.</p>
-    </div>
-    <ul id="picker" class="picker" aria-label="Tipo de desafio"></ul>
-
-    <!-- FR-9.9 — which continents to drill. Below the kinds because it is the
-         narrower question: you pick what to practise, then where. Toggling one
-         does NOT restart the run; a chip is one click of a selection that takes
-         several, and restarting on each would throw away three runs to change
-         one filter. `#continents-hint` says what to tap instead, and only once
-         the chips and the running session actually disagree. -->
-    <div class="rail-filter">
-      <p class="fine" id="continents-label"></p>
-      <ul id="continents" class="chips" aria-labelledby="continents-label"></ul>
-      <p class="fine warn" id="continents-hint" hidden></p>
-    </div>
-  </aside>
-
-  <div class="play-col">
-
-  <p id="practice-hint" class="sub">Escolha um tipo de desafio para começar.</p>
-
-  <!-- The challenge itself. Same elements, same ids and therefore the same CSS
-       as the daily: a practice challenge IS a daily challenge with nothing at
-       stake, and the moment the two screens diverge one of them starts lying. -->
-  <section id="train" hidden>
-    <div class="prompt-head">
-      <p id="progress" class="fine" aria-live="polite"></p>
+    <div class="run-bar">
+      <a id="back-link" href="./praticar.html" class="back" aria-label="Tipos de desafio">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        <span>Tipos</span>
+      </a>
+      <div class="run-title">
+        <h1 id="run-kind" tabindex="-1"></h1>
+        <p class="fine run-sub"><span id="progress" aria-live="polite"></span><span id="run-where"></span></p>
+      </div>
       <div class="head-actions">
         <button id="help-btn" type="button" class="help-btn" title="Como ler as pistas"
                 aria-label="Como ler as pistas" aria-haspopup="dialog">?</button>
+        <button id="leave-btn" type="button" class="secondary">Encerrar treino</button>
+      </div>
+    </div>
+
+    <div class="play-col">
+    <!-- The challenge itself. Same elements, same ids and therefore the same CSS
+         as the daily: a practice challenge IS a daily challenge with nothing at
+         stake, and the moment the two screens diverge one of them starts lying. -->
+    <section id="train" hidden>
+      <div class="stage">
+        <!-- The question, above the artwork. For a silhouette or a flag there is
+             no text and this is empty; for `person` the NAME is the question and
+             the photograph is the help, so it has to be read first (D-78). -->
+        <p id="capital" class="capital-prompt" hidden></p>
+        <figure class="silhouette" id="shape-wrap" hidden>
+          <svg id="shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
+        </figure>
+        <figure class="flag" id="flag-wrap" hidden>
+          <svg id="flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
+        </figure>
+        <!-- D-78: the only artwork in the game that comes from somewhere else.
+             geo.js hides the whole figure if Wikimedia does not answer. -->
+        <figure class="portrait" id="person-wrap" hidden>
+          <img id="person-photo" alt="" width="400" height="400" loading="eager" decoding="async" />
+          <figcaption id="person-credit" class="fine"></figcaption>
+        </figure>
+        <!-- FR-8.7 / D-64: a multiple-choice challenge. Filled by renderOptions
+             with artwork and nothing else — position is the whole identity, and
+             the guess is an index. -->
+        <ol id="options" class="options" aria-label="Opções" hidden></ol>
+      </div>
+
+      <div class="answer-col">
+        <!-- FR-6.10 / D-55: a finished challenge holds the screen until dismissed. -->
+        <section id="reveal" class="reveal" hidden aria-live="polite">
+          <p id="reveal-text"></p>
+          <!-- D-81, as on the daily: the bio is part of the reveal and nothing else. -->
+          <div id="reveal-about" class="about" hidden>
+            <p id="reveal-about-text"></p>
+            <a id="reveal-about-link" class="secondary" target="_blank" rel="noopener noreferrer"></a>
+            <small id="reveal-about-credit" class="credit"></small>
+          </div>
+          <button id="reveal-next" type="button" class="primary">Próximo desafio</button>
+        </section>
+
+        <form id="guess-form" autocomplete="off">
+          <div class="combo" id="guess-combo">
+            <input id="guess-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                   aria-controls="guess-list" aria-label="País" placeholder="Digite um país…"
+                   autocapitalize="off" spellcheck="false" enterkeyhint="go">
+            <ul id="guess-list" role="listbox" aria-label="Países" hidden></ul>
+          </div>
+          <div class="money" id="guess-money" hidden>
+            <span aria-hidden="true">US$</span>
+            <input id="guess-number" type="number" inputmode="numeric" min="1" step="1"
+                   aria-label="PIB per capita em dólares" placeholder="20.000" enterkeyhint="go">
+          </div>
+          <button id="guess-submit" type="submit" class="primary">Chutar</button>
+        </form>
+
+        <p id="left" class="label" aria-live="polite"></p>
+        <ol id="guesses" class="guesses" aria-label="Tentativas, a mais recente primeiro"></ol>
+
         <!-- FR-2.13 / D-61. No confirmation here, unlike the daily: nothing in a
              practice run is permanent or shared, and "I just want the answer" is
              half the reason the button exists. -->
-        <button id="giveup-btn" type="button" class="link">Desistir</button>
-        <button id="leave-btn" type="button" class="link">Sair do treino</button>
+        <button id="giveup-btn" type="button" class="secondary giveup">Desistir deste desafio</button>
       </div>
-    </div>
-
-    <!-- The question, above the artwork. For a silhouette or a flag there is no
-         text and this is empty; for `person` the NAME is the question and the
-         photograph is the help, so it has to be read first (D-78). -->
-    <p id="capital" class="capital-prompt" hidden></p>
-    <figure class="silhouette" id="shape-wrap" hidden>
-      <svg id="shape" viewBox="0 0 500 500" role="img" aria-label="Silhueta do país deste desafio"></svg>
-    </figure>
-    <figure class="flag" id="flag-wrap" hidden>
-      <svg id="flag" viewBox="0 0 6 3" role="img" aria-label="Bandeira do país deste desafio"></svg>
-    </figure>
-    <!-- D-78: the only artwork in the game that comes from somewhere else. The
-         name is the question and lives in #capital with every other text
-         prompt; this is the face, and geo.js hides the whole figure if
-         Wikimedia does not answer. -->
-    <figure class="portrait" id="person-wrap" hidden>
-      <img id="person-photo" alt="" width="400" height="400" loading="eager" decoding="async" />
-      <figcaption id="person-credit" class="fine"></figcaption>
-    </figure>
-
-    <!-- FR-8.7 / D-64: a multiple-choice challenge. Filled by renderOptions
-         with artwork and nothing else — position is the whole identity, and
-         the guess is an index. -->
-    <ol id="options" class="options" aria-label="Opções" hidden></ol>
-
-    <ol id="guesses" class="guesses" aria-label="Tentativas"></ol>
-
-    <!-- FR-6.10 / D-55: a finished challenge holds the screen until dismissed. -->
-    <section id="reveal" class="reveal" hidden aria-live="polite">
-      <p id="reveal-text"></p>
-      <!-- D-81, as on the daily: the bio is part of the reveal and nothing else. -->
-      <div id="reveal-about" class="about" hidden>
-        <p id="reveal-about-text"></p>
-        <a id="reveal-about-link" class="secondary" target="_blank" rel="noopener noreferrer"></a>
-        <small id="reveal-about-credit" class="credit"></small>
-      </div>
-      <button id="reveal-next" type="button" class="primary">Próximo desafio</button>
     </section>
 
-    <form id="guess-form" autocomplete="off">
-      <div class="combo" id="guess-combo">
-        <input id="guess-input" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
-               aria-controls="guess-list" aria-label="País" placeholder="Digite um país…"
-               autocapitalize="off" spellcheck="false" enterkeyhint="go">
-        <ul id="guess-list" role="listbox" aria-label="Países" hidden></ul>
+    <!-- FR-9.4 — what the run came to, shown after leaving. The history beside it
+         is the same one the run was building; leaving does not erase it. -->
+    <section id="summary" class="result" hidden>
+      <p id="summary-text"></p>
+      <div class="row">
+        <button id="again" type="button" class="primary">Treinar de novo</button>
+        <a href="./praticar.html" id="other-link" class="link">Escolher outro tipo</a>
       </div>
-      <div class="money" id="guess-money" hidden>
-        <span aria-hidden="true">US$</span>
-        <input id="guess-number" type="number" inputmode="numeric" min="1" step="1"
-               aria-label="PIB per capita em dólares" placeholder="20.000" enterkeyhint="go">
-      </div>
-      <button id="guess-submit" type="submit" class="primary">Chutar</button>
-    </form>
+    </section>
 
-    <p id="left" class="fine" aria-live="polite"></p>
-  </section>
-
-  <p id="status" aria-live="polite"></p>
-
-  <!-- FR-9.4 — what the run came to, shown after leaving. The list beside it is
-       the same one the run was building; leaving does not erase it. -->
-  <section id="summary" class="result" hidden>
-    <p id="summary-text"></p>
-    <div class="row">
-      <button id="again" type="button" class="primary">Treinar de novo</button>
-      <a href="./" class="link">Voltar ao jogo de hoje</a>
+    <p id="status" aria-live="polite"></p>
     </div>
-  </section>
 
-  </div>
-
-  <!-- The run so far: one line per finished challenge, built from the reveals
-       the player has already been shown, plus what they add up to. Nothing here
-       was ever secret. On a phone this is simply the block under the game, and
-       the totals are hidden — the counter above the challenge already carries
-       the score, and there is no room for the rest. -->
-  <aside id="run-side">
-    <dl id="run-stats" class="stats"></dl>
-    <ol id="items" class="card-items" aria-label="Desafios deste treino"></ol>
-  </aside>
-
+    <!-- The run so far: one line per finished challenge, built from the reveals
+         the player has already been shown, newest first. Nothing here was ever
+         secret. On a phone it is a bar under the game that opens as a sheet. -->
+    <aside id="run-side">
+      <button id="run-toggle" type="button" class="run-toggle" aria-expanded="false" aria-controls="run-panel">
+        <span id="run-count" class="label"></span>
+        <span id="run-last" class="run-last"></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+      </button>
+      <div id="run-panel" class="run-panel">
+        <div class="run-panel-head">
+          <h2 class="label">Este treino</h2>
+          <button id="sheet-close" type="button" class="sheet-close" aria-label="Fechar">&times;</button>
+        </div>
+        <dl id="run-stats" class="run-stats"></dl>
+        <h2 class="label">Histórico</h2>
+        <ol id="items" class="card-items run-list" aria-label="Desafios deste treino, o mais recente primeiro"></ol>
+        <!-- The phone's way out: its bar has no room for the button the desktop's has. -->
+        <button id="end-btn" type="button" class="secondary end-sheet">Encerrar treino</button>
+      </div>
+    </aside>
   </div>
 </main>
 
@@ -204,11 +218,11 @@
 
 <dialog id="leave-dialog">
   <form id="leave-form" method="dialog">
-    <h2>Sair do treino</h2>
+    <h2>Encerrar treino</h2>
     <p id="leave-text"></p>
     <div class="actions">
       <button type="submit" value="cancel" class="link">Continuar treinando</button>
-      <button type="submit" value="ok" class="primary">Sair e ver o total</button>
+      <button type="submit" value="ok" class="primary">Encerrar e ver o total</button>
     </div>
   </form>
 </dialog>

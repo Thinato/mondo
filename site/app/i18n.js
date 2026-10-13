@@ -289,23 +289,26 @@ const PT_BR = {
       shapePick: "Qual destas oito é a silhueta do país?",
       person: "Onde nasceu esta pessoa?",
     },
+    // What a card on the chooser says about how the kind is answered.
+    how: { text: "Digite o país", number: "Digite um valor", pick: "Escolha entre 8" },
+    potatoTag: "Mundo inteiro · abre numa sala",
     counter: "Desafio {n} · {points} pts",
-    // FR-9.9. The hint only appears once the chips and the running session
-    // disagree — a rail that nags before you have touched it is noise.
     continents: "Continentes",
-    continentsHint: "Toque em um tipo para recomeçar com estes continentes.",
+    everywhere: "Todos os continentes",
     next: "Próximo desafio",
-    confirmLeave: "Sair do treino? Você vai ver o total do que fez até agora.",
+    confirmLeave: "Encerrar o treino? Você vai ver o total do que fez até agora.",
+    // The phone's history bar, folded under the game.
+    history: "Histórico · {n}",
+    last: "Último: {name}",
     done: "{points} de {max} pontos em {n} desafio, {solved}.|{points} de {max} pontos em {n} desafios, {solved}.",
     doneNone: "Você saiu antes de terminar um desafio. Nada para somar.",
     solvedCount: "{n} acerto|{n} acertos",
-    // The desktop panel (FR-6.11). "Taxa de acerto" is desafios acertados sobre
-    // desafios terminados — not points over the maximum, which is a different
-    // number and would disagree with "Acertos" sitting directly above it.
+    // The run's totals (FR-6.11). "Acertos" is solved over finished; "Sequência"
+    // is how many of the latest challenges in a row were solved.
     statPoints: "Pontos",
-    statPlayed: "Desafios",
     statSolved: "Acertos",
-    statRate: "Taxa de acerto",
+    statAvg: "Média",
+    statStreak: "Sequência",
   },
   // FR-12 — Versus. Batata Quente is the name the mode was asked for by; the
   // presets are the server's ids (lib/versus.ts) and these are only labels.

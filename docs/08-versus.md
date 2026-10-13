@@ -99,7 +99,7 @@ is I/O only.
 
 ### 4.1 Training (FR-12.5, D-93)
 
-The `treino` preset is Batata Quente for one, with no clock. It is started from the Treinar page (`praticar.html`, the last entry of the picker), and played on `sala.html`, because the map arrives by a listener and invariant 2 keeps listeners to that one page. `create` makes the room already
+The `treino` preset is Batata Quente for one, with no clock. It is started from the Treinar page (`praticar.html`, the card in its "Jogos" row, D-94), and played on `sala.html`, because the map arrives by a listener and invariant 2 keeps listeners to that one page. `create` makes the room already
 `playing`: `newPotato([uid], now, false)`, with `limitMs` and `deadline` null. With a null deadline,
 `checkTurn` never says time-up, `tick` finds nothing due, and the page draws no timer.
 

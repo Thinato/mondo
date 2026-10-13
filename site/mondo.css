@@ -564,26 +564,8 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
 .preset input { grid-row: span 2; }
 .preset .fine { grid-column: 2; margin: 0; }
 .preset:has(input:checked) { outline: 1px solid var(--fg); }
-/* FR-9 — the practice kind chooser. It used to be a screen of its own that you
-   passed through once and could only get back to by leaving the run; now it is
-   the rail, so switching from capitals to flags is one click. On a phone the
-   same markup is a row of chips above the challenge, where the description does
-   not fit and the name is the whole question anyway. */
-.picker { list-style: none; margin: 0 0 .9rem; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
-.picker button {
-  font: inherit; padding: .45rem .85rem; cursor: pointer;
-  border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted);
-}
-.picker button:hover, .picker button:focus-visible { color: var(--fg); border-color: var(--fg); }
-.picker button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.picker .name { font-weight: inherit; }
-.picker .fine { display: none; }
 
-/* FR-9.9 — the continent chips. The same pill the kind picker is on a phone,
-   and it stays a pill at every width: five short labels are a row, not a column
-   of cards, and the kind is the question a player answers first. */
-.rail-filter { margin: 0 0 .9rem; }
-.rail-filter .fine { margin: 0 0 .4rem; }
+/* Pills that toggle: practice's continents (FR-9.9) and Batata Quente's queue. */
 .chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
 .chips button {
   font: inherit; font-size: .9rem; padding: .3rem .7rem; cursor: pointer;
@@ -591,8 +573,7 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
 }
 .chips button:hover, .chips button:focus-visible { color: var(--fg); border-color: var(--fg); }
 .chips button[aria-pressed="true"] { background: var(--field); border-color: var(--fg); color: var(--fg); font-weight: 600; }
-#continents-hint { margin: .5rem 0 0; }
-/* "?" and "Sair do treino" share the right of the prompt head. */
+/* "?" and the leave button share the right of the prompt head. */
 .head-actions { display: flex; gap: .75rem; align-items: center; }
 
 .capital-prompt { font-family: var(--serif); font-size: 2.1rem; font-weight: 500; letter-spacing: -.01em; text-align: center; padding: 2.25rem 1rem; background: var(--card); border-radius: .75rem; margin: 0 0 1rem; }
@@ -732,19 +713,10 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
   body:has(#card:not([hidden])) main,
   body:has(#card:not([hidden])) footer { max-width: 69rem; }
   #game, #card { max-width: 69rem; }
-  /* FR-9.8 / D-63 — practice has no board to put beside it, because a run is
-     shared with nobody. It has a history: every challenge already revealed, and
-     what they add up to. So the same shell and the same grid, for the same
-     reason — and since the kind chooser became the rail there is no longer a
-     narrow picker screen needing a shell of its own. */
-  body:has(#train) header,
-  body:has(#train) main,
-  body:has(#train) footer { max-width: 69rem; }
-  #run-side { min-width: 0; position: sticky; top: 1rem; }
 
   /* Rail, game, panel. Exactly three grid children on every play screen, so
      placement is deterministic and nothing auto-flows into the wrong column. */
-  #game, #card, #run-cols {
+  #game, #card {
     display: grid;
     grid-template-columns: 15rem minmax(0, 30rem) minmax(16rem, 19rem);
     gap: 2.5rem;
@@ -791,24 +763,7 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
   }
   .rail-total b { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.05rem; }
 
-  /* The practice chooser, in the same column: a card per kind, with the line
-     that says what the question is. */
-  .picker { display: grid; grid-auto-flow: row; gap: .5rem; margin: 1.1rem 0 0; }
-  .picker button {
-    display: grid; gap: .15rem; width: 100%; text-align: left;
-    padding: .7rem .8rem; border-radius: .5rem; background: var(--card); color: inherit;
-  }
-  .picker button[aria-pressed="true"] {
-    background: var(--field); border: 2px solid var(--accent); color: inherit; font-weight: inherit;
-    padding: calc(.7rem - 1px) calc(.8rem - 1px);
-  }
-  .picker .name { font-weight: 600; }
-  .picker .name::first-letter { text-transform: uppercase; }
-  .picker .fine { display: block; font-size: .8rem; color: var(--muted); }
 
-  /* The chips keep their shape here; only the gap grows, to match the kind
-     cards above them. */
-  .rail-filter { margin: 1.1rem 0 0; }
 
   .side { display: block; min-width: 0; position: sticky; top: 1rem; }
   .side .title { font-family: inherit; font-size: .95rem; color: var(--muted); font-weight: 600; }
@@ -903,4 +858,164 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
   body:has(#room-cols) footer { max-width: 69rem; }
   #room-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem); gap: 2.5rem; align-items: start; }
   #room-side { position: sticky; top: 1rem; }
+}
+
+/* ---------------------------------------------------------------------------
+   Treinar — FR-9 (praticar.html). Two screens. The chooser is a grid of cards,
+   because the kinds keep growing and a list beside the game did not have room
+   for them. A run is exactly the height of the window: nothing on it scrolls
+   the page, and the two things that grow — the guesses and the history — scroll
+   inside their own boxes, newest first.
+   --------------------------------------------------------------------------- */
+.label { margin: 0; font-family: var(--mono); font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+.choose-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem 2rem; margin: .5rem 0 1.5rem; }
+.choose-head h1 { margin: 0 0 .35rem; font-family: var(--serif); font-size: 2.2rem; font-weight: 500; letter-spacing: -.02em; line-height: 1; }
+.choose-head .fine { margin: 0; max-width: 34rem; }
+.filter .label { margin-bottom: .4rem; }
+#choose > h2.label { margin: 1.5rem 0 .6rem; }
+.kinds { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(9.5rem, 100%), 1fr)); gap: .6rem; }
+.kind-card {
+  position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: .4rem;
+  padding: .85rem; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: var(--field); border: 1px solid var(--line); border-radius: .75rem;
+  transition: border-color .15s, transform .15s;
+}
+.kind-card:hover:not(:disabled), .kind-card:focus-visible { border-color: var(--accent); }
+.kind-card:hover:not(:disabled) { transform: translateY(-2px); }
+.kind-icon { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: .5rem; background: var(--card); color: var(--accent); }
+.kind-icon svg { width: 1.3rem; height: 1.3rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.kind-card .name { font-family: var(--serif); font-size: 1.2rem; font-weight: 500; line-height: 1.15; }
+.kind-card .name::first-letter { text-transform: uppercase; }
+/* The question a kind asks is the name, said longer: a phone has no room to
+   show both, so it is only read out there. */
+.kind-card .fine { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; }
+.kind-card .tag { margin-top: auto; font-family: var(--mono); font-size: .65rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+  .kind-card { transition: none; }
+  .kind-card:hover:not(:disabled) { transform: none; }
+}
+
+/* A run fills the window and no more. The footer and the tab bar step aside
+   for it; "← Tipos" is the way out. */
+body.playing { height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+body.playing > header { flex: none; }
+body.playing > footer, body.playing > .tabbar { display: none; }
+body.playing > main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+body.playing #run-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: .6rem; }
+
+.run-bar { display: flex; align-items: center; gap: .6rem; padding-bottom: .6rem; border-bottom: 1px solid var(--line); }
+.back { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: .25rem; min-width: 2.75rem; min-height: 2.75rem; border: 1px solid var(--line); border-radius: 999px; color: inherit; text-decoration: none; font-size: .9rem; }
+.back:hover { border-color: var(--fg); }
+.back svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.back span { display: none; }
+.run-title { flex: 1; min-width: 0; }
+.run-title h1 { margin: 0; font-family: var(--serif); font-size: 1.3rem; font-weight: 500; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-title h1::first-letter { text-transform: uppercase; }
+.run-title .fine { margin: 0; font-size: .75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-sub #progress { font-family: var(--mono); }
+.run-sub #progress:not([hidden]) + #run-where::before { content: " · "; }
+.run-bar .head-actions { gap: .5rem; }
+.run-bar #leave-btn { display: none; }
+
+body.playing .play-col { min-height: 0; display: flex; flex-direction: column; }
+body.playing #status { flex: none; min-height: 0; margin: .25rem 0 0; }
+body.playing #status:empty { display: none; }
+#train { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .6rem; }
+.stage { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; gap: .6rem; overflow-y: auto; }
+.stage > * { margin: 0; }
+.stage .capital-prompt { padding: 1rem; font-size: 1.4rem; }
+.stage .silhouette { aspect-ratio: auto; height: min(32dvh, 18rem); padding: .75rem; }
+.stage .flag { width: min(100%, 30dvh * 1.5); margin-inline: auto; }
+.stage .portrait { padding: .6rem; }
+.stage .portrait img { max-height: 20dvh; }
+/* A board has no field and no rows: the options are the answer, and they get
+   the room. */
+#train.pick .stage { flex: 1 1 auto; }
+#train.pick .capital-prompt { padding: .9rem 1rem; font-size: 1.35rem; }
+/* The column a guess is typed into never gives up its field, nor the newest
+   guess under it (the floor is field + one row + give-up): the stage above
+   shrinks first (and scrolls, if a long name and a photo still do not fit).
+   It does not scroll itself, or the suggestions under the field would be
+   clipped at its edge; only a reveal, which has no field, may. */
+.answer-col { flex: 1 1 0; min-height: 11.5rem; display: flex; flex-direction: column; gap: .5rem; }
+#train.pick .answer-col { flex: none; min-height: 0; }
+#train.revealing .answer-col { overflow-y: auto; }
+.answer-col > * { margin: 0; }
+.answer-col .guesses { flex: 1 1 0; min-height: 0; overflow-y: auto; align-content: start; }
+#train.revealing .answer-col .guesses { flex: none; max-height: 12rem; }
+.giveup { flex: none; width: 100%; min-height: 2.75rem; }
+
+/* The run so far. On a phone, a bar under the game that opens as a sheet. */
+#run-side { margin: 0 -1rem; border-top: 1px solid var(--line); background: var(--field); }
+.run-toggle {
+  width: 100%; display: flex; align-items: center; gap: .6rem; min-height: 3.25rem;
+  padding: .5rem 1rem calc(.5rem + env(safe-area-inset-bottom, 0px));
+  border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.run-toggle .label { flex: none; }
+.run-last { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; color: var(--muted); }
+.run-toggle svg { flex: none; width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.run-panel { display: none; }
+@media (max-width: 59.99rem) {
+  #run-side.open::before { content: ""; position: fixed; inset: 0; z-index: 25; background: rgb(0 0 0 / .35); }
+  #run-side.open .run-panel {
+    display: flex; flex-direction: column; gap: .75rem;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 26; height: 65dvh;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    background: var(--bg); border-radius: 1rem 1rem 0 0; box-shadow: 0 -8px 24px rgb(0 0 0 / .18);
+  }
+}
+.run-panel-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-close { width: 2.75rem; height: 2.75rem; margin: -.5rem -.5rem -.5rem 0; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 1.5rem; cursor: pointer; }
+.run-stats { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .4rem; }
+.run-stats div { min-width: 0; padding: .5rem .6rem; border-radius: .5rem; background: var(--card); }
+.run-stats dt { font-family: var(--mono); font-size: .6rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-stats dd { margin: 0; font-family: var(--mono); font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.run-list { margin: 0; flex: 1; min-height: 0; overflow-y: auto; align-content: start; }
+.end-sheet { flex: none; min-height: 2.75rem; }
+
+@media (min-width: 60rem) {
+  .choose-head h1 { font-size: 2.75rem; }
+  .kinds { grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 1rem; }
+  .kind-card { padding: 1rem 1.1rem; gap: .45rem; }
+  .kind-card .fine { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; font-size: .875rem; }
+  .kind-card .name { font-size: 1.35rem; }
+
+  body.playing { padding-bottom: 1.25rem; }
+  body.playing > header, body.playing > main { max-width: 76rem; }
+  body.playing #run-cols { grid-template-columns: minmax(0, 1fr) 19rem; grid-template-rows: auto minmax(0, 1fr); gap: 1.25rem 1.5rem; }
+  .run-bar { grid-column: 1 / -1; padding-bottom: .9rem; }
+  .back { padding: 0 .9rem 0 .6rem; }
+  .back span { display: inline; }
+  .run-title h1 { font-size: 1.75rem; }
+  .run-title .fine { font-size: .85rem; }
+  .run-bar #leave-btn { display: inline-block; }
+
+  #train { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem); gap: 1.25rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: 1rem; }
+  #train.pick { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  /* A reveal has no artwork left to show (only a board keeps its prompt), so
+     the verdict and the guesses that led to it take the whole panel. */
+  #train.revealing:not(.pick) { grid-template-columns: minmax(0, 1fr); }
+  #train.revealing:not(.pick) .stage { display: none; }
+  #train.pick .capital-prompt { padding: 1rem; font-size: 1.6rem; }
+  /* The stage is the size the grid gives it, and the artwork is sized from
+     that — a flag is as wide as its height allows. */
+  .stage { container-type: size; }
+  .stage .silhouette, .stage .portrait { flex: 1; min-height: 0; height: auto; }
+  .stage .portrait { grid-template-rows: minmax(0, 1fr) auto; }
+  .stage .portrait img { height: 100%; max-height: none; aspect-ratio: auto; }
+  .stage .flag { width: min(100%, 100cqh * 1.5); margin: auto; }
+  /* Two rows of four 3:2 tiles, each with a name under it once revealed, under
+     the prompt: as wide as the stage's height lets both rows show. */
+  .stage .options { width: min(100%, 3 * (100cqh - 9rem)); margin-inline: auto; }
+  .stage .capital-prompt { padding: 2.25rem 1rem; font-size: 2.1rem; }
+
+  #run-side { margin: 0; min-height: 0; display: flex; flex-direction: column; padding: 1rem; border: 1px solid var(--line); border-radius: 1rem; background: none; }
+  .run-toggle, .sheet-close, .end-sheet { display: none; }
+  .run-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .75rem; }
+  .run-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .run-stats div { padding: .65rem .75rem; }
+  .run-stats dt { font-size: .65rem; }
+  .run-stats dd { font-size: 1.5rem; }
 }
