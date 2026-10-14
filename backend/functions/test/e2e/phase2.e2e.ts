@@ -193,7 +193,7 @@ test("3. FR-4.3: invite link → accept → the player can play", async () => {
 
   const inv = ok(await organizer.call("createInvite", { groupId: gid }), "createInvite");
   assert.match(inv.token, /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$/);
-  assert.ok(inv.url.endsWith(`grupos.html?convite=${inv.token}`));
+  assert.ok(inv.url.endsWith(`grupos?convite=${inv.token}`));
   assert.equal(code(await player.call("createInvite", { groupId: gid })), "permission-denied");
 
   // D-84: a guest is refused, and the refusal does not spend the single-use token.
