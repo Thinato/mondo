@@ -172,7 +172,7 @@ export const createInvite = callable<
     const invite = newInvite(gid, group.name, uid, now, mode);
     try {
       await inviteRef(token).create(invite);
-      return { token, url: `${GAME_URL}grupos.html?convite=${token}`, expiresAt: invite.expiresAt.toDate().toISOString(), mode };
+      return { token, url: `${GAME_URL}grupos?convite=${token}`, expiresAt: invite.expiresAt.toDate().toISOString(), mode };
     } catch (e) {
       if (attempt >= 1) throw e;
     }
@@ -203,7 +203,7 @@ export const listInvites = callable<
     .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
     .map((i) => ({
       token: i.token,
-      url: `${GAME_URL}grupos.html?convite=${i.token}`,
+      url: `${GAME_URL}grupos?convite=${i.token}`,
       createdAt: i.createdAt.toDate().toISOString(),
       expiresAt: i.expiresAt.toDate().toISOString(),
       mode: inviteMode(i),

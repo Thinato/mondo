@@ -120,7 +120,7 @@ async function loadGroups() {
     el.groupsRows.replaceChildren(...groups.map((g) => {
       const tr = document.createElement("tr");
       const link = document.createElement("td");
-      const a = document.createElement("a"); a.href = `./grupos.html?g=${g.groupId}`; a.textContent = "ver";
+      const a = document.createElement("a"); a.href = `./grupos?g=${g.groupId}`; a.textContent = "ver";
       link.append(a);
       tr.append(cell(g.name, "name"), cell(g.ownerDisplayName || "–"), cell(g.memberCount), cell(formatDay(g.createdAt)), link);
       return tr;

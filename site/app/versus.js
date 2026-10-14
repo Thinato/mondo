@@ -138,7 +138,7 @@ el.createBtn.addEventListener("click", async () => {
   setStatus(t("loading"));
   try {
     const r = await versus("create", { presetId: preset });
-    location.href = `./sala.html?s=${r.room}`;
+    location.href = `./sala?s=${r.room}`;
   } catch (err) {
     setStatus(errorMessage(err, "versus"), "err");
   } finally {
@@ -242,7 +242,7 @@ el.copy.addEventListener("click", async () => {
 el.start.addEventListener("click", () => act(() => versus("start", { room: roomId })));
 el.leave.addEventListener("click", async () => {
   await act(() => versus("leave", { room: roomId }));
-  location.href = "./sala.html";
+  location.href = "./sala";
 });
 
 async function act(fn) {
@@ -401,7 +401,7 @@ function renderSoloEnd() {
   const named = new Set(room.potato.named);
   el.finishedText.textContent = t("versus.soloDone", { n: named.size, total: room.potato.total });
   // Started from the Treinar page (D-93), so that is where "again" goes.
-  el.again.href = "./praticar.html";
+  el.again.href = "./praticar";
   el.again.textContent = t("versus.trainAgain");
   countryList ??= loadCountries();
   countryList.then((list) => {

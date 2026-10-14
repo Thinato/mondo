@@ -107,7 +107,15 @@ const db = admin.firestore();
 ' 2>/dev/null)
 
 echo "==> serving site/ on :8000"
-(cd site && exec python3 -m http.server 8000 >/dev/null 2>&1) &
+# /grupos serves grupos.html, as GitHub Pages does in production.
+(cd site && exec python3 -c '
+import http.server, os
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def translate_path(self, path):
+        file = super().translate_path(path)
+        return file + ".html" if not os.path.exists(file) and os.path.exists(file + ".html") else file
+http.server.ThreadingHTTPServer(("", 8000), Handler).serve_forever()
+' >/dev/null 2>&1) &
 WEB_PID=$!
 
 # Grant admin to whoever signs in with Google. Polled rather than triggered:
@@ -143,13 +151,13 @@ fi
 
 sleep 1
 echo ""
-echo "  treino (the pick kinds live here):  http://localhost:8000/praticar.html"
+echo "  treino (the pick kinds live here):  http://localhost:8000/praticar"
 echo "  o jogo do dia:                 http://localhost:8000/"
-echo "  versus, player 1:              http://localhost:8000/sala.html"
-echo "  versus, player 2 (same Chrome): http://127.0.0.1:8000/sala.html"
+echo "  versus, player 1:              http://localhost:8000/sala"
+echo "  versus, player 2 (same Chrome): http://127.0.0.1:8000/sala"
 echo "  emulator UI:                   http://127.0.0.1:4000/"
 echo ""
 echo "  Sign in with Google → 'Add new account' → any email. Ctrl-C to stop."
 echo "  More players: an incognito window, another browser — each is its own account."
-open http://localhost:8000/praticar.html 2>/dev/null || true
+open http://localhost:8000/praticar 2>/dev/null || true
 wait

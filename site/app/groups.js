@@ -77,16 +77,16 @@ watchAuth({
 
 async function accept(token) {
   const ok = await ask(el.confirmDialog, el.confirmText, t("confirmJoin"));
-  if (!ok) { history.replaceState(null, "", "./grupos.html"); return loadList(); }
+  if (!ok) { history.replaceState(null, "", "./grupos"); return loadList(); }
   try {
     const res = await api.acceptInvite({ token });
     gid = res.groupId;
-    history.replaceState(null, "", `./grupos.html?g=${gid}`);
+    history.replaceState(null, "", `./grupos?g=${gid}`);
     setStatus(t("invited", { name: res.name }), "ok");
     await loadBoard();
   } catch (err) {
     setStatus(errorMessage(err), "err");
-    history.replaceState(null, "", "./grupos.html");
+    history.replaceState(null, "", "./grupos");
     loadList();
   }
 }
@@ -104,7 +104,7 @@ async function loadList() {
     el.cards.replaceChildren(...groups.map((g) => {
       const li = document.createElement("li");
       const a = document.createElement("a");
-      a.href = `./grupos.html?g=${g.groupId}`;
+      a.href = `./grupos?g=${g.groupId}`;
       const name = document.createElement("span"); name.textContent = g.name;
       const meta = document.createElement("span"); meta.className = "meta"; meta.textContent = t("players", { n: g.memberCount });
       if (g.isOwner) { const b = document.createElement("span"); b.className = "badge"; b.textContent = t("owner"); meta.prepend(b, " "); }
@@ -126,7 +126,7 @@ el.createForm.addEventListener("submit", async (ev) => {
     const { groupId } = await api.createGroup({ name: el.createName.value.trim() });
     el.createName.value = "";
     gid = groupId;
-    history.pushState(null, "", `./grupos.html?g=${gid}`);
+    history.pushState(null, "", `./grupos?g=${gid}`);
     setStatus(t("created"), "ok");
     await loadBoard();
   } catch (err) {
@@ -282,7 +282,7 @@ function renderTournaments() {
   const running = tournaments.tournaments.find((x) => x.status === "running");
   el.openRound.hidden = !running;
   if (running) {
-    el.openRound.href = `./torneios.html?g=${gid}&t=${running.tournamentId}`;
+    el.openRound.href = `./torneios?g=${gid}&t=${running.tournamentId}`;
     el.openRoundName.textContent = running.name;
     el.openRoundMeta.textContent = running.currentRound
       ? t("roundOf", { n: running.currentRound, max: running.rounds })
@@ -383,7 +383,7 @@ el.leaveBtn.addEventListener("click", async () => {
   try {
     await api.leaveGroup({ groupId: gid });
     gid = null;
-    history.replaceState(null, "", "./grupos.html");
+    history.replaceState(null, "", "./grupos");
     setStatus(t("left"), "ok");
     loadList();
   } catch (err) { setStatus(errorMessage(err), "err"); }
