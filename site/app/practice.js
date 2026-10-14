@@ -226,7 +226,7 @@ function potatoEntry() {
       setStatus(t("loading"));
       try {
         const r = await api.versus({ op: "create", presetId: "treino" });
-        location.href = `./sala.html?s=${r.room}`;
+        location.href = `./sala?s=${r.room}`;
       } catch (err) {
         setStatus(errorMessage(err, "versus"), "err");
         button.disabled = false;

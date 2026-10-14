@@ -86,7 +86,7 @@ function route() {
   if (tid) return loadTournament();
   // Nothing named. Every link into this page carries a ?t=, so arriving without
   // one means a stale bookmark from when the list lived here.
-  location.replace(gid ? `./grupos.html?g=${gid}` : "./grupos.html");
+  location.replace(gid ? `./grupos?g=${gid}` : "./grupos");
 }
 
 // ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ async function loadTournament() {
   try {
     view = await api.getTournament({ tournamentId: tid });
     gid = view.groupId;
-    el.backToList.href = `./grupos.html?g=${gid}`;
+    el.backToList.href = `./grupos?g=${gid}`;
     renderTournament();
     setStatus("");
   } catch (err) {
@@ -299,7 +299,7 @@ function renderFixtures() {
 
 el.playBtn.addEventListener("click", () => {
   playing = true;
-  history.pushState(null, "", `./torneios.html?g=${gid}&t=${tid}&jogar=1`);
+  history.pushState(null, "", `./torneios?g=${gid}&t=${tid}&jogar=1`);
   openCard();
 });
 
@@ -352,7 +352,7 @@ async function openCard() {
   el.card.hidden = false;
   reveal = null;
   el.cardSide.hidden = true;
-  el.backFromCard.href = `./torneios.html?g=${gid}&t=${tid}`;
+  el.backFromCard.href = `./torneios?g=${gid}&t=${tid}`;
   setBusy(true);
   try {
     if (!ac) {

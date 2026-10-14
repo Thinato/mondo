@@ -187,7 +187,7 @@ Rules:
   local-part and never a real name. The leaderboard must not become a de-facto staff directory.
 - Email is never displayed to other users, ever. Not in groups, not in challenges.
 - A working account-deletion path must exist before you share the link with anyone (Phase 2).
-- A one-page privacy note lives at `/mondo/privacidade.html`: what is stored, why, how to delete.
+- A one-page privacy note lives at `/mondo/privacidade`: what is stored, why, how to delete.
 - Give whoever owns security policy at the company a heads-up before sharing. Ten minutes of
   conversation now beats an awkward conversation later.
 
