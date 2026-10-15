@@ -102,6 +102,16 @@ const PT_BR = {
   save: "Salvar",
   cancel: "Cancelar",
   saved: "Nome atualizado.",
+  // FR-13 — the profile page (D-97).
+  perfil: {
+    you: "Você",
+    streaks: "Sequência de {n} · recorde de {max}",
+    voided: "anulado",
+    noGames: "Nenhum dia jogado nos últimos 30 dias.",
+    chartLabel: "{n} dias jogados nos últimos 30, com média de {pct}% do máximo de cada dia.",
+    recapLater: "As respostas aparecem quando o dia fechar, ao meio-dia.",
+    trend: { up: "melhorando", flat: "estável", down: "piorando" },
+  },
   // groups (FR-4)
   // "1 jogador" / "2 jogadores": a "|" splits singular from plural and `n` picks.
   players: "{n} jogador|{n} jogadores",

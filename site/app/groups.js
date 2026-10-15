@@ -19,12 +19,11 @@ import "./theme.js";
 import * as api from "./api.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
-import { mountProfile } from "./profile.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"),
-  account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
+  account: $("account"), adminLink: $("admin-link"),
   list: $("list"), cards: $("cards"), noGroups: $("no-groups"), createForm: $("create-form"), createName: $("create-name"),
   board: $("board"), groupName: $("group-name"), groupMeta: $("group-meta"),
   ownerTools: $("owner-tools"), inviteBtn: $("invite-btn"),
@@ -48,11 +47,10 @@ let tournaments = null;   // last listTournaments response
 let window_ = "last30";   // FR-4.7
 let section = "ranking";
 
-const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
 
 watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
-  account: el.account, adminLink: el.adminLink, profile, setStatus,
+  account: el.account, adminLink: el.adminLink, setStatus,
   onUser: (u) => {
     el.list.hidden = el.board.hidden = true;
     if (!u) { view = null; tournaments = null; return; }

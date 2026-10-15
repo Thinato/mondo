@@ -15,7 +15,6 @@ import { auth, realtime } from "./firebase.js";
 import "./theme.js";
 import * as api from "./api.js";
 import { ask, googleClick, watchAuth } from "./auth-ui.js";
-import { mountProfile } from "./profile.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, isPick, renderAbout, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
@@ -26,7 +25,7 @@ import { mountPotato } from "./potato.js";
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"),
-  account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
+  account: $("account"), adminLink: $("admin-link"),
   create: $("create"), createForm: $("create-form"), createLocked: $("create-locked"), modes: $("modes"), createBtn: $("create-btn"),
   createGuest: $("create-guest"), createSignIn: $("create-sign-in"),
   cols: $("room-cols"), lobby: $("lobby"), lobbyTitle: $("lobby-title"), lobbyMode: $("lobby-mode"), lobbyWait: $("lobby-wait"),
@@ -68,7 +67,6 @@ let unsubscribe = [];
 
 const setStatus = (text, cls = "") => { el.status.textContent = text; el.status.className = cls; };
 const serverNow = () => Date.now() + offset;
-const profile = mountProfile({ button: el.profileBtn, setStatus });
 
 /** Every op goes through here, so every reply sets the clock. */
 async function versus(op, data = {}) {
@@ -85,7 +83,7 @@ async function versus(op, data = {}) {
 
 watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
-  account: el.account, adminLink: el.adminLink, profile, setStatus,
+  account: el.account, adminLink: el.adminLink, setStatus,
   onUser: (user) => {
     stop();
     if (!user) return render();

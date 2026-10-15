@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo — perfil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<link rel="stylesheet" href="./mondo.css">
+<script>try{var th=localStorage.getItem("lisecki-theme");if(th==="light")document.documentElement.classList.add("light-mode");if(th==="dark")document.documentElement.classList.add("dark-mode");}catch(e){}</script>
+</head>
+<body>
+<header>
+  <a class="wordmark" href="./">Mondo</a>
+  <nav aria-label="Principal">
+    <a href="./">Hoje</a>
+    <a href="./grupos">Grupo</a>
+    <a href="./praticar">Treinar</a>
+    <a href="./sala">Versus</a>
+  </nav>
+  <div class="head-right">
+    <button type="button" id="theme-btn" class="theme-btn" aria-label="Mudar o tema">
+      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.2A8.4 8.4 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z"/></svg>
+    </button>
+    <details class="account" id="account" hidden>
+      <summary aria-label="Conta e ajuda">?</summary>
+      <div class="account-menu">
+        <a href="./perfil" aria-current="page">Perfil</a>
+        <a id="admin-link" href="./admin" hidden>Painel</a>
+        <a href="./regras">Regras</a>
+        <a href="./privacidade">Privacidade</a>
+        <hr>
+        <button type="button" id="sign-out">Sair</button>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="perfil">
+  <!-- Shown only if guest sign-in fails (D-85). -->
+  <section id="signed-out" hidden>
+    <p class="sub">Entre para ver perfis.</p>
+    <button id="sign-in" type="button" class="primary">Entrar com Google</button>
+  </section>
+
+  <p id="status" aria-live="polite"></p>
+
+  <p id="not-found" class="sub" hidden>Perfil não encontrado.</p>
+
+  <!-- FR-13, D-97: anyone's last 30 days of the daily. Today's answers never
+       appear here before the day closes, for anyone but the player who finished it. -->
+  <section id="profile" hidden>
+    <div class="perfil-head">
+      <h1 id="p-name" class="title"></h1>
+      <p id="p-meta" class="fine"></p>
+    </div>
+
+    <!-- The owner's own controls, moved here from the old Perfil dialog (FR-1.3, FR-1.5). -->
+    <form id="rename-form" class="row" autocomplete="off" hidden>
+      <label class="vh" for="rename-name">Nome de exibição</label>
+      <input id="rename-name" type="text" minlength="3" maxlength="24" required
+             pattern="[\p{L}\p{N} _\-]{3,24}" autocomplete="nickname" aria-describedby="rename-hint">
+      <button type="submit" class="primary">Salvar</button>
+    </form>
+    <p id="rename-hint" class="fine" hidden>3 a 24 caracteres: letras, números, espaço, - ou _. É o que os outros veem.</p>
+
+    <div class="perfil-cols">
+      <section aria-labelledby="h-window">
+        <h2 id="h-window" class="title">Últimos 30 dias</h2>
+        <figure class="perfil-chart">
+          <svg id="chart" viewBox="0 -6 300 112" role="img"></svg>
+          <figcaption><span id="chart-from"></span><span>% do máximo de cada dia</span><span id="chart-to"></span></figcaption>
+        </figure>
+        <div class="table-wrap">
+          <table class="kind-stats" aria-label="Por tipo de desafio">
+            <thead><tr><th>Desafio</th><th>Jogos</th><th>Média</th><th>Acerto</th><th><abbr title="Acertou de primeira">1ª</abbr></th><th><span class="vh">Tendência</span></th></tr></thead>
+            <tbody id="kinds"></tbody>
+          </table>
+        </div>
+        <p class="fine">Média em pontos de 0 a 6; 1ª é quantas vezes acertou de primeira. A seta compara os últimos 15 dias com os 15 anteriores.</p>
+      </section>
+
+      <section aria-labelledby="h-days">
+        <h2 id="h-days" class="title">Dias</h2>
+        <ul id="days" class="perfil-days"></ul>
+        <p id="no-games" class="fine" hidden>Nenhum dia jogado nos últimos 30 dias.</p>
+      </section>
+    </div>
+
+    <p id="owner-foot" class="fine" hidden><button id="delete-btn" type="button" class="link">Excluir conta</button></p>
+  </section>
+</main>
+
+<footer>
+  <a href="./regras">Regras</a> · <a href="./privacidade">Privacidade</a> ·
+  <a href="./creditos">Créditos</a>
+
+  <small class="recaptcha">Protegido pelo reCAPTCHA: valem a <a href="https://policies.google.com/privacy">Política de Privacidade</a> e os <a href="https://policies.google.com/terms">Termos de Serviço</a> do Google.</small>
+</footer>
+
+<nav class="tabbar" aria-label="Seções">
+  <a href="./">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3.3 9.2h17.4M3.3 14.8h17.4"/></svg>
+    Hoje
+  </a>
+  <a href="./praticar">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+    Treinar
+  </a>
+</nav>
+
+<dialog id="delete-dialog">
+  <form id="delete-form" method="dialog">
+    <h2>Excluir conta</h2>
+    <p>Apaga na hora: seu login, seu perfil, todos os seus resultados e sua participação em todos os grupos. Não dá para desfazer.</p>
+    <p id="delete-error" class="err" aria-live="polite"></p>
+    <div class="actions">
+      <button type="submit" value="cancel" class="link">Cancelar</button>
+      <button type="submit" value="ok" class="primary">Excluir tudo</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="./app/perfil.js"></script>
+</body>
+</html>
