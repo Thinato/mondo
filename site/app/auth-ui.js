@@ -74,33 +74,31 @@ export function labelAccountButton(button, user) {
 /**
  * Wires #sign-in / #sign-out and calls onUser(user|null) on every change.
  *
- * Given `adminLink` and `profile` it also asks who the viewer is, because the
- * chrome needs two things the Firebase session does not carry: the role, which
- * decides whether the Painel link is drawn, and the display name the GAME knows
- * them by, which is not the one on their Google account. game.js does not use
- * this — the daily already has both from getRound and calls applyIdentity with
- * what it was sent rather than asking twice.
+ * Given `adminLink` it also asks who the viewer is, because the chrome needs
+ * two things the Firebase session does not carry: the role, which decides
+ * whether the Painel link is drawn, and the display name the GAME knows them
+ * by, which is not the one on their Google account. game.js does not use this —
+ * the daily already has both from getRound and calls applyIdentity with what it
+ * was sent rather than asking twice.
  */
-export function watchAuth({ signIn, signOut, signedOut, account, adminLink, profile, setStatus, onUser }) {
+export function watchAuth({ signIn, signOut, signedOut, account, adminLink, setStatus, onUser }) {
   signIn?.addEventListener("click", () => googleClick(signIn, setStatus));
   wireAccountButton(signOut, setStatus);
   attachAccount(account);
   onAuthStateChanged(auth, (user) => {
-    if (!user) {
-      profile?.setName(""); // FR-1.6: the next person on this browser must not inherit a name
-      playAsGuest(signedOut);
-    } else if (signedOut) signedOut.hidden = true;
+    if (!user) playAsGuest(signedOut);
+    else if (signedOut) signedOut.hidden = true;
     labelAccountButton(signOut, user);
     showAccount(account, user);
     if (adminLink) adminLink.hidden = true;
-    if (user && (adminLink || profile)) identify({ account, user, adminLink, profile });
+    if (user && adminLink) identify({ account, user, adminLink });
     onUser(user);
   });
 }
 
 /**
  * Never on the critical path. A chrome that cannot load is a menu without a
- * Painel link and a Perfil box that opens empty — not a page that failed — so
+ * Painel link and with the Google initials — not a page that failed — so
  * nothing here reaches setStatus.
  */
 function identify(chrome) {
@@ -111,19 +109,15 @@ function identify(chrome) {
 
 /**
  * Who the viewer is, as far as the chrome is concerned: the initials on the
- * avatar, whether the Painel link is drawn, and the name the Perfil dialog
- * prefills.
+ * avatar and whether the Painel link is drawn.
  *
  * It decides what is DRAWN and nothing else. Every callable behind the Painel
  * asserts the role itself (SEC-8), so a client that lies about it here reaches
  * a page that tells it no.
  */
-export function applyIdentity({ account, user, adminLink, profile }, me) {
+export function applyIdentity({ account, user, adminLink }, me) {
   showAccount(account, user, me?.displayName);
   if (adminLink) adminLink.hidden = me?.role !== "admin";
-  // Never the Google name: prefilling that and letting Salvar through would
-  // quietly overwrite the display name the group knows them by.
-  profile?.setName(me?.displayName ?? "");
 }
 
 /** A <dialog> with a method="dialog" form whose buttons carry value="ok"/"cancel". Resolves true on ok. */

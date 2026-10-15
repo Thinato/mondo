@@ -18,7 +18,6 @@ import { auth } from "./firebase.js";
 import "./theme.js";
 import * as api from "./api.js";
 import { ask, watchAuth } from "./auth-ui.js";
-import { mountProfile } from "./profile.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, isPick, renderAbout, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
@@ -29,7 +28,7 @@ import { errorMessage, t } from "./i18n.js";
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"),
-  account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
+  account: $("account"), adminLink: $("admin-link"),
   choose: $("choose"), kinds: $("kinds"), games: $("games"), chooseStatus: $("choose-status"),
   continents: $("continents"), continentsLabel: $("continents-label"),
   runCols: $("run-cols"), backLink: $("back-link"), runKind: $("run-kind"), runWhere: $("run-where"),
@@ -104,13 +103,12 @@ const help = attachHelp({
   title: el.helpTitle, body: el.helpBody, close: el.helpClose,
 });
 
-const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
 
 // ---------------------------------------------------------------------------
 
 watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
-  account: el.account, adminLink: el.adminLink, profile, setStatus,
+  account: el.account, adminLink: el.adminLink, setStatus,
   onUser: (user) => {
     if (!user) { view = null; kind = null; run = []; shownPrompt = null; }   // FR-1.6: nothing survives sign-out
     if (user) { buildKinds(); buildChips(); return route(); }

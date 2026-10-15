@@ -15,6 +15,8 @@ export const submitGuess = call("submitGuess");
 // FR-2.13 — end the current challenge at zero and see the answer (D-61).
 export const giveUp = call("giveUp");
 export const updateProfile = call("updateProfile");
+// FR-13 — anyone's last 30 days; with `day`, that day's recap once it may be seen.
+export const getProfile = call("getProfile");
 
 // Phase 2 — groups, invites, boards (FR-4), admin (FR-7.2), account (FR-1.5).
 export const createGroup = call("createGroup");

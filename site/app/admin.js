@@ -3,14 +3,13 @@
 
 import { ask, watchAuth } from "./auth-ui.js";
 import "./theme.js";
-import { mountProfile } from "./profile.js";
 import * as api from "./api.js";
 import { errorMessage, t } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"), panel: $("panel"), tabs: $("tabs"),
-  account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
+  account: $("account"), adminLink: $("admin-link"),
   usersRows: $("users-rows"), usersMore: $("users-more"), userAttempts: $("user-attempts"), userAttemptsTitle: $("user-attempts-title"), userAttemptsRows: $("user-attempts-rows"),
   groupsRows: $("groups-rows"), dayInput: $("day-input"), dayRows: $("day-rows"), dayTitle: $("day-title"), dayCounts: $("day-counts"),
   confirmDialog: $("confirm-dialog"), confirmText: $("confirm-text"),
@@ -22,11 +21,10 @@ const TODAY = puzzleToday();
 
 el.usersMore.textContent = t("loadMore"); // the markup label is a fallback
 
-const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
 
 watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
-  account: el.account, adminLink: el.adminLink, profile, setStatus,
+  account: el.account, adminLink: el.adminLink, setStatus,
   onUser: (u) => {
     // A guest is nobody's admin: show the Google button rather than a refusal (D-85).
     if (u?.isAnonymous) el.signedOut.hidden = false;

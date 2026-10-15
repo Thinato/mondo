@@ -22,7 +22,6 @@ import { takeReport } from "./visibility.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
-import { mountProfile } from "./profile.js";
 import { share } from "./share.js";
 
 const $ = (id) => document.getElementById(id);
@@ -43,12 +42,11 @@ const el = {
   options: $("options"),
   guesses: $("guesses"), form: $("guess-form"), input: $("guess-input"), list: $("guess-list"),
   submit: $("guess-submit"), status: $("status"), result: $("result"), resultText: $("result-text"),
-  shareBtn: $("share"), left: $("left"), profileBtn: $("profile-btn"),
+  shareBtn: $("share"), left: $("left"),
   adminLink: $("admin-link"), account: $("account"), guestNote: $("guest-note"), guestSignIn: $("guest-sign-in"),
   streak: $("streak"), dayTitle: $("day-title"), dayTotal: $("day-total"), recap: $("recap"),
 };
 
-const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
 attachAccount(el.account);
 
 let round = null;
@@ -91,7 +89,6 @@ onAuthStateChanged(auth, (user) => {
     el.guesses.replaceChildren();
     el.side.hidden = true;
     el.streak.hidden = true;
-    profile.setName("");
     playAsGuest(el.signedOut);
   } else {
     el.signedOut.hidden = true;
@@ -126,7 +123,7 @@ async function load() {
     round = await api.getRound({});
     // getRound already carries the display name and the role, so the daily is
     // the one page that does not have to ask a second time.
-    applyIdentity({ account: el.account, user: auth.currentUser, adminLink: el.adminLink, profile }, round.me);
+    applyIdentity({ account: el.account, user: auth.currentUser, adminLink: el.adminLink }, round.me);
     setStatus("");
     render();
     loadPanel(groupsSoon).catch(() => { /* garnish; never the player's problem */ });
@@ -375,14 +372,14 @@ function renderRecap() {
 
 const dayFmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 /**
- * "Quarta-feira, 16 de setembro" from a puzzleId of 20260916. Days roll at noon
+ * "Quarta-feira, 16 de setembro" from a puzzleId of 2026-09-16. Days roll at noon
  * São Paulo, so a player's own clock can disagree with the day they are
  * playing — the puzzle's id is the only honest source for this line.
  */
 function formatPuzzleDay(puzzleId) {
   const id = String(puzzleId ?? "");
-  if (!/^\d{8}$/.test(id)) return "";
-  const text = dayFmt.format(new Date(`${id.slice(0, 4)}-${id.slice(4, 6)}-${id.slice(6)}T12:00:00Z`));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(id)) return "";
+  const text = dayFmt.format(new Date(`${id}T12:00:00Z`));
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 

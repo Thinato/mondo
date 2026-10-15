@@ -1116,3 +1116,60 @@ body.playing #status:empty { display: none; }
   .run-stats dt { font-size: .65rem; }
   .run-stats dd { font-size: 1.5rem; }
 }
+
+/* ---------------------------------------------------------------------------
+   Perfil (FR-13, D-97): a player's last 30 days. One column on a phone; at
+   60rem the numbers sit beside the list of days.
+   --------------------------------------------------------------------------- */
+
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.perfil-head { margin-bottom: .25rem; }
+.perfil-head .title { margin-bottom: .1rem; }
+#rename-form { max-width: 26rem; }
+
+.perfil-chart { margin: .5rem 0 1rem; }
+.perfil-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.perfil-chart .grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.perfil-chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.perfil-chart .pt { fill: var(--accent); }
+.perfil-chart figcaption { display: flex; justify-content: space-between; gap: .5rem; margin-top: .35rem; font-family: var(--mono); font-size: .7rem; color: var(--muted); }
+
+table.kind-stats { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+table.kind-stats th, table.kind-stats td { padding: .45rem .3rem; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.kind-stats th { color: var(--muted); font-weight: 500; font-size: .8rem; }
+table.kind-stats abbr { text-decoration: none; }
+table.kind-stats th:first-child, table.kind-stats td.kind { text-align: left; }
+table.kind-stats td:not(.kind) { font-family: var(--mono); font-size: .9rem; }
+table.kind-stats td.kind::first-letter { text-transform: uppercase; }
+table.kind-stats td.trend { width: 1.5rem; text-align: center; font-family: inherit; font-size: 1.1rem; }
+table.kind-stats td.trend.up { color: var(--ok); }
+table.kind-stats td.trend.down { color: var(--err); }
+table.kind-stats td.trend.flat { color: var(--muted); }
+
+.perfil-days { list-style: none; margin: .5rem 0 1rem; padding: 0; }
+.perfil-days > li { border-bottom: 1px solid var(--line); padding: .6rem 0; }
+.perfil-days .day-row { display: flex; align-items: baseline; gap: .6rem; }
+.perfil-days summary.day-row { cursor: pointer; list-style: none; }
+.perfil-days summary.day-row::-webkit-details-marker { display: none; }
+.perfil-days summary.day-row::after { content: "▸"; margin-left: auto; color: var(--muted); }
+.perfil-days details[open] > summary.day-row::after { content: "▾"; }
+.perfil-days .when { font-weight: 600; }
+.perfil-days .when::first-letter { text-transform: uppercase; }
+.perfil-days .score { font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.perfil-days .strip { font-size: .8rem; letter-spacing: .05em; }
+.perfil-days li.voided .score { text-decoration: line-through; }
+.perfil-days .grid { margin: .35rem 0 0; font-family: inherit; font-size: .8rem; line-height: 1.35; white-space: pre; overflow-x: auto; }
+.perfil-days .fine { margin: .25rem 0 0; }
+.perfil-days .recap { margin: .5rem 0 0; }
+.perfil-days .recap > li { grid-template-columns: minmax(0, 1fr) auto; }
+.perfil-days .recap .guesses { grid-column: 1 / -1; margin: .4rem 0 0; font-size: .9rem; }
+.perfil-days .recap .guess { padding: .35rem .6rem; }
+
+/* A name in a ranking or a room opens that player's profile; it still reads as a name. */
+table.board td.name a, .board-row a.name { color: inherit; text-decoration: none; }
+table.board td.name a:hover, .board-row a.name:hover { text-decoration: underline; }
+
+@media (min-width: 60rem) {
+  .perfil-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3rem; align-items: start; }
+}

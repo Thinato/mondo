@@ -19,12 +19,11 @@ import "./theme.js";
 import * as api from "./api.js";
 import { errorMessage, t } from "./i18n.js";
 import { fillBuckets } from "./people.js";
-import { mountProfile } from "./profile.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"), status: $("status"),
-  account: $("account"), profileBtn: $("profile-btn"), adminLink: $("admin-link"),
+  account: $("account"), adminLink: $("admin-link"),
   list: $("list"), cards: $("cards"), noGroups: $("no-groups"), createForm: $("create-form"), createName: $("create-name"),
   board: $("board"), groupName: $("group-name"), groupMeta: $("group-meta"),
   ownerTools: $("owner-tools"), inviteBtn: $("invite-btn"),
@@ -48,11 +47,10 @@ let tournaments = null;   // last listTournaments response
 let window_ = "last30";   // FR-4.7
 let section = "ranking";
 
-const profile = mountProfile({ button: el.profileBtn, setStatus: (text, cls) => setStatus(text, cls) });
 
 watchAuth({
   signIn: el.signIn, signOut: el.signOut, signedOut: el.signedOut,
-  account: el.account, adminLink: el.adminLink, profile, setStatus,
+  account: el.account, adminLink: el.adminLink, setStatus,
   onUser: (u) => {
     el.list.hidden = el.board.hidden = true;
     if (!u) { view = null; tournaments = null; return; }
@@ -171,8 +169,11 @@ function render() {
     const cells = [s.rank, r.displayName, s.points, s.played, s.avgGuesses ?? "–", r.currentStreak];
     cells.forEach((v, i) => {
       const td = document.createElement("td");
-      if (i === 1) td.className = "name";
-      td.textContent = String(v);
+      if (i === 1) {
+        // FR-13: a name opens that player's profile.
+        td.className = "name";
+        td.append(profileLink(r.uid, String(v)));
+      } else td.textContent = String(v);
       tr.append(td);
     });
     return tr;
@@ -390,6 +391,13 @@ el.leaveBtn.addEventListener("click", async () => {
 });
 
 // ---------------------------------------------------------------------------
+
+function profileLink(uid, text) {
+  const a = document.createElement("a");
+  a.href = `./perfil?u=${encodeURIComponent(uid)}`;
+  a.textContent = text;
+  return a;
+}
 
 const dayFmt = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
 function formatDay(iso) { return dayFmt.format(new Date(`${iso}T12:00:00Z`)); }

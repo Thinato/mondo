@@ -85,6 +85,16 @@ this is an upper bound. The admin panel's day view is bounded the same way.
 
 Keep that in mind before "just querying attempts directly" from a per-viewer path.
 
+**A profile (FR-13, D-97) is that per-viewer path, bounded.** Opening one is one
+`getAll` of 32 documents by id — the profile, the viewer's own today attempt
+(FR-4.11), and 30 attempts — or 31 for your own. A missing document is billed, so
+a player with two days on record still costs 30; and every page also pays the
+chrome's existing `listGroups`. Opening a day's recap is 2 more (the attempt and
+its puzzle), and a refused one reads nothing. Nothing is written. Like the board,
+it is unthrottled — and unlike the board it needs no membership, so any account
+can spend ~1,560 profile views of the daily read allowance; App Check enforcement
+(SEC-18) is the lever, a doc-id range query the fallback.
+
 **Practice (FR-9) is the one path with no upper bound on how often a player can
 use it.** One session costs 8 reads once (the withheld window, D-60) plus 2 reads
 and 1 write per guess and per "next" — so a determined 50-challenge run is roughly
