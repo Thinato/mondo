@@ -169,8 +169,11 @@ function render() {
     const cells = [s.rank, r.displayName, s.points, s.played, s.avgGuesses ?? "–", r.currentStreak];
     cells.forEach((v, i) => {
       const td = document.createElement("td");
-      if (i === 1) td.className = "name";
-      td.textContent = String(v);
+      if (i === 1) {
+        // FR-13: a name opens that player's profile.
+        td.className = "name";
+        td.append(profileLink(r.uid, String(v)));
+      } else td.textContent = String(v);
       tr.append(td);
     });
     return tr;
@@ -388,6 +391,13 @@ el.leaveBtn.addEventListener("click", async () => {
 });
 
 // ---------------------------------------------------------------------------
+
+function profileLink(uid, text) {
+  const a = document.createElement("a");
+  a.href = `./perfil?u=${encodeURIComponent(uid)}`;
+  a.textContent = text;
+  return a;
+}
 
 const dayFmt = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
 function formatDay(iso) { return dayFmt.format(new Date(`${iso}T12:00:00Z`)); }

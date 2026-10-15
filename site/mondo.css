@@ -1166,6 +1166,10 @@ table.kind-stats td.trend.flat { color: var(--muted); }
 .perfil-days .recap .guesses { grid-column: 1 / -1; margin: .4rem 0 0; font-size: .9rem; }
 .perfil-days .recap .guess { padding: .35rem .6rem; }
 
+/* A name in a ranking or a room opens that player's profile; it still reads as a name. */
+table.board td.name a, .board-row a.name { color: inherit; text-decoration: none; }
+table.board td.name a:hover, .board-row a.name:hover { text-decoration: underline; }
+
 @media (min-width: 60rem) {
   .perfil-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3rem; align-items: start; }
 }

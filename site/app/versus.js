@@ -376,7 +376,11 @@ function renderBoard() {
     const dot = document.createElement("span");
     dot.className = "dot";
     dot.style.background = p.color;
-    const name = document.createElement("span");
+    // FR-13: a name opens that player's profile — in a new tab, and never mid-game,
+    // where a stray tap would leave the room on the one page that plays it.
+    const linked = room.state !== "playing";
+    const name = document.createElement(linked ? "a" : "span");
+    if (linked) Object.assign(name, { href: `./perfil?u=${encodeURIComponent(p.uid)}`, target: "_blank", rel: "noopener" });
     name.className = "name";
     name.textContent = p.name + (p.uid === room.hostUid && !playing ? ` · ${t("versus.host")}` : "");
     const right = document.createElement("span");
