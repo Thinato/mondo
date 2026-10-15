@@ -151,8 +151,8 @@ backend.
   colour. `.primary` is the filled one; what `.primary` used to look like is now `.secondary`.
 - **`listGroups` carries a `me`** (D-68). The profile is already read there to work out `canCreate`, so
   the display name and the role are two free fields off a document in hand — and they are where every page
-  but the daily gets its chrome: the initials on the avatar, whether the **Painel** link is drawn, and the
-  name the Perfil dialog prefills. Do not prefill that dialog from the Firebase session instead: the Google
+  but the daily gets its chrome: the initials on the avatar and whether the **Painel** link is drawn. The
+  Perfil page's rename field is prefilled from `getProfile`, never from the Firebase session: the Google
   account's name is not the name the group knows anyone by, and saving it would silently replace theirs.
   The role here draws a link and authorizes nothing; `admin.ts` asserts it on every call behind that link.
 - **The phone's tab bar has two tabs** (FR-6.1, D-68). Hoje and Treinar. Grupos, torneios and the painel
@@ -282,6 +282,14 @@ backend.
   for `tick`, 1 point a country, every name in a queue taken, and no 400 ms floor. Open to anyone
   signed in, like practice. That widens D-89's residual to "anyone signed in" — read D-93 before
   showing a missed country's OUTLINE at the end. The end shows names only, and that is deliberate.
+- **A profile is public, and its recap is lazy on purpose** (FR-13, D-97). `getProfile` reads 30
+  attempts by id on view and stores nothing — no aggregate on `users/{uid}`, no backfill. It is safe
+  because **an attempt carries no answer**: rows, stats, chart and squares are built from attempts
+  alone, and only the recap reads a puzzle, after `recapGate` (`lib/profile.ts`) has passed on the
+  attempt — never in parallel with it, and never eagerly for every row. Today is FR-4.11's rule:
+  another player's today shows its score once the viewer has finished, and its recap to its owner
+  alone; every refusal is the same `permission-denied`. Stats count what `resultOf` counts, so a
+  voided day is shown and never counted. Do not add a second recap path or widen today's.
 - **Tournaments are retired from the UI, not yet from the backend** (D-88). No Torneios tab, no
   creation; the running-tournament card and `torneios.html?t=` stay so anything under way
   finishes. Delete the tournament backend in its own PR once production has none running.

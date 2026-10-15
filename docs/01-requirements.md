@@ -465,6 +465,29 @@ to test new challenges."*
   is taken. It ends when the map is full or the player stops, and the end screen lists by name the
   countries not named. Nobody else can join, and no score reaches a board.
 
+## FR-13 — Profile *(added 2026-10-15, D-97)*
+
+- **FR-13.1 A page per player.** `/mondo/perfil` is the signed-in player's own profile and
+  `/mondo/perfil?u=<uid>` anyone's; anyone signed in, a guest included, MAY open either. It shows
+  the display name, the current and the longest streak, and nothing else about the account — never
+  an email (invariant 6), a role, a rank or a subscription. Names in a group's ranking and in a
+  Versus room link to it.
+- **FR-13.2 Thirty days of the daily.** The profile covers the last 30 puzzle days of the daily
+  only — not practice, not Versus, not tournaments — read from `attempts` when it is opened. A
+  finished day is a row: date, points out of that day's own maximum, and the share grid. An
+  unfinished day is not a row.
+- **FR-13.3 Numbers per kind.** For each kind, over the visible days that count (`resultOf`: a
+  voided day is shown, marked, and never counted): challenges played, average points out of 6,
+  the share solved and the share solved on the first guess; "—" for a kind not played. A chart
+  plots each day as a share of its own maximum, and an arrow per kind compares the average of the
+  latest 15 days with the 15 before (none under 3 challenges a side; flat under half a point).
+- **FR-13.4 Today never leaks.** Another player's today MUST NOT appear until the viewer has
+  finished today (FR-4.11), and then only its score and grid. A day's recap — its answers and the
+  player's guesses — is served for a closed day to anyone, and for today to its owner alone. The
+  puzzle MUST NOT be read for a recap that is refused.
+- **FR-13.5 The owner's controls.** On their own profile a player renames themselves (FR-1.3) and
+  deletes their account (FR-1.5); the Perfil dialog is gone.
+
 ## SEC — Security and anti-cheat
 
 - **SEC-1** *(critical)* The answer for an unfinished round MUST NOT be present in any payload
