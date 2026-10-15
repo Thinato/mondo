@@ -6,9 +6,8 @@
  * Why the list is safe by construction: an attempt carries no answer. Its items
  * hold the kind, the guesses, solved and points; the subjects live on
  * `puzzles/{id}`. So rows, stats, chart and grid are built from attempts alone,
- * and only `recapView` — behind `recapAllowed` and `visibilityOf` — ever sees a
- * puzzle. Do not make recaps eager: that would put a gate on every row instead of
- * one gate on one read.
+ * and only `recapView` — behind `recapGate` — ever sees a puzzle. Do not make
+ * recaps eager: that would put a gate on every row instead of one gate on one read.
  */
 
 import { mondoError } from "./errors";
@@ -239,12 +238,20 @@ export function recapAllowed(day: string, v: Pick<Viewing, "isOwner" | "today">)
   return windowDays(v.today, PROFILE_DAYS).includes(day) && (day !== v.today || v.isOwner);
 }
 
-export function recapView(day: string, attempt: Attempt | null, puzzle: Puzzle | null, v: Pick<Viewing, "isOwner" | "today">): DayRecapView {
+/**
+ * Throws unless this attempt's recap may be shown. The handler calls it on the
+ * attempt BEFORE reading the puzzle, so a refused day never touches an answer.
+ */
+export function recapGate(day: string, attempt: Attempt | null, v: Pick<Viewing, "isOwner" | "today">): Attempt {
   if (!recapAllowed(day, v)) throw notYet();
-  if (!attempt || attempt.mode !== "daily" || attempt.puzzleId !== day || !puzzle) throw notYet();
+  if (!attempt || attempt.mode !== "daily" || attempt.puzzleId !== day) throw notYet();
   if (visibilityOf(attempt, { ...v, viewerFinishedToday: false }) !== "full") throw notYet();
+  return attempt;
+}
 
-  const a = upgradeAttempt(attempt);
+export function recapView(day: string, attempt: Attempt | null, puzzle: Puzzle | null, v: Pick<Viewing, "isOwner" | "today">): DayRecapView {
+  const a = upgradeAttempt(recapGate(day, attempt, v));
+  if (!puzzle) throw notYet();
   const card = puzzleItems(puzzle);
   const same = card.length === a.items.length;
   // Field by field, never a spread: `history` (D-30) holds the earlier tries.
