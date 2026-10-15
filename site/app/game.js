@@ -372,14 +372,14 @@ function renderRecap() {
 
 const dayFmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 /**
- * "Quarta-feira, 16 de setembro" from a puzzleId of 20260916. Days roll at noon
+ * "Quarta-feira, 16 de setembro" from a puzzleId of 2026-09-16. Days roll at noon
  * São Paulo, so a player's own clock can disagree with the day they are
  * playing — the puzzle's id is the only honest source for this line.
  */
 function formatPuzzleDay(puzzleId) {
   const id = String(puzzleId ?? "");
-  if (!/^\d{8}$/.test(id)) return "";
-  const text = dayFmt.format(new Date(`${id.slice(0, 4)}-${id.slice(4, 6)}-${id.slice(6)}T12:00:00Z`));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(id)) return "";
+  const text = dayFmt.format(new Date(`${id}T12:00:00Z`));
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
