@@ -532,7 +532,7 @@ export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timesta
 }
 
 /** The best a day could have gone: every challenge on the first guess (D-44). */
-export function maxPointsFor(card: readonly CardItem[]): number {
+export function maxPointsFor(card: readonly { kind: KindId }[]): number {
   return card.reduce((n, it) => n + kindById(it.kind).pointsByGuess[0]!, 0);
 }
 
