@@ -29,10 +29,10 @@ const AUTH = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any;
 interface Res { status: number; result?: Any; error?: Any }
-interface Account { uid: string; call: (data: unknown) => Promise<Res> }
+interface Account { uid: string; call: (data: unknown) => Promise<Res>; old: (data: unknown) => Promise<Res> }
 
-async function post(data: unknown, token: string): Promise<Res> {
-  const r = await fetch(`${FUNCTIONS}/multiplayer`, {
+async function post(data: unknown, token: string, fn = "multiplayer"): Promise<Res> {
+  const r = await fetch(`${FUNCTIONS}/${fn}`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({ data }),
@@ -51,7 +51,7 @@ async function newAccount(label?: string): Promise<Account> {
       ? { email: `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`, password: "secret123", returnSecureToken: true }
       : { returnSecureToken: true }),
   }).then((x) => x.json() as Promise<Any>);
-  return { uid: r.localId, call: (data) => post(data, r.idToken) };
+  return { uid: r.localId, call: (data) => post(data, r.idToken), old: (data) => post(data, r.idToken, "versus") };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -63,6 +63,7 @@ const ptName = (c: string) => COUNTRIES.get(c)!.names["pt-BR"];
 let host: Account;   // invited: may host
 let bia: Account;    // signed in, plain `user`: may join, may not host
 let guest: Account;  // anonymous: may join
+let late: Account;   // arrives after the start: refused, then seated between games
 
 before(async () => {
   [host, bia, guest] = await Promise.all([newAccount("vs-host"), newAccount("vs-bia"), newAccount()]);
@@ -87,7 +88,7 @@ test("FR-12.3: Batata Quente, three players, to a full map", async () => {
   ok(await guest.call({ op: "join", room: id }), "joining twice is not an error");
   assert.equal(code(await bia.call({ op: "start", room: id })), "permission-denied"); // not the host
   ok(await host.call({ op: "start", room: id }), "start");
-  const late = await newAccount("vs-late");
+  late = await newAccount("vs-late");
   assert.equal(code(await late.call({ op: "join", room: id })), "room-started");
 
   const base = (await db.doc(`rooms/${id}/map/_base`).get()).data() as Any;
@@ -137,14 +138,45 @@ test("FR-12.3: Batata Quente, three players, to a full map", async () => {
   assert.ok(jp.d || jp.dot);
   const total = Object.values(r.potato.scores as Record<string, { named: number }>).reduce((n, s) => n + s.named, 0);
   assert.equal(total, COUNTRIES.size);
+  // D-104: the game is over and the room is a lobby again, open two more hours.
+  assert.equal(r.expiresAt, r.finishedAt + 2 * 3_600_000);
+  ok(await late.call({ op: "join", room: id }), "a newcomer joins between games");
+  assert.deepEqual((await room(id)).playerUids, [host.uid, bia.uid, guest.uid, late.uid]);
   // Nothing about Multijogador reaches the daily's collection (FR-12.1, D-40).
   assert.equal((await db.collection("attempts").where("uid", "in", [host.uid, bia.uid, guest.uid]).get()).size, 0);
 });
 
-test("FR-12.2: Clássico, played to the end; no answer on the wire before its reveal", async () => {
-  const { room: id } = ok(await host.call({ op: "create", presetId: "capitais" }), "create");
-  ok(await bia.call({ op: "join", room: id }), "bia joins");
+test("D-103, D-104: the host's standing room, set to Clássico, plays again with whoever is still there", async () => {
+  // Opening Multijogador goes back to the room the Batata Quente was played in.
+  const { room: id } = ok(await host.call({ op: "create" }), "create, no preset");
+  const before = await room(id);
+  assert.equal(before.state, "finished");
+  assert.equal(before.mode, "potato");
+  assert.equal(ok(await host.call({ op: "create" }), "again").room, id, "clicking twice makes one room");
+
+  // FR-12.7: only the host picks the next game, never training.
+  assert.equal(code(await bia.call({ op: "configure", room: id, presetId: "capitais" })), "permission-denied");
+  assert.equal(code(await host.call({ op: "configure", room: id, presetId: "treino" })), "invalid-argument");
+  assert.equal(code(await host.call({ op: "configure", room: id, presetId: "nope" })), "invalid-argument");
+  ok(await host.call({ op: "configure", room: id, presetId: "capitais" }), "configure");
+  assert.equal((await room(id)).mode, "classic");
+
+  // FR-12.8: the host takes away the seats nobody is using. Never their own.
+  assert.equal(code(await bia.call({ op: "remove", room: id, uid: guest.uid })), "permission-denied");
+  assert.equal(code(await host.call({ op: "remove", room: id, uid: host.uid })), "invalid-argument");
+  ok(await host.call({ op: "remove", room: id, uid: guest.uid }), "remove the guest");
+  ok(await host.call({ op: "remove", room: id, uid: late.uid }), "remove late");
+  assert.deepEqual((await room(id)).playerUids, [host.uid, bia.uid]);
+  assert.equal(code(await guest.call({ op: "tick", room: id })), "permission-denied", "a removed player is out");
+
+  ok(await bia.call({ op: "join", room: id }), "bia is already in");
   ok(await host.call({ op: "start", room: id }), "start");
+  // Nothing of the Batata Quente is left: the map is gone with the land, and the scores are new.
+  assert.equal((await db.collection(`rooms/${id}/map`).get()).size, 0);
+  const fresh = await room(id);
+  assert.equal(fresh.potato, null);
+  assert.equal(fresh.players[host.uid].score, 0);
+  assert.ok(fresh.startedAt > before.finishedAt);
   const { items } = (await db.doc(`roomSecrets/${id}`).get()).data() as Any;
   assert.equal(items.length, 5);
 
@@ -181,6 +213,17 @@ test("FR-12.2: Clássico, played to the end; no answer on the wire before its re
   assert.equal(r.state, "finished");
   assert.ok(r.players[host.uid].score >= 5 * 6, "five solves, each at least 6");
   assert.equal(r.players[bia.uid].score, 0);
+
+  // And once more, the same card size: the last game's five prompts make way for the new one's.
+  ok(await host.call({ op: "start", room: id }), "rematch");
+  const prompts = await db.collection(`rooms/${id}/prompts`).get();
+  assert.deepEqual(prompts.docs.map((d) => d.id), ["0"]);
+  assert.equal(prompts.docs[0]!.data().reveal, null, "the new first challenge, not the old one's answer");
+});
+
+test("D-102: the old callable name answers for one release", async () => {
+  assert.equal(code(await bia.old({ op: "create", presetId: "mundo" })), "permission-denied");
+  assert.equal(ok(await host.old({ op: "create" }), "old name").room, ok(await host.call({ op: "create" }), "new name").room);
 });
 
 test("D-93: a guest trains alone — started on create, no clock, nobody else gets in", async () => {

@@ -317,6 +317,21 @@ test("D-87: nobody can list rooms — the id is the invite", async () => {
   await assertFails(carol().collection("rooms").get());
 });
 
+test("FR-12.8: a player the host removed reads none of the room from then on", async () => {
+  const GONE = "ROOMGONE23456789";
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc(`rooms/${GONE}`).set({ mode: "potato", hostUid: ALICE, state: "finished", playerUids: [ALICE, BOB], players: {} });
+    await ctx.firestore().doc(`rooms/${GONE}/map/BR`).set({ code: "BR", by: BOB, points: 9 });
+  });
+  await assertSucceeds(bob().doc(`rooms/${GONE}`).get());
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc(`rooms/${GONE}`).update({ playerUids: [ALICE] });
+  });
+  await assertFails(bob().doc(`rooms/${GONE}`).get());
+  await assertFails(bob().collection(`rooms/${GONE}/map`).get());
+  await assertSucceeds(alice().collection(`rooms/${GONE}/map`).get());
+});
+
 test("SEC-1: roomSecrets, where the Clássico answers are, is closed to its own players", async () => {
   await assertFails(alice().doc(`roomSecrets/${ROOM}`).get());
   await assertFails(bob().doc(`roomSecrets/${ROOM}`).get());
