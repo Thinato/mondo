@@ -290,6 +290,16 @@ backend.
   another player's today shows its score once the viewer has finished, and its recap to its owner
   alone; every refusal is the same `permission-denied`. Stats count what `resultOf` counts, so a
   voided day is shown and never counted. Do not add a second recap path or widen today's.
+- **A reveal teaches, and a hint can answer another challenge** (FR-14, D-101). "Como reconhecer"
+  under every finished challenge comes from `data/hints.json` (hand-written patterns and per-country
+  notes, own words, a `source` each that is never sent) plus a computed GDP line. It is added by
+  `revealOf` in `lib/hints.ts` at the four views — **never by `Kind.reveal`**, which sees one item and
+  cannot know that the Indonesia flag is still open when Monaco's closes. A hint naming an open
+  subject waits for the card to end; what it names is **computed from its text** by
+  `countriesNamedIn`, so do not add a hand-kept `mentions` list. Write pattern text about the
+  pattern, not about another member's exact design, unless it names that member — naming is what
+  the filter can see. GDP growth is the constant-price series (`--only-growth`); the current-dollar
+  `values` stay byte-identical because they are the answer of seeded days.
 - **Tournaments are retired from the UI, not yet from the backend** (D-88). No Torneios tab, no
   creation; the running-tournament card and `torneios.html?t=` stay so anything under way
   finishes. Delete the tournament backend in its own PR once production has none running.
