@@ -355,6 +355,14 @@ button:disabled { opacity: .5; cursor: default; }
   font-family: inherit; font-size: 1rem; font-weight: 400; line-height: 1.55;
 }
 .reveal .about .credit { color: var(--muted); font-size: .8rem; }
+/* FR-14 / D-101 — "Como reconhecer". Prose like the bio, so it steps down from
+   the verdict the same way; a rule between hints instead of a box per hint. */
+.reveal .hints { margin: 0 0 .75rem; }
+.reveal .hints h3 { margin: 0 0 .4rem; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.reveal .hints ul { margin: 0; padding: 0; list-style: none; }
+.reveal .hints li { padding: .6rem 0; border-top: 1px solid var(--line); }
+.reveal .hints p { margin: .2rem 0 0; font-family: inherit; font-size: 1rem; font-weight: 400; line-height: 1.55; }
+.reveal .hints small { display: block; margin-top: .3rem; color: var(--muted); font-size: .85rem; }
 /* `.primary` already answered to both a button and a link; `.secondary` only
    ever wore a button until the bio needed one that navigates. */
 a.secondary {

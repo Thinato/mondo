@@ -17,7 +17,7 @@ import * as api from "./api.js";
 import { ask, googleClick, watchAuth } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, isPick, renderAbout, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
+import { guessRow, isPick, renderAbout, renderFlag, renderHints, renderOptions, renderPerson, renderShape } from "./geo.js";
 import { takeReport } from "./visibility.js";
 import { errorMessage, t } from "./i18n.js";
 import { mountPotato } from "./potato.js";
@@ -36,6 +36,7 @@ const el = {
   personWrap: $("person-wrap"), personPhoto: $("person-photo"), personCredit: $("person-credit"),
   options: $("options"), guesses: $("guesses"), reveal: $("reveal"), revealText: $("reveal-text"),
   revealAbout: { box: $("reveal-about"), text: $("reveal-about-text"), link: $("reveal-about-link"), credit: $("reveal-about-credit") },
+  revealHints: $("reveal-hints"),
   form: $("guess-form"), combo: $("guess-combo"), input: $("guess-input"), list: $("guess-list"),
   money: $("guess-money"), number: $("guess-number"), left: $("left"),
   potato: $("potato"), finished: $("finished"), finishedText: $("finished-text"),
@@ -347,6 +348,7 @@ function renderClassic() {
     const pts = c.progress[auth.currentUser?.uid]?.points ?? 0;
     el.revealText.textContent = (pts > 0 ? t("versus.revealSolved", { points: pts, answer: p.reveal.name }) : t("revealFailed", { answer: p.reveal.name })) + born;
     renderAbout(el.revealAbout, p.reveal);
+    renderHints(el.revealHints, p.reveal);
   }
 }
 

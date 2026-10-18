@@ -47,6 +47,9 @@ const PT_BR = {
   // licence the paragraph is shown under, not a flourish.
   revealWiki: "Ler na Wikipédia",
   revealWikiCredit: "Wikipédia · CC BY-SA 4.0",
+  // FR-14 / D-101 — under every finished challenge, when the catalogue has something to say.
+  revealHints: "Como reconhecer",
+  revealHintsAlso: "Também: {list}.",
   continueChallenge: "Próximo desafio",
   seeResult: "Ver o resultado",
   // FR-6.9 / D-56 — "?" explains the hints of the challenge on screen. Two
