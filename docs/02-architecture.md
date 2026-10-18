@@ -5,7 +5,7 @@
 ```
 ┌────────────────────────────────────────────┐
 │ GitHub Pages (repo Thinato/mondo)          │
-│   served at  lisecki.dev/mondo/            │
+│   served at  play-mondo.com (D-98)         │
 │  /site/               game (vanilla ESM)   │
 │    - firebase-app.js via CDN ESM import    │
 │    - no build step, no bundler             │
@@ -36,7 +36,9 @@
 **Why the game has its own repo and its own Pages site (D-3, revised):** the existing site
 `Thinato/thinato.github.io` carries the `lisecki.dev` custom domain. A *project* Pages site in
 `Thinato/mondo` inherits that domain and is served at `lisecki.dev/mondo/` — so the game reaches
-its intended URL without a single commit landing in the other repo. That honours C-1 more
+its intended URL without a single commit landing in the other repo. **Since D-98 the repo's
+Pages site has its own custom domain, `play-mondo.com`,** and GitHub redirects `lisecki.dev/mondo/*`
+there — AdSense reviews a root domain, never a path. That honours C-1 more
 strictly than shipping inside it would, and keeps backend, infra, tools and frontend in one
 history. The Firebase JS SDK ships as ES modules on a CDN, so
 `import { initializeApp } from ".../firebase-app.js"` works directly in the browser with zero
@@ -58,7 +60,7 @@ consequences in `05-cost.md` §5.
 ## 2. Repository layout
 
 Everything lives in `Thinato/mondo`. GitHub Pages publishes **only `site/`**, which is served
-at `lisecki.dev/mondo/`. `backend/`, `infra/`, `tools/` and `docs/` are in the same repo but
+at `play-mondo.com` (D-98). `backend/`, `infra/`, `tools/` and `docs/` are in the same repo but
 never reach the published site — the Pages workflow uploads the `site/` directory alone.
 
 ```
@@ -653,7 +655,7 @@ The `suspicious` flag on attempts is not enforcement — it's material for lunch
 cloudfunctions, run, cloudbuild, eventarc, cloudscheduler), `google_firebase_project`,
 `google_firestore_database` (`type = "FIRESTORE_NATIVE"`, `location_id = "southamerica-east1"`),
 `google_firebase_web_app`, `google_identity_platform_config` (Google provider +
-`authorized_domains = ["lisecki.dev", "localhost"]`), `google_billing_budget`, and the
+`authorized_domains = ["play-mondo.com", "lisecki.dev", "localhost"]`), `google_billing_budget`, and the
 service accounts + WIF pool for CI.
 
 Requires the `google-beta` provider. Two pitfalls, both from the official Firebase Terraform guide:

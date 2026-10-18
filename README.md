@@ -1,6 +1,6 @@
 # Mondo
 
-A daily country-silhouette guessing game, served at **lisecki.dev/mondo/**.
+A daily country-silhouette guessing game, served at **play-mondo.com**.
 
 Six guesses to name a country from its outline. After each miss you get the
 great-circle distance, a compass arrow and a proximity percentage. Sign in, join
