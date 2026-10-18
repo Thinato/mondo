@@ -76,14 +76,22 @@ a reader deserves to know where the drawings came from (OQ-11).
 
 tools/build-flags.mjs flattens each file to a list of filled paths and drops
 what it cannot express; the drawings themselves are not modified beyond
-coordinate rounding. Three files are not from the set: tools/flag-overrides/sy.svg
-is the set's own Syria drawing with the colours and stars of the flag Syria
-adopted after December 2024, which the set predates; tools/flag-overrides/id.svg
-is the set's own Indonesia drawing with Indonesia's red (#FF0000, as on
-Wikimedia Commons) in place of the set's #CE1126, which is Monaco's; and
-tools/flag-overrides/ps.svg is the set's own Palestine drawing with Palestine's
-green and red (#009639, #ED2E38, as on Wikimedia Commons) in place of the set's
-#007A3D and #CE1126, which are Jordan's.
+coordinate rounding. Six files in tools/flag-overrides/ are not from the set;
+each is the set's own drawing, recoloured (and for Syria, redrawn):
+
+  sy.svg  Syria: the colours and three stars of the flag adopted after
+          December 2024, which the set predates.
+  id.svg  Indonesia: red #FF0000 (as on Wikimedia Commons) in place of the
+          set's #CE1126, which is Monaco's.
+  ps.svg  Palestine: #009639 and #ED2E38 (as on Wikimedia Commons) in place of
+          the set's #007A3D and #CE1126, which are Jordan's.
+  ee.svg  Estonia: blue #0072CE (Pantone 285 C, Estonian Flag Act) in place of
+          the set's #4891D9.
+  no.svg  Norway: red #BA0C2F and blue #00205B (Pantone 200 and 281, the
+          Nordic Council's specification) in place of #EF2B2D and #002868.
+  fr.svg  France: blue #000091 and red #E1000F (the French government's
+          colour table; the darker blue in use since July 2020) in place of
+          #002395 and #ED2939.
 
 
 -------------------------------------------------------------------------------
