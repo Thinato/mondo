@@ -715,7 +715,7 @@ the next (D-104). Without a rank, `sala.html` says "Em breve".
 Tests: `npm test` in `tools/` and `backend/functions/` need nothing running; `npm run test:rules`
 in `backend/functions/` starts its own Firestore emulator; `npm run test:e2e` (D-33) starts
 Functions + Firestore + Auth emulators and drives every Phase 2 callable with several accounts,
-and plays a whole Batata Quente and a whole Clássico (`versus.e2e.ts`).
+and plays a whole Batata Quente and a whole Clássico (`multiplayer.e2e.ts`), then a rematch in the same room.
 
 Use `npx firebase-tools`, not the Homebrew `firebase` binary: on macOS the latter is killed with
 exit 137 on its first network call.

@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
 import { canCreateGroup, type Rank } from "../src/lib/authz";
 import {
-  configureRoom, finishRoom, joinRoom, leaveRoom, newRoom, removePlayer, requirePlayer, requireStartable, resetForGame,
+  configureRoom, finishRoom, joinRoom, leaveRoom, newRoom, removePlayer, requirePlayer, requireStartable, resetForGame, reusableHostRoom,
   LOBBY_TTL_MS, PLAYER_COLORS, ROOM_MAX_PLAYERS, type Room,
 } from "../src/lib/room";
 import { newPotato } from "../src/lib/potato";
@@ -140,4 +140,22 @@ test("D-93: a training room is never a lobby, finished or not", () => {
   const training: Room = { ...newRoom("g", "G", "potato", "treino", T0), state: "finished", potato: newPotato(["g"], T0, false) };
   rejects(() => joinRoom(training, "x", "X", T0), "room-started");
   rejects(() => configureRoom(training, "g", BANDEIRAS, T0), "room-started");
+});
+
+test("D-103: opening Multijogador goes back to the host's room only while it is still theirs", () => {
+  const r = pair();
+  assert.equal(reusableHostRoom(r, "host", T0), true);
+  assert.equal(reusableHostRoom(r, "host", r.expiresAt), false, "expired");
+  assert.equal(reusableHostRoom({ ...r, state: "playing" }, "host", r.expiresAt + 1), true, "a game running past the lobby's expiry");
+  const left = leaveRoom(r, "host", T0);
+  assert.equal(reusableHostRoom(left, "host", T0), false, "left");
+  // Back by the link, but the room is Bia's now: a room of their own instead.
+  assert.equal(reusableHostRoom(joinRoom(left, "host", "Ana", T0), "host", T0), false, "left, then rejoined");
+  assert.equal(reusableHostRoom(r, "b", T0), false, "a seated player who is not the host");
+});
+
+test("D-104: the last one out closes the room for good, so nobody joins an empty one", () => {
+  const empty = leaveRoom(newRoom("host", "Ana", "potato", "mundo", T0), "host", T0 + 1);
+  assert.equal(empty.expiresAt, T0 + 1);
+  rejects(() => joinRoom(empty, "x", "X", T0 + 2), "not-found");
 });

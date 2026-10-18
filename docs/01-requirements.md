@@ -486,9 +486,9 @@ to test new challenges."*
   `/mondo/perfil?u=<uid>` anyone's; anyone signed in, a guest included, MAY open either. It shows
   the display name, the current and the longest streak, and nothing else about the account — never
   an email (invariant 6), a role, a rank or a subscription. Names in a group's ranking and in a
-  Versus room link to it.
+  Multijogador room link to it.
 - **FR-13.2 Thirty days of the daily.** The profile covers the last 30 puzzle days of the daily
-  only — not practice, not Versus, not tournaments — read from `attempts` when it is opened. A
+  only — not practice, not Multijogador, not tournaments — read from `attempts` when it is opened. A
   finished day is a row: date, points out of that day's own maximum, and the share grid. An
   unfinished day is not a row.
 - **FR-13.3 Numbers per kind.** For each kind, over the visible days that count (`resultOf`: a
@@ -506,12 +506,12 @@ to test new challenges."*
 ## FR-14 — Learning hints *(added 2026-10-18, D-101)*
 
 - **FR-14.1 After every challenge.** Once a challenge is over — daily, practice, a tournament card or
-  Versus Clássico — its reveal MAY carry up to three hints, "Como reconhecer": a note on that country
+  Multijogador Clássico — its reveal MAY carry up to three hints, "Como reconhecer": a note on that country
   for that kind, the catalogue patterns it belongs to, and for `gdp` its place in the world. With
   nothing to say, the block is absent.
 - **FR-14.2 Hints are answer-bearing.** They travel only inside `Reveal`, are never part of a prompt,
   and a hint that names a country still open on the same card MUST be withheld until that challenge
-  closes; a pattern's "Também" list drops such countries instead. In practice and Versus the daily's
+  closes; a pattern's "Também" list drops such countries instead. In practice and Multijogador the daily's
   week ahead (D-60, D-91) counts as open too, so neither becomes a way to read this week's answers.
   What a hint names is computed from its text, so a flag or shape text MUST name every country it
   describes — "a tricolor russa" names nothing, and a test refuses it.

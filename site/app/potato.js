@@ -324,7 +324,17 @@ export function mountPotato({ multiplayer, me, confirm }) {
   }
 
   const zoom = mountZoom(el);
-  return { onMap, onMapRemoved, onRoom, render, drawClock };
+  /** A new game in the same room (D-104): a name queued in the last one is not sent in this one. */
+  function reset() {
+    queue = [];
+    note = { text: "", cls: "" };
+    landed = null;
+    clearTimeout(landedTimer);
+    flushAgain = false;
+    el.input.value = "";
+  }
+
+  return { onMap, onMapRemoved, onRoom, render, drawClock, reset };
 }
 
 /**

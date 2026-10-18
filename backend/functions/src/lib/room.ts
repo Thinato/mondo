@@ -137,7 +137,9 @@ export function leaveRoom(room: Room, uid: string, now: number): Room {
   const playerUids = room.playerUids.filter((u) => u !== uid);
   const players = { ...room.players };
   delete players[uid];
-  if (playerUids.length === 0) return { ...room, players, playerUids, state: "finished", finishedAt: now };
+  // The last one out closes it for good: a finished room takes joins now (D-104),
+  // and one with nobody in it would seat a stranger under a host who has gone.
+  if (playerUids.length === 0) return { ...room, players, playerUids, state: "finished", finishedAt: now, expiresAt: now };
   const hostUid = room.hostUid === uid ? playerUids[0]! : room.hostUid;
   return { ...room, players, playerUids, hostUid };
 }
@@ -175,6 +177,14 @@ export function removePlayer(room: Room, uid: string, target: string): Room {
   delete players[target];
   return { ...room, players, playerUids: room.playerUids.filter((u) => u !== target) };
 }
+
+/**
+ * D-103: the room opening Multijogador takes a host back to — while it is still
+ * THEIRS. Seated is not enough: a host who left, handed it on and came back by
+ * the link would otherwise be sent, every time, to a room they cannot start.
+ */
+export const reusableHostRoom = (room: Room, uid: string, now: number): boolean =>
+  room.hostUid === uid && room.playerUids.includes(uid) && (room.state === "playing" || now < room.expiresAt);
 
 /** D-104: a game ends and the room becomes a lobby with a result on it, open two more hours. */
 export const finishRoom = (room: Room, now: number): Room =>

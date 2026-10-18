@@ -53,6 +53,7 @@ let room = null;             // the live room document
 const prompts = new Map();   // Clássico: index → { prompt, reveal }
 let mine = null;             // Clássico: my own guesses on the challenge on screen
 let mineKey = null;          // which game and challenge `mine` is about: `${startedAt}:${index}`
+let gameKey = null;          // the game on screen: `room.startedAt` (D-104, a room plays many)
 let offset = 0;              // server clock − this clock, from each reply's serverNow
 let tickTimer = null;
 let frame = null;
@@ -203,6 +204,14 @@ function potatoView() {
 }
 
 function onRoom() {
+  // A new game in the same room (D-104): nothing of the last one carries over.
+  // The room's snapshot lands before the prompts' of the same commit, and that
+  // commit always rewrites prompts/0, so clearing here never blanks the new one.
+  const game = room?.startedAt ?? null;
+  if (game !== gameKey) {
+    if (gameKey !== null && game !== null) { prompts.clear(); mine = null; potato?.reset(); }
+    gameKey = game;
+  }
   const key = room?.classic ? `${room.startedAt}:${room.classic.index}` : null;
   if (key && key !== mineKey) {
     // A new challenge, or a new game: my guesses on the last one belong to the last one.

@@ -35,6 +35,7 @@ import { applyAnswer, applyTimeout, checkTurn, giveUpPotato, newPotato, type Pot
 import { parseSelfReport } from "./lib/report";
 import {
   configureRoom, finishRoom, joinRoom, leaveRoom, newRoom, removePlayer, requirePlayer, requirePlaying, requireStartable, resetForGame,
+  reusableHostRoom,
   type PromptDoc, type Room,
 } from "./lib/room";
 import { callable, signInProvider } from "./lib/callable";
@@ -132,10 +133,10 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
         // back to it — mid-game, or between games until it expires. So the
         // link a group already has keeps working, and clicking makes no rooms.
         const prev = profile.hostRoom ? (await tx.get(roomRef(profile.hostRoom))).data() as Room | undefined : undefined;
-        if (prev && prev.playerUids.includes(uid) && (prev.state === "playing" || ms < prev.expiresAt)) {
+        if (prev && reusableHostRoom(prev, uid, ms)) {
           // A client from before the lobby picker names a preset here: honour
           // it between games, exactly as `configure` would.
-          if (named && prev.state !== "playing" && prev.hostUid === uid && prev.presetId !== preset.id) {
+          if (named && prev.state !== "playing" && prev.presetId !== preset.id) {
             tx.set(roomRef(profile.hostRoom!), configureRoom(prev, uid, preset, ms));
           }
           return profile.hostRoom!;
@@ -226,7 +227,10 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
         // would otherwise sit under the new game's third challenge. At most 196
         // countries and a card's prompts: well under a transaction's 500 writes.
         if (before.state === "finished") {
-          const [oldPrompts, oldMap] = await Promise.all([tx.get(roomRef(id).collection("prompts")), tx.get(roomRef(id).collection("map"))]);
+          // Ids only: a map document carries a country's whole outline.
+          const [oldPrompts, oldMap] = await Promise.all([
+            tx.get(roomRef(id).collection("prompts").select()), tx.get(roomRef(id).collection("map").select()),
+          ]);
           // Not the one document the new game writes over anyway: one write per document.
           const keep = items ? "0" : "_base";
           for (const d of [...oldPrompts.docs, ...oldMap.docs]) if (d.id !== keep) tx.delete(d.ref);
