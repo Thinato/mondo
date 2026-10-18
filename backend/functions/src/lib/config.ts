@@ -19,9 +19,12 @@ export const RUNTIME_SERVICE_ACCOUNT =
 /**
  * SEC-9 — only these origins may invoke a callable. The Firebase callable
  * protocol is CORS-enforced, so this is a real boundary, not decoration.
- * localhost is for the emulator only.
+ * localhost is for the emulator only. `lisecki.dev` stays only until the move to
+ * play-mondo.com (D-98) has settled: a tab opened before the switch still calls
+ * from there. Drop it once nobody does.
  */
 export const ALLOWED_ORIGINS = [
+  "https://play-mondo.com",
   "https://lisecki.dev",
   "http://localhost:8000",
   "http://127.0.0.1:8000",
@@ -53,5 +56,5 @@ export const GUESS_MIN_INTERVAL_MS = 400;
 /** A first-guess solve faster than this is flagged, not blocked (02-architecture.md §3.3). */
 export const SUSPICIOUS_SOLVE_MS = 2000;
 
-/** Where invite links point (FR-4.3 as amended). The site lives under the parent domain. */
-export const GAME_URL = "https://lisecki.dev/mondo/";
+/** Where invite links point (FR-4.3 as amended). Its own domain since D-98. */
+export const GAME_URL = "https://play-mondo.com/";
