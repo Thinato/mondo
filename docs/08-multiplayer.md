@@ -1,7 +1,9 @@
-# 08 — Versus
+# 08 — Multijogador
 
-Live rooms, played by everyone in them at once. Requirements are FR-12; decisions are D-87 to D-92
-in `00-brief.md` §6. Added 2026-10-12.
+Live rooms, played by everyone in them at once. Requirements are FR-12; decisions are D-87 to D-95
+and D-102 to D-104 in `00-brief.md` §6. Added 2026-10-12 as **Versus**; renamed Multijogador, and
+the room made to outlive its game, on 2026-10-18 (D-102–D-104). Where this file says Versus it
+means the same thing.
 
 ## 1. Why
 
@@ -16,7 +18,7 @@ someone in your group, and a round takes a day. Versus is the replacement (D-88)
 ## 2. Shape
 
 ```
-sala.html ──callable──▶ versus({ op })          (one function, D-92)
+sala.html ──callable──▶ multiplayer({ op })     (one function, D-92; `versus` too, for one release, D-102)
     ▲                       │ transaction
     │ onSnapshot (D-87)     ▼
     └──────────── rooms/{id}              room: state, players, scores, the clock
@@ -29,7 +31,7 @@ sala.html ──callable──▶ versus({ op })          (one function, D-92)
   to the room's players only (`get`, never `list` — the id is the invite). This is the one place
   the client loads the Firestore SDK (`site/app/firebase.js` `realtime()`, loaded lazily by
   sala.html alone).
-- **Writes** are only ever `versus`. Every op asserts auth, validates its input, and runs one
+- **Writes** are only ever `multiplayer`. Every op asserts auth, validates its input, and runs one
   transaction. Every reply carries `serverNow`; the page keeps an offset from it and draws the
   countdown from the room's `deadline`.
 - **The clock** is enforced lazily (invariant 3): an answer after the deadline is refused by the
@@ -41,10 +43,12 @@ sala.html ──callable──▶ versus({ op })          (one function, D-92)
 
 | op | who | does |
 |---|---|---|
-| `create { presetId }` | admin, invited, subscriber (FR-10.3) | new lobby, host in the first seat |
-| `join { room }` | anyone signed in | takes a seat (≤ 8, lobby only); idempotent; returns `mine` for a running Clássico |
-| `leave { room }` | a player, in the lobby | frees the seat; the host's seat passes on |
-| `start { room }` | the host, ≥ 2 players | builds the card (Clássico) or the turn order and the land (Batata Quente) |
+| `create { presetId? }` | admin, invited, subscriber (FR-10.3) | the host's standing room (D-103): the one they are seated in if it is playing or not expired, else a new lobby on `mundo`. A named preset is applied between games |
+| `join { room }` | anyone signed in | takes a seat (≤ 8, between games only); idempotent; returns `mine` for a running Clássico |
+| `leave { room }` | a player, between games | frees the seat; the host's seat passes on |
+| `configure { room, presetId }` | the host, between games | the next game (FR-12.7); never `treino`; keeps the room open two more hours |
+| `remove { room, uid }` | the host, between games | takes another player's seat (FR-12.8); not a ban |
+| `start { room }` | the host, ≥ 2 players, between games | builds the card (Clássico) or the turn order and the land (Batata Quente); after a game, first deletes its prompts and map (§2.3) |
 | `tick { room }` | a player | moves the room on if — and only if — its deadline has passed |
 | `guess { room, guess, selfReport? }` | Clássico player | one guess on the challenge on screen |
 | `answer { room, names[] }` | Batata Quente player on turn | the first acceptable of ≤ 2 names (≤ 10 in training, and every acceptable one); `accepted` is a list |
@@ -53,9 +57,33 @@ sala.html ──callable──▶ versus({ op })          (one function, D-92)
 ### 2.2 What is pure
 
 All the rules are in `backend/functions/src/lib/` and unit-tested without Firestore:
-`room.ts` (lobby), `versus.ts` (presets, Clássico, speed points), `potato.ts` (turns, timer,
-points, end), `match.ts` (typed names), `world.ts` (the map pieces). `versus.ts` at the top level
-is I/O only.
+`room.ts` (lobby, configure, remove, finish), `multiplayer.ts` (presets, Clássico, speed points),
+`potato.ts` (turns, timer, points, end), `match.ts` (typed names), `world.ts` (the map pieces).
+`multiplayer.ts` at the top level is I/O only.
+
+### 2.3 A room outlives its game (D-103, D-104)
+
+Before D-104 a finished room was a dead end: to play again the host made a new room and sent a new
+link, and every player had to come back through it. Now:
+
+- **One room per host.** Opening Multijogador (`/sala` with no `?s=`) calls `create`, which returns
+  `users/{uid}.hostRoom` while the host is still seated in it and it is playing or not past
+  `expiresAt`; otherwise it makes a room and remembers it. The page goes there with
+  `location.replace`. A `user` or a guest is not sent anywhere: they see "Em breve", and a link
+  still seats them.
+- **Finished is between games.** `join`, `leave`, `configure`, `remove` and `start` treat
+  `finished` as they treat `lobby`, and finishing (`finishRoom`) sets `expiresAt` two hours on. The
+  result stays on the room — scores on `players` or `potato.scores` — until the next start, so the
+  page shows it above the lobby, and the map under both.
+- **A rematch clears what the last game left, in the start transaction.** Every `prompts/*` and
+  `map/*` is deleted except the one document the new game writes over (`prompts/0` or
+  `map/_base`) — one write per document per commit — plus `roomSecrets` when a Batata Quente
+  follows a Clássico. Left in place, `prompts/3` of the last game would show its reveal under the
+  new game's third challenge. At most 196 countries and a card's prompts: well under 500 writes.
+  Scores go to zero (`resetForGame`); seats and colours stay.
+- **Training rooms are not rooms in this sense** (D-93): one player, played once, never a lobby.
+- **The client keys a game on `startedAt`** and drops deleted `prompts` and `map` documents, so a
+  page left open between games follows the host into the next one.
 
 ## 3. Clássico (FR-12.2)
 
@@ -145,14 +173,17 @@ such games a day fit in the free tier. One callable, no `minInstances`.
 
 ## 7. Testing
 
-- Unit: `test/match.test.ts`, `potato.test.ts`, `room.test.ts`, `versus.test.ts`.
-- Rules: `test/rules/firestore.rules.test.ts` — players read, outsiders and listing refused,
-  `roomSecrets` closed, every client write denied.
-- E2E: `test/e2e/versus.e2e.ts` — three accounts (invited host, plain account, guest) play a whole
-  Batata Quente to a full map and a whole Clássico.
-- By hand: `02-architecture.md` §8, "Versus with several players on one machine".
+- Unit: `test/match.test.ts`, `potato.test.ts`, `room.test.ts`, `multiplayer.test.ts`.
+- Rules: `test/rules/firestore.rules.test.ts` — players read, outsiders, removed players and
+  listing refused, `roomSecrets` closed, every client write denied.
+- E2E: `test/e2e/multiplayer.e2e.ts` — three accounts (invited host, plain account, guest) play a
+  whole Batata Quente to a full map, then in the SAME room a whole Clássico and a rematch; the
+  standing room, configure, remove and the `versus` alias.
+- By hand: `02-architecture.md` §8, "Multijogador with several players on one machine".
 
 ## 8. Not in v1
 
-A Versus history or ranking; kicking a player; spectators; Batata Quente by continent; deleting
-the tournament backend (D-88's follow-up, once nothing is running); TTL cleanup of old rooms.
+A Multijogador history or ranking; banning a player (remove is not a ban); custom settings
+beyond the presets; spectators; Batata Quente by continent; deleting the tournament backend (D-88's
+follow-up, once nothing is running); TTL cleanup of old rooms; dropping the `versus` alias (D-102's
+follow-up, the next backend PR).

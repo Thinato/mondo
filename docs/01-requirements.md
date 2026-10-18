@@ -440,7 +440,7 @@ to test new challenges."*
 - **FR-11.1** A subscription is kept on `users/{uid}.subscription` as Stripe's `status` and the
   `currentPeriodEnd`, written by the Stripe webhook alone (never a client, FR-10.1 reads it).
 
-## FR-12 — Versus *(added 2026-10-12; design in `docs/08-versus.md`)*
+## FR-12 — Multijogador *(added 2026-10-12 as Versus, renamed 2026-10-18, D-102; design in `docs/08-multiplayer.md`)*
 
 - **FR-12.1 Rooms.** A room is reached by a link whose token (16 characters, D-32's alphabet) is
   its id. `admin`, `invited` and `subscriber` MAY create one (FR-10.3's rank); anyone signed in,
@@ -468,6 +468,17 @@ to test new challenges."*
   solo Batata Quente with no clock. Every country is worth 1 and every acceptable name in a queue
   is taken. It ends when the map is full or the player stops, and the end screen lists by name the
   countries not named. Nobody else can join, and no score reaches a board.
+- **FR-12.6 The host's room (D-103).** Opening Multijogador with no room in the link MUST take a
+  player who may host to their standing room — the one they are seated in, if it is playing or not
+  expired — or to a new one, without a create step. A player who may not host (a `user`, a guest)
+  MUST see that it is coming soon, and MAY still join any room by its link.
+- **FR-12.7 The game is picked in the room.** Before the first game and between games, the host
+  MAY change the room's preset; every player sees the change live. Training is not a preset a room
+  can switch to.
+- **FR-12.8 Play again (D-104).** When a game ends the room MUST become its lobby again: the same
+  link, everyone still seated, the result still shown, open two more hours. The host MAY remove
+  another player's seat between games, and MAY start the next game; starting it MUST leave
+  nothing of the last game's challenges or map on any player's screen.
 
 ## FR-13 — Profile *(added 2026-10-15, D-97)*
 
