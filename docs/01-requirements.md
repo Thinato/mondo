@@ -34,6 +34,9 @@ Requirement IDs are stable. Reference them in commits, PRs, and tests.
 - **FR-1.7** *(added 2026-09-09; **reversed 2026-10-04 by D-84**)* ~~A signed-in user with role
   `player` and no group membership MUST NOT be able to start or continue a round.~~ Anyone signed
   in plays, a guest included (FR-10.5). Invitations now admit to a group, not to the game.
+- **FR-1.8** *(added 2026-10-18, D-99)* A browser with no session MUST be asked, once, whether to
+  sign in with Google or continue as a guest, before any account is made. Continuing as a guest
+  MUST take one click, and dismissing the question in any other way MUST mean the same.
 
 ## FR-2 — Daily puzzle
 
