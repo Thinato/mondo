@@ -46,8 +46,8 @@ test("FR-14: a pick kind is taught what its typed twin is", () => {
 
 test("FR-14: nothing to say is no hints at all, and revealOf then adds no key", () => {
   assert.deepEqual(hintsFor(ch("shape", "BR"), NONE, FIXTURE), []);
-  const r = revealOf(ch("capital", "BR"), NONE);
-  assert.equal("hints" in r, CATALOGUE.notes.capital?.BR !== undefined || CATALOGUE.patterns.some((p) => p.topic === "capital" && p.countries.includes("BR")));
+  const bare = KINDS.shape.pool().find((c) => hintsFor(ch("shape", c.code), NONE).length === 0)!;
+  assert.equal("hints" in revealOf(ch("shape", bare.code), NONE), false);
 });
 
 test("FR-14: never more than three", () => {

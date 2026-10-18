@@ -19,8 +19,9 @@
  * after the first is the second's answer. So every hint knows which countries
  * its text names — computed from the text by `countriesNamedIn`, never declared
  * by hand, so it cannot drift — and is withheld while any of them is still open
- * on the card. The "Também" list is trimmed the same way. Once the card is
- * over nothing is open and everything shows.
+ * on the card, or, in practice and Versus, is one of the daily's answers this
+ * week (D-60, D-91). The "Também" list is trimmed the same way. Once the card
+ * is over nothing on it is open and everything shows.
  *
  * This is why hints are added here, by the caller that holds the card, and not
  * by `Kind.reveal`, which sees one item and cannot know what else is open.
@@ -59,7 +60,7 @@ export interface Catalogue {
 
 export const CATALOGUE = hintsJson as unknown as Catalogue;
 export const MAX_HINTS = 3;
-export const MAX_ALSO = 6;
+const MAX_ALSO = 6;
 
 const mentions = new WeakMap<Entry, Set<string>>();
 /** The countries an entry's title or text names. */
