@@ -99,6 +99,8 @@ World Bank, World Development Indicators  —  GDP per capita
 -------------------------------------------------------------------------------
 Indicator: NY.GDP.PCAP.PP.CD — GDP per capita, PPP (current international $)
 Source:    https://data.worldbank.org/indicator/NY.GDP.PCAP.PP.CD
+Indicator: NY.GDP.PCAP.PP.KD — GDP per capita, PPP (constant 2021 international $)
+Source:    https://data.worldbank.org/indicator/NY.GDP.PCAP.PP.KD
 License:   Creative Commons Attribution 4.0 International (CC BY 4.0)
            https://creativecommons.org/licenses/by/4.0/
 
@@ -110,7 +112,9 @@ what was changed. The derived file backend/functions/src/data/gdp.json holds one
 figure per country for a single pinned year, rounded to the nearest integer;
 nothing else was altered. The year is stated in every prompt the game shows,
 because the World Bank revises past years and an unstated vintage is an argument
-waiting to happen (D-53).
+waiting to happen (D-53). Beside it, the same file holds one derived number per
+country from the constant-price series: the percentage change between two years,
+rounded to an integer, shown only after a challenge as a hint (FR-14, D-101).
 
 
 -------------------------------------------------------------------------------
