@@ -5,7 +5,7 @@
    "id": "pan-african",
    "topic": "flag",
    "title": "Cores pan-africanas",
-   "text": "Verde, amarelo e vermelho vêm da bandeira etíope: a Etiópia nunca foi colonizada e virou símbolo da independência africana. Depois que Gana as adotou em 1957, boa parte da África Ocidental fez o mesmo.",
+   "text": "Verde, amarelo e vermelho vêm da bandeira da Etiópia, que nunca foi colonizada e virou símbolo da independência africana. Depois que Gana as adotou em 1957, boa parte da África Ocidental fez o mesmo.",
    "countries": [
     "ET",
     "GH",
@@ -57,7 +57,7 @@
    "id": "nordic-cross",
    "topic": "flag",
    "title": "Cruz nórdica",
-   "text": "Uma cruz deitada, deslocada para o lado do mastro, é a cruz nórdica. Nasceu na bandeira dinamarquesa, a mais antiga ainda em uso, e os vizinhos a copiaram com outras cores.",
+   "text": "Uma cruz deitada, deslocada para o lado do mastro, é a cruz nórdica. Nasceu na bandeira da Dinamarca, a mais antiga ainda em uso, e os vizinhos a copiaram com outras cores.",
    "countries": [
     "DK",
     "SE",
@@ -71,7 +71,7 @@
    "id": "pan-slavic",
    "topic": "flag",
    "title": "Cores pan-eslavas",
-   "text": "Branco, azul e vermelho são as cores pan-eslavas, escolhidas em 1848 a partir da tricolor russa. Uma tricolor horizontal nessas cores quase sempre é de um país eslavo.",
+   "text": "Branco, azul e vermelho são as cores pan-eslavas, escolhidas em 1848 a partir da bandeira da Rússia. Muitos países eslavos as usam — mas não só eles, então é uma pista, não uma regra.",
    "countries": [
     "RU",
     "SK",
@@ -98,13 +98,12 @@
    "id": "central-america",
    "topic": "flag",
    "title": "Azul, branco, azul",
-   "text": "Duas faixas azuis com uma branca no meio lembram a antiga Federação Centro-Americana: o azul são os dois oceanos, e o branco, a terra entre eles.",
+   "text": "Azul, branco e azul — na horizontal, ou na vertical na Guatemala — lembram a antiga Federação Centro-Americana: o azul são os dois oceanos, e o branco, a terra entre eles.",
    "countries": [
     "HN",
     "NI",
     "SV",
-    "GT",
-    "CR"
+    "GT"
    ],
    "source": "https://pt.wikipedia.org/wiki/República_Federal_da_América_Central"
   },
@@ -112,7 +111,7 @@
    "id": "union-jack",
    "topic": "flag",
    "title": "A Union Jack no canto",
-   "text": "A bandeira britânica no canto superior junto ao mastro marca uma ex-colônia que manteve o símbolo. Entre países independentes, isso só sobreviveu na Oceania.",
+   "text": "A bandeira do Reino Unido no canto superior junto ao mastro marca uma ex-colônia que manteve o símbolo. Entre países independentes, isso só sobreviveu na Oceania.",
    "countries": [
     "AU",
     "NZ",
@@ -150,8 +149,7 @@
     "MY",
     "AZ",
     "UZ",
-    "KM",
-    "MV"
+    "KM"
    ],
    "source": "https://pt.wikipedia.org/wiki/Estrela_e_crescente"
   },
@@ -159,7 +157,7 @@
    "id": "vertical-tricolour",
    "topic": "flag",
    "title": "Tricolor vertical",
-   "text": "Três faixas verticais seguem o modelo da bandeira da Revolução Francesa. Muitas ex-colônias francesas da África adotaram o mesmo formato com outras cores.",
+   "text": "Três faixas verticais seguem o modelo da bandeira da França, nascida na Revolução. Muitas ex-colônias francesas da África adotaram o mesmo formato com outras cores.",
    "countries": [
     "FR",
     "IT",
@@ -525,7 +523,7 @@
    "id": "name-dutch",
    "topic": "person",
    "title": "van e der",
-   "text": "van ('de') e van der ('do', 'da') antes do sobrenome, escritos em minúscula, são holandeses e flamengos.",
+   "text": "van ('de') e van der ('do', 'da') antes do sobrenome são holandeses e flamengos; na Holanda costumam vir em minúscula, na Bélgica, como Van.",
    "countries": [
     "NL",
     "BE",
@@ -569,13 +567,13 @@
     "LV"
    ],
    "source": "https://pt.wikipedia.org/wiki/Línguas_bálticas",
-   "match": "(as|is|us|ys|ė|s)(?!\\p{L})|[āīēūļņķģ]"
+   "match": "(as|is|us|ys|ė|aitė|ienė)(?!\\p{L})|[āīēūļņķģ]"
   },
   {
    "id": "name-malagasy",
    "topic": "person",
    "title": "Nomes malgaxes",
-   "text": "Nomes que começam com Ra- ou Andria- (nobre) e passam de dez letras são malgaxes, como Ranavalona e Andrianampoinimerina.",
+   "text": "Nomes longos que começam com Ra- ou Andria- (nobre) são malgaxes, como Ranavalona e Andrianampoinimerina.",
    "countries": [
     "MG"
    ],
@@ -699,7 +697,7 @@
    "id": "cap-freedom",
    "topic": "capital",
    "title": "Cidades da liberdade",
-   "text": "Freetown, Libreville e Monrovia foram fundadas no século XIX para escravizados libertos. Os nomes falam de liberdade ('free', 'libre') ou homenageiam o presidente americano James Monroe.",
+   "text": "Freetown (1792), Libreville e Monrovia foram fundadas para escravizados libertos. Os nomes falam de liberdade ('free', 'libre') ou homenageiam James Monroe, presidente dos Estados Unidos.",
    "countries": [
     "SL",
     "GA",
@@ -725,7 +723,7 @@
    "id": "cap-planned",
    "topic": "capital",
    "title": "Capitais planejadas",
-   "text": "Canberra, Abuja, Islamabad, Naypyidaw, Belmopan, Dodoma, Yamoussoukro: capitais construídas do zero, em geral para tirar o governo da maior cidade do país. Brasília é a mais famosa delas.",
+   "text": "Canberra, Abuja, Islamabad, Naypyidaw, Belmopan: capitais planejadas para tirar o governo da maior cidade do país. Dodoma e Yamoussoukro eram cidades pequenas promovidas a capital pelo mesmo motivo.",
    "countries": [
     "AU",
     "NG",
@@ -832,7 +830,7 @@
    "id": "gdp-eu-east",
    "topic": "gdp",
    "title": "Leste europeu na União Europeia",
-   "text": "Os países do antigo bloco soviético que entraram na União Europeia entre 2004 e 2013 cresceram depressa e hoje ficam entre a renda média e a alta.",
+   "text": "Os países do antigo bloco comunista que entraram na União Europeia entre 2004 e 2013 cresceram depressa e hoje ficam entre a renda média e a alta.",
    "countries": [
     "PL",
     "EE",
@@ -863,12 +861,12 @@
    },
    "CY": {
     "title": "Um mapa na bandeira",
-    "text": "Uma das duas bandeiras com o mapa do próprio país: a ilha em cor de cobre, metal que lhe deu o nome, sobre ramos de oliveira.",
+    "text": "Uma das duas bandeiras com o mapa do próprio país (a outra é a do Kosovo): a ilha em cor de cobre — metal que recebeu o nome dela — sobre ramos de oliveira.",
     "source": "https://pt.wikipedia.org/wiki/Bandeira_de_Chipre"
    },
    "XK": {
     "title": "Um mapa na bandeira",
-    "text": "Um mapa dourado sobre azul, com seis estrelas, uma para cada grupo étnico: uma das duas bandeiras que desenham o próprio território.",
+    "text": "Um mapa dourado sobre azul, com seis estrelas, uma para cada grupo étnico: uma das duas bandeiras que desenham o próprio território (a outra é a de Chipre).",
     "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Kosovo"
    },
    "KH": {
@@ -940,7 +938,7 @@
    },
    "CD": {
     "title": "Um corredor para o mar",
-    "text": "Enorme e compacto, mas toca o Atlântico por um corredor estreito ao longo do rio, apertado entre o território angolano e o enclave de Cabinda.",
+    "text": "Enorme e compacto, mas toca o Atlântico por um corredor estreito ao longo do rio, apertado entre Angola e o enclave angolano de Cabinda.",
     "source": "https://pt.wikipedia.org/wiki/Geografia_da_República_Democrática_do_Congo"
    },
    "NA": {
@@ -1045,7 +1043,7 @@
    },
    "ZM": {
     "title": "Uma borboleta",
-    "text": "Uma borboleta: a cintura é o Pedículo, uma ponta do país vizinho que entra fundo pelo meio.",
+    "text": "Uma borboleta: a cintura é o Pedículo, uma ponta da República Democrática do Congo que entra fundo pelo meio.",
     "source": "https://pt.wikipedia.org/wiki/Pedículo_do_Congo"
    },
    "IL": {
