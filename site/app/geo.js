@@ -66,6 +66,38 @@ export function renderAbout(el, answer) {
   el.credit.textContent = t("revealWikiCredit");
 }
 
+/**
+ * "Como reconhecer" under a finished challenge (FR-14, D-101): how the answer
+ * could have been told apart. Like the bio it only ever arrives inside an
+ * `answer`, so there is nothing to gate; and like everything else here it is
+ * set with textContent — the server sends data, never markup. The block is
+ * absent, not empty, when nothing in the catalogue fits.
+ */
+export function renderHints(box, answer) {
+  const hints = Array.isArray(answer?.hints) ? answer.hints : [];
+  box.hidden = hints.length === 0;
+  box.replaceChildren();
+  if (box.hidden) return;
+  const head = document.createElement("h3");
+  head.textContent = t("revealHints");
+  const list = document.createElement("ul");
+  for (const hint of hints) {
+    const li = document.createElement("li");
+    const title = document.createElement("strong");
+    title.textContent = hint.title;
+    const text = document.createElement("p");
+    text.textContent = hint.text;
+    li.append(title, text);
+    if (hint.also?.length) {
+      const also = document.createElement("small");
+      also.textContent = t("revealHintsAlso", { list: hint.also.join(", ") });
+      li.append(also);
+    }
+    list.append(li);
+  }
+  box.append(head, list);
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**

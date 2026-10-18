@@ -3,6 +3,7 @@
 // See 06-tournaments.md §5.4.
 //
 //   node build-gdp.mjs [--year 2023]
+//   node build-gdp.mjs --only-growth [--from 2013]
 //
 // Output: backend/functions/src/data/gdp.json — server-only, committed.
 //
@@ -29,7 +30,9 @@ const write = (p, data) => {
   writeFileSync(join(ROOT, p), data);
 };
 
-const { values: args } = parseArgs({ options: { year: { type: "string", default: "2023" } } });
+const { values: args } = parseArgs({
+  options: { year: { type: "string", default: "2023" }, "only-growth": { type: "boolean", default: false }, from: { type: "string", default: "2013" } },
+});
 const YEAR = Number(args.year);
 
 // D-53: GDP per capita, PPP, current international $. Chosen over the three
@@ -46,12 +49,51 @@ const countries = read("backend/functions/src/data/countries.json").countries;
 const iso3 = (c) => ISO3_OVERRIDES[c.code] ?? c.code3;
 const byIso3 = new Map(countries.map((c) => [iso3(c), c]));
 
-const url = `https://api.worldbank.org/v2/country/all/indicator/${INDICATOR}?format=json&per_page=20000&date=${YEAR}`;
-const res = await fetch(url);
-if (!res.ok) throw new Error(`World Bank returned ${res.status} for ${url}`);
-const [meta, rows] = await res.json();
-if (!Array.isArray(rows)) throw new Error(`unexpected response: ${JSON.stringify(meta)}`);
-if (meta.pages > 1) throw new Error(`${meta.pages} pages — raise per_page`);
+async function fetchRows(indicator, date) {
+  const url = `https://api.worldbank.org/v2/country/all/indicator/${indicator}?format=json&per_page=20000&date=${date}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`World Bank returned ${res.status} for ${url}`);
+  const [meta, rows] = await res.json();
+  if (!Array.isArray(rows)) throw new Error(`unexpected response: ${JSON.stringify(meta)}`);
+  if (meta.pages > 1) throw new Error(`${meta.pages} pages — raise per_page`);
+  return rows;
+}
+
+// FR-14 / D-101: ten years of REAL growth, for the hint shown after a `gdp`
+// challenge. The served figure is current international dollars, and that
+// dollar inflates — every country would look like it grew half again. So the
+// growth comes from the constant-price series of the same indicator family,
+// and is added to the file without touching `values`: those are the answer of
+// every seeded `gdp` day, and the World Bank revises them (D-80's
+// `--only-about`, the same move).
+if (args["only-growth"]) {
+  const REAL = "NY.GDP.PCAP.PP.KD";
+  const path = "backend/functions/src/data/gdp.json";
+  const before = read(path);
+  const from = Number(args.from);
+  const to = before.year;
+  const at = { [from]: {}, [to]: {} };
+  for (const row of await fetchRows(REAL, `${from}:${to}`)) {
+    const country = byIso3.get(row.countryiso3code);
+    if (country && row.value !== null && at[row.date]) at[row.date][country.code] = row.value;
+  }
+  const growth = {};
+  for (const code of Object.keys(before.values)) {
+    const a = at[from][code], b = at[to][code];
+    if (a > 0 && b > 0) growth[code] = Math.round((b / a - 1) * 100);
+  }
+  const after = { ...before, growth: { indicator: REAL, url: `https://data.worldbank.org/indicator/${REAL}`, from, to, values: growth } };
+  if (JSON.stringify(after.values) !== JSON.stringify(before.values)) throw new Error("values changed — refusing");
+  const n = Object.keys(growth).length, of = Object.keys(before.values).length;
+  console.log(`growth: ${n} of ${of} countries, ${from}→${to}, ${REAL}`);
+  console.log(`  none for: ${Object.keys(before.values).filter((c) => growth[c] === undefined).join(", ")}`);
+  if (n < of * 0.95) throw new Error(`only ${n} of ${of} have growth; the floor is 95%`);
+  write(path, JSON.stringify(after, null, 0) + "\n");
+  console.log(`  written: ${path}`);
+  process.exit(0);
+}
+
+const rows = await fetchRows(INDICATOR, YEAR);
 
 const values = {};
 for (const row of rows) {

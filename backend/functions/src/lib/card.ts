@@ -20,6 +20,7 @@ import { mondoError } from "./errors";
 import { kindById, scoreItem, type Challenge, type Kind, type KindId, type Prompt, type Reveal } from "./kinds";
 import type { SelfReport } from "./report";
 import { guessView, type GuessView, type StoredGuess } from "./round";
+import { openSubjects, revealOf } from "./hints";
 
 export const MAX_CARD_ITEMS = 10;
 
@@ -447,6 +448,7 @@ export function cardView(play: CardPlay, card: readonly CardItem[], now: Timesta
   const current = play.items[play.cursor];
   const currentCard = card[play.cursor];
   const kind = currentCard ? kindById(currentCard.kind) : null;
+  const open = openSubjects(card, play.items);
 
   return {
     tournamentId: play.tournamentId,
@@ -465,7 +467,7 @@ export function cardView(play: CardPlay, card: readonly CardItem[], now: Timesta
         status: over ? (it.solved ? "solved" : "failed") : i === play.cursor && !finished ? "current" : "pending",
         guessCount: it.guesses.length,
         points: over ? it.points : null,
-        answer: over ? kindById(it.kind).reveal(card[i]!) : null,
+        answer: over ? revealOf(card[i]!, open) : null,
         guesses: over ? it.guesses.map(guessView) : null,
       };
     }),

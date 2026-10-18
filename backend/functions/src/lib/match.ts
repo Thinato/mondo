@@ -82,3 +82,30 @@ export function matchCountry(text: string): MatchResult {
   if (near.size === 1) return { code: [...near][0]! };
   return { error: near.size === 0 ? "unknown" : "ambiguous" };
 }
+
+/**
+ * Every country a piece of prose names, by its pt-BR name or an alias, as whole
+ * words. For FR-14's hints (D-101): a hint that names a country still open on
+ * the card is withheld, so this errs on the side of finding too much — a
+ * false hit only holds a hint back until the card is over.
+ */
+export function countriesNamedIn(text: string): Set<string> {
+  const padded = ` ${normalize(text)} `;
+  const out = new Set<string>();
+  for (const [term, code] of TERMS) if (padded.includes(` ${term} `)) for (const c of [code, ...(WIDER.get(term) ?? [])]) out.add(c);
+  return out;
+}
+
+/**
+ * A name that is also the start of other names: "Coreia" is South Korea's
+ * alias and the first word of "Coreia do Norte", "Guiné" opens two more. Said
+ * bare, prose may mean any of them, so a mention counts for all.
+ */
+const WIDER: ReadonlyMap<string, readonly string[]> = (() => {
+  const out = new Map<string, string[]>();
+  for (const [term, code] of TERMS) {
+    const longer = [...TERMS].filter(([t, c]) => c !== code && t.startsWith(`${term} `)).map(([, c]) => c);
+    if (longer.length > 0) out.set(term, [...new Set(longer)]);
+  }
+  return out;
+})();

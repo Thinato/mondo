@@ -23,6 +23,8 @@ import { REGIONS, type Region } from "./countries";
 import { kindById, MAX_ITEM_POINTS, type KindId, type Prompt, type Reveal } from "./kinds";
 import type { SelfReport } from "./report";
 import { guessView, type GuessView } from "./round";
+import { revealOf } from "./hints";
+
 
 /** D-60 — how far ahead of today the daily schedule is withheld from practice. */
 export const PRACTICE_EXCLUSION_DAYS = 7;
@@ -300,7 +302,9 @@ export function practiceView(s: PracticeSession, now: Timestamp): PracticeView {
             guessesMax: kind.maxGuesses,
             guesses: s.item.guesses.map(guessView),
             points: over ? s.item.points : null,
-            answer: over ? kind.reveal(challengeOf(s)) : null,
+            // FR-14: nothing else is open on a card of one, but the week of daily
+            // answers is (D-60) — a hint naming one would teach it here.
+            answer: over ? revealOf(challengeOf(s), new Set(s.blocked)) : null,
           },
     // Computed, never stored: the denominator is "six a challenge" (D-44) and
     // storing it would be one more thing that could disagree with the score.

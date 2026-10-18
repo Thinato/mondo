@@ -26,6 +26,7 @@ import { compass8, type Compass } from "./geo";
 import { kindById, type KindId, type Prompt, type Reveal } from "./kinds";
 import type { SelfReport } from "./report";
 import { shareGrid, type ItemForShare } from "./scoring";
+import { openSubjects, revealOf } from "./hints";
 
 // ---------------------------------------------------------------------------
 // Stored documents (02-architecture.md §3.2, §3.3)
@@ -486,6 +487,7 @@ export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timesta
   const current = attempt.items[attempt.cursor];
   const currentCard = card[attempt.cursor];
   const kind = currentCard ? kindById(currentCard.kind) : null;
+  const open = openSubjects(card, attempt.items);
   const rank = profile ? rankOf(profile, signInProvider, now) : null;
 
   return {
@@ -504,7 +506,7 @@ export function roundView(legacyOrCurrent: Attempt, puzzle: Puzzle, now: Timesta
         status: over ? (it.solved ? "solved" : "failed") : i === attempt.cursor && !finished ? "current" : "pending",
         guessCount: it.guesses.length,
         points: over ? it.points : null,
-        answer: over ? kindById(it.kind).reveal(card[i]!) : null,
+        answer: over ? revealOf(card[i]!, open) : null,
         guesses: over ? it.guesses.map(guessView) : null,
       };
     }),

@@ -485,9 +485,13 @@ test("the economia preset asks for a number and grades it on a ratio (D-53)", as
   // A country code is not a guess for this kind, and a number is.
   assert.equal(code(await ana.call("submitCardGuess", { tournamentId: t9, guess: "BR" })), "invalid-argument");
   await sleep(450);
-  const out = ok(await ana.call("submitCardGuess", { tournamentId: t9, guess: 20000 }), "numeric guess");
+  // Three times the figure: always wrong, never zero. A fixed 20000 solved the
+  // item whenever the drawn country sat within D-53's 10% of it (14 of 186 do),
+  // which left no open guess to read and the tournament uncancelled.
+  const guess = answer * 3;
+  const out = ok(await ana.call("submitCardGuess", { tournamentId: t9, guess }), "numeric guess");
   assert.equal(out.guesses[0].kind, "number");
-  assert.equal(out.guesses[0].value, 20000);
+  assert.equal(out.guesses[0].value, guess);
   assert.equal(typeof out.guesses[0].higher, "boolean");
   assert.ok(out.guesses[0].proximity > 0 && out.guesses[0].proximity <= 1);
   assert.equal("compass" in out.guesses[0], false);

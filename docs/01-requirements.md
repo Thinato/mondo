@@ -492,6 +492,27 @@ to test new challenges."*
 - **FR-13.5 The owner's controls.** On their own profile a player renames themselves (FR-1.3) and
   deletes their account (FR-1.5); the Perfil dialog is gone.
 
+## FR-14 — Learning hints *(added 2026-10-18, D-101)*
+
+- **FR-14.1 After every challenge.** Once a challenge is over — daily, practice, a tournament card or
+  Versus Clássico — its reveal MAY carry up to three hints, "Como reconhecer": a note on that country
+  for that kind, the catalogue patterns it belongs to, and for `gdp` its place in the world. With
+  nothing to say, the block is absent.
+- **FR-14.2 Hints are answer-bearing.** They travel only inside `Reveal`, are never part of a prompt,
+  and a hint that names a country still open on the same card MUST be withheld until that challenge
+  closes; a pattern's "Também" list drops such countries instead. In practice and Versus the daily's
+  week ahead (D-60, D-91) counts as open too, so neither becomes a way to read this week's answers.
+  What a hint names is computed from its text, so a flag or shape text MUST name every country it
+  describes — "a tricolor russa" names nothing, and a test refuses it.
+- **FR-14.3 A hand-written catalogue.** `backend/functions/src/data/hints.json`, pt-BR, in our own
+  words, each entry with a source the reviewer checks it against (never sent). A test refuses an
+  unknown code, a pattern none of whose countries is ever asked, a name pattern that fits nobody in
+  `people.json`, and text outside 40–320 characters. A name pattern shows only when it matches the
+  person's name AND the answer is one of its countries.
+- **FR-14.4 GDP in context.** The `gdp` hint gives the rank among the pool, the ratio to the
+  continent's median, and real growth over ten years from the World Bank's constant-price series;
+  the served figure is unchanged (D-53).
+
 ## SEC — Security and anti-cheat
 
 - **SEC-1** *(critical)* The answer for an unfinished round MUST NOT be present in any payload

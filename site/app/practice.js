@@ -20,7 +20,7 @@ import * as api from "./api.js";
 import { ask, watchAuth } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
-import { guessRow, isPick, renderAbout, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
+import { guessRow, isPick, renderAbout, renderFlag, renderHints, renderOptions, renderPerson, renderShape } from "./geo.js";
 import { takeReport } from "./visibility.js";
 import { attachHelp } from "./help.js";
 import { errorMessage, t } from "./i18n.js";
@@ -40,6 +40,7 @@ const el = {
   options: $("options"),
   guesses: $("guesses"), reveal: $("reveal"), revealText: $("reveal-text"), revealNext: $("reveal-next"),
   revealAbout: { box: $("reveal-about"), text: $("reveal-about-text"), link: $("reveal-about-link"), credit: $("reveal-about-credit") },
+  revealHints: $("reveal-hints"),
   form: $("guess-form"), combo: $("guess-combo"), input: $("guess-input"), list: $("guess-list"),
   money: $("guess-money"), number: $("guess-number"), submit: $("guess-submit"),
   left: $("left"), status: $("status"), items: $("items"), stats: $("run-stats"),
@@ -538,6 +539,7 @@ function renderChallenge() {
       ? t("revealPick")
       : t("revealFailed", { answer: item.answer.name })) + born;
     renderAbout(el.revealAbout, item.answer);
+    renderHints(el.revealHints, item.answer);
     el.revealNext.textContent = t("practice.next");
   } else {
     // FR-6.9 — the first challenge of each hint vocabulary explains itself, and

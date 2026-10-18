@@ -90,7 +90,7 @@ export interface Flag {
 const list = (countriesJson as unknown as { countries: Country[] }).countries;
 const shapes = shapesJson as unknown as { viewBox: string; fillRule: "evenodd"; shapes: Record<string, string> };
 const flags = (flagsJson as unknown as { flags: Record<string, Flag> }).flags;
-const gdp = gdpJson as unknown as { year: number; values: Record<string, number> };
+const gdp = gdpJson as unknown as { year: number; values: Record<string, number>; growth?: { from: number; to: number; values: Record<string, number> } };
 const people = (peopleJson as unknown as { people: Record<string, Person[]> }).people;
 
 /**
@@ -164,6 +164,16 @@ export function flagFor(code: string): Flag | undefined {
  */
 export function gdpFor(code: string): number | undefined {
   return gdp.values[code];
+}
+
+/**
+ * Real growth of GDP per capita over `GDP_GROWTH.from`–`to`, in percent, from
+ * the World Bank's constant-price series (FR-14, D-101). Only a hint reads it:
+ * the current-dollar figure `gdpFor` serves would show inflation as growth.
+ */
+export const GDP_GROWTH = gdp.growth ? { from: gdp.growth.from, to: gdp.growth.to } : null;
+export function gdpGrowthFor(code: string): number | undefined {
+  return gdp.growth?.values[code];
 }
 
 /**
