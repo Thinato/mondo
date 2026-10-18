@@ -95,11 +95,27 @@ const seat = (name: string, i: number, now: number): RoomPlayer => ({
   name, color: PLAYER_COLORS[i % PLAYER_COLORS.length]!, joinedAt: now, score: 0, timeMs: 0,
 });
 
+/** A training room (D-93) is one player's, played once: it is never a lobby. */
+const isTraining = (room: Room): boolean => room.potato?.limitMs === null;
+
+/**
+ * D-104: a room outlives its game. Between games — a lobby, or a room whose
+ * game has finished, which is the same place with a result on it — players
+ * join, leave and are removed, and the host picks the next game and starts it.
+ */
+function requireBetweenGames(room: Room, now: number): void {
+  if (room.state === "playing" || isTraining(room)) throw mondoError("room-started", "This game has already started.");
+  if (now >= room.expiresAt) throw mondoError("not-found", "This room has expired.");
+}
+
+const requireHost = (room: Room, uid: string, what: string): void => {
+  if (room.hostUid !== uid) throw mondoError("permission-denied", `Only the host can ${what}.`);
+};
+
 /** Joining twice is not an error: reopening the link is how a player comes back to the page. */
 export function joinRoom(room: Room, uid: string, name: string, now: number): Room {
   if (room.playerUids.includes(uid)) return room;
-  if (room.state !== "lobby") throw mondoError("room-started", "This game has already started.");
-  if (now >= room.expiresAt) throw mondoError("not-found", "This room has expired.");
+  requireBetweenGames(room, now);
   if (room.playerUids.length >= ROOM_MAX_PLAYERS) throw mondoError("room-full", "This room is full.");
   const taken = new Set(Object.values(room.players).map((p) => p.color));
   const i = PLAYER_COLORS.findIndex((c) => !taken.has(c));
@@ -111,13 +127,13 @@ export function joinRoom(room: Room, uid: string, name: string, now: number): Ro
 }
 
 /**
- * Leave a lobby. The host's seat passes to whoever joined next; the last one out
- * closes the room. Once a game is running there is no leaving, only giving up —
- * the scoreboard would otherwise lose a row mid-game.
+ * Leave between games. The host's seat passes to whoever joined next; the last
+ * one out closes the room. Once a game is running there is no leaving, only
+ * giving up — the scoreboard would otherwise lose a row mid-game.
  */
 export function leaveRoom(room: Room, uid: string, now: number): Room {
   if (!room.playerUids.includes(uid)) return room;
-  if (room.state !== "lobby") throw mondoError("room-started", "The game has started; give up instead.");
+  if (room.state === "playing") throw mondoError("room-started", "The game has started; give up instead.");
   const playerUids = room.playerUids.filter((u) => u !== uid);
   const players = { ...room.players };
   delete players[uid];
@@ -128,11 +144,50 @@ export function leaveRoom(room: Room, uid: string, now: number): Room {
 
 /** The host's checks for starting. The mode's own state is the caller's to attach. */
 export function requireStartable(room: Room, uid: string, now: number): void {
-  if (room.hostUid !== uid) throw mondoError("permission-denied", "Only the host can start the game.");
-  if (room.state !== "lobby") throw mondoError("room-started", "This game has already started.");
-  if (now >= room.expiresAt) throw mondoError("not-found", "This room has expired.");
+  requireHost(room, uid, "start the game");
+  requireBetweenGames(room, now);
   if (room.playerUids.length < ROOM_MIN_PLAYERS) throw mondoError("invalid-argument", `A game needs at least ${ROOM_MIN_PLAYERS} players.`);
 }
+
+/**
+ * FR-12.7: the host picks the next game in the room, not before making it. A
+ * preset still, resolved on the server (D-48's reasoning, kept). Touching the
+ * room keeps it open for another two hours.
+ */
+export function configureRoom(room: Room, uid: string, preset: { id: string; mode: RoomMode; solo?: boolean }, now: number): Room {
+  requireHost(room, uid, "choose the game");
+  if (preset.solo) throw mondoError("invalid-argument", "Training is played alone.");
+  requireBetweenGames(room, now);
+  return { ...room, mode: preset.mode, presetId: preset.id, expiresAt: now + LOBBY_TTL_MS };
+}
+
+/**
+ * FR-12.8: the host takes a seat away between games — someone who closed the
+ * tab would otherwise sit in the next game, and a Batata Quente turn would wait
+ * out their clock every round. Not a ban: the link still lets them back in.
+ */
+export function removePlayer(room: Room, uid: string, target: string): Room {
+  requireHost(room, uid, "remove a player");
+  if (target === uid) throw mondoError("invalid-argument", "Leave the room instead.");
+  if (room.state === "playing") throw mondoError("room-started", "The game has started.");
+  if (!room.playerUids.includes(target)) return room;
+  const players = { ...room.players };
+  delete players[target];
+  return { ...room, players, playerUids: room.playerUids.filter((u) => u !== target) };
+}
+
+/** D-104: a game ends and the room becomes a lobby with a result on it, open two more hours. */
+export const finishRoom = (room: Room, now: number): Room =>
+  ({ ...room, state: "finished", finishedAt: now, expiresAt: now + LOBBY_TTL_MS });
+
+/** The room as it stands before a new game: everyone at zero, nothing of the last game left. */
+export const resetForGame = (room: Room): Room => ({
+  ...room,
+  players: Object.fromEntries(Object.entries(room.players).map(([uid, p]) => [uid, { ...p, score: 0, timeMs: 0 }])),
+  finishedAt: null,
+  classic: null,
+  potato: null,
+});
 
 export function requirePlayer(room: Room, uid: string): void {
   if (!room.playerUids.includes(uid)) throw mondoError("permission-denied", "You are not in this room.");

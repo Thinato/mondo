@@ -7,8 +7,10 @@ import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
 import { canCreateGroup, type Rank } from "../src/lib/authz";
 import {
-  joinRoom, leaveRoom, newRoom, requirePlayer, requireStartable, LOBBY_TTL_MS, PLAYER_COLORS, ROOM_MAX_PLAYERS, type Room,
+  configureRoom, finishRoom, joinRoom, leaveRoom, newRoom, removePlayer, requirePlayer, requireStartable, resetForGame,
+  LOBBY_TTL_MS, PLAYER_COLORS, ROOM_MAX_PLAYERS, type Room,
 } from "../src/lib/room";
+import { newPotato } from "../src/lib/potato";
 
 const T0 = 1_800_000_000_000;
 
@@ -71,4 +73,71 @@ test("only the host starts, and only with two or more", () => {
   rejects(() => requireStartable(r, "b", T0), "permission-denied");
   requireStartable(r, "host", T0);
   rejects(() => requirePlayer(r, "stranger"), "permission-denied");
+});
+
+// --- D-104: a room outlives its game ----------------------------------------
+
+const pair = () => joinRoom(newRoom("host", "Ana", "potato", "mundo", T0), "b", "Bia", T0);
+const BANDEIRAS = { id: "bandeiras", mode: "classic" as const };
+
+test("D-104: a finished game is a lobby with a result on it, open two more hours", () => {
+  const playing: Room = { ...pair(), state: "playing", startedAt: T0 };
+  const done = finishRoom(playing, T0 + 5);
+  assert.equal(done.state, "finished");
+  assert.equal(done.finishedAt, T0 + 5);
+  assert.equal(done.expiresAt, T0 + 5 + LOBBY_TTL_MS);
+  // Joining, leaving and starting all work on it as on a lobby.
+  const more = joinRoom(done, "c", "Caio", T0 + 6);
+  assert.deepEqual(more.playerUids, ["host", "b", "c"]);
+  assert.equal(leaveRoom(more, "host", T0 + 7).hostUid, "b");
+  requireStartable(more, "host", T0 + 7);
+  // ...until it expires like a lobby does.
+  rejects(() => joinRoom(done, "c", "Caio", done.expiresAt), "not-found");
+  rejects(() => requireStartable(more, "host", done.expiresAt), "not-found");
+});
+
+test("D-104: a new game starts everyone at zero, with nothing of the last one left", () => {
+  const scored: Room = {
+    ...finishRoom({ ...pair(), state: "playing", startedAt: T0 }, T0 + 9),
+    players: { host: { ...pair().players.host!, score: 40, timeMs: 9000 }, b: { ...pair().players.b!, score: 12, timeMs: 3000 } },
+    potato: newPotato(["host", "b"], T0),
+  };
+  const r = resetForGame(scored);
+  assert.deepEqual(Object.values(r.players).map((p) => [p.score, p.timeMs]), [[0, 0], [0, 0]]);
+  assert.equal(r.potato, null);
+  assert.equal(r.classic, null);
+  assert.equal(r.finishedAt, null);
+  assert.deepEqual(r.playerUids, scored.playerUids, "everyone keeps their seat");
+});
+
+test("FR-12.7: the host picks the next game between games, and only the host", () => {
+  const r = configureRoom(pair(), "host", BANDEIRAS, T0 + 10);
+  assert.equal(r.mode, "classic");
+  assert.equal(r.presetId, "bandeiras");
+  assert.equal(r.expiresAt, T0 + 10 + LOBBY_TTL_MS, "touching the room keeps it open");
+  const done = finishRoom({ ...pair(), state: "playing" }, T0);
+  assert.equal(configureRoom(done, "host", BANDEIRAS, T0).presetId, "bandeiras");
+  rejects(() => configureRoom(pair(), "b", BANDEIRAS, T0), "permission-denied");
+  rejects(() => configureRoom({ ...pair(), state: "playing" }, "host", BANDEIRAS, T0), "room-started");
+  rejects(() => configureRoom(pair(), "host", { id: "treino", mode: "potato", solo: true }, T0), "invalid-argument");
+  rejects(() => configureRoom(pair(), "host", BANDEIRAS, T0 + LOBBY_TTL_MS), "not-found");
+});
+
+test("FR-12.8: the host removes a seat between games; never their own, never mid-game", () => {
+  const r = removePlayer(pair(), "host", "b");
+  assert.deepEqual(r.playerUids, ["host"]);
+  assert.equal(r.players.b, undefined);
+  assert.equal(removePlayer(r, "host", "b"), r, "removing someone who is gone changes nothing");
+  assert.deepEqual(removePlayer(finishRoom({ ...pair(), state: "playing" }, T0), "host", "b").playerUids, ["host"]);
+  rejects(() => removePlayer(pair(), "b", "host"), "permission-denied");
+  rejects(() => removePlayer(pair(), "host", "host"), "invalid-argument");
+  rejects(() => removePlayer({ ...pair(), state: "playing" }, "host", "b"), "room-started");
+  // Not a ban: the link still works.
+  assert.deepEqual(joinRoom(r, "b", "Bia", T0).playerUids, ["host", "b"]);
+});
+
+test("D-93: a training room is never a lobby, finished or not", () => {
+  const training: Room = { ...newRoom("g", "G", "potato", "treino", T0), state: "finished", potato: newPotato(["g"], T0, false) };
+  rejects(() => joinRoom(training, "x", "X", T0), "room-started");
+  rejects(() => configureRoom(training, "g", BANDEIRAS, T0), "room-started");
 });

@@ -24,7 +24,7 @@ import { KIND_IDS, kindById, type KindId, type Reveal } from "./kinds";
 import type { SelfReport } from "./report";
 import { revealOf } from "./hints";
 import { guessView, type GuessView } from "./round";
-import type { ClassicPublic, PromptDoc, Room, RoomMode } from "./room";
+import { finishRoom, type ClassicPublic, type PromptDoc, type Room, type RoomMode } from "./room";
 
 export interface MultiplayerPreset {
   id: string;
@@ -187,7 +187,7 @@ export function tickClassic(room: Room, secrets: ClassicSecrets, now: number):
   if (c.phase === "question") return { ...closeQuestion(room, secrets, now), prompt: null };
   const index = c.index + 1;
   if (index >= secrets.items.length) {
-    return { room: { ...room, state: "finished", finishedAt: now }, secrets, reveal: null, prompt: null };
+    return { room: finishRoom(room, now), secrets, reveal: null, prompt: null };
   }
   return {
     room: { ...room, classic: question(c.kinds, index, secrets.items, room.playerUids, now) },
