@@ -352,6 +352,7 @@ const PT_BR = {
     start: "Começar",
     again: "Jogar de novo",
     remove: "Tirar {name} da sala",
+    wins: "{n} vitória nesta sala|{n} vitórias nesta sala",
     removed: "Você não está mais nesta sala. Peça o link de novo para voltar.",
     players: "{n} jogador|{n} jogadores",
     host: "anfitrião",
@@ -371,6 +372,7 @@ const PT_BR = {
     soloGiveUp: "Terminar o treino? Os países que faltaram aparecem no fim.",
     missed: "Faltou {n}|Faltaram {n}",
     won: "{name} venceu, com {points} pontos.",
+    draw: "Empate em primeiro, com {points} pontos: ninguém leva o troféu.",
     end: {
       "map-full": "O mapa está completo.",
       silence: "Duas rodadas sem ninguém dizer nada.",

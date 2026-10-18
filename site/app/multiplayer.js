@@ -44,6 +44,9 @@ const el = {
   confirm: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
 
+/** Lucide's "trophy" (ISC; credited in creditos.html), inline like every other icon here. */
+const TROPHY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>';
+
 /** The presets the server knows (lib/multiplayer.ts). Labels only — the server resolves the rest. */
 const PRESETS = ["mundo", "dia", "bandeiras", "formas", "capitais", "misto-10"];
 
@@ -423,7 +426,20 @@ function renderBoard() {
       const mark = !prog ? "" : prog.done ? (prog.solved ? "✓ " : "✗ ") : prog.guesses ? `${t("multi.tries", { n: prog.guesses })} · ` : "";
       right.textContent = `${mark}${p.points}`;
     }
-    li.append(dot, name, right);
+    li.append(dot, name);
+    // D-105: games won outright in this room. Ties at the top win nothing.
+    const wins = room.players[p.uid]?.wins ?? 0;
+    if (wins > 0) {
+      const w = document.createElement("span");
+      w.className = "wins";
+      w.title = t("multi.wins", { n: wins });
+      w.setAttribute("role", "img");
+      w.setAttribute("aria-label", w.title);
+      w.innerHTML = TROPHY;
+      w.append(String(wins));
+      li.append(w);
+    }
+    li.append(right);
     // FR-12.8: between games the host can take a seat nobody is using — the
     // next game would otherwise wait out their clock. Not a ban: the link works.
     if (linked && room.hostUid === auth.currentUser?.uid && p.uid !== room.hostUid && room.potato?.limitMs !== null) {
@@ -512,8 +528,10 @@ function render() {
   el.finished.hidden = room.state !== "finished";
   el.again.hidden = !training;
   if (room.state === "finished") {
-    const top = standings()[0];
+    const [top, second] = standings();
+    // D-105: a tie at the top is a draw, as the trophies count it — the clock orders the board, it does not win.
     el.finishedText.textContent = !inRoom || !top ? t("multi.over")
+      : second && second.points === top.points ? t("multi.draw", { points: top.points })
       : top.uid === uid ? t("multi.youWon", { points: top.points }) : t("multi.won", { name: top.name, points: top.points });
     if (room.potato) el.finishedText.textContent += ` ${t(`multi.end.${room.potato.endReason}`)}`;
     if (training) renderSoloEnd();

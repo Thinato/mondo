@@ -848,8 +848,10 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
 .board-row.me .name { font-weight: 600; }
 .board-row.turn { background: var(--card); }
 .board-row.out { color: var(--muted); text-decoration: line-through; }
-/* FR-12.8: the host's ✕ beside a seat, between games. */
-.board-row:has(.remove) { grid-template-columns: .8rem 1fr auto auto; }
+/* The dot and the name, then whatever the row has: trophies (D-105), the score, the host's ✕ (FR-12.8). */
+.board-row { grid-template-columns: .8rem minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; }
+.board-row .wins { display: inline-flex; align-items: center; gap: .2rem; margin-right: .35rem; font-family: var(--mono); font-size: .8rem; color: var(--muted); }
+.board-row .wins svg { width: .95rem; height: .95rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .board-row .remove { padding: 0 .25rem; color: var(--muted); }
 .board-row .remove:hover, .board-row .remove:focus-visible { color: var(--fg); }
 .dot { width: .8rem; height: .8rem; border-radius: 50%; display: inline-block; }
