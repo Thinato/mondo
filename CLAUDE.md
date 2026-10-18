@@ -295,10 +295,11 @@ backend.
   notes, own words, a `source` each that is never sent) plus a computed GDP line. It is added by
   `revealOf` in `lib/hints.ts` at the four views — **never by `Kind.reveal`**, which sees one item and
   cannot know that the Indonesia flag is still open when Monaco's closes. A hint naming an open
-  subject waits for the card to end; what it names is **computed from its text** by
-  `countriesNamedIn`, so do not add a hand-kept `mentions` list. Write pattern text about the
-  pattern, not about another member's exact design, unless it names that member — naming is what
-  the filter can see. GDP growth is the constant-price series (`--only-growth`); the current-dollar
+  subject waits for the card to end — and in practice and Versus the daily's week ahead is open
+  too (`s.blocked`, `secrets.ahead`); what it names is **computed from its text** by
+  `countriesNamedIn`, so do not add a hand-kept `mentions` list. A flag or shape text must NAME every
+  country it describes ("a bandeira da Rússia", never "a tricolor russa") — naming is what the filter
+  can see, and `hints.test.ts` refuses a nationality adjective without its country. GDP growth is the constant-price series (`--only-growth`); the current-dollar
   `values` stay byte-identical because they are the answer of seeded days.
 - **Tournaments are retired from the UI, not yet from the backend** (D-88). No Torneios tab, no
   creation; the running-tournament card and `torneios.html?t=` stay so anything under way

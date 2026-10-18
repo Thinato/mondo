@@ -500,8 +500,10 @@ to test new challenges."*
   nothing to say, the block is absent.
 - **FR-14.2 Hints are answer-bearing.** They travel only inside `Reveal`, are never part of a prompt,
   and a hint that names a country still open on the same card MUST be withheld until that challenge
-  closes; a pattern's "Também" list drops such countries instead. What a hint names is computed from
-  its text.
+  closes; a pattern's "Também" list drops such countries instead. In practice and Versus the daily's
+  week ahead (D-60, D-91) counts as open too, so neither becomes a way to read this week's answers.
+  What a hint names is computed from its text, so a flag or shape text MUST name every country it
+  describes — "a tricolor russa" names nothing, and a test refuses it.
 - **FR-14.3 A hand-written catalogue.** `backend/functions/src/data/hints.json`, pt-BR, in our own
   words, each entry with a source the reviewer checks it against (never sent). A test refuses an
   unknown code, a pattern none of whose countries is ever asked, a name pattern that fits nobody in
