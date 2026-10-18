@@ -1095,10 +1095,6 @@ body.playing #status:empty { display: none; }
 
   #train { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem); gap: 1.25rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: 1rem; }
   #train.pick { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
-  /* A reveal has no artwork left to show (only a board keeps its prompt), so
-     the verdict and the guesses that led to it take the whole panel. */
-  #train.revealing:not(.pick) { grid-template-columns: minmax(0, 1fr); }
-  #train.revealing:not(.pick) .stage { display: none; }
   #train.pick .capital-prompt { padding: 1rem; font-size: 1.6rem; }
   /* The stage is the size the grid gives it, and the artwork is sized from
      that — a flag is as wide as its height allows. */

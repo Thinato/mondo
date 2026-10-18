@@ -441,23 +441,23 @@ function renderCard() {
   // One prompt shape per kind. An unknown kind means the client is older than
   // the server: say so rather than rendering nothing. A reveal holds the next
   // prompt back, so nothing about the challenge to come reaches the DOM early.
-  // A choice challenge's prompt outlives its challenge: its reveal is which
-  // option was right (FR-8.7, D-64), so the grid stays with the answer marked.
+  // The finished challenge's prompt stays up through its reveal (FR-6.10); a
+  // choice board marks the right option on it (FR-8.7, D-64).
   const shown = revealing ? revealPrompt : card.prompt;
-  const kind = revealing ? (isPick(shown?.kind) ? shown.kind : null) : card.prompt?.kind ?? null;
+  const kind = shown?.kind ?? null;
   el.cardShapeWrap.hidden = kind !== "shape";
   el.cardCapital.hidden = kind !== "capital" && kind !== "gdp" && kind !== "person" && !isPick(kind);
   el.cardFlagWrap.hidden = kind !== "flag";
   // renderPerson un-hides this and hides it again if the photo never arrives.
   if (kind !== "person") el.cardPersonWrap.hidden = true;
   el.cardOptions.hidden = !isPick(kind);
-  if (kind === "shape") renderShape(el.cardShape, card.prompt.shape);
-  else if (kind === "capital") el.cardCapital.textContent = t("capitalPrompt", { city: card.prompt.capital });
-  else if (kind === "gdp") el.cardCapital.textContent = t("gdpPrompt", { country: card.prompt.country, year: card.prompt.year });
-  else if (kind === "flag") renderFlag(el.cardFlag, card.prompt.flag);
+  if (kind === "shape") renderShape(el.cardShape, shown.shape);
+  else if (kind === "capital") el.cardCapital.textContent = t("capitalPrompt", { city: shown.capital });
+  else if (kind === "gdp") el.cardCapital.textContent = t("gdpPrompt", { country: shown.country, year: shown.year });
+  else if (kind === "flag") renderFlag(el.cardFlag, shown.flag);
   else if (kind === "person") {
-    el.cardCapital.textContent = t("personPrompt", { name: card.prompt.name });
-    renderPerson(el.cardPersonWrap, el.cardPersonPhoto, el.cardPersonCredit, card.prompt);
+    el.cardCapital.textContent = t("personPrompt", { name: shown.name });
+    renderPerson(el.cardPersonWrap, el.cardPersonPhoto, el.cardPersonCredit, shown);
   }
   else if (isPick(kind)) {
     el.cardCapital.textContent = t(`${kind}Prompt`, { country: shown.country });

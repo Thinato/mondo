@@ -232,11 +232,11 @@ function render() {
   // the server: say so rather than rendering nothing. A reveal holds the next
   // prompt back rather than hiding it after the fact, so nothing about the
   // challenge to come reaches the DOM early.
-  // A choice challenge is the one prompt that OUTLIVES its own challenge: the
-  // reveal is which option was right, so the grid stays up with the answer
-  // marked while every other kind's prompt goes away (FR-8.7, D-64).
+  // The finished challenge's prompt stays up through its reveal, so the player
+  // can look at the question again knowing the answer (FR-6.10); a choice
+  // board marks the right option on it (FR-8.7, D-64).
   const shownPrompt = revealing ? revealPrompt : round.prompt;
-  const kind = revealing ? (isPick(shownPrompt?.kind) ? shownPrompt.kind : null) : round.prompt?.kind ?? null;
+  const kind = shownPrompt?.kind ?? null;
   el.shapeWrap.hidden = kind !== "shape";
   el.flagWrap.hidden = kind !== "flag";
   // renderPerson un-hides this itself, and hides it again if Wikimedia does
@@ -244,13 +244,13 @@ function render() {
   if (kind !== "person") el.personWrap.hidden = true;
   el.capital.hidden = kind !== "capital" && kind !== "gdp" && kind !== "person" && !isPick(kind);
   el.options.hidden = !isPick(kind);
-  if (kind === "shape") renderShape(el.shape, round.prompt.shape);
-  else if (kind === "flag") renderFlag(el.flag, round.prompt.flag);
-  else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: round.prompt.capital });
-  else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: round.prompt.country, year: round.prompt.year });
+  if (kind === "shape") renderShape(el.shape, shownPrompt.shape);
+  else if (kind === "flag") renderFlag(el.flag, shownPrompt.flag);
+  else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: shownPrompt.capital });
+  else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: shownPrompt.country, year: shownPrompt.year });
   else if (kind === "person") {
-    el.capital.textContent = t("personPrompt", { name: round.prompt.name });
-    renderPerson(el.personWrap, el.personPhoto, el.personCredit, round.prompt);
+    el.capital.textContent = t("personPrompt", { name: shownPrompt.name });
+    renderPerson(el.personWrap, el.personPhoto, el.personCredit, shownPrompt);
   }
   else if (isPick(kind)) {
     // `flagPickPrompt` or `shapePickPrompt`: the sentence differs by one noun,
