@@ -81,6 +81,9 @@ link, and every player had to come back through it. Now:
   follows a Clássico. Left in place, `prompts/3` of the last game would show its reveal under the
   new game's third challenge. At most 196 countries and a card's prompts: well under 500 writes.
   Scores go to zero (`resetForGame`); seats and colours stay.
+- **Trophies** (D-105): `finishRoom` gives the one player with the most points of the game just
+  played (`potato.scores` or the seats' `score`) a win on their seat; a tie at the top gives none.
+  `resetForGame` zeroes scores, never wins, so the board counts them across the room's games.
 - **Training rooms are not rooms in this sense** (D-93): one player, played once, never a lobby.
 - **The client keys a game on `startedAt`** and drops deleted `prompts` and `map` documents, so a
   page left open between games follows the host into the next one.
