@@ -1,9 +1,9 @@
-// Versus — FR-12. A room, played live by everyone in it (D-87, D-88).
+// Multijogador — FR-12. A room, played live by everyone in it (D-87, D-88).
 //
 // This is the one page that LISTENS rather than asks. The room document, its
 // prompts and its map are pushed to every player as they change, through the
 // Firestore SDK — loaded here and nowhere else (firebase.js `realtime`). Every
-// write is still a callable, `versus({ op })` (D-92); the listener is how the
+// write is still a callable, `multiplayer({ op })` (D-92); the listener is how the
 // result of a write, anyone's, reaches the screen.
 //
 // Nothing here decides anything. The clock on screen is drawn from the server's
@@ -45,7 +45,7 @@ const el = {
   confirm: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
 
-/** The presets the server knows (lib/versus.ts). Labels only — the server resolves the rest. */
+/** The presets the server knows (lib/multiplayer.ts). Labels only — the server resolves the rest. */
 const PRESETS = ["mundo", "dia", "bandeiras", "formas", "capitais", "misto-10"];
 
 const roomId = new URLSearchParams(location.search).get("s")?.toUpperCase() ?? null;
@@ -70,9 +70,9 @@ const setStatus = (text, cls = "") => { el.status.textContent = text; el.status.
 const serverNow = () => Date.now() + offset;
 
 /** Every op goes through here, so every reply sets the clock. */
-async function versus(op, data = {}) {
+async function multiplayer(op, data = {}) {
   const sent = Date.now();
-  const r = await api.versus({ op, ...data });
+  const r = await api.multiplayer({ op, ...data });
   // Half the round trip is the best guess at when the server read its clock.
   offset = r.serverNow - (sent + Date.now()) / 2;
   return r;
@@ -89,7 +89,7 @@ watchAuth({
     stop();
     if (!user) return render();
     if (roomId) join();
-    else api.listGroups({}).then((r) => { gate = r; render(); }).catch((err) => setStatus(errorMessage(err, "versus"), "err"));
+    else api.listGroups({}).then((r) => { gate = r; render(); }).catch((err) => setStatus(errorMessage(err, "multi"), "err"));
     render();
   },
 });
@@ -116,10 +116,10 @@ function buildModes() {
     b.dataset.preset = id;
     const name = document.createElement("span");
     name.className = "name";
-    name.textContent = t(`versus.preset.${id}`);
+    name.textContent = t(`multi.preset.${id}`);
     const about = document.createElement("span");
     about.className = "fine";
-    about.textContent = t(`versus.presetAbout.${id}`);
+    about.textContent = t(`multi.presetAbout.${id}`);
     b.append(name, about);
     b.addEventListener("click", () => { preset = id; render(); });
     li.append(b);
@@ -136,10 +136,10 @@ el.createBtn.addEventListener("click", async () => {
   busy = true;
   setStatus(t("loading"));
   try {
-    const r = await versus("create", { presetId: preset });
+    const r = await multiplayer("create", { presetId: preset });
     location.href = `./sala?s=${r.room}`;
   } catch (err) {
-    setStatus(errorMessage(err, "versus"), "err");
+    setStatus(errorMessage(err, "multi"), "err");
   } finally {
     busy = false;
   }
@@ -152,12 +152,12 @@ el.createBtn.addEventListener("click", async () => {
 async function join() {
   setStatus(t("loading"));
   try {
-    const r = await versus("join", { room: roomId });
+    const r = await multiplayer("join", { room: roomId });
     mine = r.mine;
     setStatus("");
     await listen();
   } catch (err) {
-    setStatus(errorMessage(err, "versus"), "err");
+    setStatus(errorMessage(err, "multi"), "err");
   }
 }
 
@@ -166,7 +166,7 @@ async function listen() {
   unsubscribe.push(fs.onSnapshot(fs.doc(db, "rooms", roomId), (snap) => {
     room = snap.data() ?? null;
     onRoom();
-  }, (err) => setStatus(errorMessage(err, "versus"), "err")));
+  }, (err) => setStatus(errorMessage(err, "multi"), "err")));
   // Clássico: one small document per challenge, written when it opens and again
   // when it closes with the answer (SEC-1: never before).
   unsubscribe.push(fs.onSnapshot(fs.collection(db, "rooms", roomId, "prompts"), (snap) => {
@@ -180,7 +180,7 @@ async function listen() {
 }
 
 function potatoView() {
-  potato ??= mountPotato({ versus, me: () => auth.currentUser?.uid, confirm: confirmGiveUp });
+  potato ??= mountPotato({ multiplayer, me: () => auth.currentUser?.uid, confirm: confirmGiveUp });
   return potato;
 }
 
@@ -208,7 +208,7 @@ function scheduleTick() {
   if (d == null) return;
   const wait = Math.max(0, d - serverNow()) + 250;
   tickTimer = setTimeout(async () => {
-    try { await versus("tick", { room: roomId }); }
+    try { await multiplayer("tick", { room: roomId }); }
     catch { /* the next snapshot, or the retry below, will sort it out */ }
     // If no snapshot moved the deadline (a lost tick), try again shortly.
     if (deadline() === d) tickTimer = setTimeout(scheduleTick, 1000);
@@ -224,7 +224,7 @@ function drawClock() {
   const bar = room.mode === "potato" ? $("potato-timer-bar") : el.timerBar;
   bar.style.width = `${(100 * left) / total}%`;
   bar.classList.toggle("low", left < 3000);
-  if (room.mode === "classic") el.clock.textContent = room.classic.phase === "question" ? t("versus.secondsLeft", { n: Math.ceil(left / 1000) }) : "";
+  if (room.mode === "classic") el.clock.textContent = room.classic.phase === "question" ? t("multi.secondsLeft", { n: Math.ceil(left / 1000) }) : "";
   else potatoView().drawClock(left);
   frame = requestAnimationFrame(drawClock);
 }
@@ -234,13 +234,13 @@ function drawClock() {
 // ---------------------------------------------------------------------------
 
 el.copy.addEventListener("click", async () => {
-  try { await navigator.clipboard.writeText(el.link.value); setStatus(t("versus.copied"), "ok"); }
+  try { await navigator.clipboard.writeText(el.link.value); setStatus(t("multi.copied"), "ok"); }
   catch { el.link.select(); }
 });
 
-el.start.addEventListener("click", () => act(() => versus("start", { room: roomId })));
+el.start.addEventListener("click", () => act(() => multiplayer("start", { room: roomId })));
 el.leave.addEventListener("click", async () => {
-  await act(() => versus("leave", { room: roomId }));
+  await act(() => multiplayer("leave", { room: roomId }));
   location.href = "./sala";
 });
 
@@ -248,7 +248,7 @@ async function act(fn) {
   if (busy) return;
   busy = true;
   try { const r = await fn(); setStatus(""); return r; }
-  catch (err) { setStatus(errorMessage(err, "versus"), "err"); }
+  catch (err) { setStatus(errorMessage(err, "multi"), "err"); }
   finally { busy = false; render(); }
 }
 
@@ -287,7 +287,7 @@ el.input.addEventListener("input", () => { picked = null; });
 
 async function guess(value) {
   picked = null;
-  const r = await act(() => versus("guess", { room: roomId, guess: value, selfReport: takeReport() }));
+  const r = await act(() => multiplayer("guess", { room: roomId, guess: value, selfReport: takeReport() }));
   if (!r) return;
   mine = r.mine;
   el.input.value = "";
@@ -298,7 +298,7 @@ async function guess(value) {
 }
 
 el.giveUp.addEventListener("click", async () => {
-  const r = await act(() => versus("giveUp", { room: roomId }));
+  const r = await act(() => multiplayer("giveUp", { room: roomId }));
   if (r) { mine = r.mine; render(); }
 });
 
@@ -309,7 +309,7 @@ function renderClassic() {
   const p = current();
   const open = c.phase === "question";
   const done = Boolean(mine?.done);
-  el.progress.textContent = t("versus.challengeOf", { n: c.index + 1, total: c.kinds.length, kind: t(`kindName.${c.kinds[c.index]}`) });
+  el.progress.textContent = t("multi.challengeOf", { n: c.index + 1, total: c.kinds.length, kind: t(`kindName.${c.kinds[c.index]}`) });
   el.giveUp.hidden = !open || done;
 
   const prompt = p?.prompt ?? null;
@@ -340,13 +340,13 @@ function renderClassic() {
   el.guesses.replaceChildren(...(isPick(kind) ? [] : mine?.guesses ?? []).map(guessRow));
   el.form.hidden = !open || done || isPick(kind) || !prompt;
   el.left.textContent = open && !done ? t("guessesLeft", { n: mine?.guesses.length ?? 0, max: c.guessesMax })
-    : open ? t("versus.waiting") : "";
+    : open ? t("multi.waiting") : "";
 
   el.reveal.hidden = open || !p?.reveal;
   if (!open && p?.reveal) {
     const born = p.reveal.bornIn ? ` ${t("revealBorn", { city: p.reveal.bornIn })}` : "";
     const pts = c.progress[auth.currentUser?.uid]?.points ?? 0;
-    el.revealText.textContent = (pts > 0 ? t("versus.revealSolved", { points: pts, answer: p.reveal.name }) : t("revealFailed", { answer: p.reveal.name })) + born;
+    el.revealText.textContent = (pts > 0 ? t("multi.revealSolved", { points: pts, answer: p.reveal.name }) : t("revealFailed", { answer: p.reveal.name })) + born;
     renderAbout(el.revealAbout, p.reveal);
     renderHints(el.revealHints, p.reveal);
   }
@@ -368,7 +368,7 @@ function standings() {
 
 function renderBoard() {
   const playing = room.state !== "lobby";
-  el.boardTitle.textContent = playing ? t("versus.board") : t("versus.players", { n: room.playerUids.length });
+  el.boardTitle.textContent = playing ? t("multi.board") : t("multi.players", { n: room.playerUids.length });
   el.board.replaceChildren(...(playing ? standings() : room.playerUids.map((uid) => ({ uid, ...room.players[uid] }))).map((p) => {
     const li = document.createElement("li");
     li.className = "board-row";
@@ -384,12 +384,12 @@ function renderBoard() {
     const name = document.createElement(linked ? "a" : "span");
     if (linked) Object.assign(name, { href: `./perfil?u=${encodeURIComponent(p.uid)}`, target: "_blank", rel: "noopener" });
     name.className = "name";
-    name.textContent = p.name + (p.uid === room.hostUid && !playing ? ` · ${t("versus.host")}` : "");
+    name.textContent = p.name + (p.uid === room.hostUid && !playing ? ` · ${t("multi.host")}` : "");
     const right = document.createElement("span");
     right.className = "score";
     if (playing) {
       const prog = room.mode === "classic" && room.state === "playing" ? room.classic.progress[p.uid] : null;
-      const mark = !prog ? "" : prog.done ? (prog.solved ? "✓ " : "✗ ") : prog.guesses ? `${t("versus.tries", { n: prog.guesses })} · ` : "";
+      const mark = !prog ? "" : prog.done ? (prog.solved ? "✓ " : "✗ ") : prog.guesses ? `${t("multi.tries", { n: prog.guesses })} · ` : "";
       right.textContent = `${mark}${p.points}`;
     }
     li.append(dot, name, right);
@@ -403,15 +403,15 @@ function renderBoard() {
  */
 function renderSoloEnd() {
   const named = new Set(room.potato.named);
-  el.finishedText.textContent = t("versus.soloDone", { n: named.size, total: room.potato.total });
+  el.finishedText.textContent = t("multi.soloDone", { n: named.size, total: room.potato.total });
   // Started from the Treinar page (D-93), so that is where "again" goes.
   el.again.href = "./praticar";
-  el.again.textContent = t("versus.trainAgain");
+  el.again.textContent = t("multi.trainAgain");
   countryList ??= loadCountries();
   countryList.then((list) => {
     const missed = list.filter((c) => !named.has(c.code)).map((c) => c.pt).sort((a, b) => a.localeCompare(b, "pt-BR"));
     el.missed.hidden = missed.length === 0;
-    el.missedTitle.textContent = t("versus.missed", { n: missed.length });
+    el.missedTitle.textContent = t("multi.missed", { n: missed.length });
     el.missedList.textContent = missed.join(", ");
   }).catch(() => { countryList = null; el.missed.hidden = true; });
 }
@@ -445,16 +445,16 @@ function render() {
 
   el.lobby.hidden = room.state !== "lobby";
   if (room.state === "lobby") {
-    el.lobbyTitle.textContent = t(`versus.preset.${room.presetId}`);
-    el.lobbyMode.textContent = t(`versus.presetAbout.${room.presetId}`);
+    el.lobbyTitle.textContent = t(`multi.preset.${room.presetId}`);
+    el.lobbyMode.textContent = t(`multi.presetAbout.${room.presetId}`);
     el.link.value = location.href.split("#")[0];
     const host = room.hostUid === uid;
     const enough = room.playerUids.length >= 2;
     el.start.hidden = !host;
     el.start.disabled = !enough || busy;
     el.lobbyWait.textContent = host
-      ? (enough ? t("versus.readyHost") : t("versus.needPlayers"))
-      : t("versus.waitHost", { name: room.players[room.hostUid]?.name ?? "" });
+      ? (enough ? t("multi.readyHost") : t("multi.needPlayers"))
+      : t("multi.waitHost", { name: room.players[room.hostUid]?.name ?? "" });
   }
 
   el.classic.hidden = !(room.state === "playing" && room.mode === "classic");
@@ -466,9 +466,9 @@ function render() {
   el.finished.hidden = room.state !== "finished";
   if (room.state === "finished") {
     const top = standings()[0];
-    el.finishedText.textContent = !inRoom || !top ? t("versus.over")
-      : top.uid === uid ? t("versus.youWon", { points: top.points }) : t("versus.won", { name: top.name, points: top.points });
-    if (room.mode === "potato" && room.potato) el.finishedText.textContent += ` ${t(`versus.end.${room.potato.endReason}`)}`;
+    el.finishedText.textContent = !inRoom || !top ? t("multi.over")
+      : top.uid === uid ? t("multi.youWon", { points: top.points }) : t("multi.won", { name: top.name, points: top.points });
+    if (room.mode === "potato" && room.potato) el.finishedText.textContent += ` ${t(`multi.end.${room.potato.endReason}`)}`;
     if (room.potato?.limitMs === null) renderSoloEnd();
   }
 

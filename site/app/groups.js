@@ -10,7 +10,7 @@
 // The card of a tournament round is still torneios.html: that is a game screen,
 // not a group screen.
 //
-// D-88: Versus replaced tournaments. The Torneios tab and the create form are
+// D-88: Versus (now Multijogador, D-102) replaced tournaments. The Torneios tab and the create form are
 // gone; what stays is the card for a tournament still running, because that is
 // how one already under way gets played to the end.
 

@@ -2,7 +2,7 @@
 // The Batata Quente world map (FR-12.3, D-89) → backend/functions/src/data/world.json.
 //
 // Natural Earth 1:50m via world-atlas, projected with Equal Earth. Server-only:
-// `versus.ts` hands a room one country's path at a time, as it is named. Run
+// `multiplayer.ts` hands a room one country's path at a time, as it is named. Run
 // after build-geo.mjs, which decides the pool and the centroids this reads.
 //
 // One topology draws everything (D-96): the grey land is the union of the same

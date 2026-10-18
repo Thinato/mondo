@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo — versus</title>
+<title>Mondo — multijogador</title>
 <meta name="description" content="Jogue Mondo ao vivo contra quem tiver o link da sala.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +20,7 @@
     <a href="./">Hoje</a>
     <a href="./grupos">Grupo</a>
     <a href="./praticar">Treinar</a>
-    <a href="./sala" aria-current="page">Versus</a>
+    <a href="./sala" aria-current="page">Multijogador</a>
   </nav>
   <div class="head-right">
     <button type="button" id="theme-btn" class="theme-btn" aria-label="Mudar o tema">
@@ -32,7 +32,7 @@
       <div class="account-menu">
         <a href="./perfil">Perfil</a>
         <a id="admin-link" href="./admin" hidden>Painel</a>
-        <a href="./sala">Versus</a>
+        <a href="./sala">Multijogador</a>
         <a href="./grupos">Grupos</a>
         <a href="./regras">Regras</a>
         <a href="./privacidade">Privacidade</a>
@@ -53,7 +53,7 @@
   <!-- FR-12.1 — no room in the URL: make one. The modes are presets the server
        resolves (D-48's reasoning); the page only names one. -->
   <section id="create" hidden>
-    <h1>Versus</h1>
+    <h1>Multijogador</h1>
     <p class="sub">Ao vivo, contra quem tiver o link. Ninguém precisa estar no seu grupo.</p>
     <div id="create-form" hidden>
       <ul id="modes" class="modes" aria-label="Jogo"></ul>
@@ -87,7 +87,7 @@
     </section>
 
     <!-- Clássico (FR-12.2): the same prompt elements as the daily and practice,
-         because a Versus challenge IS one of those challenges, on a clock. -->
+         because a Multijogador challenge IS one of those challenges, on a clock. -->
     <section id="classic" hidden>
       <div class="prompt-head">
         <p id="classic-progress" class="fine" aria-live="polite"></p>
@@ -245,6 +245,6 @@
   </form>
 </dialog>
 
-<script type="module" src="./app/versus.js"></script>
+<script type="module" src="./app/multiplayer.js"></script>
 </body>
 </html>

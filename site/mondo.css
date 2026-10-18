@@ -822,7 +822,7 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
 }
 
 /* ---------------------------------------------------------------------------
-   Versus — FR-12 (sala.html). The room is the play column and a scoreboard;
+   Multijogador — FR-12 (sala.html). The room is the play column and a scoreboard;
    the scoreboard stacks under the game on a phone, like practice's run list.
    --------------------------------------------------------------------------- */
 .modes { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: .5rem; }

@@ -10,7 +10,7 @@
 #
 # The one thing it does that the real app never would: every account that signs
 # in with Google is granted `admin`, in a loop — its profile made if it has none
-# — so a fresh emulator account can make groups and host Versus rooms straight
+# — so a fresh emulator account can make groups and host Multijogador rooms straight
 # away (FR-10.3). The emulator is its own empty database: a production role
 # means nothing here, and a browser that has not signed in is a guest. It is scoped to the `demo-mondo`
 # emulator and refuses to run against anything else. Turn it off with
@@ -18,7 +18,7 @@
 #
 #   node tools/set-role.mjs --emulator --uid <uid> --role invited
 #
-# Several players on one machine (Versus): every browser keeps its own session,
+# Several players on one machine (Multijogador): every browser keeps its own session,
 # and so does every ORIGIN — http://localhost:8000 and http://127.0.0.1:8000 are
 # two players in one Chrome, an incognito window is a third, Firefox a fourth.
 # A window that never signs in with Google plays as a guest.
@@ -152,10 +152,10 @@ fi
 sleep 1
 echo ""
 echo "  treino (the pick kinds live here):  http://localhost:8000/praticar"
-echo "  o jogo do dia:                 http://localhost:8000/"
-echo "  versus, player 1:              http://localhost:8000/sala"
-echo "  versus, player 2 (same Chrome): http://127.0.0.1:8000/sala"
-echo "  emulator UI:                   http://127.0.0.1:4000/"
+echo "  o jogo do dia:                   http://localhost:8000/"
+echo "  multijogador, player 1:          http://localhost:8000/sala"
+echo "  multijogador, player 2 (Chrome): http://127.0.0.1:8000/sala"
+echo "  emulator UI:                     http://127.0.0.1:4000/"
 echo ""
 echo "  Sign in with Google → 'Add new account' → any email. Ctrl-C to stop."
 echo "  More players: an incognito window, another browser — each is its own account."
