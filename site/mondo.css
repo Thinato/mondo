@@ -388,6 +388,10 @@ dialog label { display: block; font-size: .9rem; margin-bottom: .25rem; }
 dialog input { width: 100%; font: inherit; padding: .5rem .6rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--field); color: inherit; }
 dialog .actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem; align-items: center; }
 
+/* Welcome question (D-99): two answers, stacked, Google first. */
+dialog.welcome .actions { flex-direction: column; align-items: stretch; }
+dialog.welcome p.fine:empty { display: none; }
+
 /* Help dialog (FR-6.9). Wider than the profile one because it is prose, and the
    only way out is the × — which is the point (D-56). */
 dialog.help { width: min(92vw, 32rem); }
