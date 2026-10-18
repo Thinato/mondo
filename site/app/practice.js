@@ -479,58 +479,54 @@ function totalsNow() {
 function renderChallenge() {
   const item = view.item;
   const revealing = item.status !== "current";
-  const promptKind = revealing ? null : item.prompt?.kind ?? null;
 
   el.giveUpBtn.hidden = revealing;
 
-  // One prompt shape per kind, and — for every kind but one — none at all
-  // during a reveal, because the next challenge has not been served yet and
-  // there is nothing to hold back.
-  //
-  // The exception is a choice challenge, whose prompt OUTLIVES its challenge:
-  // its reveal is which option was right, and the options are artwork the
-  // server does not send twice (FR-8.7, D-64). So the prompt is kept.
+  // One prompt shape per kind. A finished challenge keeps its prompt through
+  // the reveal so the player can look at the question again knowing the answer
+  // (FR-6.10) — kept client-side, because the server sends no prompt for a
+  // closed item, and a load always starts a fresh challenge, never a reveal. A choice board marks the right option on it (FR-8.7, D-64).
   const shown = revealing ? shownPrompt : (shownPrompt = item.prompt);
-  const shownKind = revealing && isPick(shown?.kind) ? shown.kind : promptKind;
+  const kind = shown?.kind ?? null;
   // A board has no field and no guess rows, so it takes the whole width.
-  el.train.classList.toggle("pick", isPick(shownKind));
+  el.train.classList.toggle("pick", isPick(kind));
   el.train.classList.toggle("revealing", revealing);
 
-  el.shapeWrap.hidden = promptKind !== "shape";
-  el.flagWrap.hidden = promptKind !== "flag";
+  el.shapeWrap.hidden = kind !== "shape";
+  el.flagWrap.hidden = kind !== "flag";
   // `renderPerson` un-hides this itself, and hides it again if the photo never
   // arrives — so the only thing to do here is put it away for every other kind.
-  if (promptKind !== "person") el.personWrap.hidden = true;
-  el.capital.hidden = shownKind !== "capital" && shownKind !== "gdp" && shownKind !== "person" && !isPick(shownKind);
-  el.options.hidden = !isPick(shownKind);
-  if (promptKind === "shape") renderShape(el.shape, item.prompt.shape);
-  else if (promptKind === "flag") renderFlag(el.flag, item.prompt.flag);
-  else if (promptKind === "capital") el.capital.textContent = t("capitalPrompt", { city: item.prompt.capital });
-  else if (promptKind === "gdp") el.capital.textContent = t("gdpPrompt", { country: item.prompt.country, year: item.prompt.year });
-  else if (promptKind === "person") {
-    el.capital.textContent = t("personPrompt", { name: item.prompt.name });
-    renderPerson(el.personWrap, el.personPhoto, el.personCredit, item.prompt);
+  if (kind !== "person") el.personWrap.hidden = true;
+  el.capital.hidden = kind !== "capital" && kind !== "gdp" && kind !== "person" && !isPick(kind);
+  el.options.hidden = !isPick(kind);
+  if (kind === "shape") renderShape(el.shape, shown.shape);
+  else if (kind === "flag") renderFlag(el.flag, shown.flag);
+  else if (kind === "capital") el.capital.textContent = t("capitalPrompt", { city: shown.capital });
+  else if (kind === "gdp") el.capital.textContent = t("gdpPrompt", { country: shown.country, year: shown.year });
+  else if (kind === "person") {
+    el.capital.textContent = t("personPrompt", { name: shown.name });
+    renderPerson(el.personWrap, el.personPhoto, el.personCredit, shown);
   }
-  else if (isPick(shownKind)) {
-    el.capital.textContent = t(`${shownKind}Prompt`, { country: shown.country });
+  else if (isPick(kind)) {
+    el.capital.textContent = t(`${kind}Prompt`, { country: shown.country });
     renderOptions(el.options, shown.options, {
       guesses: item.guesses,
       answer: revealing ? item.answer : null,
       onPick: revealing ? null : (i) => advance(() => api.submitPracticeGuess({ guess: i, selfReport: takeReport() })),
     });
-  } else if (promptKind !== null) setStatus(t("errors.invalid-argument"), "err");
+  } else if (kind !== null) setStatus(t("errors.invalid-argument"), "err");
 
   // Three inputs, at most one visible: a country autocomplete, a number field
   // (D-53), or the grid above, which is its own input (D-64).
-  el.combo.hidden = promptKind === "gdp";
-  el.money.hidden = promptKind !== "gdp";
+  el.combo.hidden = kind === "gdp";
+  el.money.hidden = kind !== "gdp";
 
   // A pick is struck out in the grid, not listed as a row: the client is never
   // told which country it was, so there is nothing to put in one. The rest are
   // newest first, so the last guess sits right under the field it came from.
-  el.guesses.replaceChildren(...(isPick(shownKind) ? [] : item.guesses).map(guessRow).reverse());
-  el.form.hidden = revealing || isPick(shownKind);
-  el.left.hidden = revealing || isPick(shownKind);
+  el.guesses.replaceChildren(...(isPick(kind) ? [] : item.guesses).map(guessRow).reverse());
+  el.form.hidden = revealing || isPick(kind);
+  el.left.hidden = revealing || isPick(kind);
   el.left.textContent = t("guessesLeft", { n: item.guessesUsed, max: item.guessesMax });
 
   el.reveal.hidden = !revealing;
@@ -538,7 +534,7 @@ function renderChallenge() {
     const born = item.answer?.bornIn ? ` ${t("revealBorn", { city: item.answer.bornIn })}` : "";
     el.revealText.textContent = (item.status === "solved"
       ? t("revealSolved", { points: item.points })
-      : isPick(shownKind)
+      : isPick(kind)
       ? t("revealPick")
       : t("revealFailed", { answer: item.answer.name })) + born;
     renderAbout(el.revealAbout, item.answer);
@@ -546,7 +542,7 @@ function renderChallenge() {
   } else {
     // FR-6.9 — the first challenge of each hint vocabulary explains itself, and
     // reads the same flag the daily wrote, so nobody meets it twice.
-    help(promptKind);
+    help(kind);
   }
 }
 
