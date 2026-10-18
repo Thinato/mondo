@@ -214,6 +214,7 @@ export function mountPotato({ multiplayer, me, confirm }) {
       else { node.setAttribute("cx", d.dot[0]); node.setAttribute("cy", d.dot[1]); node.setAttribute("r", "3"); }
       node.setAttribute("fill", d.color);
       node.setAttribute("class", "named");
+      node.dataset.code = d.code;
       const title = document.createElementNS(SVG, "title");
       title.textContent = d.name;
       node.append(title);
@@ -225,6 +226,20 @@ export function mountPotato({ multiplayer, me, confirm }) {
     for (const n of el.named.querySelectorAll(".latest")) n.classList.remove("latest");
     if (latest) { latest.node.classList.add("latest"); el.named.append(latest.node); }
     feed.sort((a, b) => b.at - a.at);
+    renderFeed();
+  }
+
+  /**
+   * A rematch (D-104) deletes the last game's map: its countries leave the
+   * screen and the feed, and the land too when the next game is a Clássico.
+   */
+  function onMapRemoved(ids) {
+    if (ids.length === 0) return;
+    const gone = new Set(ids);
+    for (const n of [...el.named.children]) if (gone.has(n.dataset.code)) n.remove();
+    if (gone.has("_base")) el.land.removeAttribute("d");
+    for (let i = feed.length - 1; i >= 0; i--) if (gone.has(feed[i].code)) feed.splice(i, 1);
+    if (latest && !latest.node.isConnected) latest = null;
     renderFeed();
   }
 
@@ -309,7 +324,7 @@ export function mountPotato({ multiplayer, me, confirm }) {
   }
 
   const zoom = mountZoom(el);
-  return { onMap, onRoom, render, drawClock };
+  return { onMap, onMapRemoved, onRoom, render, drawClock };
 }
 
 /**

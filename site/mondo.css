@@ -848,6 +848,10 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
 .board-row.me .name { font-weight: 600; }
 .board-row.turn { background: var(--card); }
 .board-row.out { color: var(--muted); text-decoration: line-through; }
+/* FR-12.8: the host's ✕ beside a seat, between games. */
+.board-row:has(.remove) { grid-template-columns: .8rem 1fr auto auto; }
+.board-row .remove { padding: 0 .25rem; color: var(--muted); }
+.board-row .remove:hover, .board-row .remove:focus-visible { color: var(--fg); }
 .dot { width: .8rem; height: .8rem; border-radius: 50%; display: inline-block; }
 .card-item .dot { align-self: center; }
 
