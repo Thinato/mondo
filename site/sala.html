@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo — versus</title>
+<title>Mondo — multijogador</title>
 <meta name="description" content="Jogue Mondo ao vivo contra quem tiver o link da sala.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +20,7 @@
     <a href="./">Hoje</a>
     <a href="./grupos">Grupo</a>
     <a href="./praticar">Treinar</a>
-    <a href="./sala" aria-current="page">Versus</a>
+    <a href="./sala" aria-current="page">Multijogador</a>
   </nav>
   <div class="head-right">
     <button type="button" id="theme-btn" class="theme-btn" aria-label="Mudar o tema">
@@ -32,7 +32,7 @@
       <div class="account-menu">
         <a href="./perfil">Perfil</a>
         <a id="admin-link" href="./admin" hidden>Painel</a>
-        <a href="./sala">Versus</a>
+        <a href="./sala">Multijogador</a>
         <a href="./grupos">Grupos</a>
         <a href="./regras">Regras</a>
         <a href="./privacidade">Privacidade</a>
@@ -50,28 +50,42 @@
     <button id="sign-in" type="button" class="primary">Entrar com Google</button>
   </section>
 
-  <!-- FR-12.1 — no room in the URL: make one. The modes are presets the server
-       resolves (D-48's reasoning); the page only names one. -->
-  <section id="create" hidden>
-    <h1>Versus</h1>
-    <p class="sub">Ao vivo, contra quem tiver o link. Ninguém precisa estar no seu grupo.</p>
-    <div id="create-form" hidden>
-      <ul id="modes" class="modes" aria-label="Jogo"></ul>
-      <button id="create-btn" type="button" class="primary">Criar sala</button>
-    </div>
-    <p id="create-locked" class="fine" hidden>Criar salas é para convidados e assinantes. Para jogar, peça o link a quem pode criar — qualquer pessoa entra.</p>
-    <!-- A guest's rank is read off the sign-in (FR-10.1), so whoever they are,
-         a visitor cannot host until they sign in. Say that, not "you lack the rank". -->
-    <div id="create-guest" hidden>
-      <p class="fine">Você está jogando como visitante. Para criar uma sala, entre com sua conta Google — para entrar numa sala, basta o link.</p>
-      <button id="create-sign-in" type="button" class="primary">Entrar com Google</button>
+  <!-- FR-12.6, D-103 — no room in the URL. A host never stays here: the page
+       opens their standing room. Everyone else is told it is coming, and that a
+       link still works, because joining is open to anyone signed in. -->
+  <section id="soon" hidden>
+    <h1>Multijogador</h1>
+    <p class="sub">Em breve.</p>
+    <p>Salas ao vivo, contra quem tiver o link: a Batata Quente e os desafios do Clássico, todos ao mesmo tempo. Por enquanto, criar salas é só para convidados e assinantes.</p>
+    <p class="fine">Recebeu o link de uma sala? É só abrir — qualquer pessoa entra, visitante também.</p>
+    <!-- A guest's rank is read off the sign-in (FR-10.1): an invited player on a
+         new browser is a guest until they sign in. -->
+    <div id="soon-guest" hidden>
+      <p class="fine">Você é convidado ou assinante? Entre com sua conta Google.</p>
+      <button id="soon-sign-in" type="button" class="secondary">Entrar com Google</button>
     </div>
   </section>
 
   <div id="room-cols" hidden>
     <div class="play-col">
 
-    <!-- The lobby: who is in, the link, and the host's start button. -->
+    <!-- The end of a game. In a room it sits above the lobby, which is where
+         the next game starts (D-104); training goes back to Treinar instead. -->
+    <section id="finished" class="result" hidden>
+      <p id="finished-text"></p>
+      <!-- Training: the names you did not get to. Names only — the outlines stay on the server (D-89). -->
+      <details id="missed" hidden>
+        <summary id="missed-title"></summary>
+        <p id="missed-list" class="fine"></p>
+      </details>
+      <div class="row">
+        <a id="again-link" href="./praticar" class="primary" hidden>Treinar de novo</a>
+        <a href="./" class="link">Voltar ao jogo de hoje</a>
+      </div>
+    </section>
+
+    <!-- The lobby, before the first game and between games (D-104): who is in,
+         the link, the game the host picked (FR-12.7) and the host's start. -->
     <section id="lobby" hidden>
       <h1 id="lobby-title"></h1>
       <p id="lobby-mode" class="sub"></p>
@@ -84,10 +98,13 @@
         <button id="start-btn" type="button" class="primary" hidden>Começar</button>
         <button id="leave-btn" type="button" class="link">Sair da sala</button>
       </div>
+      <!-- Presets, resolved on the server (D-48's reasoning): the page only names one.
+           Under the start button, so "Jogar de novo" is never below six cards. -->
+      <ul id="modes" class="modes" aria-label="Próximo jogo" hidden></ul>
     </section>
 
     <!-- Clássico (FR-12.2): the same prompt elements as the daily and practice,
-         because a Versus challenge IS one of those challenges, on a clock. -->
+         because a Multijogador challenge IS one of those challenges, on a clock. -->
     <section id="classic" hidden>
       <div class="prompt-head">
         <p id="classic-progress" class="fine" aria-live="polite"></p>
@@ -176,20 +193,6 @@
       </div>
     </section>
 
-    <!-- The end: the board, and a way to go again. -->
-    <section id="finished" class="result" hidden>
-      <p id="finished-text"></p>
-      <!-- Training: the names you did not get to. Names only — the outlines stay on the server (D-89). -->
-      <details id="missed" hidden>
-        <summary id="missed-title"></summary>
-        <p id="missed-list" class="fine"></p>
-      </details>
-      <div class="row">
-        <a id="again-link" href="./sala" class="primary">Nova sala</a>
-        <a href="./" class="link">Voltar ao jogo de hoje</a>
-      </div>
-    </section>
-
     <p id="status" aria-live="polite"></p>
     </div>
 
@@ -245,6 +248,6 @@
   </form>
 </dialog>
 
-<script type="module" src="./app/versus.js"></script>
+<script type="module" src="./app/multiplayer.js"></script>
 </body>
 </html>

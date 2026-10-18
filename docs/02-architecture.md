@@ -693,7 +693,7 @@ cd site && python3 -m http.server 8000
 ```
 
 Then open `http://localhost:8000/`. A fresh browser plays as a guest (D-85); Google sign-in goes to
-the Auth emulator's fake account picker ("Add new account", any email). To host a Versus room or
+the Auth emulator's fake account picker ("Add new account", any email). To host a Multijogador room or
 create a group an account needs a rank (FR-10.3): `cd tools && npm run set-role -- --uid <uid>
 --role invited --emulator` (the uid is in the Auth emulator UI at `http://127.0.0.1:4000/auth`).
 The emulator registers the scheduled jobs as Pub/Sub triggers (so the `pubsub` emulator is in
@@ -703,18 +703,19 @@ The emulator registers the scheduled jobs as Pub/Sub triggers (so the `pubsub` e
 **Or one command:** `tools/dev.sh` builds, starts the emulators, seeds a week, serves `site/` and
 promotes every profile to admin in a loop; `MONDO_DEV_GRANT=0 tools/dev.sh` leaves ranks alone.
 
-**Versus with several players on one machine (FR-12.4).** Auth lives in each origin's IndexedDB,
+**Multijogador with several players on one machine (FR-12.4).** Auth lives in each origin's IndexedDB,
 so every one of these is a separate player: Chrome on `http://localhost:8000`, the same Chrome on
 `http://127.0.0.1:8000`, an incognito window, another browser. Host: open `sala.html`, Entrar
 com Google (a fake emulator account), and within two seconds `tools/dev.sh` has made it admin —
-then pick a game → Criar sala → Copiar link. A production role means nothing here: the emulator
-is its own empty database. Everyone else opens the link — a guest is fine — and the host presses
-Começar.
+reload and the page puts the host in their room (D-103); pick a game, Copiar link. A production
+role means nothing here: the emulator is its own empty database. Everyone else opens the link — a
+guest is fine — and the host presses Começar; when the game ends, the same room is the lobby for
+the next (D-104). Without a rank, `sala.html` says "Em breve".
 
 Tests: `npm test` in `tools/` and `backend/functions/` need nothing running; `npm run test:rules`
 in `backend/functions/` starts its own Firestore emulator; `npm run test:e2e` (D-33) starts
 Functions + Firestore + Auth emulators and drives every Phase 2 callable with several accounts,
-and plays a whole Batata Quente and a whole Clássico (`versus.e2e.ts`).
+and plays a whole Batata Quente and a whole Clássico (`multiplayer.e2e.ts`), then a rematch in the same room.
 
 Use `npx firebase-tools`, not the Homebrew `firebase` binary: on macOS the latter is killed with
 exit 137 on its first network call.

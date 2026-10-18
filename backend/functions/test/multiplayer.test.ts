@@ -1,5 +1,5 @@
 /**
- * Versus Clássico (FR-12.2): one card, every player at once, on one clock.
+ * Multijogador Clássico (FR-12.2): one card, every player at once, on one clock.
  *
  * The load-bearing test is the first one after the presets: nothing that goes
  * on the room document — which every player can read (D-87) — names the answer
@@ -15,8 +15,8 @@ import { kindById } from "../src/lib/kinds";
 import { joinRoom, newRoom, type Room } from "../src/lib/room";
 import {
   classicGiveUp, classicGuess, classicMine, classicRanking, presetById, secondsFor, speedPoints, startClassic, tickClassic,
-  REVEAL_MS, VERSUS_PRESETS, type ClassicSecrets,
-} from "../src/lib/versus";
+  REVEAL_MS, MULTIPLAYER_PRESETS, type ClassicSecrets,
+} from "../src/lib/multiplayer";
 
 const T0 = 1_800_000_000_000;
 
@@ -43,7 +43,7 @@ function room3(presetId: string): Room {
 }
 
 test("every preset resolves and every Clássico preset builds a card", () => {
-  for (const p of VERSUS_PRESETS) {
+  for (const p of MULTIPLAYER_PRESETS) {
     assert.equal(presetById(p.id), p);
     if (p.mode === "classic") assert.ok(buildCard(p.spec!, new Set(), rng(7)).length > 0, p.id);
     else assert.equal(p.spec, undefined);
@@ -52,7 +52,7 @@ test("every preset resolves and every Clássico preset builds a card", () => {
 });
 
 test("SEC-1: nothing on the room document or an open prompt names the answer", () => {
-  for (const p of VERSUS_PRESETS.filter((x) => x.mode === "classic")) {
+  for (const p of MULTIPLAYER_PRESETS.filter((x) => x.mode === "classic")) {
     for (let seed = 1; seed <= 5; seed++) {
       const items = buildCard(p.spec!, new Set(), rng(seed));
       let { room, secrets, prompt } = startClassic(room3(p.id), items, T0);
@@ -155,7 +155,7 @@ test("ranking: most points, then least time solving", () => {
 });
 
 test("the right and wrong guesses this file uses are right and wrong for every kind", () => {
-  for (const p of VERSUS_PRESETS.filter((x) => x.mode === "classic")) {
+  for (const p of MULTIPLAYER_PRESETS.filter((x) => x.mode === "classic")) {
     for (const item of buildCard(p.spec!, new Set(), rng(3))) {
       const kind = kindById(item.kind);
       assert.ok(kind.grade(item, right(item), (null as never)).correct, `${item.kind} right`);
@@ -166,5 +166,5 @@ test("the right and wrong guesses this file uses are right and wrong for every k
 
 test("training is a Batata Quente for one (D-93)", () => {
   assert.deepEqual(presetById("treino"), { id: "treino", mode: "potato", solo: true });
-  assert.ok(VERSUS_PRESETS.filter((p) => p.solo).every((p) => p.mode === "potato" && !p.spec));
+  assert.ok(MULTIPLAYER_PRESETS.filter((p) => p.solo).every((p) => p.mode === "potato" && !p.spec));
 });

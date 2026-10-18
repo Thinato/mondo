@@ -327,9 +327,9 @@ const PT_BR = {
     statAvg: "Média",
     statStreak: "Sequência",
   },
-  // FR-12 — Versus. Batata Quente is the name the mode was asked for by; the
-  // presets are the server's ids (lib/versus.ts) and these are only labels.
-  versus: {
+  // FR-12 — Multijogador (D-102). Batata Quente is the name the mode was asked for by; the
+  // presets are the server's ids (lib/multiplayer.ts) and these are only labels.
+  multi: {
     preset: {
       mundo: "Batata Quente",
       treino: "Batata Quente · treino",
@@ -349,6 +349,10 @@ const PT_BR = {
       "misto-10": "Dez desafios de todos os tipos.",
     },
     copied: "Link copiado.",
+    start: "Começar",
+    again: "Jogar de novo",
+    remove: "Tirar {name} da sala",
+    removed: "Você não está mais nesta sala. Peça o link de novo para voltar.",
     players: "{n} jogador|{n} jogadores",
     host: "anfitrião",
     board: "Placar",
@@ -363,7 +367,6 @@ const PT_BR = {
     over: "Fim de jogo.",
     youWon: "Você venceu, com {points} pontos!",
     soloDone: "Você lembrou {n} de {total} países.",
-    trainAgain: "Treinar de novo",
     soloHint: "Uma letra errada passa. Duas não. Sem pressa.",
     soloGiveUp: "Terminar o treino? Os países que faltaram aparecem no fim.",
     missed: "Faltou {n}|Faltaram {n}",

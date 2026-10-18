@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Context for AI coding agents working in this repo. Read `docs/00-brief.md` through
-`docs/05-cost.md` before making changes, and `docs/08-versus.md` before touching Versus.
+`docs/05-cost.md` before making changes, and `docs/08-multiplayer.md` before touching Multijogador.
 
 ## What this is
 
@@ -9,8 +9,8 @@ A daily country-guessing game served at `play-mondo.com` (D-98; `lisecki.dev/mon
 group. A day is **seven** challenges — silhouette, flag, capital, GDP per capita, "which of
 these eight flags", "which of these eight silhouettes" and "where was this person born" — played
 in order, one at a time, worth 0–42 (D-52, D-53, D-66, D-75, D-79). There is also a practice mode: one kind, as many challenges as you like, scored
-for nobody (FR-9, D-60), and **Versus**: live rooms anyone with the link can join, playing Clássico
-or Batata Quente (FR-12, D-87–D-92, `docs/08-versus.md`), which replaced tournaments (D-88). Vanilla frontend published from `site/` by GitHub Pages, Firebase
+for nobody (FR-9, D-60), and **Multijogador** (once Versus, D-102): live rooms anyone with the link can join, playing Clássico
+or Batata Quente (FR-12, D-87–D-92, D-102–D-104, `docs/08-multiplayer.md`), which replaced tournaments (D-88). Vanilla frontend published from `site/` by GitHub Pages, Firebase
 backend.
 
 ## Invariants — never violate these
@@ -24,7 +24,7 @@ backend.
 2. **No client writes to score-bearing or membership-bearing data.** `puzzles`, `attempts`,
    `practice`, `challenges`, `groups/**`, `invites`, `rooms/**`, `roomSecrets`, and the
    `role`/`groups` fields on `users` are Admin-SDK-only. Firestore rules default-deny. The client
-   loads the Firestore SDK on exactly one page — `sala.html`, to LISTEN to its own Versus room
+   loads the Firestore SDK on exactly one page — `sala.html`, to LISTEN to its own Multijogador room
    (D-87) — and every other read goes through a callable. Do not add a second listening page.
 3. **Server timestamps only.** Never trust client-supplied time for anything scored.
 4. **No build step on the frontend.** Vanilla ES modules, Firebase SDK via CDN ESM import.
@@ -253,7 +253,7 @@ backend.
   `NOTICE` any more, `site/creditos.html` is where ODbL, CC BY and CC BY-SA attribution actually
   happens — **adding a data source means adding it to both**. Do not link the GitHub repo from
   `site/`: it 404s for everyone but Paulo.
-- **Versus is the one page that listens, and the room is safe because of what it holds** (D-87).
+- **Multijogador is the one page that listens, and the room is safe because of what it holds** (D-87).
   Anyone with a room's link can join — a guest included — so `rooms/{id}` and its `prompts/` and
   `map/` must never hold an answer: the room carries prompts and per-player COUNTS (a rival's
   graded guess is a hint), a prompt doc gets its `reveal` only once the challenge closed, and a
@@ -261,12 +261,23 @@ backend.
   `cards`. Rules allow `get` on a room, never `list`: the id is the invite. Deadlines are enforced
   lazily — every client calls `tick` at zero and the server checks its own clock; there is no
   scheduler, and do not add one.
-- **Versus is one callable, `versus({ op })`** (D-92), against the one-callable-per-action
+- **Multijogador is one callable, `multiplayer({ op })`** (D-92, D-102), against the one-callable-per-action
   convention, because each callable is its own Cloud Run service with its own cold start and a
   two-second cold start decides a three-second Batata Quente turn. Each op still validates and
   transacts on its own. A Clássico player plays the room's card through `lib/card.ts` UNCHANGED;
-  the room only opens and closes items. Versus withholds the daily's next week like practice
+  the room only opens and closes items. Multijogador withholds the daily's next week like practice
   (D-91, `dailyAhead` in `db.ts`) and never writes `attempts`.
+- **A room outlives its game, and a host has one** (FR-12.6–12.8, D-103, D-104). `finished` is
+  between games, not the end: join, leave, `configure`, `remove` and `start` accept it like a lobby,
+  and `finishRoom` keeps it open two more hours — so the link a group already has is the link for the
+  next game. `create` returns the host's `hostRoom` while they are seated in it, and the page has no
+  create form: a host who opens Multijogador lands in their room, a `user` or guest reads "Em breve"
+  and still joins by link. **A rematch deletes the last game's `prompts` and `map` in the start
+  transaction** — a stale `prompts/3` would show its reveal under the next game's third challenge —
+  skipping only the one document the new game writes over, because a commit takes one write per
+  document. Training rooms (D-93) are never a lobby. **The `versus` export in `index.ts` is an alias
+  for one release** (D-102): delete it in the next backend PR, not before — a cached `sala.html`
+  still calls it.
 - **Batata Quente reads text, and one letter is the whole rule** (D-90). `lib/match.ts`: pt-BR name
   or alias, accents ignored, ONE edit for terms of 4+ characters, a one-edit guess that fits two
   countries refused, two-letter terms not names. There is no autocomplete on that screen on
@@ -295,7 +306,7 @@ backend.
   notes, own words, a `source` each that is never sent) plus a computed GDP line. It is added by
   `revealOf` in `lib/hints.ts` at the four views — **never by `Kind.reveal`**, which sees one item and
   cannot know that the Indonesia flag is still open when Monaco's closes. A hint naming an open
-  subject waits for the card to end — and in practice and Versus the daily's week ahead is open
+  subject waits for the card to end — and in practice and Multijogador the daily's week ahead is open
   too (`s.blocked`, `secrets.ahead`); what it names is **computed from its text** by
   `countriesNamedIn`, so do not add a hand-kept `mentions` list. A flag or shape text must NAME every
   country it describes ("a bandeira da Rússia", never "a tricolor russa") — naming is what the filter

@@ -15,7 +15,7 @@ import { COUNTRIES, peopleFor } from "../src/lib/countries";
 import { KINDS, type Challenge, type KindId } from "../src/lib/kinds";
 import { giveUpPractice, newSession, practiceView } from "../src/lib/practice";
 import { joinRoom, newRoom } from "../src/lib/room";
-import { classicGiveUp, startClassic } from "../src/lib/versus";
+import { classicGiveUp, startClassic } from "../src/lib/multiplayer";
 import { normalize } from "../src/lib/match";
 import { CATALOGUE, gdpHint, hintsFor, MAX_HINTS, mentionsOf, openSubjects, revealOf, TOPIC_OF, TOPICS, type Catalogue } from "../src/lib/hints";
 
@@ -106,7 +106,7 @@ test("SEC-1 / D-101: on a card, Monaco's answer holds back what Indonesia's flag
   assert.equal("hints" in (cardView(newCardPlay("u1", "t1", "t1_r1", card, t0), card, t0).prompt ?? {}), false);
 });
 
-test("D-60 / D-91: practice and Versus treat the daily's week ahead as open", () => {
+test("D-60 / D-91: practice and Multijogador treat the daily's week ahead as open", () => {
   const pair = CATALOGUE.patterns.find((p) => p.id === "pair-mc-id")!;
   const t0 = Timestamp.fromMillis(Date.parse("2026-10-18T15:00:00Z"));
   const titles = (blocked: string[]) => {

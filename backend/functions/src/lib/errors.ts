@@ -25,7 +25,7 @@ export type MondoErrorCode =
   // Phase 3 — tournaments (docs/06-tournaments.md §9)
   | "tournament-not-open"
   | "not-a-participant"
-  // FR-12 — Versus rooms
+  // FR-12 — Multijogador rooms
   | "room-full"
   | "room-started"
   | "not-your-turn"

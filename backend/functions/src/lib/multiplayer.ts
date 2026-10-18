@@ -1,5 +1,5 @@
 /**
- * Versus Clássico (FR-12.2): the challenge kinds, played live. Pure; times are
+ * Multijogador Clássico (FR-12.2): the challenge kinds, played live. Pure; times are
  * epoch milliseconds from the server clock.
  *
  * Everyone in the room gets the same challenge at the same moment, on one
@@ -24,9 +24,9 @@ import { KIND_IDS, kindById, type KindId, type Reveal } from "./kinds";
 import type { SelfReport } from "./report";
 import { revealOf } from "./hints";
 import { guessView, type GuessView } from "./round";
-import type { ClassicPublic, PromptDoc, Room, RoomMode } from "./room";
+import { finishRoom, type ClassicPublic, type PromptDoc, type Room, type RoomMode } from "./room";
 
-export interface VersusPreset {
+export interface MultiplayerPreset {
   id: string;
   mode: RoomMode;
   /** Training (D-93): one player, no clock, open to anyone signed in, and started on create. */
@@ -35,7 +35,7 @@ export interface VersusPreset {
   spec?: CardSpec;
 }
 
-export const VERSUS_PRESETS: readonly VersusPreset[] = [
+export const MULTIPLAYER_PRESETS: readonly MultiplayerPreset[] = [
   { id: "mundo", mode: "potato" },
   { id: "treino", mode: "potato", solo: true },
   { id: "dia", mode: "classic", spec: { items: KIND_IDS.map((kind) => ({ kind, count: 1 })), order: "shuffled" } },
@@ -55,8 +55,8 @@ export const VERSUS_PRESETS: readonly VersusPreset[] = [
   },
 ];
 
-export function presetById(id: unknown): VersusPreset {
-  const p = VERSUS_PRESETS.find((x) => x.id === id);
+export function presetById(id: unknown): MultiplayerPreset {
+  const p = MULTIPLAYER_PRESETS.find((x) => x.id === id);
   if (!p) throw mondoError("invalid-argument", "Unknown game preset.");
   return p;
 }
@@ -187,7 +187,7 @@ export function tickClassic(room: Room, secrets: ClassicSecrets, now: number):
   if (c.phase === "question") return { ...closeQuestion(room, secrets, now), prompt: null };
   const index = c.index + 1;
   if (index >= secrets.items.length) {
-    return { room: { ...room, state: "finished", finishedAt: now }, secrets, reveal: null, prompt: null };
+    return { room: finishRoom(room, now), secrets, reveal: null, prompt: null };
   }
   return {
     room: { ...room, classic: question(c.kinds, index, secrets.items, room.playerUids, now) },

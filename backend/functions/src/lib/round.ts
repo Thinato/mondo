@@ -178,6 +178,8 @@ export interface Profile {
   groups?: string[];
   /** The player's Batata Quente training room (D-93): one open at a time. */
   trainingRoom?: string;
+  /** D-103: the host's standing Multijogador room, which opening the page goes back to. */
+  hostRoom?: string;
 }
 
 export type RoundStatus = "in_progress" | "solved" | "failed";

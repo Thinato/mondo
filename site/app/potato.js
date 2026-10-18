@@ -24,7 +24,7 @@ const ICON = {
   x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
 };
 
-export function mountPotato({ versus, me, confirm }) {
+export function mountPotato({ multiplayer, me, confirm }) {
   const $ = (id) => document.getElementById(id);
   const el = {
     turn: $("potato-turn"), turnDot: $("potato-turn-dot"), secs: $("potato-secs"), pill: $("turn-pill"),
@@ -68,7 +68,7 @@ export function mountPotato({ versus, me, confirm }) {
     renderDock();
     try {
       // The server's own limits: one queued name and the box, or training's backlog.
-      const r = await versus("answer", { room: roomId(), names: names.slice(0, solo() ? MAX_BACKLOG : 2) });
+      const r = await multiplayer("answer", { room: roomId(), names: names.slice(0, solo() ? MAX_BACKLOG : 2) });
       const gone = new Set(r.dropped.map((d) => d.name));
       for (const a of r.accepted) gone.add(a.name);
       queue = queue.filter((n) => !gone.has(n));
@@ -80,12 +80,12 @@ export function mountPotato({ versus, me, confirm }) {
         landedTimer = setTimeout(() => { landed = null; renderDock(); }, 4000);
       }
       // What was refused, in words: "já está no mapa", "não reconheci".
-      const why = r.dropped.map((d) => t(`versus.dropped.${d.reason}`, { name: d.name })).join(" ");
+      const why = r.dropped.map((d) => t(`multi.dropped.${d.reason}`, { name: d.name })).join(" ");
       note = r.accepted.length
         ? { text: why, cls: "" }
-        : { text: `${why || t("versus.dropped.unknown", { name: names[0] })}${myTurn() && !solo() ? ` ${t("versus.stillYours")}` : ""}`, cls: "warn" };
+        : { text: `${why || t("multi.dropped.unknown", { name: names[0] })}${myTurn() && !solo() ? ` ${t("multi.stillYours")}` : ""}`, cls: "warn" };
     } catch (err) {
-      note = { text: errorMessage(err, "versus"), cls: "err" };
+      note = { text: errorMessage(err, "multi"), cls: "err" };
     } finally {
       sending = false;
       flying = null;
@@ -115,7 +115,7 @@ export function mountPotato({ versus, me, confirm }) {
       const old = flying ? null : queue[0];
       queue = [name];
       landed = null;
-      note = old && old !== name ? { text: t("versus.replaced", { old, name }), cls: "" } : { text: "", cls: "" };
+      note = old && old !== name ? { text: t("multi.replaced", { old, name }), cls: "" } : { text: "", cls: "" };
     }
     el.input.value = "";
     if (sending) flushAgain = true;
@@ -124,9 +124,9 @@ export function mountPotato({ versus, me, confirm }) {
   el.input.addEventListener("input", () => { note = { text: "", cls: "" }; renderDock(); });
 
   el.giveUp.addEventListener("click", async () => {
-    if (!(await confirm(t(solo() ? "versus.soloGiveUp" : "versus.confirmGiveUp")))) return;
-    try { await versus("giveUp", { room: roomId() }); }
-    catch (err) { note = { text: errorMessage(err, "versus"), cls: "err" }; renderDock(); }
+    if (!(await confirm(t(solo() ? "multi.soloGiveUp" : "multi.confirmGiveUp")))) return;
+    try { await multiplayer("giveUp", { room: roomId() }); }
+    catch (err) { note = { text: errorMessage(err, "multi"), cls: "err" }; renderDock(); }
   });
 
   /** The slot, the button and the line under them. */
@@ -140,21 +140,21 @@ export function mountPotato({ versus, me, confirm }) {
       let label = "", name = "", icon = ICON.clock, extra = null;
       if (flying) {
         el.slot.classList.add("sending");
-        [label, name, icon] = [t("versus.slotSending"), flying, ICON.send];
+        [label, name, icon] = [t("multi.slotSending"), flying, ICON.send];
       } else if (queued) {
         el.slot.classList.add("armed");
         el.slot.classList.toggle("replacing", Boolean(typed) && !mine);
-        [label, name] = [t("versus.slotQueued"), queued];
+        [label, name] = [t("multi.slotQueued"), queued];
       } else if (landed) {
         el.slot.classList.add("landed");
         el.slot.style.setProperty("--c", room.players[me()]?.color ?? "var(--ok)");
-        [label, name, icon] = [t("versus.slotLanded"), landed.name, ICON.check];
+        [label, name, icon] = [t("multi.slotLanded"), landed.name, ICON.check];
         extra = document.createElement("span");
         extra.className = "pts";
         extra.textContent = `+${landed.points}`;
       } else {
         el.slot.classList.add("empty");
-        label = mine ? t("versus.slotEmptyMine") : t("versus.slotEmpty");
+        label = mine ? t("multi.slotEmptyMine") : t("multi.slotEmpty");
       }
       const glyph = document.createElement("span");
       glyph.className = "glyph";
@@ -177,26 +177,26 @@ export function mountPotato({ versus, me, confirm }) {
         x.type = "button";
         x.className = "unqueue";
         x.innerHTML = ICON.x;
-        x.setAttribute("aria-label", t("versus.unqueue", { name: queued }));
+        x.setAttribute("aria-label", t("multi.unqueue", { name: queued }));
         x.addEventListener("click", () => { queue = []; note = { text: "", cls: "" }; renderDock(); el.input.focus(); });
         el.slot.append(x);
       }
     }
     el.dock.classList.toggle("mine", mine && !solo());
     const swap = !solo() && !mine && queued && typed;
-    el.send.textContent = mine || solo() ? t("versus.send") : swap ? t("versus.swap") : t("versus.queue");
+    el.send.textContent = mine || solo() ? t("multi.send") : swap ? t("multi.swap") : t("multi.queue");
     // The accent is for the thing that will happen on Enter: an answer, or a swap.
     const go = mine || solo() || Boolean(typed);
     el.send.classList.toggle("primary", go);
     el.send.classList.toggle("secondary", !go);
-    el.input.placeholder = mine || solo() ? t("versus.placeholder") : queued ? t("versus.placeholderSwap") : t("versus.placeholderNext");
+    el.input.placeholder = mine || solo() ? t("multi.placeholder") : queued ? t("multi.placeholderSwap") : t("multi.placeholderNext");
     el.hint.className = `fine ${note.cls}`;
     // A live region: written only when it says something new, never per keystroke.
-    const hint = note.text || (solo() ? t("versus.soloHint")
-      : mine ? t("versus.yourTurnHint")
-      : swap ? t("versus.swapHint", { old: queued })
-      : queued ? t("versus.queuedHint", { name: queued })
-      : t("versus.queueHint"));
+    const hint = note.text || (solo() ? t("multi.soloHint")
+      : mine ? t("multi.yourTurnHint")
+      : swap ? t("multi.swapHint", { old: queued })
+      : queued ? t("multi.queuedHint", { name: queued })
+      : t("multi.queueHint"));
     if (el.hint.textContent !== hint) el.hint.textContent = hint;
   }
 
@@ -214,6 +214,7 @@ export function mountPotato({ versus, me, confirm }) {
       else { node.setAttribute("cx", d.dot[0]); node.setAttribute("cy", d.dot[1]); node.setAttribute("r", "3"); }
       node.setAttribute("fill", d.color);
       node.setAttribute("class", "named");
+      node.dataset.code = d.code;
       const title = document.createElementNS(SVG, "title");
       title.textContent = d.name;
       node.append(title);
@@ -225,6 +226,20 @@ export function mountPotato({ versus, me, confirm }) {
     for (const n of el.named.querySelectorAll(".latest")) n.classList.remove("latest");
     if (latest) { latest.node.classList.add("latest"); el.named.append(latest.node); }
     feed.sort((a, b) => b.at - a.at);
+    renderFeed();
+  }
+
+  /**
+   * A rematch (D-104) deletes the last game's map: its countries leave the
+   * screen and the feed, and the land too when the next game is a Clássico.
+   */
+  function onMapRemoved(ids) {
+    if (ids.length === 0) return;
+    const gone = new Set(ids);
+    for (const n of [...el.named.children]) if (gone.has(n.dataset.code)) n.remove();
+    if (gone.has("_base")) el.land.removeAttribute("d");
+    for (let i = feed.length - 1; i >= 0; i--) if (gone.has(feed[i].code)) feed.splice(i, 1);
+    if (latest && !latest.node.isConnected) latest = null;
     renderFeed();
   }
 
@@ -292,13 +307,13 @@ export function mountPotato({ versus, me, confirm }) {
     el.pill.hidden = !playing() || solo();
     el.timer.hidden = !playing() || solo();
     const turner = room.players[p.turnUid];
-    el.turn.textContent = myTurn() ? t("versus.yourTurn") : t("versus.theirTurn", { name: turner?.name ?? "" });
+    el.turn.textContent = myTurn() ? t("multi.yourTurn") : t("multi.theirTurn", { name: turner?.name ?? "" });
     el.turnDot.style.background = turner?.color ?? "transparent";
     el.pill.classList.toggle("mine", myTurn());
     el.head.hidden = false;
-    el.title.textContent = t(`versus.preset.${room.presetId}`);
-    el.round.textContent = playing() && !solo() ? t("versus.round", { n: p.round, s: p.limitMs / 1000 }) : "";
-    el.count.textContent = t("versus.namedCount", { n: p.named.length, total: p.total });
+    el.title.textContent = t(`multi.preset.${room.presetId}`);
+    el.round.textContent = playing() && !solo() ? t("multi.round", { n: p.round, s: p.limitMs / 1000 }) : "";
+    el.count.textContent = t("multi.namedCount", { n: p.named.length, total: p.total });
     el.meter.style.width = `${(100 * p.named.length) / p.total}%`;
     renderDock();
     renderFeed(); // the map can arrive before the room on a reload
@@ -309,7 +324,17 @@ export function mountPotato({ versus, me, confirm }) {
   }
 
   const zoom = mountZoom(el);
-  return { onMap, onRoom, render, drawClock };
+  /** A new game in the same room (D-104): a name queued in the last one is not sent in this one. */
+  function reset() {
+    queue = [];
+    note = { text: "", cls: "" };
+    landed = null;
+    clearTimeout(landedTimer);
+    flushAgain = false;
+    el.input.value = "";
+  }
+
+  return { onMap, onMapRemoved, onRoom, render, drawClock, reset };
 }
 
 /**

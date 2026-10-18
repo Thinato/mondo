@@ -440,7 +440,7 @@ to test new challenges."*
 - **FR-11.1** A subscription is kept on `users/{uid}.subscription` as Stripe's `status` and the
   `currentPeriodEnd`, written by the Stripe webhook alone (never a client, FR-10.1 reads it).
 
-## FR-12 — Versus *(added 2026-10-12; design in `docs/08-versus.md`)*
+## FR-12 — Multijogador *(added 2026-10-12 as Versus, renamed 2026-10-18, D-102; design in `docs/08-multiplayer.md`)*
 
 - **FR-12.1 Rooms.** A room is reached by a link whose token (16 characters, D-32's alphabet) is
   its id. `admin`, `invited` and `subscriber` MAY create one (FR-10.3's rank); anyone signed in,
@@ -468,6 +468,17 @@ to test new challenges."*
   solo Batata Quente with no clock. Every country is worth 1 and every acceptable name in a queue
   is taken. It ends when the map is full or the player stops, and the end screen lists by name the
   countries not named. Nobody else can join, and no score reaches a board.
+- **FR-12.6 The host's room (D-103).** Opening Multijogador with no room in the link MUST take a
+  player who may host to their standing room — the one they are seated in, if it is playing or not
+  expired — or to a new one, without a create step. A player who may not host (a `user`, a guest)
+  MUST see that it is coming soon, and MAY still join any room by its link.
+- **FR-12.7 The game is picked in the room.** Before the first game and between games, the host
+  MAY change the room's preset; every player sees the change live. Training is not a preset a room
+  can switch to.
+- **FR-12.8 Play again (D-104).** When a game ends the room MUST become its lobby again: the same
+  link, everyone still seated, the result still shown, open two more hours. The host MAY remove
+  another player's seat between games, and MAY start the next game; starting it MUST leave
+  nothing of the last game's challenges or map on any player's screen.
 
 ## FR-13 — Profile *(added 2026-10-15, D-97)*
 
@@ -475,9 +486,9 @@ to test new challenges."*
   `/mondo/perfil?u=<uid>` anyone's; anyone signed in, a guest included, MAY open either. It shows
   the display name, the current and the longest streak, and nothing else about the account — never
   an email (invariant 6), a role, a rank or a subscription. Names in a group's ranking and in a
-  Versus room link to it.
+  Multijogador room link to it.
 - **FR-13.2 Thirty days of the daily.** The profile covers the last 30 puzzle days of the daily
-  only — not practice, not Versus, not tournaments — read from `attempts` when it is opened. A
+  only — not practice, not Multijogador, not tournaments — read from `attempts` when it is opened. A
   finished day is a row: date, points out of that day's own maximum, and the share grid. An
   unfinished day is not a row.
 - **FR-13.3 Numbers per kind.** For each kind, over the visible days that count (`resultOf`: a
@@ -495,12 +506,12 @@ to test new challenges."*
 ## FR-14 — Learning hints *(added 2026-10-18, D-101)*
 
 - **FR-14.1 After every challenge.** Once a challenge is over — daily, practice, a tournament card or
-  Versus Clássico — its reveal MAY carry up to three hints, "Como reconhecer": a note on that country
+  Multijogador Clássico — its reveal MAY carry up to three hints, "Como reconhecer": a note on that country
   for that kind, the catalogue patterns it belongs to, and for `gdp` its place in the world. With
   nothing to say, the block is absent.
 - **FR-14.2 Hints are answer-bearing.** They travel only inside `Reveal`, are never part of a prompt,
   and a hint that names a country still open on the same card MUST be withheld until that challenge
-  closes; a pattern's "Também" list drops such countries instead. In practice and Versus the daily's
+  closes; a pattern's "Também" list drops such countries instead. In practice and Multijogador the daily's
   week ahead (D-60, D-91) counts as open too, so neither becomes a way to read this week's answers.
   What a hint names is computed from its text, so a flag or shape text MUST name every country it
   describes — "a tricolor russa" names nothing, and a test refuses it.

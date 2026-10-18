@@ -59,7 +59,7 @@ before(async () => {
     await db.doc(`attempts/${BOB}_${TOURNAMENT}_r1`).set({ uid: BOB, tournamentId: TOURNAMENT, roundId: `${TOURNAMENT}_r1`, mode: "match", items: [], cursor: 0 });
     // FR-9: a practice session, whose `subject` is the answer on alice's screen.
     await db.doc(`practice/${ALICE}`).set({ uid: ALICE, kind: "shape", subject: "PY", asked: ["PY"], blocked: [], totals: { played: 0, solved: 0, points: 0 } });
-    // FR-12: a Versus room alice and bob are in, its first prompt, a named
+    // FR-12: a Multijogador room alice and bob are in, its first prompt, a named
     // country on its map, and the card that holds the answers.
     await db.doc(`rooms/${ROOM}`).set({ mode: "classic", hostUid: ALICE, state: "playing", playerUids: [ALICE, BOB], players: {} });
     await db.doc(`rooms/${ROOM}/prompts/0`).set({ index: 0, prompt: { kind: "capital", capital: "Lima" }, reveal: null });
@@ -290,7 +290,7 @@ test("users: clients cannot create or delete profiles", async () => {
   await assertFails(alice().doc(`users/${ALICE}`).delete());
 });
 
-// --- Versus (FR-12, D-87) ---------------------------------------------------
+// --- Multijogador (FR-12, D-87) ---------------------------------------------------
 
 test("D-87: a room's players can read the room, its prompts and its map", async () => {
   await assertSucceeds(alice().doc(`rooms/${ROOM}`).get());
@@ -315,6 +315,21 @@ test("D-87: nobody can list rooms — the id is the invite", async () => {
   await assertFails(alice().collection("rooms").get());
   await assertFails(alice().collection("rooms").where("playerUids", "array-contains", ALICE).get());
   await assertFails(carol().collection("rooms").get());
+});
+
+test("FR-12.8: a player the host removed reads none of the room from then on", async () => {
+  const GONE = "ROOMGONE23456789";
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc(`rooms/${GONE}`).set({ mode: "potato", hostUid: ALICE, state: "finished", playerUids: [ALICE, BOB], players: {} });
+    await ctx.firestore().doc(`rooms/${GONE}/map/BR`).set({ code: "BR", by: BOB, points: 9 });
+  });
+  await assertSucceeds(bob().doc(`rooms/${GONE}`).get());
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc(`rooms/${GONE}`).update({ playerUids: [ALICE] });
+  });
+  await assertFails(bob().doc(`rooms/${GONE}`).get());
+  await assertFails(bob().collection(`rooms/${GONE}/map`).get());
+  await assertSucceeds(alice().collection(`rooms/${GONE}/map`).get());
 });
 
 test("SEC-1: roomSecrets, where the Clássico answers are, is closed to its own players", async () => {

@@ -1,7 +1,7 @@
 /**
- * Versus — FR-12. Live rooms, played by everyone at once (D-87, D-88).
+ * Multijogador — FR-12. Live rooms, played by everyone at once (D-87, D-88).
  *
- * ONE callable, `versus({ op, … })`, rather than one per action (D-92). Every
+ * ONE callable, `multiplayer({ op, … })`, rather than one per action (D-92). Every
  * callable is its own Cloud Run service, and every service has its own cold
  * start: eight of them would mean a game whose first turn, first guess and
  * first tick each wait two seconds — and on a three-second Batata Quente turn
@@ -19,7 +19,7 @@
  * calls `tick` when its own countdown reaches zero. The first tick through the
  * transaction moves the game on and the rest find nothing due.
  *
- * Nothing here reaches `attempts`: a Versus result lives on its room and on no
+ * Nothing here reaches `attempts`: a Multijogador result lives on its room and on no
  * board (FR-12.1, the reason D-40 exists).
  */
 
@@ -33,13 +33,17 @@ import { inviteToken } from "./lib/invite";
 import { matchCountry } from "./lib/match";
 import { applyAnswer, applyTimeout, checkTurn, giveUpPotato, newPotato, type PotatoState } from "./lib/potato";
 import { parseSelfReport } from "./lib/report";
-import { joinRoom, leaveRoom, newRoom, requirePlayer, requirePlaying, requireStartable, type PromptDoc, type Room } from "./lib/room";
+import {
+  configureRoom, finishRoom, joinRoom, leaveRoom, newRoom, removePlayer, requirePlayer, requirePlaying, requireStartable, resetForGame,
+  reusableHostRoom,
+  type PromptDoc, type Room,
+} from "./lib/room";
 import { callable, signInProvider } from "./lib/callable";
 import { GUESS_MIN_INTERVAL_MS } from "./lib/config";
-import { requireInviteToken, requireObject } from "./lib/validate";
+import { requireInviteToken, requireObject, requireUid } from "./lib/validate";
 import {
   classicGiveUp, classicGuess, classicMine, presetById, startClassic, tickClassic, type ClassicSecrets,
-} from "./lib/versus";
+} from "./lib/multiplayer";
 import { mapBase, mapPiece } from "./lib/world";
 
 /** At most this many names in one `answer`: training's backlog (FR-12.5). */
@@ -82,15 +86,18 @@ function clock(): { now: Timestamp; ms: number } {
   return { now, ms: now.toMillis() };
 }
 
-/** A potato state that has ended ends the room with it. */
+/** A potato state that has ended ends the game with it, and the room is a lobby again (D-104). */
 const withPotato = (room: Room, potato: PotatoState): Room =>
-  potato.endedAt !== null ? { ...room, potato, state: "finished", finishedAt: potato.endedAt } : { ...room, potato };
+  potato.endedAt !== null ? finishRoom({ ...room, potato }, potato.endedAt) : { ...room, potato };
+
+/** A new room starts on Batata Quente; the host changes it in the lobby (FR-12.7). */
+const DEFAULT_PRESET = "mundo";
 
 function writePrompt(tx: Transaction, id: string, doc: PromptDoc): void {
   tx.set(roomSubRef(id, "prompts", String(doc.index)), plain(doc));
 }
 
-export const versus = callable<unknown, Record<string, unknown>>(async (uid, data, request) => {
+export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid, data, request) => {
   const body = requireObject(data);
   // The clock is read INSIDE each transaction, not once per call: Firestore
   // retries a contended transaction, and eight ticks racing one answer at a
@@ -100,7 +107,8 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
   switch (body.op) {
     // ---------------------------------------------------------------- create
     case "create": {
-      const preset = presetById(body.presetId);
+      const named = body.presetId !== undefined;
+      const preset = presetById(named ? body.presetId : DEFAULT_PRESET);
       const fresh = inviteToken();
       const id = await db().runTransaction(async (tx) => {
         const { now, ms } = clock();
@@ -121,7 +129,20 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
         // FR-10.3, D-84: hosting is what invited players and subscribers have,
         // like making a group. Joining is open to anyone signed in.
         requireCanCreateGroup(rankOf(profile, signInProvider(request), now));
+        // D-103: a host has one standing room, and opening Multijogador goes
+        // back to it — mid-game, or between games until it expires. So the
+        // link a group already has keeps working, and clicking makes no rooms.
+        const prev = profile.hostRoom ? (await tx.get(roomRef(profile.hostRoom))).data() as Room | undefined : undefined;
+        if (prev && reusableHostRoom(prev, uid, ms)) {
+          // A client from before the lobby picker names a preset here: honour
+          // it between games, exactly as `configure` would.
+          if (named && prev.state !== "playing" && prev.presetId !== preset.id) {
+            tx.set(roomRef(profile.hostRoom!), configureRoom(prev, uid, preset, ms));
+          }
+          return profile.hostRoom!;
+        }
         tx.create(roomRef(fresh), room);
+        tx.set(userRef(uid), { hostRoom: fresh }, { merge: true });
         return fresh;
       });
       return reply({ room: id });
@@ -133,7 +154,9 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
       const mine = await db().runTransaction(async (tx) => {
         const { now, ms } = clock();
         const room = await readRoom(tx, id);
-        const secrets = room.mode === "classic" && room.state !== "lobby" ? await readSecrets(tx, id) : null;
+        // Between games there is nothing on screen to come back to (D-104), and
+        // a room set to Clássico after a Batata Quente has no card at all.
+        const secrets = room.mode === "classic" && room.state === "playing" ? await readSecrets(tx, id) : null;
         const profile = await ensureProfile(tx, uid, now);
         const after = joinRoom(room, uid, profile.displayName, ms);
         if (after !== room) tx.set(roomRef(id), after);
@@ -156,6 +179,29 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
       return reply();
     }
 
+    // ------------------------------------------------------------- configure
+    case "configure": {
+      const id = requireInviteToken(body.room);
+      const preset = presetById(body.presetId);
+      await db().runTransaction(async (tx) => {
+        const { ms } = clock();
+        tx.set(roomRef(id), configureRoom(await readRoom(tx, id), uid, preset, ms));
+      });
+      return reply();
+    }
+
+    // ---------------------------------------------------------------- remove
+    case "remove": {
+      const id = requireInviteToken(body.room);
+      const target = requireUid(body.uid);
+      await db().runTransaction(async (tx) => {
+        const room = await readRoom(tx, id);
+        const after = removePlayer(room, uid, target);
+        if (after !== room) tx.set(roomRef(id), after);
+      });
+      return reply();
+    }
+
     // ----------------------------------------------------------------- start
     case "start": {
       const id = requireInviteToken(body.room);
@@ -166,13 +212,31 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
       const preset = presetById(peek.presetId);
       // D-91: the week of daily answers ahead is withheld, as in practice (D-60).
       // Read outside the transaction: it is a query over `puzzles`, which no
-      // Versus write touches, and the card is built once either way.
+      // Multijogador write touches, and the card is built once either way.
       const ahead = preset.spec ? await dailyAhead(Timestamp.now()) : [];
       const items = preset.spec ? buildCard(preset.spec, new Set(ahead)) : null;
       await db().runTransaction(async (tx) => {
         const { ms } = clock();
-        const room = await readRoom(tx, id);
-        requireStartable(room, uid, ms);
+        const before = await readRoom(tx, id);
+        requireStartable(before, uid, ms);
+        // The card above was built for the preset read then; a host who changed
+        // it in between gets asked to press again rather than the wrong game.
+        if (before.presetId !== peek.presetId) throw mondoError("invalid-argument", "The game changed. Try again.");
+        // D-104: a rematch. The last game's prompts and countries go in the same
+        // transaction that starts the next one — a stale reveal at prompts/3
+        // would otherwise sit under the new game's third challenge. At most 196
+        // countries and a card's prompts: well under a transaction's 500 writes.
+        if (before.state === "finished") {
+          // Ids only: a map document carries a country's whole outline.
+          const [oldPrompts, oldMap] = await Promise.all([
+            tx.get(roomRef(id).collection("prompts").select()), tx.get(roomRef(id).collection("map").select()),
+          ]);
+          // Not the one document the new game writes over anyway: one write per document.
+          const keep = items ? "0" : "_base";
+          for (const d of [...oldPrompts.docs, ...oldMap.docs]) if (d.id !== keep) tx.delete(d.ref);
+          if (!items) tx.delete(roomSecretsRef(id)); // the last Clássico's card has no business outliving it
+        }
+        const room = resetForGame(before);
         if (items) {
           const started = startClassic(room, items, ms, ahead);
           tx.set(roomRef(id), started.room);

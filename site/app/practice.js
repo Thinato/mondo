@@ -212,22 +212,22 @@ function buildKinds() {
 }
 
 /**
- * D-93 — Batata Quente alone, with no clock. Not a kind: it is a Versus room of
+ * D-93 — Batata Quente alone, with no clock. Not a kind: it is a Multijogador room of
  * one, and its map is pushed by the listener only sala.html may load
  * (invariant 2), so this card opens the room there. The continents do not
  * reach it; its tag says so.
  */
 function potatoEntry() {
   return card({
-    icon: "potato", name: t("versus.preset.mundo"), about: t("versus.presetAbout.treino"), tag: t("practice.potatoTag"),
+    icon: "potato", name: t("multi.preset.mundo"), about: t("multi.presetAbout.treino"), tag: t("practice.potatoTag"),
     onClick: async (button) => {
       button.disabled = true;
       setStatus(t("loading"));
       try {
-        const r = await api.versus({ op: "create", presetId: "treino" });
+        const r = await api.multiplayer({ op: "create", presetId: "treino" });
         location.href = `./sala?s=${r.room}`;
       } catch (err) {
-        setStatus(errorMessage(err, "versus"), "err");
+        setStatus(errorMessage(err, "multi"), "err");
         button.disabled = false;
       }
     },

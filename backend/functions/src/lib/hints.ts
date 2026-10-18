@@ -19,7 +19,7 @@
  * after the first is the second's answer. So every hint knows which countries
  * its text names — computed from the text by `countriesNamedIn`, never declared
  * by hand, so it cannot drift — and is withheld while any of them is still open
- * on the card, or, in practice and Versus, is one of the daily's answers this
+ * on the card, or, in practice and Multijogador, is one of the daily's answers this
  * week (D-60, D-91). The "Também" list is trimmed the same way. Once the card
  * is over nothing on it is open and everything shows.
  *
