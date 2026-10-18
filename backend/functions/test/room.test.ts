@@ -159,3 +159,36 @@ test("D-104: the last one out closes the room for good, so nobody joins an empty
   assert.equal(empty.expiresAt, T0 + 1);
   rejects(() => joinRoom(empty, "x", "X", T0 + 2), "not-found");
 });
+
+// --- D-105: trophies ---------------------------------------------------------
+
+test("D-105: the one player with the most points takes a trophy, and keeps it into the next game", () => {
+  const trio = joinRoom(pair(), "c", "Caio", T0);
+  const clássico = (scores: Record<string, number>, from: Room = trio): Room => ({
+    ...from, state: "playing", potato: null,
+    players: Object.fromEntries(Object.entries(from.players).map(([uid, p]) => [uid, { ...p, score: scores[uid] ?? 0 }])),
+  });
+  const won = finishRoom(clássico({ host: 30, b: 12, c: 7 }), T0);
+  assert.deepEqual(Object.values(won.players).map((p) => p.wins ?? 0), [1, 0, 0]);
+  // A new game zeroes the score, not the trophies.
+  const again = finishRoom(clássico({ b: 20 }, resetForGame(won)), T0 + 1);
+  assert.deepEqual(Object.values(again.players).map((p) => p.wins ?? 0), [1, 1, 0]);
+});
+
+test("D-105: a tie at the top is a draw — nobody takes a trophy, whatever the clock says", () => {
+  const r: Room = {
+    ...joinRoom(pair(), "c", "Caio", T0), state: "playing",
+    potato: { ...newPotato(["host", "b", "c"], T0), scores: {
+      host: { points: 40, timeMs: 9_000, named: 5 }, b: { points: 40, timeMs: 3_000, named: 5 }, c: { points: 2, timeMs: 1_000, named: 1 },
+    } },
+  };
+  assert.ok(Object.values(finishRoom(r, T0).players).every((p) => !p.wins));
+  // Batata Quente's points are read from the game, not from the seat.
+  const solo = { ...r, potato: { ...r.potato!, scores: { ...r.potato!.scores, b: { points: 39, timeMs: 0, named: 5 } } } };
+  assert.equal(finishRoom(solo, T0).players.host!.wins, 1);
+});
+
+test("D-105: training has nobody to beat", () => {
+  const training: Room = { ...newRoom("g", "G", "potato", "treino", T0), state: "playing", potato: { ...newPotato(["g"], T0, false), scores: { g: { points: 9, timeMs: 0, named: 9 } } } };
+  assert.equal(finishRoom(training, T0).players.g!.wins, undefined);
+});

@@ -35,6 +35,8 @@ export interface RoomPlayer {
   score: number;
   /** Clássico tiebreak: total time to solve. */
   timeMs: number;
+  /** Games won outright in this room (D-105). Absent on seats taken before it. */
+  wins?: number;
 }
 
 /** What every player of a Clássico room sees of the challenge on screen. Never the subject. */
@@ -186,9 +188,28 @@ export function removePlayer(room: Room, uid: string, target: string): Room {
 export const reusableHostRoom = (room: Room, uid: string, now: number): boolean =>
   room.hostUid === uid && room.playerUids.includes(uid) && (room.state === "playing" || now < room.expiresAt);
 
-/** D-104: a game ends and the room becomes a lobby with a result on it, open two more hours. */
-export const finishRoom = (room: Room, now: number): Room =>
-  ({ ...room, state: "finished", finishedAt: now, expiresAt: now + LOBBY_TTL_MS });
+/**
+ * D-104: a game ends and the room becomes a lobby with a result on it, open two
+ * more hours. D-105: whoever alone has the most points takes a trophy. A tie at
+ * the top is a draw and nobody does — the time tiebreak orders the board, it
+ * does not win a game. Training (D-93) has nobody to beat.
+ */
+export function finishRoom(room: Room, now: number): Room {
+  const done: Room = { ...room, state: "finished", finishedAt: now, expiresAt: now + LOBBY_TTL_MS };
+  const winner = isTraining(room) ? null : soleWinner(room);
+  if (!winner) return done;
+  const p = room.players[winner]!;
+  return { ...done, players: { ...room.players, [winner]: { ...p, wins: (p.wins ?? 0) + 1 } } };
+}
+
+/** The one player with the most points in the game just played, or null on a tie. */
+function soleWinner(room: Room): string | null {
+  // By the game PLAYED: Batata Quente keeps its own points, Clássico's are on the seat.
+  const points = (uid: string) => (room.potato ? room.potato.scores[uid]?.points : room.players[uid]?.score) ?? 0;
+  const best = Math.max(...room.playerUids.map(points));
+  const top = room.playerUids.filter((uid) => points(uid) === best);
+  return top.length === 1 ? top[0]! : null;
+}
 
 /** The room as it stands before a new game: everyone at zero, nothing of the last game left. */
 export const resetForGame = (room: Room): Room => ({
