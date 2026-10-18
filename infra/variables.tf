@@ -64,7 +64,7 @@ variable "region" {
 variable "authorized_domains" {
   description = "EVERY domain allowed to complete a Firebase Auth sign-in for ANY app in this project. Authoritative, not additive. localhost is for the emulator (SEC-9)."
   type        = list(string)
-  default     = ["lisecki.dev", "localhost"]
+  default     = ["play-mondo.com", "lisecki.dev", "localhost"]
 }
 
 # --- Budget (SEC-11) ----------------------------------------------------------

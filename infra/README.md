@@ -145,7 +145,7 @@ to create.
 > Firebase console → Authentication → Sign-in method → **Google** → Enable →
 > set the support email → Save.
 
-Confirm `lisecki.dev` and `localhost` are listed under Authentication → Settings
+Confirm `play-mondo.com`, `lisecki.dev` and `localhost` are listed under Authentication → Settings
 → Authorized domains (Terraform sets these; check that nothing else is there).
 
 ## 6. Wire up CI
@@ -175,7 +175,7 @@ part:
 
 - Firestore database exists, **Native mode**, `southamerica-east1`
 - Billing budget of R$20 exists with alert thresholds (SEC-11)
-- Authentication shows Google enabled and exactly two authorized domains
+- Authentication shows Google enabled and exactly three authorized domains
 
 ## 8. Frontend config
 
@@ -204,7 +204,7 @@ KEY=$(gcloud services api-keys list --project=lisecki-dev \
   --filter='displayName:"Browser key (auto created by Firebase)"' --format='value(uid)')
 
 gcloud services api-keys update "$KEY" --project=lisecki-dev \
-  --allowed-referrers='https://lisecki.dev/*,https://lisecki-dev.firebaseapp.com/*,http://localhost:8000/*,http://127.0.0.1:8000/*'
+  --allowed-referrers='https://play-mondo.com/*,https://lisecki.dev/*,https://lisecki-dev.firebaseapp.com/*,http://localhost:8000/*,http://127.0.0.1:8000/*'
 ```
 
 `lisecki-dev.firebaseapp.com` must stay in the list: the Google sign-in popup

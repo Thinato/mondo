@@ -6,8 +6,9 @@
 // missing was a way to SET it from inside Mondo — the key was written only by
 // lisecki.dev/theme.js, which D-18 deliberately does not load.
 //
-// So a choice made here is the choice for the whole domain, not just for Mondo.
-// That is FR-6.6's "one theme across the domain" and not an accident.
+// Since D-98 Mondo has its own domain, so the key is no longer shared with
+// lisecki.dev: storage is per origin. The name stayed because every page's
+// <head> reads it.
 //
 // Two states, not three. Before the first click there is no stored choice and
 // the system setting rules, which is the right default; after it there is one,

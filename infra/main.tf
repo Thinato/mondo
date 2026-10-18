@@ -166,7 +166,8 @@ resource "google_identity_platform_config" "auth" {
   provider = google-beta
   project  = google_project.main.project_id
 
-  # lisecki.dev and localhost only. A sign-in started from anywhere else fails.
+  # Mondo's own domain (D-98), lisecki.dev and localhost only. A sign-in started
+  # from anywhere else fails.
   authorized_domains = var.authorized_domains
 
   sign_in {
@@ -213,7 +214,8 @@ resource "google_recaptcha_enterprise_key" "app_check" {
   web_settings {
     integration_type  = "SCORE"
     allow_all_domains = false
-    allowed_domains   = ["lisecki.dev"]
+    # lisecki.dev only while tabs opened before the move (D-98) are still around.
+    allowed_domains = ["play-mondo.com", "lisecki.dev"]
   }
 
   depends_on = [time_sleep.wait_for_services]

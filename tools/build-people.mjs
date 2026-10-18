@@ -65,7 +65,7 @@ const MIN_POOL = 120;
 /** How many candidates to vet per country. Vetting is two API calls per 50
  *  people, so the slack is nearly free and every rejection has a replacement. */
 const CANDIDATES = 16;
-const UA = "mondo-build/0.1 (https://lisecki.dev/mondo; github.com/Thinato/mondo)";
+const UA = "mondo-build/0.1 (https://play-mondo.com; github.com/Thinato/mondo)";
 const ISO3_OVERRIDES = { XK: "XKX" };
 
 const countries = read("backend/functions/src/data/countries.json").countries;

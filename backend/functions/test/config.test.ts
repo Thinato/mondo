@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ALLOWED_ORIGINS,
+  GAME_URL,
   MAX_GUESSES,
   PUZZLE_ROLLOVER_HOUR,
   PUZZLE_TIMEZONE,
@@ -25,7 +26,12 @@ test("SEC-9: CORS allowlist contains no wildcard and no plain-http public origin
 });
 
 test("SEC-9: the production origin is the real site", () => {
-  assert.ok(ALLOWED_ORIGINS.includes("https://lisecki.dev"));
+  assert.ok(ALLOWED_ORIGINS.includes("https://play-mondo.com"));
+});
+
+test("D-98: invite links point at the game's own domain", () => {
+  assert.equal(GAME_URL, "https://play-mondo.com/");
+  assert.ok(ALLOWED_ORIGINS.includes(new URL(GAME_URL).origin));
 });
 
 test("OQ-2: the puzzle day flips at noon in Sao Paulo", () => {

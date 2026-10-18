@@ -5,7 +5,7 @@ Context for AI coding agents working in this repo. Read `docs/00-brief.md` throu
 
 ## What this is
 
-A daily country-guessing game served at `lisecki.dev/mondo/`, built for a small competitive
+A daily country-guessing game served at `play-mondo.com` (D-98; `lisecki.dev/mondo/` redirects there), built for a small competitive
 group. A day is **seven** challenges — silhouette, flag, capital, GDP per capita, "which of
 these eight flags", "which of these eight silhouettes" and "where was this person born" — played
 in order, one at a time, worth 0–42 (D-52, D-53, D-66, D-75, D-79). There is also a practice mode: one kind, as many challenges as you like, scored
