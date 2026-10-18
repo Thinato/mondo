@@ -327,8 +327,9 @@ free-for-all, one round, one shape challenge — so it is subsumed rather than k
   changing the challenge's own layout. Below 960px the layout MUST be unchanged from the phone
   layout. Context MUST NOT delay or block the game: its requests are never awaited by the game and
   its failures are never shown to the player.
-- **FR-6.10** *(added 2026-09-11, D-55)* A finished challenge MUST hold the screen — its outcome,
-  its answer and the guesses that got there — until the player chooses to go on. The next prompt
+- **FR-6.10** *(added 2026-09-11, D-55; amended 2026-10-18, D-100)* A finished challenge MUST hold
+  the screen — its prompt, its outcome, its answer and the guesses that got there — until the player
+  chooses to go on, so the question can be studied with the answer known. The next prompt
   MUST NOT be rendered before that choice. A solve MAY be celebrated; any such animation MUST be
   suppressed under `prefers-reduced-motion`.
 
