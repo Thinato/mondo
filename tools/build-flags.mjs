@@ -57,7 +57,9 @@ const SVG_DIR = join(TOOLS, "node_modules", SET, "svg");
 // A flag the set has not caught up with is redrawn in tools/flag-overrides/ and
 // read from there instead: Syria (sy.svg) changed flag after December 2024, and
 // the set paints Indonesia (id.svg) in Monaco's red and Palestine (ps.svg) in
-// Jordan's green and red, leaving each look-alike pair apart by shape alone.
+// Jordan's green and red, leaving each look-alike pair apart by shape alone, and
+// Estonia, Norway and France (ee, no, fr) in shades their specs have replaced.
+// NOTICE lists every override and where its colours come from.
 const OVERRIDE_DIR = join(TOOLS, "flag-overrides");
 const sourceOf = (code) => {
   const file = `${code.toLowerCase()}.svg`;
