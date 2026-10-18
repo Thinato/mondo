@@ -1,5 +1,5 @@
 /**
- * Versus end-to-end against the emulators (FR-12). Three players — an invited
+ * Multijogador end-to-end against the emulators (FR-12). Three players — an invited
  * host, a plain account and a guest — play a whole Batata Quente to a full map,
  * then a whole Clássico.
  *
@@ -32,7 +32,7 @@ interface Res { status: number; result?: Any; error?: Any }
 interface Account { uid: string; call: (data: unknown) => Promise<Res> }
 
 async function post(data: unknown, token: string): Promise<Res> {
-  const r = await fetch(`${FUNCTIONS}/versus`, {
+  const r = await fetch(`${FUNCTIONS}/multiplayer`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({ data }),
@@ -137,7 +137,7 @@ test("FR-12.3: Batata Quente, three players, to a full map", async () => {
   assert.ok(jp.d || jp.dot);
   const total = Object.values(r.potato.scores as Record<string, { named: number }>).reduce((n, s) => n + s.named, 0);
   assert.equal(total, COUNTRIES.size);
-  // Nothing about Versus reaches the daily's collection (FR-12.1, D-40).
+  // Nothing about Multijogador reaches the daily's collection (FR-12.1, D-40).
   assert.equal((await db.collection("attempts").where("uid", "in", [host.uid, bia.uid, guest.uid]).get()).size, 0);
 });
 

@@ -1,5 +1,5 @@
 /**
- * Versus rooms (FR-12.1): who hosts, who joins, who starts. Pure.
+ * Multijogador rooms (FR-12.1): who hosts, who joins, who starts. Pure.
  */
 
 import { test } from "node:test";
@@ -20,7 +20,7 @@ const rejects = (fn: () => unknown, code: string) =>
   });
 
 test("hosting a room takes the rank a group takes; joining takes nothing", () => {
-  // `versus.ts` gates `create` on exactly this function (FR-10.3, D-84).
+  // `multiplayer.ts` gates `create` on exactly this function (FR-10.3, D-84).
   const hosts: Record<Rank, boolean> = { admin: true, invited: true, subscriber: true, user: false, guest: false };
   for (const [rank, can] of Object.entries(hosts)) assert.equal(canCreateGroup(rank as Rank), can, rank);
 });

@@ -1,7 +1,7 @@
 /**
- * Versus — FR-12. Live rooms, played by everyone at once (D-87, D-88).
+ * Multijogador — FR-12. Live rooms, played by everyone at once (D-87, D-88).
  *
- * ONE callable, `versus({ op, … })`, rather than one per action (D-92). Every
+ * ONE callable, `multiplayer({ op, … })`, rather than one per action (D-92). Every
  * callable is its own Cloud Run service, and every service has its own cold
  * start: eight of them would mean a game whose first turn, first guess and
  * first tick each wait two seconds — and on a three-second Batata Quente turn
@@ -19,7 +19,7 @@
  * calls `tick` when its own countdown reaches zero. The first tick through the
  * transaction moves the game on and the rest find nothing due.
  *
- * Nothing here reaches `attempts`: a Versus result lives on its room and on no
+ * Nothing here reaches `attempts`: a Multijogador result lives on its room and on no
  * board (FR-12.1, the reason D-40 exists).
  */
 
@@ -39,7 +39,7 @@ import { GUESS_MIN_INTERVAL_MS } from "./lib/config";
 import { requireInviteToken, requireObject } from "./lib/validate";
 import {
   classicGiveUp, classicGuess, classicMine, presetById, startClassic, tickClassic, type ClassicSecrets,
-} from "./lib/versus";
+} from "./lib/multiplayer";
 import { mapBase, mapPiece } from "./lib/world";
 
 /** At most this many names in one `answer`: training's backlog (FR-12.5). */
@@ -90,7 +90,7 @@ function writePrompt(tx: Transaction, id: string, doc: PromptDoc): void {
   tx.set(roomSubRef(id, "prompts", String(doc.index)), plain(doc));
 }
 
-export const versus = callable<unknown, Record<string, unknown>>(async (uid, data, request) => {
+export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid, data, request) => {
   const body = requireObject(data);
   // The clock is read INSIDE each transaction, not once per call: Firestore
   // retries a contended transaction, and eight ticks racing one answer at a
@@ -166,7 +166,7 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
       const preset = presetById(peek.presetId);
       // D-91: the week of daily answers ahead is withheld, as in practice (D-60).
       // Read outside the transaction: it is a query over `puzzles`, which no
-      // Versus write touches, and the card is built once either way.
+      // Multijogador write touches, and the card is built once either way.
       const ahead = preset.spec ? await dailyAhead(Timestamp.now()) : [];
       const items = preset.spec ? buildCard(preset.spec, new Set(ahead)) : null;
       await db().runTransaction(async (tx) => {

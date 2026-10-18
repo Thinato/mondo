@@ -1,11 +1,11 @@
 /**
- * Versus rooms (FR-12.1): who is in, who hosts, and when it starts. Pure; times
+ * Multijogador rooms (FR-12.1): who is in, who hosts, and when it starts. Pure; times
  * are epoch milliseconds from the server clock.
  *
  * A room is reached by its link, and its link is its id: 16 characters of the
  * invite alphabet (D-32), so it cannot be guessed and nobody needs a group to
  * be in one. Anyone signed in may join, a guest included — that is the whole
- * point of Versus over tournaments (D-88). Only hosting is ranked: a room is
+ * point of Multijogador over tournaments (D-88). Only hosting is ranked: a room is
  * what invited players and subscribers can make, exactly like a group.
  *
  * The room document is readable by its players (D-87), so nothing here may

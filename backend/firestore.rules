@@ -24,7 +24,7 @@ rules_version = '2';
 // or membership-bearing is written by the Admin SDK only (SEC-6): puzzles,
 // attempts, challenges, groups and their members, invites, rooms. Every page
 // but one reads through callables, so these allows are defence in depth, not
-// the access path — except Versus's rooms, which sala.html listens to (D-87).
+// the access path — except Multijogador rooms, which sala.html listens to (D-87).
 // Tested in
 // functions/test/rules/, negative cases included; keep it that way.
 
@@ -128,10 +128,10 @@ service cloud.firestore {
     // project it the way cardView does.
     match /practice/{uid} { allow read, write: if false; }
 
-    // Versus (FR-12, D-87). The ONE place in this file where a read allow is
+    // Multijogador (FR-12, D-87). The ONE place in this file where a read allow is
     // the access path rather than defence in depth: sala.html listens to its
     // room, its prompts and its map with the Firestore SDK, which it loads and
-    // no other page does. Everything here is written by `versus` alone.
+    // no other page does. Everything here is written by `multiplayer` alone.
     //
     // What makes that safe is what the documents hold, not who may read them —
     // anyone with the link can join, a guest included. `rooms/{id}` carries

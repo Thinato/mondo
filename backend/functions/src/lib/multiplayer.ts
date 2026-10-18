@@ -1,5 +1,5 @@
 /**
- * Versus Clássico (FR-12.2): the challenge kinds, played live. Pure; times are
+ * Multijogador Clássico (FR-12.2): the challenge kinds, played live. Pure; times are
  * epoch milliseconds from the server clock.
  *
  * Everyone in the room gets the same challenge at the same moment, on one
@@ -26,7 +26,7 @@ import { revealOf } from "./hints";
 import { guessView, type GuessView } from "./round";
 import type { ClassicPublic, PromptDoc, Room, RoomMode } from "./room";
 
-export interface VersusPreset {
+export interface MultiplayerPreset {
   id: string;
   mode: RoomMode;
   /** Training (D-93): one player, no clock, open to anyone signed in, and started on create. */
@@ -35,7 +35,7 @@ export interface VersusPreset {
   spec?: CardSpec;
 }
 
-export const VERSUS_PRESETS: readonly VersusPreset[] = [
+export const MULTIPLAYER_PRESETS: readonly MultiplayerPreset[] = [
   { id: "mundo", mode: "potato" },
   { id: "treino", mode: "potato", solo: true },
   { id: "dia", mode: "classic", spec: { items: KIND_IDS.map((kind) => ({ kind, count: 1 })), order: "shuffled" } },
@@ -55,8 +55,8 @@ export const VERSUS_PRESETS: readonly VersusPreset[] = [
   },
 ];
 
-export function presetById(id: unknown): VersusPreset {
-  const p = VERSUS_PRESETS.find((x) => x.id === id);
+export function presetById(id: unknown): MultiplayerPreset {
+  const p = MULTIPLAYER_PRESETS.find((x) => x.id === id);
   if (!p) throw mondoError("invalid-argument", "Unknown game preset.");
   return p;
 }

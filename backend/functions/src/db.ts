@@ -43,7 +43,7 @@ export const tournamentsOf = (gid: string) => tournamentsCol().where("groupId", 
 export const runningTournaments = () => tournamentsCol().where("status", "==", "running");
 
 /**
- * Versus (FR-12, D-87). `rooms/{id}` and everything under it is readable by the
+ * Multijogador (FR-12, D-87). `rooms/{id}` and everything under it is readable by the
  * room's players — the one collection the client LISTENS to — so it must never
  * hold an answer. The Clássico card lives beside it in `roomSecrets`, which no
  * client can read, for the reason `cards` sits beside `tournaments` (D-39).
@@ -74,7 +74,7 @@ export async function dailySubjects(from: string, to: string): Promise<Set<strin
 }
 
 /**
- * D-60, D-91 — the daily subjects practice and Versus will not ask about: today's, and the
+ * D-60, D-91 — the daily subjects practice and Multijogador will not ask about: today's, and the
  * week ahead. Without this, "practise the `gdp` kind" is a machine for grinding
  * out today's answer: the daily's `gdp` prompt names its country, so a player
  * need only click through the pool until that country comes up and read the
