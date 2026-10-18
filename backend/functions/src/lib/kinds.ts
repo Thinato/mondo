@@ -207,6 +207,23 @@ export interface Reveal {
    * exactly one key — its artwork — and that test is what keeps this honest.
    */
   names?: readonly string[];
+  /**
+   * "Como reconhecer" (FR-14, D-101): how the answer could have been told
+   * apart — the patterns it belongs to, a note on the country, and for `gdp`
+   * where the figure sits in the world. Answer-bearing exactly like `about`,
+   * and added by `revealOf` in `lib/hints.ts`, never by a kind's own `reveal`,
+   * because only the caller knows which other subjects on the card are still
+   * open and a hint that names one of them would answer it early.
+   */
+  hints?: readonly Hint[];
+}
+
+/** One learning hint (FR-14). Plain text; the client sets it with textContent. */
+export interface Hint {
+  title: string;
+  text: string;
+  /** Other countries the pattern covers, pt-BR names, minus any still open on the card. */
+  also?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------

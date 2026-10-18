@@ -1,0 +1,5 @@
+{
+  "//": "Hand-written (FR-14, D-101), pt-BR, in our own words. `source` is for the reviewer and never sent. Validated by test/hints.test.ts; coverage by tools/hints-coverage.mjs.",
+  "patterns": [],
+  "notes": {}
+}

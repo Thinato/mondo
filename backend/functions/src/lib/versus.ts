@@ -22,6 +22,7 @@ import { applyCardGuess, giveUpCard, newCardCore, type CardCore, type CardItem, 
 import { mondoError } from "./errors";
 import { KIND_IDS, kindById, type KindId, type Reveal } from "./kinds";
 import type { SelfReport } from "./report";
+import { revealOf } from "./hints";
 import { guessView, type GuessView } from "./round";
 import type { ClassicPublic, PromptDoc, Room, RoomMode } from "./room";
 
@@ -165,7 +166,8 @@ function closeQuestion(room: Room, secrets: ClassicSecrets, now: number): { room
   return {
     room: { ...room, players, classic: { ...c, phase: "reveal", progress, deadline: now + REVEAL_MS } },
     secrets: { ...secrets, plays },
-    reveal: kindById(secrets.items[c.index]!.kind).reveal(secrets.items[c.index]!),
+    // FR-14: the items after this one are still to be asked, so a hint naming one waits.
+    reveal: revealOf(secrets.items[c.index]!, new Set(secrets.items.slice(c.index + 1).map((i) => i.subject))),
   };
 }
 
