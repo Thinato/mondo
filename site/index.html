@@ -4,14 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mondo — que país é este?</title>
+<meta name="google-adsense-account" content="ca-pub-6009839763524724">
 <meta name="description" content="Sete desafios por dia: silhueta, bandeira, capital, PIB per capita, qual é a bandeira, qual é a silhueta e onde nasceu essa pessoa.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
 <link rel="stylesheet" href="./mondo.css">
 <script>
-  // D-18: follow the parent site's theme choice (lisecki.dev/theme.js writes
-  // this key) before first paint. Without a choice, prefers-color-scheme rules.
+  // D-18: apply the stored theme choice (app/theme.js writes this key) before
+  // first paint. Without a choice, prefers-color-scheme rules.
   try {
     var th = localStorage.getItem("lisecki-theme");
     if (th === "light") document.documentElement.classList.add("light-mode");

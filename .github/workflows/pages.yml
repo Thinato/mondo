@@ -1,7 +1,8 @@
 # Publishes site/ to GitHub Pages.
 #
-# Served at lisecki.dev/mondo/ because the user site Thinato/thinato.github.io
-# carries the lisecki.dev custom domain, and project Pages sites inherit it (D-3).
+# Served at play-mondo.com, the custom domain set on this repo's Pages settings
+# (D-98) — not by a CNAME file, which an Actions deploy ignores. GitHub redirects
+# the old lisecki.dev/mondo/* to it.
 #
 # Only site/ is uploaded. backend/, infra/ and tools/ cannot leak through the
 # published site even by accident — which matters most for tools/out/, the
