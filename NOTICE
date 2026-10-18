@@ -76,9 +76,11 @@ a reader deserves to know where the drawings came from (OQ-11).
 
 tools/build-flags.mjs flattens each file to a list of filled paths and drops
 what it cannot express; the drawings themselves are not modified beyond
-coordinate rounding. One file is not from the set: tools/flag-overrides/sy.svg
+coordinate rounding. Two files are not from the set: tools/flag-overrides/sy.svg
 is the set's own Syria drawing with the colours and stars of the flag Syria
-adopted after December 2024, which the set predates.
+adopted after December 2024, which the set predates; tools/flag-overrides/id.svg
+is the set's own Indonesia drawing with Indonesia's red (#FF0000, as on
+Wikimedia Commons) in place of the set's #CE1126, which is Monaco's.
 
 
 -------------------------------------------------------------------------------

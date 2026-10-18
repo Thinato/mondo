@@ -55,7 +55,9 @@ const MIN_POOL = 150; // below this something in the converter regressed; fail t
 const SET = "svg-country-flags";
 const SVG_DIR = join(TOOLS, "node_modules", SET, "svg");
 // A flag the set has not caught up with is redrawn in tools/flag-overrides/ and
-// read from there instead: Syria (sy.svg) changed flag after December 2024.
+// read from there instead: Syria (sy.svg) changed flag after December 2024, and
+// the set paints Indonesia (id.svg) in Monaco's red, leaving the two flags
+// apart by their proportions alone (5:4 against 3:2).
 const OVERRIDE_DIR = join(TOOLS, "flag-overrides");
 const sourceOf = (code) => {
   const file = `${code.toLowerCase()}.svg`;
