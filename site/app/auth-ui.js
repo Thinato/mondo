@@ -41,13 +41,47 @@ export async function signInWithGoogle() {
 }
 
 /**
- * No session at all: become a guest straight away, so the game plays without a
- * sign-in wall (D-84). If the project refuses anonymous sign-in — the provider
- * not yet enabled — show the Google button instead, which is how every page
- * worked before guests existed.
+ * No session at all: ask once whether to sign in with Google or play as a guest
+ * (D-99). It is a question, not a wall (D-84) — one click plays, and closing the
+ * dialog any other way, Escape included, is the guest answer. It is asked
+ * because a returning player lands here signed out (a new browser, Sair, the
+ * D-98 move) and silently becoming a guest gave them an empty account.
+ *
+ * Built here, not in each page's HTML: every page reaches it through this one
+ * function. If the project refuses anonymous sign-in — the provider not yet
+ * enabled — the guest answer shows the Google button instead.
  */
-export function playAsGuest(signedOut) {
-  signInAnonymously(auth).catch(() => { if (signedOut) signedOut.hidden = false; });
+let welcoming = false;
+export function welcome(signedOut) {
+  if (welcoming) return;
+  welcoming = true;
+  const dialog = document.createElement("dialog");
+  dialog.className = "welcome";
+  const node = (tag, text, className) => Object.assign(document.createElement(tag), { textContent: text, className: className ?? "" });
+  const status = node("p", "", "fine");
+  status.setAttribute("aria-live", "polite");
+  const google = node("button", t("signIn"), "primary");
+  google.autofocus = true;
+  const guest = node("button", t("welcomeGuest"), "secondary");
+  const actions = node("div", "", "actions");
+  actions.append(google, guest);
+  dialog.append(node("h2", t("welcomeTitle")), node("p", t("welcomeText")), node("p", t("welcomeBack")), status, actions);
+
+  google.addEventListener("click", async () => {
+    google.disabled = true;
+    status.textContent = t("openingLogin");
+    try { await signInWithPopup(auth, googleProvider); dialog.close(); }
+    catch (err) { status.textContent = err?.code === "auth/popup-closed-by-user" ? "" : errorMessage(err); }
+    finally { google.disabled = false; }
+  });
+  guest.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => {
+    dialog.remove();
+    welcoming = false;
+    if (!auth.currentUser) signInAnonymously(auth).catch(() => { if (signedOut) signedOut.hidden = false; });
+  });
+  document.body.append(dialog);
+  dialog.showModal();
 }
 
 /**
@@ -86,7 +120,7 @@ export function watchAuth({ signIn, signOut, signedOut, account, adminLink, setS
   wireAccountButton(signOut, setStatus);
   attachAccount(account);
   onAuthStateChanged(auth, (user) => {
-    if (!user) playAsGuest(signedOut);
+    if (!user) welcome(signedOut);
     else if (signedOut) signedOut.hidden = true;
     labelAccountButton(signOut, user);
     showAccount(account, user);

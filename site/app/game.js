@@ -14,7 +14,7 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/fi
 import "./theme.js";
 import { auth } from "./firebase.js";
 import * as api from "./api.js";
-import { applyIdentity, ask, attachAccount, googleClick, labelAccountButton, playAsGuest, showAccount, wireAccountButton } from "./auth-ui.js";
+import { applyIdentity, ask, attachAccount, googleClick, labelAccountButton, showAccount, welcome, wireAccountButton } from "./auth-ui.js";
 import { attach, createIndex, loadCountries } from "./autocomplete.js";
 import { confetti } from "./confetti.js";
 import { guessRow, isPick, renderAbout, renderFlag, renderOptions, renderPerson, renderShape } from "./geo.js";
@@ -79,7 +79,7 @@ el.signIn.addEventListener("click", () => googleClick(el.signIn, (text, cls) => 
 wireAccountButton(el.signOut, (text, cls) => setStatus(text, cls));
 el.guestSignIn.addEventListener("click", () => googleClick(el.guestSignIn, (text, cls) => setStatus(text, cls)));
 
-// No session means a new guest (D-84), and it is also where sign-out lands:
+// No session means the welcome question (D-99), and it is also where sign-out lands:
 // whoever is next on this browser starts from nothing (FR-1.6).
 onAuthStateChanged(auth, (user) => {
   if (!user) {
@@ -89,7 +89,7 @@ onAuthStateChanged(auth, (user) => {
     el.guesses.replaceChildren();
     el.side.hidden = true;
     el.streak.hidden = true;
-    playAsGuest(el.signedOut);
+    welcome(el.signedOut);
   } else {
     el.signedOut.hidden = true;
   }

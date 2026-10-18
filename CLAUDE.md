@@ -302,8 +302,9 @@ backend.
   build. Do not add a read of `assets/` back.
 - Local runs use the `demo-mondo` project id and `npx firebase-tools`, not the Homebrew
   `firebase` binary. See `docs/02-architecture.md` §8.
-- **A visitor is a guest before they are anything else** (FR-10.1, D-85). Every page signs a
-  sessionless browser in anonymously, so the daily plays with no wall; "Entrar com Google" on a guest
+- **A visitor is asked once, and a guest is one click** (FR-1.8, FR-10.1, D-85, D-99). Every page
+  meets a sessionless browser with `welcome()` in `auth-ui.js`: Google, or continue as a guest —
+  and closing the dialog any other way is the guest answer, so the daily still plays with no wall; "Entrar com Google" on a guest
   is `linkWithPopup`, which keeps the uid and so keeps the day, then reloads so every page re-asks the
   server who it is — an invite link in the URL included. `#signed-out` is the fallback for a project
   that refuses anonymous sign-in, never the front door. **App Check (SEC-18) ships in monitor mode**:
