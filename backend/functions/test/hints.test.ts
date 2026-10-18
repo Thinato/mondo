@@ -9,7 +9,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { peopleFor } from "../src/lib/countries";
+import { Timestamp } from "firebase-admin/firestore";
+import { cardView, giveUpCard, newCardPlay, type CardItem } from "../src/lib/card";
+import { COUNTRIES, peopleFor } from "../src/lib/countries";
 import { KINDS, type Challenge, type KindId } from "../src/lib/kinds";
 import { CATALOGUE, gdpHint, hintsFor, MAX_HINTS, mentionsOf, openSubjects, revealOf, TOPIC_OF, TOPICS, type Catalogue } from "../src/lib/hints";
 
@@ -84,9 +86,79 @@ test("FR-14: openSubjects is the unfinished items' subjects", () => {
   assert.deepEqual([...openSubjects(card, [{ finishedAt: 1 }, { finishedAt: null }, { finishedAt: null }])], ["ID", "BR"]);
 });
 
+test("SEC-1 / D-101: on a card, Monaco's answer holds back what Indonesia's flag would give away", () => {
+  const pair = CATALOGUE.patterns.find((p) => p.topic === "flag" && p.countries.includes("MC") && p.countries.includes("ID"));
+  assert.ok(pair, "the catalogue carries the Monaco/Indonesia pair");
+  const card: CardItem[] = [{ kind: "flag", subject: "MC" }, { kind: "flag", subject: "ID" }];
+  const t0 = Timestamp.fromMillis(Date.parse("2026-10-18T15:00:00Z"));
+  const after = (ms: number) => Timestamp.fromMillis(t0.toMillis() + ms);
+  const fresh = newCardPlay("u1", "t1", "t1_r1", card, t0);
+  const one = { ...fresh, ...giveUpCard(fresh, card, after(1000)) };
+  const titles = (v: ReturnType<typeof cardView>, i: number) => (v.items[i]!.answer?.hints ?? []).map((h) => h.title);
+  assert.ok(!titles(cardView(one, card, after(1000)), 0).includes(pair.title), "withheld while Indonesia is open");
+  const both = { ...one, ...giveUpCard(one, card, after(2000)) };
+  assert.ok(titles(cardView(both, card, after(2000)), 0).includes(pair.title), "shown once the card is over");
+  // And no prompt ever carries one.
+  assert.equal("hints" in (cardView(newCardPlay("u1", "t1", "t1_r1", card, t0), card, t0).prompt ?? {}), false);
+});
+
 test("FR-14: the GDP hint places the figure — rank, the continent's median, growth when known", () => {
   const h = gdpHint("BR");
   assert.ok(h);
   assert.match(h.text, /^\d+º de \d+ em PIB per capita, (perto da|[\d,]+× a) mediana da América\. De 2013 a 2023, já descontada a inflação, /);
   assert.equal(gdpHint("KP"), null, "no figure, no hint");
+});
+
+// ---------------------------------------------------------------------------
+// The real catalogue
+// ---------------------------------------------------------------------------
+
+const entries = () => [
+  ...CATALOGUE.patterns.map((p) => ({ where: p.id, e: p })),
+  ...Object.entries(CATALOGUE.notes).flatMap(([topic, notes]) => Object.entries(notes ?? {}).map(([code, e]) => ({ where: `${topic}/${code}`, e }))),
+];
+const POOL: Record<string, Set<string>> = Object.fromEntries(
+  TOPICS.map((t) => [t, new Set((Object.keys(KINDS) as KindId[]).filter((k) => TOPIC_OF[k] === t).flatMap((k) => KINDS[k].pool().map((c) => c.code)))]),
+);
+
+test("catalogue: every entry is short, sourced, and in our own plain text", () => {
+  for (const { where, e } of entries()) {
+    assert.ok(e.title.length > 0 && e.title.length <= 40, `${where}: title length ${e.title.length}`);
+    assert.ok(e.text.length >= 40 && e.text.length <= 320, `${where}: text length ${e.text.length}`);
+    assert.match(e.source, /^https:\/\//, `${where}: source`);
+    assert.doesNotMatch(e.text, /[<>]/, `${where}: plain text only`);
+  }
+});
+
+test("catalogue: every code is a country, and every pattern can actually be shown", () => {
+  const ids = new Set<string>();
+  for (const p of CATALOGUE.patterns) {
+    assert.ok(!ids.has(p.id), `duplicate id ${p.id}`);
+    ids.add(p.id);
+    assert.ok(TOPICS.includes(p.topic), `${p.id}: topic`);
+    assert.ok(p.countries.length > 0, `${p.id}: no countries`);
+    for (const c of p.countries) assert.ok(COUNTRIES.has(c), `${p.id}: unknown code ${c}`);
+    assert.ok(p.countries.some((c) => POOL[p.topic]!.has(c)), `${p.id}: no member is ever asked about`);
+    assert.equal(p.match !== undefined, p.topic === "person", `${p.id}: match is for person patterns, and they need one`);
+  }
+  for (const [topic, notes] of Object.entries(CATALOGUE.notes)) {
+    for (const code of Object.keys(notes ?? {})) assert.ok(POOL[topic]?.has(code), `note ${topic}/${code}: not in the pool`);
+  }
+});
+
+test("catalogue: every name pattern fits somebody it would be shown for", () => {
+  for (const p of CATALOGUE.patterns.filter((x) => x.match !== undefined)) {
+    const re = new RegExp(p.match!, "u");
+    const hits = p.countries.flatMap((c) => peopleFor(c).filter((x) => re.test(x.name)));
+    assert.ok(hits.length > 0, `${p.id}: matches nobody in people.json`);
+  }
+});
+
+test("catalogue: the look-alike pairs are there", () => {
+  for (const pair of [["MC", "ID"], ["TD", "RO"], ["AU", "NZ"], ["NL", "LU"], ["IE", "CI"]]) {
+    assert.ok(
+      CATALOGUE.patterns.some((p) => p.topic === "flag" && pair.every((c) => p.countries.includes(c))),
+      `no flag pattern for ${pair.join("/")}`,
+    );
+  }
 });

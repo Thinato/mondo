@@ -1,5 +1,1115 @@
 {
-  "//": "Hand-written (FR-14, D-101), pt-BR, in our own words. `source` is for the reviewer and never sent. Validated by test/hints.test.ts; coverage by tools/hints-coverage.mjs.",
-  "patterns": [],
-  "notes": {}
+ "//": "Hand-written (FR-14, D-101), pt-BR, in our own words. `source` is for the reviewer and never sent. Validated by test/hints.test.ts; coverage by tools/hints-coverage.mjs.",
+ "patterns": [
+  {
+   "id": "pan-african",
+   "topic": "flag",
+   "title": "Cores pan-africanas",
+   "text": "Verde, amarelo e vermelho vêm da bandeira etíope: a Etiópia nunca foi colonizada e virou símbolo da independência africana. Depois que Gana as adotou em 1957, boa parte da África Ocidental fez o mesmo.",
+   "countries": [
+    "ET",
+    "GH",
+    "GN",
+    "ML",
+    "SN",
+    "CM",
+    "BJ",
+    "TG",
+    "BF",
+    "GW",
+    "CG",
+    "ST",
+    "ZW"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Cores_pan-africanas"
+  },
+  {
+   "id": "garvey",
+   "topic": "flag",
+   "title": "Vermelho, preto e verde",
+   "text": "A outra paleta pan-africana: vermelho, preto e verde, da bandeira criada por Marcus Garvey em 1920. Aparece sobretudo na África Oriental.",
+   "countries": [
+    "KE",
+    "MW",
+    "SS"
+   ],
+   "source": "https://en.wikipedia.org/wiki/Pan-African_flag"
+  },
+  {
+   "id": "arab-revolt",
+   "topic": "flag",
+   "title": "Cores da Revolta Árabe",
+   "text": "Vermelho, branco, preto e verde são as cores da Revolta Árabe de 1916 contra o Império Otomano. Um triângulo junto ao mastro ou listras dessas quatro cores apontam para o mundo árabe.",
+   "countries": [
+    "JO",
+    "PS",
+    "SD",
+    "AE",
+    "KW",
+    "SY",
+    "IQ",
+    "YE",
+    "LY"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Cores_pan-árabes"
+  },
+  {
+   "id": "nordic-cross",
+   "topic": "flag",
+   "title": "Cruz nórdica",
+   "text": "Uma cruz deitada, deslocada para o lado do mastro, é a cruz nórdica. Nasceu na bandeira dinamarquesa, a mais antiga ainda em uso, e os vizinhos a copiaram com outras cores.",
+   "countries": [
+    "DK",
+    "SE",
+    "NO",
+    "FI",
+    "IS"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Cruz_nórdica"
+  },
+  {
+   "id": "pan-slavic",
+   "topic": "flag",
+   "title": "Cores pan-eslavas",
+   "text": "Branco, azul e vermelho são as cores pan-eslavas, escolhidas em 1848 a partir da tricolor russa. Uma tricolor horizontal nessas cores quase sempre é de um país eslavo.",
+   "countries": [
+    "RU",
+    "SK",
+    "SI",
+    "CZ",
+    "RS",
+    "HR"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Cores_pan-eslavas"
+  },
+  {
+   "id": "gran-colombia",
+   "topic": "flag",
+   "title": "A Grã-Colômbia de Bolívar",
+   "text": "Amarelo, azul e vermelho na horizontal vêm da Grã-Colômbia de Simón Bolívar, dividida em 1830. A Colômbia tem o amarelo com o dobro da largura; a Venezuela tem faixas iguais e um arco de estrelas.",
+   "countries": [
+    "CO",
+    "VE",
+    "EC"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Grã-Colômbia"
+  },
+  {
+   "id": "central-america",
+   "topic": "flag",
+   "title": "Azul, branco, azul",
+   "text": "Duas faixas azuis com uma branca no meio lembram a antiga Federação Centro-Americana: o azul são os dois oceanos, e o branco, a terra entre eles.",
+   "countries": [
+    "HN",
+    "NI",
+    "SV",
+    "GT",
+    "CR"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/República_Federal_da_América_Central"
+  },
+  {
+   "id": "union-jack",
+   "topic": "flag",
+   "title": "A Union Jack no canto",
+   "text": "A bandeira britânica no canto superior junto ao mastro marca uma ex-colônia que manteve o símbolo. Entre países independentes, isso só sobreviveu na Oceania.",
+   "countries": [
+    "AU",
+    "NZ",
+    "FJ",
+    "TV"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Union_Jack"
+  },
+  {
+   "id": "southern-cross",
+   "topic": "flag",
+   "title": "O Cruzeiro do Sul",
+   "text": "O Cruzeiro do Sul só é visível do hemisfério sul, e por isso aparece nas bandeiras de países de lá — em geral quatro ou cinco estrelas formando uma cruz torta.",
+   "countries": [
+    "AU",
+    "NZ",
+    "PG",
+    "WS",
+    "BR"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Cruzeiro_do_Sul"
+  },
+  {
+   "id": "crescent",
+   "topic": "flag",
+   "title": "Lua crescente e estrela",
+   "text": "Crescente e estrela vêm das bandeiras do Império Otomano e viraram símbolo do mundo muçulmano. Quase sempre indicam um país de maioria islâmica, do norte da África à Ásia Central.",
+   "countries": [
+    "TR",
+    "PK",
+    "DZ",
+    "TN",
+    "LY",
+    "MR",
+    "MY",
+    "AZ",
+    "UZ",
+    "KM",
+    "MV"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Estrela_e_crescente"
+  },
+  {
+   "id": "vertical-tricolour",
+   "topic": "flag",
+   "title": "Tricolor vertical",
+   "text": "Três faixas verticais seguem o modelo da bandeira da Revolução Francesa. Muitas ex-colônias francesas da África adotaram o mesmo formato com outras cores.",
+   "countries": [
+    "FR",
+    "IT",
+    "IE",
+    "BE",
+    "RO",
+    "MD",
+    "TD",
+    "ML",
+    "GN",
+    "CI",
+    "SN",
+    "NG",
+    "CM"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_tricolor"
+  },
+  {
+   "id": "red-star",
+   "topic": "flag",
+   "title": "China ou Vietnã?",
+   "text": "Fundo vermelho com estrela amarela é herança comunista. O Vietnã tem uma estrela grande bem no centro; a China tem uma grande e quatro pequenas no canto.",
+   "countries": [
+    "CN",
+    "VN"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Vietnã"
+  },
+  {
+   "id": "may-sun",
+   "topic": "flag",
+   "title": "O Sol de Maio",
+   "text": "O sol com rosto é o Sol de Maio, símbolo da independência no Rio da Prata. A Argentina o põe no centro de uma faixa branca; o Uruguai, no canto, ao lado de listras.",
+   "countries": [
+    "AR",
+    "UY"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Sol_de_Maio"
+  },
+  {
+   "id": "stripes-canton",
+   "topic": "flag",
+   "title": "Listras e um cantão",
+   "text": "Listras horizontais com um cantão no alto, junto ao mastro, seguem o modelo dos Estados Unidos. A Libéria foi fundada por ex-escravizados americanos; a Malásia usa a lua e a estrela no cantão.",
+   "countries": [
+    "US",
+    "LR",
+    "MY"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Libéria"
+  },
+  {
+   "id": "pair-mc-id",
+   "topic": "flag",
+   "title": "Mônaco, Indonésia ou Polônia?",
+   "text": "Vermelho em cima e branco embaixo. A de Mônaco é quase quadrada (4:5) e de um vermelho mais escuro; a da Indonésia é 2:3, de um vermelho vivo. A da Polônia é o contrário: branco em cima.",
+   "countries": [
+    "MC",
+    "ID",
+    "PL"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Indonésia"
+  },
+  {
+   "id": "pair-td-ro",
+   "topic": "flag",
+   "title": "Chade ou Romênia?",
+   "text": "Azul, amarelo e vermelho na vertical, quase idênticas: a diferença é só o tom. O azul do Chade é mais escuro que o da Romênia.",
+   "countries": [
+    "TD",
+    "RO"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Chade"
+  },
+  {
+   "id": "pair-au-nz",
+   "topic": "flag",
+   "title": "Austrália ou Nova Zelândia?",
+   "text": "Fundo azul, Union Jack e estrelas. A Austrália tem estrelas brancas, com uma grande de sete pontas sob a Union Jack; a Nova Zelândia tem quatro estrelas vermelhas com borda branca.",
+   "countries": [
+    "AU",
+    "NZ"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Nova_Zelândia"
+  },
+  {
+   "id": "pair-nl-lu",
+   "topic": "flag",
+   "title": "Holanda ou Luxemburgo?",
+   "text": "Vermelho, branco e azul na horizontal. O Luxemburgo usa um azul-claro e é mais comprido; a Holanda tem um azul escuro.",
+   "countries": [
+    "NL",
+    "LU"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_de_Luxemburgo"
+  },
+  {
+   "id": "pair-ie-ci",
+   "topic": "flag",
+   "title": "Irlanda ou Costa do Marfim?",
+   "text": "Verde, branco e laranja na vertical, em ordens opostas. Na Irlanda o verde fica junto ao mastro; na Costa do Marfim, o laranja.",
+   "countries": [
+    "IE",
+    "CI"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Costa_do_Marfim"
+  },
+  {
+   "id": "pair-sn-ml-gn",
+   "topic": "flag",
+   "title": "Senegal, Mali ou Guiné?",
+   "text": "Verde, amarelo e vermelho na vertical. O Senegal tem uma estrela verde no centro, o Mali não tem nada, e a Guiné inverte a ordem, com o vermelho junto ao mastro.",
+   "countries": [
+    "SN",
+    "ML",
+    "GN"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Senegal"
+  },
+  {
+   "id": "pair-qa-bh",
+   "topic": "flag",
+   "title": "Catar ou Bahrein?",
+   "text": "Branco junto ao mastro, separado por uma borda serrilhada. O Catar é grená e tem nove pontas; o Bahrein é vermelho e tem cinco.",
+   "countries": [
+    "QA",
+    "BH"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Catar"
+  },
+  {
+   "id": "pair-ru-sk-si",
+   "topic": "flag",
+   "title": "Rússia, Eslováquia ou Eslovênia?",
+   "text": "As três são branco, azul e vermelho na horizontal. A Rússia não tem brasão; a Eslováquia tem uma cruz dupla branca sobre montanhas azuis; a Eslovênia, um monte branco com estrelas, mais perto do canto.",
+   "countries": [
+    "RU",
+    "SK",
+    "SI"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Eslovénia"
+  },
+  {
+   "id": "pair-no-is",
+   "topic": "flag",
+   "title": "Noruega ou Islândia?",
+   "text": "Mesmas cores e a mesma cruz nórdica de borda branca. A Noruega tem fundo vermelho e cruz azul; a Islândia, fundo azul e cruz vermelha.",
+   "countries": [
+    "NO",
+    "IS"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Islândia"
+  },
+  {
+   "id": "pair-at-lv",
+   "topic": "flag",
+   "title": "Áustria ou Letônia?",
+   "text": "Vermelho, branco e vermelho na horizontal. O vermelho da Letônia é um carmim escuro e a faixa branca é bem mais fina; na Áustria as três faixas têm a mesma largura.",
+   "countries": [
+    "AT",
+    "LV"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Letónia"
+  },
+  {
+   "id": "pair-be-de",
+   "topic": "flag",
+   "title": "Bélgica ou Alemanha?",
+   "text": "Preto, amarelo e vermelho: na Bélgica em faixas verticais, com o preto junto ao mastro; na Alemanha em faixas horizontais, com o preto em cima.",
+   "countries": [
+    "BE",
+    "DE"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Bélgica"
+  },
+  {
+   "id": "pair-jo-ps",
+   "topic": "flag",
+   "title": "Jordânia ou Palestina?",
+   "text": "Mesmo triângulo vermelho e mesmas listras preta, branca e verde. A Jordânia tem uma estrela branca de sete pontas no triângulo; a Palestina não tem estrela.",
+   "countries": [
+    "JO",
+    "PS"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Palestina"
+  },
+  {
+   "id": "name-icelandic",
+   "topic": "person",
+   "title": "Patronímicos islandeses",
+   "text": "Na Islândia quase ninguém tem sobrenome de família: usa-se o nome do pai mais -son (filho) ou -dóttir (filha). As letras þ e ð, que só o islandês ainda usa, também entregam.",
+   "countries": [
+    "IS"
+   ],
+   "source": "https://en.wikipedia.org/wiki/Icelandic_name",
+   "match": "(son|dóttir)(?!\\p{L})|[ÞþÐð]"
+  },
+  {
+   "id": "name-slavic-ov",
+   "topic": "person",
+   "title": "Sobrenomes em -ov e -ev",
+   "text": "-ov e -ev (no feminino, -ova e -eva) são sufixos russos de 'filho de'. Aparecem em toda a ex-União Soviética, inclusive na Ásia Central, e na Bulgária.",
+   "countries": [
+    "RU",
+    "BY",
+    "UA",
+    "BG",
+    "MK",
+    "KZ",
+    "UZ",
+    "KG",
+    "TJ",
+    "TM",
+    "AZ"
+   ],
+   "source": "https://en.wikipedia.org/wiki/Eastern_Slavic_naming_customs",
+   "match": "(ov|ova|ev|eva)(?!\\p{L})"
+  },
+  {
+   "id": "name-slavic-ski",
+   "topic": "person",
+   "title": "Sobrenomes em -ski e -sky",
+   "text": "-ski (ou -sky, na grafia russa) é a terminação eslava de 'de tal lugar'. É típica da Polônia e comum na Rússia, na Ucrânia e na Bielorrússia.",
+   "countries": [
+    "PL",
+    "RU",
+    "UA",
+    "BY",
+    "LT"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Sobrenome",
+   "match": "(ski|sky|ska|skaya|skiy)(?!\\p{L})"
+  },
+  {
+   "id": "name-georgian",
+   "topic": "person",
+   "title": "Sobrenomes georgianos",
+   "text": "Terminações como -shvili e -dze ('filho de') são georgianas. O nome de batismo de Stalin era Jughashvili.",
+   "countries": [
+    "GE"
+   ],
+   "source": "https://en.wikipedia.org/wiki/Georgian_name",
+   "match": "(shvili|dze)(?!\\p{L})"
+  },
+  {
+   "id": "name-armenian",
+   "topic": "person",
+   "title": "Sobrenomes em -yan e -ian",
+   "text": "-yan ou -ian é a terminação armênia mais comum. Tbilisi, na Geórgia, teve uma grande comunidade armênia, e muitos armênios famosos nasceram lá.",
+   "countries": [
+    "AM",
+    "GE"
+   ],
+   "source": "https://en.wikipedia.org/wiki/Armenian_name",
+   "match": "(yan|ian)(?!\\p{L})"
+  },
+  {
+   "id": "name-arab-bin",
+   "topic": "person",
+   "title": "bin, bint e Al",
+   "text": "bin e bint significam 'filho de' e 'filha de'; Al antes do nome da família indica a casa a que se pertence. A combinação, como em Al Thani ou Al Nahyan, é típica das monarquias da Península Arábica.",
+   "countries": [
+    "SA",
+    "AE",
+    "QA",
+    "BH",
+    "KW",
+    "OM",
+    "YE"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Nome_árabe",
+   "match": "\\b(bin|ibn|Ibn|Bin|bint|Al|al)\\b"
+  },
+  {
+   "id": "name-korean",
+   "topic": "person",
+   "title": "Nomes coreanos",
+   "text": "Kim, Lee (ou Yi, ou Ri) e Park são os três sobrenomes mais comuns da Coreia e vêm primeiro. O nome de batismo costuma ter duas sílabas ligadas por hífen, como Il-sung.",
+   "countries": [
+    "KP",
+    "KR"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Nome_coreano",
+   "match": "^(Kim|Lee|Yi|Ri|Park|Pak|Choi|Jung|Kang|Ban|Moon|Rhee|Roh|Syngman)\\b|-\\p{Ll}+$"
+  },
+  {
+   "id": "name-chinese",
+   "topic": "person",
+   "title": "Nomes chineses",
+   "text": "O sobrenome chinês vem primeiro e tem uma sílaba só: Wang, Li, Zhang, Chen, Mao. O nome vem depois, com uma ou duas sílabas.",
+   "countries": [
+    "CN",
+    "TW"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Nome_chinês",
+   "match": "^(Wang|Li|Zhang|Liu|Chen|Yang|Zhao|Huang|Zhou|Wu|Xu|Sun|Ma|Zhu|Hu|Guo|He|Lin|Deng|Mao|Chiang|Jiang|Xi|Qin|Cao|Lu|Kong|Han|Tang|Song|Yuan|Tsai|Teng|Zheng)\\b"
+  },
+  {
+   "id": "name-vietnamese",
+   "topic": "person",
+   "title": "Nomes vietnamitas",
+   "text": "Nguyễn, Trần, Lê, Hồ e Võ são sobrenomes vietnamitas, e vêm primeiro. Letras com dois acentos empilhados, como ứ ou ộ, só existem no alfabeto vietnamita.",
+   "countries": [
+    "VN"
+   ],
+   "source": "https://en.wikipedia.org/wiki/Vietnamese_name",
+   "match": "\\b(Nguyễn|Nguyen|Trần|Tran|Lê|Phạm|Ho|Hồ|Vo|Võ|Ngô|Ngo|Thích|Thich)\\b|[ạảấầẩẫậắằẳẵặẹẻẽếềểễệịỉọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹđĐ]"
+  },
+  {
+   "id": "name-indic",
+   "topic": "person",
+   "title": "Nomes de raiz sânscrita",
+   "text": "Raj (rei), Rama, Krishna, Chandra (lua), Singh (leão) e Kumar vêm do sânscrito e são marcas de nomes indianos — e também nepaleses, que partilham a mesma tradição.",
+   "countries": [
+    "IN",
+    "NP"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Sânscrito",
+   "match": "\\b(Raj\\p{L}*|Ram|Rama\\p{L}*|Krishna\\p{L}*|Singh|Kumar|Rao|Sharma|Gandhi|Swami|Nehru|Patel|Bose|Devi|Lal|Chandra\\p{L}*|Indira)(?!\\p{L})"
+  },
+  {
+   "id": "name-finnic",
+   "topic": "person",
+   "title": "Vogais dobradas",
+   "text": "Vogais dobradas (aa, ää, uu), muitos ä e a terminação -nen são marcas do finlandês — e do estoniano, seu parente próximo.",
+   "countries": [
+    "FI",
+    "EE"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Língua_finlandesa",
+   "match": "[Aa]a|ää|öö|uu|yy|ii|nen(?!\\p{L})|ä(?!\\p{L})"
+  },
+  {
+   "id": "name-spanish-ez",
+   "topic": "person",
+   "title": "Sobrenomes em -ez",
+   "text": "-ez quer dizer 'filho de' em espanhol: Rodríguez é o filho de Rodrigo, Pérez o de Pedro. Em português o mesmo sufixo vira -es, como em Rodrigues e Fernandes.",
+   "countries": [
+    "ES",
+    "MX",
+    "AR",
+    "CO",
+    "CL",
+    "PE",
+    "VE",
+    "CU",
+    "EC",
+    "BO",
+    "PY",
+    "UY",
+    "DO",
+    "GT",
+    "HN",
+    "NI",
+    "SV",
+    "CR",
+    "PA"
+   ],
+   "source": "https://en.wikipedia.org/wiki/Patronymic",
+   "match": "\\p{Ll}ez(?!\\p{L})"
+  },
+  {
+   "id": "name-dutch",
+   "topic": "person",
+   "title": "van e der",
+   "text": "van ('de') e van der ('do', 'da') antes do sobrenome, escritos em minúscula, são holandeses e flamengos.",
+   "countries": [
+    "NL",
+    "BE",
+    "ZA",
+    "SR"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Língua_neerlandesa",
+   "match": "\\b(van|Van|der|den|ten|ter)(?!\\p{L})"
+  },
+  {
+   "id": "name-scandinavian",
+   "topic": "person",
+   "title": "-sen e -son",
+   "text": "-sen é a terminação dinamarquesa e norueguesa de 'filho de'; os suecos escrevem -son. As letras å, ø e æ também são escandinavas.",
+   "countries": [
+    "DK",
+    "NO",
+    "SE"
+   ],
+   "source": "https://en.wikipedia.org/wiki/Patronymic",
+   "match": "(sen|son)(?!\\p{L})|[åøæÅØÆ]"
+  },
+  {
+   "id": "name-japanese",
+   "topic": "person",
+   "title": "Sílabas japonesas",
+   "text": "O japonês é feito de sílabas abertas, quase sempre consoante mais vogal: Ku-ro-sa-wa, Mi-ya-za-ki. Um nome inteiro assim, sem L nem encontros como 'tr', é quase sempre japonês.",
+   "countries": [
+    "JP"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Língua_japonesa",
+   "match": "^(?:(?:[KkGgSsZzTtDdNnHhBbPpMmYyRrWwFfJj]|[Ss]h|[Cc]h|[Tt]s)?[aeiouōūAEIOUŌŪ]n?[ -]?)+$"
+  },
+  {
+   "id": "name-baltic",
+   "topic": "person",
+   "title": "Terminações bálticas",
+   "text": "Lituano e letão estão entre as línguas mais antigas da Europa e põem terminações em quase todo nome masculino: -as, -is, -us. O letão ainda usa vogais com traço em cima, como ā e ī.",
+   "countries": [
+    "LT",
+    "LV"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Línguas_bálticas",
+   "match": "(as|is|us|ys|ė|s)(?!\\p{L})|[āīēūļņķģ]"
+  },
+  {
+   "id": "name-malagasy",
+   "topic": "person",
+   "title": "Nomes malgaxes",
+   "text": "Nomes que começam com Ra- ou Andria- (nobre) e passam de dez letras são malgaxes, como Ranavalona e Andrianampoinimerina.",
+   "countries": [
+    "MG"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Língua_malgaxe",
+   "match": "\\b(Ra|Andria)\\p{Ll}{3,}"
+  },
+  {
+   "id": "name-persian",
+   "topic": "person",
+   "title": "Nomes xiitas",
+   "text": "Terminações como -ollah e -ullah ('de Deus') e nomes como Reza, o oitavo imã, são comuns entre xiitas, e o Irã é o maior país xiita do mundo.",
+   "countries": [
+    "IR"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Xiismo",
+   "match": "(zadeh|ollah|ullah|lláh)(?!\\p{L})|\\bReza\\b"
+  },
+  {
+   "id": "name-balkan",
+   "topic": "person",
+   "title": "Sobrenomes em -ić",
+   "text": "-ić (dito 'itch') é o 'filho de' dos Bálcãs, nos países da antiga Iugoslávia que falam servo-croata.",
+   "countries": [
+    "RS",
+    "HR",
+    "BA",
+    "ME"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Língua_servo-croata",
+   "match": "(ović|ević|vić|ić)(?!\\p{L})"
+  },
+  {
+   "id": "name-thai",
+   "topic": "person",
+   "title": "Nomes tailandeses",
+   "text": "Nomes tailandeses costumam ser longos e cheios de sílabas, muitas vezes com mais de dez letras: vêm do sânscrito e do páli.",
+   "countries": [
+    "TH"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Língua_tailandesa",
+   "match": "\\p{L}{10,}"
+  },
+  {
+   "id": "name-ethiopian",
+   "topic": "person",
+   "title": "Nomes etíopes",
+   "text": "Haile ('força de'), Gebre ('servo de') e Wolde ('filho de') são começos de nomes etíopes de tradição cristã ortodoxa. Na Etiópia, o segundo nome é o do pai.",
+   "countries": [
+    "ET",
+    "ER"
+   ],
+   "source": "https://en.wikipedia.org/wiki/Habesha_name",
+   "match": "\\b(Haile|Selassie|Menelik|Tewodros|Yohannes|Abebe|Gebre\\p{L}*|Tekle\\p{L}*|Wolde\\p{L}*)\\b"
+  },
+  {
+   "id": "name-german",
+   "topic": "person",
+   "title": "-stein, -mann e von",
+   "text": "-stein, -mann, -berg, a partícula von e o ß são marcas do alemão — falado na Alemanha, na Áustria e em boa parte da Suíça.",
+   "countries": [
+    "DE",
+    "AT",
+    "CH",
+    "LI"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Língua_alemã",
+   "match": "sch|(stein|mann|berg)(?!\\p{L})|\\bvon\\b|ß|[äöü]"
+  },
+  {
+   "id": "name-greek",
+   "topic": "person",
+   "title": "Sobrenomes gregos",
+   "text": "-poulos ('filho de'), -akis, -idis e -ides são terminações gregas; no Chipre, onde também se fala grego, são igualmente comuns.",
+   "countries": [
+    "GR",
+    "CY"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Língua_grega",
+   "match": "(poulos|akis|idis|ides|iades|iou)(?!\\p{L})"
+  },
+  {
+   "id": "cap-port",
+   "topic": "capital",
+   "title": "Capitais 'Port' e 'Porto'",
+   "text": "Port Louis, Port Moresby, Port of Spain, Porto-Novo: capitais que nasceram como portos coloniais, quase sempre em ilhas ou em ex-colônias britânicas e francesas.",
+   "countries": [
+    "MU",
+    "PG",
+    "TT",
+    "VU",
+    "BJ",
+    "HT"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Porto"
+  },
+  {
+   "id": "cap-saints-es",
+   "topic": "capital",
+   "title": "Santos em espanhol",
+   "text": "San José, San Salvador, Santiago, Santo Domingo: nomes de santo em espanhol apontam para a América colonizada pela Espanha.",
+   "countries": [
+    "CR",
+    "SV",
+    "CL",
+    "DO"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Toponímia"
+  },
+  {
+   "id": "cap-saints-en",
+   "topic": "capital",
+   "title": "Santos em inglês",
+   "text": "Saint John's e St. George's: santos em inglês apontam para ilhas do Caribe que foram colônias britânicas.",
+   "countries": [
+    "AG",
+    "GD"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Pequenas_Antilhas"
+  },
+  {
+   "id": "cap-freedom",
+   "topic": "capital",
+   "title": "Cidades da liberdade",
+   "text": "Freetown, Libreville e Monrovia foram fundadas no século XIX para escravizados libertos. Os nomes falam de liberdade ('free', 'libre') ou homenageiam o presidente americano James Monroe.",
+   "countries": [
+    "SL",
+    "GA",
+    "LR"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Freetown"
+  },
+  {
+   "id": "cap-people",
+   "topic": "capital",
+   "title": "Capitais com nome de gente",
+   "text": "Washington, Wellington, Georgetown, Victoria, Brazzaville: muitas capitais homenageiam um presidente, um duque, um rei, uma rainha ou um explorador da época colonial.",
+   "countries": [
+    "US",
+    "NZ",
+    "GY",
+    "SC",
+    "CG"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Topónimo"
+  },
+  {
+   "id": "cap-planned",
+   "topic": "capital",
+   "title": "Capitais planejadas",
+   "text": "Canberra, Abuja, Islamabad, Naypyidaw, Belmopan, Dodoma, Yamoussoukro: capitais construídas do zero, em geral para tirar o governo da maior cidade do país. Brasília é a mais famosa delas.",
+   "countries": [
+    "AU",
+    "NG",
+    "PK",
+    "MM",
+    "BZ",
+    "TZ",
+    "CI"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Cidade_planejada"
+  },
+  {
+   "id": "cap-central-asia",
+   "topic": "capital",
+   "title": "Ásia Central",
+   "text": "Tashkent ('cidade de pedra'), Bishkek, Dushanbe ('segunda-feira', o dia da feira que deu origem à cidade) e Ashgabat têm nomes túrquicos ou persas: Ásia Central.",
+   "countries": [
+    "UZ",
+    "KG",
+    "TJ",
+    "TM"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Ásia_Central"
+  },
+  {
+   "id": "cap-pacific",
+   "topic": "capital",
+   "title": "Nomes do Pacífico",
+   "text": "Nomes curtos, cheios de vogais e às vezes com apóstrofo — Nuku'alofa, Apia, Funafuti, Majuro — vêm das línguas da Polinésia e da Micronésia.",
+   "countries": [
+    "TO",
+    "WS",
+    "TV",
+    "KI",
+    "MH",
+    "FM",
+    "PW",
+    "NR",
+    "SB",
+    "VU",
+    "FJ"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Polinésia"
+  },
+  {
+   "id": "gdp-gulf",
+   "topic": "gdp",
+   "title": "Petroestados do Golfo",
+   "text": "Muito petróleo e gás e pouca gente: as monarquias do Golfo Pérsico estão entre os PIBs per capita mais altos do mundo, mas sobem e descem com o preço do barril.",
+   "countries": [
+    "QA",
+    "AE",
+    "KW",
+    "BH",
+    "SA",
+    "OM",
+    "BN"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Golfo_Pérsico"
+  },
+  {
+   "id": "gdp-hubs",
+   "topic": "gdp",
+   "title": "Centros financeiros",
+   "text": "Países pequenos que abrigam bancos e sedes de multinacionais atraídas por impostos baixos têm o PIB por pessoa inflado — às vezes muito acima da renda de quem mora lá.",
+   "countries": [
+    "LU",
+    "IE",
+    "SG",
+    "CH",
+    "SM",
+    "MT"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Paraíso_fiscal"
+  },
+  {
+   "id": "gdp-tigers",
+   "topic": "gdp",
+   "title": "Tigres asiáticos",
+   "text": "Industrializaram-se depressa entre 1960 e 1990, exportando eletrônicos e navios, e hoje têm renda de país rico.",
+   "countries": [
+    "KR",
+    "SG",
+    "TW"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Tigres_Asiáticos"
+  },
+  {
+   "id": "gdp-sahel",
+   "topic": "gdp",
+   "title": "O Sahel",
+   "text": "O Sahel, a faixa semiárida ao sul do Saara, reúne alguns dos PIBs per capita mais baixos do mundo: secas, conflitos e economias agrícolas.",
+   "countries": [
+    "NE",
+    "TD",
+    "ML",
+    "BF",
+    "MR",
+    "SD"
+   ],
+   "source": "https://pt.wikipedia.org/wiki/Sahel"
+  },
+  {
+   "id": "gdp-eu-east",
+   "topic": "gdp",
+   "title": "Leste europeu na União Europeia",
+   "text": "Os países do antigo bloco soviético que entraram na União Europeia entre 2004 e 2013 cresceram depressa e hoje ficam entre a renda média e a alta.",
+   "countries": [
+    "PL",
+    "EE",
+    "LV",
+    "LT",
+    "CZ",
+    "SK",
+    "SI",
+    "HU",
+    "RO",
+    "BG",
+    "HR"
+   ],
+   "source": "https://en.wikipedia.org/wiki/2004_enlargement_of_the_European_Union"
+  }
+ ],
+ "notes": {
+  "flag": {
+   "NP": {
+    "title": "Não é um retângulo",
+    "text": "A única bandeira nacional que não é retangular: dois triângulos empilhados, com uma lua e um sol, lembrando o Himalaia e as duas religiões do país.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Nepal"
+   },
+   "CH": {
+    "title": "Quadrada",
+    "text": "Uma das duas únicas bandeiras quadradas do mundo (a outra é a do Vaticano): cruz branca sobre vermelho.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Suíça"
+   },
+   "CY": {
+    "title": "Um mapa na bandeira",
+    "text": "Uma das duas bandeiras com o mapa do próprio país: a ilha em cor de cobre, metal que lhe deu o nome, sobre ramos de oliveira.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_de_Chipre"
+   },
+   "XK": {
+    "title": "Um mapa na bandeira",
+    "text": "Um mapa dourado sobre azul, com seis estrelas, uma para cada grupo étnico: uma das duas bandeiras que desenham o próprio território.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Kosovo"
+   },
+   "KH": {
+    "title": "Um templo na bandeira",
+    "text": "A única bandeira com um edifício: o templo de Angkor Wat, em branco, sobre uma faixa vermelha.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Camboja"
+   },
+   "MZ": {
+    "title": "Um fuzil na bandeira",
+    "text": "A única bandeira nacional com um fuzil moderno: um AK-47 cruzado com uma enxada, sobre um livro.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_de_Moçambique"
+   },
+   "LB": {
+    "title": "Um cedro",
+    "text": "Um cedro verde entre duas faixas vermelhas: a árvore aparece na Bíblia e é o símbolo do país.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Líbano"
+   },
+   "DM": {
+    "title": "Um papagaio",
+    "text": "Um papagaio-imperial, ave que só existe nessa ilha, no centro de uma cruz amarela, preta e branca. É uma das poucas bandeiras com roxo.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_da_Dominica"
+   },
+   "UG": {
+    "title": "Um grou",
+    "text": "Seis listras preta, amarela e vermelha e, no centro, um grou-coroado, a ave nacional.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_de_Uganda"
+   },
+   "BR": {
+    "title": "Ordem e Progresso",
+    "text": "O céu do Rio de Janeiro na manhã de 15 de novembro de 1889, com uma estrela para cada estado e o Distrito Federal, e o lema positivista na faixa.",
+    "source": "https://pt.wikipedia.org/wiki/Bandeira_do_Brasil"
+   }
+  },
+  "shape": {
+   "CL": {
+    "title": "Comprido e fino",
+    "text": "Mais de 4.000 km de norte a sul e, em média, menos de 180 km de largura, espremido entre os Andes e o Pacífico.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Chile"
+   },
+   "GM": {
+    "title": "Uma faixa ao longo de um rio",
+    "text": "Uma tira de 10 a 50 km de largura que acompanha o rio Gâmbia por mais de 300 km, cercada pelo Senegal por todos os lados menos o mar.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Gâmbia"
+   },
+   "SN": {
+    "title": "Um corte no meio",
+    "text": "Uma fenda entra pelo litoral e quase corta o país em dois: é a Gâmbia, que segue o rio de mesmo nome.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Senegal"
+   },
+   "IT": {
+    "title": "A bota",
+    "text": "Uma bota entrando no Mediterrâneo, com salto e bico bem marcados, chutando uma ilha grande; a outra ilha fica a oeste.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Itália"
+   },
+   "NO": {
+    "title": "Fiordes",
+    "text": "Larga no sul e fina como um fio no norte, com o litoral mais recortado da Europa: fiordes atrás de fiordes.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Noruega"
+   },
+   "VN": {
+    "title": "Um S comprido",
+    "text": "Largo no norte e no sul e com menos de 50 km de largura no meio, acompanhando o mar ao longo de 1.600 km.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Vietnã"
+   },
+   "LS": {
+    "title": "Cercado por todos os lados",
+    "text": "Redondo e compacto, sem saída para o mar: é um enclave, inteiro dentro da África do Sul.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Lesoto"
+   },
+   "CD": {
+    "title": "Um corredor para o mar",
+    "text": "Enorme e compacto, mas toca o Atlântico por um corredor estreito ao longo do rio, apertado entre o território angolano e o enclave de Cabinda.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_República_Democrática_do_Congo"
+   },
+   "NA": {
+    "title": "A Faixa de Caprivi",
+    "text": "No nordeste sai uma faixa fina e comprida, a Faixa de Caprivi, desenhada no século XIX para dar acesso ao rio Zambeze.",
+    "source": "https://pt.wikipedia.org/wiki/Faixa_de_Caprivi"
+   },
+   "MW": {
+    "title": "Ao longo de um lago",
+    "text": "Comprido e estreito de norte a sul, acompanhando a margem de um grande lago que ocupa um quinto do país.",
+    "source": "https://pt.wikipedia.org/wiki/Lago_Niassa"
+   },
+   "TG": {
+    "title": "Uma tira vertical",
+    "text": "Pouco mais de 50 km de costa e quase 600 km subindo para o norte: uma das formas mais estreitas da África.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Togo"
+   },
+   "BJ": {
+    "title": "Uma chave",
+    "text": "Estreito no litoral e mais largo no norte, como uma chave ou uma tocha em pé.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Benim"
+   },
+   "PA": {
+    "title": "Um S deitado",
+    "text": "O istmo que liga as Américas: um S deitado de leste a oeste, com o canal cortando o meio.",
+    "source": "https://pt.wikipedia.org/wiki/Istmo_do_Panamá"
+   },
+   "HR": {
+    "title": "Um bumerangue",
+    "text": "Um bumerangue: a planície no norte e uma longa costa no Adriático, cortada no sul pela saída da Bósnia para o mar.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Croácia"
+   },
+   "BA": {
+    "title": "Um triângulo com um bico",
+    "text": "Quase um triângulo, com um bico de uns 20 km que toca o Adriático em Neum.",
+    "source": "https://pt.wikipedia.org/wiki/Neum"
+   },
+   "SI": {
+    "title": "Uma galinha",
+    "text": "Pequena e compacta, entre os Alpes e o Adriático; muita gente vê nela uma galinha.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Eslovénia"
+   },
+   "TH": {
+    "title": "Cabeça de elefante",
+    "text": "Uma cabeça de elefante: a tromba é a longa península que desce para o sul.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Tailândia"
+   },
+   "LA": {
+    "title": "Sem mar, ao longo de um rio",
+    "text": "Sem saída para o mar, alongado e torto, acompanhando o rio Mekong pela fronteira oeste.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Laos"
+   },
+   "SO": {
+    "title": "Um 7",
+    "text": "Um 7 na ponta leste da África: é o Chifre da África, com o litoral mais longo do continente.",
+    "source": "https://pt.wikipedia.org/wiki/Chifre_da_África"
+   },
+   "GR": {
+    "title": "Dedos no mar",
+    "text": "O sul se desfaz em penínsulas como dedos — três no Peloponeso, três na Calcídica —, e uma ilha comprida fica embaixo, sozinha.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Grécia"
+   },
+   "DK": {
+    "title": "Uma península e ilhas",
+    "text": "Uma península que aponta para o norte, presa ao continente só pelo sul, e ilhas grandes a leste.",
+    "source": "https://pt.wikipedia.org/wiki/Jutlândia"
+   },
+   "EG": {
+    "title": "Um quadrado e um triângulo",
+    "text": "Quase um quadrado, com a península do Sinai como um triângulo no canto nordeste.",
+    "source": "https://pt.wikipedia.org/wiki/Península_do_Sinai"
+   },
+   "IN": {
+    "title": "O pescoço de galinha",
+    "text": "Um triângulo que desce para o oceano, e um nordeste preso ao resto por um corredor estreito, o 'pescoço de galinha' de Siliguri.",
+    "source": "https://pt.wikipedia.org/wiki/Corredor_de_Siliguri"
+   },
+   "BD": {
+    "title": "Um delta",
+    "text": "O sul se desfaz no maior delta do mundo, o do Ganges e do Bramaputra.",
+    "source": "https://pt.wikipedia.org/wiki/Delta_do_Ganges"
+   },
+   "PT": {
+    "title": "Um retângulo em pé",
+    "text": "Um retângulo em pé, comprido de norte a sul, na beira ocidental da Península Ibérica.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_de_Portugal"
+   },
+   "AT": {
+    "title": "Fino no oeste",
+    "text": "Alongado de leste a oeste, largo no leste e afinando no oeste numa ponta estreita entre os Alpes.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Áustria"
+   },
+   "ER": {
+    "title": "Ao longo do Mar Vermelho",
+    "text": "Uma faixa na costa do Mar Vermelho, larga no norte e cada vez mais fina para o sul.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Eritreia"
+   },
+   "MZ": {
+    "title": "Comprido pelo litoral",
+    "text": "Comprido pelo litoral do Índico, com um braço que entra no interior a noroeste, ao longo do rio Zambeze.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_de_Moçambique"
+   },
+   "ZM": {
+    "title": "Uma borboleta",
+    "text": "Uma borboleta: a cintura é o Pedículo, uma ponta do país vizinho que entra fundo pelo meio.",
+    "source": "https://pt.wikipedia.org/wiki/Pedículo_do_Congo"
+   },
+   "IL": {
+    "title": "Uma faca",
+    "text": "Estreito e comprido, com o deserto do Negev afinando para o sul como uma lâmina até o Mar Vermelho.",
+    "source": "https://pt.wikipedia.org/wiki/Neguev"
+   },
+   "CU": {
+    "title": "Um jacaré",
+    "text": "Um jacaré deitado: comprido, fino e curvo, de leste a oeste.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_de_Cuba"
+   },
+   "JP": {
+    "title": "Um arco de ilhas",
+    "text": "Quatro ilhas grandes num arco comprido e curvo; a do meio é de longe a maior.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Japão"
+   },
+   "MG": {
+    "title": "Uma pegada",
+    "text": "Uma ilha enorme em forma de pegada, comprida de norte a sul, no oceano Índico.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_de_Madagascar"
+   },
+   "LK": {
+    "title": "Uma lágrima",
+    "text": "Uma gota ou lágrima: é chamada de 'lágrima da Índia', logo abaixo do subcontinente.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Sri_Lanka"
+   },
+   "TW": {
+    "title": "Uma batata-doce",
+    "text": "Comprida de norte a sul e gorda no meio: os próprios moradores a comparam a uma batata-doce.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_de_Taiwan"
+   },
+   "CY": {
+    "title": "Uma frigideira",
+    "text": "Uma frigideira com o cabo apontando para nordeste: o cabo é a península de Karpas.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_de_Chipre"
+   },
+   "NZ": {
+    "title": "Duas ilhas",
+    "text": "Duas ilhas compridas, uma acima da outra, na diagonal; a do sul é maior e mais montanhosa.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_da_Nova_Zelândia"
+   },
+   "GB": {
+    "title": "Uma ilha e um pedaço",
+    "text": "Uma ilha comprida que afina para o norte em mil recortes, e, a oeste, um pedaço da ilha vizinha.",
+    "source": "https://pt.wikipedia.org/wiki/Geografia_do_Reino_Unido"
+   }
+  },
+  "gdp": {
+   "GY": {
+    "title": "O salto do petróleo",
+    "text": "Petróleo descoberto no mar em 2015 começou a jorrar em 2019 e fez dela a economia que mais cresceu no mundo na década.",
+    "source": "https://pt.wikipedia.org/wiki/Economia_da_Guiana"
+   },
+   "LB": {
+    "title": "Uma crise sem fim",
+    "text": "Desde 2019 o país vive uma das piores crises financeiras do mundo: a moeda perdeu mais de 95% do valor e a renda despencou.",
+    "source": "https://en.wikipedia.org/wiki/Lebanese_liquidity_crisis"
+   },
+   "GQ": {
+    "title": "Petróleo que acaba",
+    "text": "O petróleo descoberto nos anos 1990 fez o PIB por pessoa disparar, mas a produção cai desde a década de 2010 e a renda foi junto.",
+    "source": "https://pt.wikipedia.org/wiki/Economia_da_Guiné_Equatorial"
+   }
+  }
+ }
 }
