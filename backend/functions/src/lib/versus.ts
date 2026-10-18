@@ -78,6 +78,8 @@ export function speedPoints(itemPoints: number, solvedAt: number, startedAt: num
 export interface ClassicSecrets {
   items: CardItem[];
   plays: Record<string, CardCore>;
+  /** D-91's week of daily answers, kept so a hint never names one (FR-14). Absent on rooms started before it. */
+  ahead?: string[];
 }
 
 const ts = (ms: number) => Timestamp.fromMillis(ms);
@@ -103,12 +105,12 @@ const promptDoc = (items: readonly CardItem[], index: number): PromptDoc => ({
   reveal: null,
 });
 
-export function startClassic(room: Room, items: CardItem[], now: number): { room: Room; secrets: ClassicSecrets; prompt: PromptDoc } {
+export function startClassic(room: Room, items: CardItem[], now: number, ahead: readonly string[] = []): { room: Room; secrets: ClassicSecrets; prompt: PromptDoc } {
   const uids = room.playerUids;
   const plays = Object.fromEntries(uids.map((uid) => [uid, newCardCore(uid, items, ts(now))]));
   return {
     room: { ...room, state: "playing", startedAt: now, classic: question(items.map((i) => i.kind), 0, items, uids, now) },
-    secrets: { items, plays },
+    secrets: { items, plays, ahead: [...ahead] },
     prompt: promptDoc(items, 0),
   };
 }
@@ -166,8 +168,10 @@ function closeQuestion(room: Room, secrets: ClassicSecrets, now: number): { room
   return {
     room: { ...room, players, classic: { ...c, phase: "reveal", progress, deadline: now + REVEAL_MS } },
     secrets: { ...secrets, plays },
-    // FR-14: the items after this one are still to be asked, so a hint naming one waits.
-    reveal: revealOf(secrets.items[c.index]!, new Set(secrets.items.slice(c.index + 1).map((i) => i.subject))),
+    // FR-14: the items after this one are still to be asked, and the daily's
+    // week ahead is withheld here as in practice — a hint naming either waits.
+    // This reveal is stored where anyone with the link can read it.
+    reveal: revealOf(secrets.items[c.index]!, new Set([...secrets.items.slice(c.index + 1).map((i) => i.subject), ...(secrets.ahead ?? [])])),
   };
 }
 

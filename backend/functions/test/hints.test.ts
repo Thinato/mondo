@@ -13,6 +13,10 @@ import { Timestamp } from "firebase-admin/firestore";
 import { cardView, giveUpCard, newCardPlay, type CardItem } from "../src/lib/card";
 import { COUNTRIES, peopleFor } from "../src/lib/countries";
 import { KINDS, type Challenge, type KindId } from "../src/lib/kinds";
+import { giveUpPractice, newSession, practiceView } from "../src/lib/practice";
+import { joinRoom, newRoom } from "../src/lib/room";
+import { classicGiveUp, startClassic } from "../src/lib/versus";
+import { normalize } from "../src/lib/match";
 import { CATALOGUE, gdpHint, hintsFor, MAX_HINTS, mentionsOf, openSubjects, revealOf, TOPIC_OF, TOPICS, type Catalogue } from "../src/lib/hints";
 
 const NONE = new Set<string>();
@@ -102,6 +106,32 @@ test("SEC-1 / D-101: on a card, Monaco's answer holds back what Indonesia's flag
   assert.equal("hints" in (cardView(newCardPlay("u1", "t1", "t1_r1", card, t0), card, t0).prompt ?? {}), false);
 });
 
+test("D-60 / D-91: practice and Versus treat the daily's week ahead as open", () => {
+  const pair = CATALOGUE.patterns.find((p) => p.id === "pair-mc-id")!;
+  const t0 = Timestamp.fromMillis(Date.parse("2026-10-18T15:00:00Z"));
+  const titles = (blocked: string[]) => {
+    const s = { ...newSession("u1", "flag", blocked, t0), subject: "MC" };
+    return (practiceView(giveUpPractice(s, t0), t0).item!.answer!.hints ?? []).map((h) => h.title);
+  };
+  assert.ok(titles([]).includes(pair.title));
+  assert.ok(!titles(["ID"]).includes(pair.title), "Indonesia is a daily answer this week");
+
+  const room = joinRoom(newRoom("a", "Ana", "classic", "bandeiras", t0.toMillis()), "b", "Bia", t0.toMillis());
+  const items: CardItem[] = [{ kind: "flag", subject: "MC" }, { kind: "shape", subject: "BR" }];
+  const closed = (ahead: string[]) => {
+    let { room: r, secrets } = startClassic(room, items, t0.toMillis(), ahead);
+    ({ room: r, secrets } = classicGiveUp(r, secrets, "a", t0.toMillis() + 1000));
+    return (classicGiveUp(r, secrets, "b", t0.toMillis() + 2000).reveal!.hints ?? []).map((h) => h.title);
+  };
+  assert.ok(closed([]).includes(pair.title));
+  assert.ok(!closed(["ID"]).includes(pair.title), "stored where anyone with the link reads it");
+});
+
+test("D-101: a bare 'Coreia' or 'Guiné' counts for every country it could mean", () => {
+  assert.deepEqual([...mentionsOf({ title: "x", text: "Na Coreia os nomes são assim.", source: src })].sort(), ["KP", "KR"]);
+  assert.ok(mentionsOf({ title: "x", text: "Como na Guiné.", source: src }).has("GW"));
+});
+
 test("FR-14: the GDP hint places the figure — rank, the continent's median, growth when known", () => {
   const h = gdpHint("BR");
   assert.ok(h);
@@ -160,5 +190,28 @@ test("catalogue: the look-alike pairs are there", () => {
       CATALOGUE.patterns.some((p) => p.topic === "flag" && pair.every((c) => p.countries.includes(c))),
       `no flag pattern for ${pair.join("/")}`,
     );
+  }
+});
+
+/**
+ * The filter sees names, not descriptions: "a tricolor russa" describes Russia's
+ * flag and names nothing. So a flag or shape text that uses a country's
+ * adjective must also name that country, which is what the filter can see.
+ */
+const ADJECTIVES: Record<string, string> = {
+  russ: "RU", dinamarq: "DK", britanic: "GB", ingles: "GB", chines: "CN", frances: "FR", "norte american": "US",
+  angolan: "AO", etiope: "ET", polones: "PL", japones: "JP", turc: "TR", alema: "DE", italian: "IT",
+  holandes: "NL", espanhol: "ES", portugues: "PT", brasileir: "BR", senegales: "SN", indonesi: "ID",
+  irlandes: "IE", grego: "GR", grega: "GR", suec: "SE", norueg: "NO", finland: "FI", islandes: "IS",
+  egipci: "EG", mexican: "MX", argentin: "AR", congoles: "CD", "sul africa": "ZA", australian: "AU",
+};
+test("catalogue: a flag or shape text names every country it describes", () => {
+  for (const { where, e } of entries()) {
+    const topic = where.includes("/") ? where.split("/")[0] : CATALOGUE.patterns.find((p) => p.id === where)!.topic;
+    if (topic !== "flag" && topic !== "shape") continue;
+    const text = ` ${normalize(`${e.title} ${e.text}`)}`;
+    for (const [stem, code] of Object.entries(ADJECTIVES)) {
+      if (text.includes(` ${stem}`)) assert.ok(mentionsOf(e).has(code), `${where}: says '${stem}…' but never names ${code}`);
+    }
   }
 });

@@ -167,13 +167,14 @@ export const versus = callable<unknown, Record<string, unknown>>(async (uid, dat
       // D-91: the week of daily answers ahead is withheld, as in practice (D-60).
       // Read outside the transaction: it is a query over `puzzles`, which no
       // Versus write touches, and the card is built once either way.
-      const items = preset.spec ? buildCard(preset.spec, new Set(await dailyAhead(Timestamp.now()))) : null;
+      const ahead = preset.spec ? await dailyAhead(Timestamp.now()) : [];
+      const items = preset.spec ? buildCard(preset.spec, new Set(ahead)) : null;
       await db().runTransaction(async (tx) => {
         const { ms } = clock();
         const room = await readRoom(tx, id);
         requireStartable(room, uid, ms);
         if (items) {
-          const started = startClassic(room, items, ms);
+          const started = startClassic(room, items, ms, ahead);
           tx.set(roomRef(id), started.room);
           tx.set(roomSecretsRef(id), started.secrets);
           writePrompt(tx, id, started.prompt);
