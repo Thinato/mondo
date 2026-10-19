@@ -67,12 +67,24 @@
   </section>
 
   <div id="room-cols" hidden>
+    <!-- Phone, between games: the room and the next game are two tabs, and the
+         host's start sits in a bar at the bottom where the site's tab bar was. -->
+    <div id="room-tabs" class="seg room-tabs" role="tablist" aria-label="Sala" hidden>
+      <button id="rtab-room" type="button" role="tab" aria-selected="false" aria-controls="room-side"></button>
+      <button id="rtab-next" type="button" role="tab" aria-selected="true" aria-controls="lobby">Próximo jogo</button>
+    </div>
+
     <div class="play-col">
 
-    <!-- The end of a game. In a room it sits above the lobby, which is where
-         the next game starts (D-104); training goes back to Treinar instead. -->
-    <section id="finished" class="result" hidden>
-      <p id="finished-text"></p>
+    <!-- The end of a game. Between games it is the room's last result, beside the
+         lobby (D-104); training goes back to Treinar instead. -->
+    <section id="finished" class="result panel" hidden>
+      <div class="panel-head">
+        <h2 class="label">Última partida</h2>
+        <button id="show-map" type="button" class="link" hidden>Ver o mapa</button>
+      </div>
+      <p id="finished-text" class="result-text"></p>
+      <p id="finished-sub" class="fine"></p>
       <!-- Training: the names you did not get to. Names only — the outlines stay on the server (D-89). -->
       <details id="missed" hidden>
         <summary id="missed-title"></summary>
@@ -83,45 +95,72 @@
       </div>
     </section>
 
-    <!-- The lobby, before the first game and between games (D-104): who is in,
-         the link, the game the host picked (FR-12.7) and the host's start. -->
-    <section id="lobby" hidden>
-      <h1 id="lobby-title"></h1>
-      <p id="lobby-mode" class="sub"></p>
-      <div class="row">
-        <input id="room-link" type="text" readonly aria-label="Link da sala">
-        <button id="copy-link" type="button" class="secondary">Copiar link</button>
-      </div>
-      <p id="lobby-wait" class="fine"></p>
-      <div class="row">
-        <button id="start-btn" type="button" class="primary" hidden>Começar</button>
-        <button id="leave-btn" type="button" class="link">Sair da sala</button>
-      </div>
-      <!-- The host's pick of the next game, under the start button so "Jogar de novo"
-           is never below six cards: a preset the server resolves, or (FR-12.10, D-106)
-           a custom Clássico — kinds in order and continents, never a country. -->
-      <div id="picker" hidden>
-        <div class="tabs" role="tablist" aria-label="Próximo jogo">
-          <button id="tab-presets" type="button" role="tab" aria-selected="true" aria-controls="modes">Jogos prontos</button>
-          <button id="tab-custom" type="button" role="tab" aria-selected="false" aria-controls="custom">Personalizar</button>
+    <!-- The lobby, before the first game and between games (D-104). The host picks
+         the next game here (FR-12.7); everyone else reads what was picked. -->
+    <section id="lobby" class="panel" hidden>
+      <div id="lobby-view" class="lobby-view">
+        <p class="wait-line"><span class="dot" id="lobby-wait-dot" aria-hidden="true"></span><span id="lobby-wait"></span></p>
+        <div>
+          <h2 class="label">Próximo jogo</h2>
+          <h1 id="lobby-title"></h1>
+          <p id="lobby-mode" class="sub"></p>
         </div>
-        <ul id="modes" class="modes" role="tabpanel" aria-labelledby="tab-presets"></ul>
+        <ol id="lobby-order" class="order-cards" aria-label="Desafios, na ordem"></ol>
+        <p class="fine"><a href="./regras">Regras</a></p>
+      </div>
+      <!-- A preset the server resolves, or (FR-12.10, D-106) a custom Clássico —
+           kinds in order and continents, never a country. Only the list scrolls. -->
+      <div id="picker" hidden>
+        <div class="panel-head">
+          <h2>Próximo jogo</h2>
+          <div class="seg" role="tablist" aria-label="Próximo jogo">
+            <button id="tab-presets" type="button" role="tab" aria-selected="true" aria-controls="modes">Jogos prontos</button>
+            <button id="tab-custom" type="button" role="tab" aria-selected="false" aria-controls="custom">Personalizar</button>
+          </div>
+        </div>
+        <div id="modes" class="modes-scroll" role="tabpanel" aria-labelledby="tab-presets">
+          <h3 id="saved-title" class="label" hidden>Seus jogos</h3>
+          <ul id="saved-list" class="modes" aria-labelledby="saved-title" hidden></ul>
+          <h3 id="presets-title" class="label">Prontos</h3>
+          <ul id="preset-list" class="modes" aria-labelledby="presets-title"></ul>
+        </div>
         <div id="custom" class="custom" role="tabpanel" aria-labelledby="tab-custom" hidden>
-          <p id="slots-label" class="label"></p>
+          <div class="slots-head">
+            <h3 id="slots-label" class="label">Desafios, na ordem</h3>
+            <span id="slots-count" class="fine"></span>
+          </div>
           <ol id="slots" class="slots" aria-labelledby="slots-label"></ol>
-          <div class="row">
-            <button id="add-slot" type="button" class="secondary">+ Desafio</button>
+          <div class="custom-foot">
+            <div id="continents-box"></div>
             <label class="check"><input id="shuffle" type="checkbox"> Embaralhar a ordem</label>
           </div>
-          <div id="continents-box"></div>
-          <form id="save-form" class="row">
-            <input id="preset-name" type="text" maxlength="24" required placeholder="Nome do preset" aria-label="Nome do preset">
-            <button id="save-preset" type="submit" class="secondary">Salvar preset</button>
-          </form>
-          <p id="saved-full" class="fine" hidden></p>
         </div>
       </div>
     </section>
+
+    <!-- The host's: what starts next, and the one button that starts it. On a
+         phone it is the bar at the bottom of the screen. -->
+    <section id="go" class="panel go" aria-labelledby="go-label" hidden>
+      <h2 id="go-label" class="label">A seguir</h2>
+      <p id="go-title" class="go-title"></p>
+      <p id="go-kinds" class="chips"></p>
+      <p id="go-about" class="go-about"></p>
+      <form id="save-form" class="save-row" hidden>
+        <input id="preset-name" type="text" maxlength="24" required placeholder="Dê um nome para salvar" aria-label="Nome do jogo">
+        <button id="save-preset" type="submit" class="secondary">Salvar</button>
+      </form>
+      <p id="saved-full" class="fine" hidden></p>
+      <div class="go-foot">
+        <p id="lobby-hint" class="fine"></p>
+        <button id="start-btn" type="button" class="primary">Começar</button>
+      </div>
+    </section>
+
+    <!-- Clássico: the card's challenges by kind, never by answer. -->
+    <nav id="classic-rail" class="classic-rail" aria-label="Desafios" hidden>
+      <a class="wordmark" href="./">Mondo</a>
+      <ol id="rail-steps"></ol>
+    </nav>
 
     <!-- Clássico (FR-12.2): the same prompt elements as the daily and practice,
          because a Multijogador challenge IS one of those challenges, on a clock. -->
@@ -182,6 +221,7 @@
          clock, the zoom and the field float over it. -->
     <section id="potato" hidden>
       <div class="potato-actions">
+        <button id="hide-map" type="button" class="secondary" hidden>Voltar à sala</button>
         <button id="potato-giveup" type="button" class="link">Desistir</button>
       </div>
       <figure class="world" id="world-wrap">
@@ -218,8 +258,20 @@
 
     <!-- Everyone in the room, in score order. Counts only, never a rival's
          guesses: their distances and arrows would be hints for you. -->
-    <aside id="room-side">
+    <!-- The room: who is in, the link, and the board. During a game it is the
+         scoreboard, counts only — a rival's distances and arrows would be hints. -->
+    <aside id="room-side" class="panel">
       <a class="wordmark rail-only" href="./">Mondo</a>
+      <div id="room-head" class="room-head" hidden>
+        <h2 class="label">Sala</h2>
+        <p id="room-name" class="room-name"></p>
+        <button id="copy-link" type="button" class="secondary copy">
+          <svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg class="i-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <span id="copy-label" aria-live="polite">Copiar link</span>
+        </button>
+        <p class="fine">Quem tiver o link entra, visitante também.</p>
+      </div>
       <!-- Batata Quente: how far the map has come. -->
       <div id="potato-head" class="potato-head" hidden>
         <p id="potato-title" class="potato-title"></p>
@@ -227,10 +279,16 @@
         <p id="potato-count" class="fine"></p>
         <div class="meter" aria-hidden="true"><span id="potato-meter"></span></div>
       </div>
-      <h2 class="fine" id="board-title">Placar</h2>
+      <div class="board-head">
+        <h2 class="label" id="board-title">Placar</h2>
+        <span id="board-count" class="fine"></span>
+      </div>
       <ol id="board" class="scoreboard"></ol>
       <h2 class="label" id="feed-title" hidden>Últimos países</h2>
       <ol id="potato-feed" class="card-items feed" aria-labelledby="feed-title" hidden></ol>
+      <div class="side-foot">
+        <button id="leave-btn" type="button" class="link" hidden>Sair da sala</button>
+      </div>
       <!-- The page footer, where a full-window room still has room for it. -->
       <div class="rail-foot rail-only">
         <p><a href="./regras">Regras</a> · <a href="./privacidade">Privacidade</a> · <a href="./creditos">Créditos</a></p>

@@ -35,7 +35,11 @@ export function multiSelect({ label, options, summary, onChange }) {
       draw();
       onChange(values());
     });
-    row.append(box, ` ${text}`);
+    // The box is drawn as a check, or nothing: the input stays for the keyboard and the reader.
+    const tick = document.createElement("span");
+    tick.className = "tick";
+    tick.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+    row.append(box, tick, text);
     list.append(row);
     return box;
   });
