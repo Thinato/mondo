@@ -39,7 +39,7 @@ const el = {
   form: $("guess-form"), combo: $("guess-combo"), input: $("guess-input"), list: $("guess-list"),
   money: $("guess-money"), number: $("guess-number"), left: $("left"),
   potato: $("potato"), finished: $("finished"), finishedText: $("finished-text"),
-  missed: $("missed"), missedTitle: $("missed-title"), missedList: $("missed-list"), again: $("again-link"),
+  missed: $("missed"), missedTitle: $("missed-title"), missedList: $("missed-list"), again: $("again-link"), againRow: $("again-row"),
   board: $("board"), boardTitle: $("board-title"), status: $("status"),
   confirm: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
@@ -526,7 +526,7 @@ function render() {
   if (room.potato) potatoView().render(room);
 
   el.finished.hidden = room.state !== "finished";
-  el.again.hidden = !training;
+  el.againRow.hidden = !training; // a room's way on is its lobby, just below (D-104)
   if (room.state === "finished") {
     const [top, second] = standings();
     // D-105: a tie at the top is a draw, as the trophies count it — the clock orders the board, it does not win.
