@@ -19,7 +19,7 @@
  */
 
 import { Timestamp } from "firebase-admin/firestore";
-import { applyCardGuess, giveUpCard, newCardCore, type CardCore, type CardItem, type CardSpec } from "./card";
+import { applyCardGuess, boardOptions, buildCard, giveUpCard, newCardCore, type CardCore, type CardItem, type CardSpec } from "./card";
 import { mondoError } from "./errors";
 import { COUNTRIES, REGIONS, type Region } from "./countries";
 import { KIND_IDS, kindById, type KindId, type Reveal } from "./kinds";
@@ -81,6 +81,46 @@ export function specOf(room: Pick<Room, "presetId" | "custom">): { spec: CardSpe
     outside: outsideRegions(c.regions),
   };
 }
+
+/**
+ * Deal a room's card. `hidden` is what no player may be shown at all — D-91's
+ * week of daily answers — and `outside` is the continents the host left out.
+ *
+ * Both go to `buildCard` as one exclusion, which keeps subjects AND boards
+ * inside the continents (D-70). But a board needs seven distractors, and on a
+ * small continent the card's own subjects and the week ahead can leave fewer:
+ * `pickOptions` then falls back to its whole pool, answers included. So any
+ * board that shows another challenge's subject or a coming daily is dealt
+ * again from the WORLD minus exactly those — wider than the continents asked
+ * for, never an answer (FR-8.7). Wider is the price of a fourteen-country
+ * continent; a leak is not a price.
+ *
+ * A subject pool that runs dry is the host's own filter talking, so it is
+ * `no-countries-left`, after a few tries: subjects are drawn by weight, and
+ * whether a tight continent runs out depends on the draw.
+ */
+export function dealCard(spec: CardSpec, hidden: readonly string[], outside: readonly string[], rand: () => number = Math.random): CardItem[] {
+  const exclude = new Set([...hidden, ...outside]);
+  for (let attempt = 1; ; attempt++) {
+    let items: CardItem[];
+    try {
+      items = buildCard(spec, exclude, rand);
+    } catch (err) {
+      if ((err as { details?: { code?: string } }).details?.code !== "not-found") throw err;
+      if (attempt < DEAL_TRIES) continue;
+      throw mondoError("no-countries-left", "Not enough countries in those continents for this game.");
+    }
+    const banned = new Set([...hidden, ...items.map((i) => i.subject)]);
+    const leaks = (item: CardItem) => item.options?.some((c) => c !== item.subject && banned.has(c)) ?? false;
+    return items.map((item) => {
+      if (!leaks(item)) return item;
+      const wider = { ...item, options: boardOptions(kindById(item.kind), item.subject, banned, rand)! };
+      if (leaks(wider)) throw mondoError("no-countries-left", "Not enough countries for this board.");
+      return wider;
+    });
+  }
+}
+const DEAL_TRIES = 5;
 
 /** Every country not in the chosen continents. */
 export function outsideRegions(regions: readonly Region[]): string[] {

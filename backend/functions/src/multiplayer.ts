@@ -26,7 +26,6 @@
 import { Timestamp, type Transaction } from "firebase-admin/firestore";
 import { dailyAhead, db, ensureProfile, roomRef, roomSecretsRef, roomSubRef, userRef } from "./db";
 import { requireCanCreateGroup, rankOf } from "./lib/authz";
-import { buildCard } from "./lib/card";
 import { countryByCode } from "./lib/countries";
 import { mondoError } from "./lib/errors";
 import { inviteToken } from "./lib/invite";
@@ -42,9 +41,8 @@ import { callable, signInProvider } from "./lib/callable";
 import { GUESS_MIN_INTERVAL_MS } from "./lib/config";
 import { requireCustomGame, requireInviteToken, requireObject, requirePresetName, requireUid } from "./lib/validate";
 import {
-  classicGiveUp, classicGuess, classicMine, presetById, savedRemove, savedUpsert, specOf, startClassic, tickClassic, type ClassicSecrets,
+  classicGiveUp, classicGuess, classicMine, dealCard, presetById, savedRemove, savedUpsert, specOf, startClassic, tickClassic, type ClassicSecrets,
 } from "./lib/multiplayer";
-import type { CardSpec } from "./lib/card";
 import { mapBase, mapPiece } from "./lib/world";
 
 /** At most this many names in one `answer`: training's backlog (FR-12.5). */
@@ -93,22 +91,6 @@ const withPotato = (room: Room, potato: PotatoState): Room =>
 
 /** A new room starts on Batata Quente; the host changes it in the lobby (FR-12.7). */
 const DEFAULT_PRESET = "mundo";
-
-/**
- * Deal a Clássico card. A custom game's continents (D-106) can leave a kind
- * with nobody to ask — fifteen capitals of Oceania — and that is the player's
- * own filter talking, so it gets practice's message rather than a bare not-found.
- */
-function deal(spec: CardSpec, exclude: ReadonlySet<string>) {
-  try {
-    return buildCard(spec, exclude);
-  } catch (err) {
-    if ((err as { details?: { code?: string } }).details?.code === "not-found") {
-      throw mondoError("no-countries-left", "Not enough countries in those continents for this game.");
-    }
-    throw err;
-  }
-}
 
 const sameGame = (a: Room, b: Room) => a.presetId === b.presetId && JSON.stringify(a.custom ?? null) === JSON.stringify(b.custom ?? null);
 
@@ -210,7 +192,7 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
         const peek = (await roomRef(id).get()).data() as Room | undefined;
         if (!peek) throw mondoError("not-found", "No such room.");
         const { spec, outside } = specOf(configureRoom(peek, uid, game, Date.now()));
-        deal(spec, new Set([...outside, ...(await dailyAhead(Timestamp.now()))]));
+        dealCard(spec, await dailyAhead(Timestamp.now()), outside);
       }
       await db().runTransaction(async (tx) => {
         const { ms } = clock();
@@ -273,7 +255,7 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
       // Multijogador write touches, and the card is built once either way.
       const ahead = dealt ? await dailyAhead(Timestamp.now()) : [];
       // D-106: a custom game's continents ride on the same exclusion (D-70).
-      const items = dealt ? deal(dealt.spec, new Set([...ahead, ...dealt.outside])) : null;
+      const items = dealt ? dealCard(dealt.spec, ahead, dealt.outside) : null;
       await db().runTransaction(async (tx) => {
         const { ms } = clock();
         const before = await readRoom(tx, id);
