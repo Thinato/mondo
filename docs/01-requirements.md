@@ -482,6 +482,16 @@ to test new challenges."*
 - **FR-12.9 Trophies (D-105).** When a game ends, the one player with the most points wins it, and
   the room's board MUST show beside each player how many games they have won in that room. When
   two or more share the most points it is a draw and nobody wins. Training wins nothing.
+- **FR-12.10 A custom game (D-106).** Between games the host MUST be able to set the room's next
+  Clássico by hand: 1–15 challenge kinds in an order they choose (or shuffled), drawn only from the
+  continents they choose (every continent by default, never none). The server MUST still choose
+  every country and MUST refuse a game the pool cannot fill before it starts. The chosen continents
+  SHOULD bound the options of a "which flag" or "which silhouette" board too; where they are too
+  small to, the board MAY reach outside them, but MUST NOT show another challenge's answer or a
+  coming daily's.
+- **FR-12.11 Saved games (D-106).** A host MUST be able to save a custom game under a name of
+  1–24 characters, up to 10, and later edit, overwrite or delete it. Saved games MUST be listed
+  above the built-in presets and MUST be visible to their owner only.
 
 ## FR-13 — Profile *(added 2026-10-15, D-97)*
 

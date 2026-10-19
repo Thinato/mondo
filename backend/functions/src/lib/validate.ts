@@ -3,9 +3,12 @@
  * inputs are two strings. Every check throws a typed `invalid-argument`.
  */
 
+import { MAX_CARD_ITEMS } from "./card";
 import { COUNTRIES, REGIONS, type Region } from "./countries";
 import { mondoError } from "./errors";
 import type { InviteMode } from "./invite";
+import { KIND_IDS, type KindId } from "./kinds";
+import type { CustomGame } from "./room";
 
 const PUZZLE_ID = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -155,4 +158,35 @@ export function requireRole(v: unknown): (typeof GRANTABLE_ROLES)[number] {
     throw mondoError("invalid-argument", "Role must be invited or user.");
   }
   return v as (typeof GRANTABLE_ROLES)[number];
+}
+
+/** FR-12.11 — a saved preset's name: 1–24 characters once trimmed, no control characters. */
+export function requirePresetName(v: unknown): string {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (s.length < 1 || s.length > 24 || /[\p{C}]/u.test(s)) throw mondoError("invalid-argument", "A preset name is 1–24 characters.");
+  return s;
+}
+
+/**
+ * FR-12.10, D-106 — a custom Clássico: the kinds in order, whether to shuffle
+ * them, and the continents. Closed shape: nothing else the client sends is
+ * kept, and above all no country. The name is optional (a game played without
+ * saving has none).
+ */
+export function requireCustomGame(v: unknown): CustomGame {
+  const o = requireObject(v);
+  const kinds = o.kinds;
+  if (!Array.isArray(kinds) || kinds.length === 0 || kinds.length > MAX_CARD_ITEMS) {
+    throw mondoError("invalid-argument", `A game holds 1–${MAX_CARD_ITEMS} challenges.`);
+  }
+  for (const k of kinds) {
+    if (!(KIND_IDS as readonly unknown[]).includes(k)) throw mondoError("invalid-argument", "Unknown challenge kind.");
+  }
+  if (typeof o.shuffled !== "boolean") throw mondoError("invalid-argument", "shuffled must be a boolean.");
+  return {
+    name: o.name === undefined || o.name === null ? null : requirePresetName(o.name),
+    kinds: kinds as KindId[],
+    shuffled: o.shuffled,
+    regions: requireRegions(o.regions),
+  };
 }

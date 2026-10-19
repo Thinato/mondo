@@ -12,6 +12,7 @@
  * ever hold an answer. The Clássico card lives in `roomSecrets`, beside it.
  */
 
+import type { Region } from "./countries";
 import type { KindId, Prompt, Reveal } from "./kinds";
 import type { PotatoState } from "./potato";
 import { mondoError } from "./errors";
@@ -60,9 +61,28 @@ export interface PromptDoc {
   reveal: Reveal | null;
 }
 
+/**
+ * FR-12.10, D-106: a Clássico the host put together — which kinds, in what
+ * order, from which continents. Never which countries: the server still picks
+ * every subject. The room holds a COPY, so editing or deleting the saved preset
+ * it came from never changes a room already set to it.
+ */
+export interface CustomGame {
+  /** The saved preset's name, or null for one played without saving. */
+  name: string | null;
+  kinds: KindId[];
+  shuffled: boolean;
+  regions: Region[];
+}
+
+/** `presetId` of a room set to a custom game. */
+export const CUSTOM_PRESET = "custom";
+
 export interface Room {
   mode: RoomMode;
   presetId: string;
+  /** Set exactly when `presetId` is `CUSTOM_PRESET`. Absent on rooms from before D-106. */
+  custom?: CustomGame | null;
   hostUid: string;
   state: RoomState;
   players: Record<string, RoomPlayer>;
@@ -154,15 +174,19 @@ export function requireStartable(room: Room, uid: string, now: number): void {
 }
 
 /**
- * FR-12.7: the host picks the next game in the room, not before making it. A
- * preset still, resolved on the server (D-48's reasoning, kept). Touching the
- * room keeps it open for another two hours.
+ * FR-12.7: the host picks the next game in the room, not before making it — a
+ * built-in preset resolved on the server, or (FR-12.10, D-106) a custom
+ * Clássico the caller has already validated. Touching the room keeps it open
+ * for another two hours.
  */
-export function configureRoom(room: Room, uid: string, preset: { id: string; mode: RoomMode; solo?: boolean }, now: number): Room {
+export function configureRoom(
+  room: Room, uid: string, preset: { id: string; mode: RoomMode; solo?: boolean } | CustomGame, now: number,
+): Room {
   requireHost(room, uid, "choose the game");
-  if (preset.solo) throw mondoError("invalid-argument", "Training is played alone.");
   requireBetweenGames(room, now);
-  return { ...room, mode: preset.mode, presetId: preset.id, expiresAt: now + LOBBY_TTL_MS };
+  if ("kinds" in preset) return { ...room, mode: "classic", presetId: CUSTOM_PRESET, custom: preset, expiresAt: now + LOBBY_TTL_MS };
+  if (preset.solo) throw mondoError("invalid-argument", "Training is played alone.");
+  return { ...room, mode: preset.mode, presetId: preset.id, custom: null, expiresAt: now + LOBBY_TTL_MS };
 }
 
 /**

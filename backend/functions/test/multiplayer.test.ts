@@ -10,12 +10,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
 import { buildCard, type CardItem } from "../src/lib/card";
-import { gdpFor } from "../src/lib/countries";
+import { countryByCode, gdpFor } from "../src/lib/countries";
 import { kindById } from "../src/lib/kinds";
 import { joinRoom, newRoom, type Room } from "../src/lib/room";
 import {
-  classicGiveUp, classicGuess, classicMine, classicRanking, presetById, secondsFor, speedPoints, startClassic, tickClassic,
-  REVEAL_MS, MULTIPLAYER_PRESETS, type ClassicSecrets,
+  classicGiveUp, classicGuess, classicMine, classicRanking, dealCard, outsideRegions, presetById, savedRemove, savedUpsert, secondsFor, specOf,
+  speedPoints, startClassic, tickClassic, REVEAL_MS, MULTIPLAYER_PRESETS, SAVED_PRESETS_MAX, type ClassicSecrets, type SavedPreset,
 } from "../src/lib/multiplayer";
 
 const T0 = 1_800_000_000_000;
@@ -167,4 +167,73 @@ test("the right and wrong guesses this file uses are right and wrong for every k
 test("training is a Batata Quente for one (D-93)", () => {
   assert.deepEqual(presetById("treino"), { id: "treino", mode: "potato", solo: true });
   assert.ok(MULTIPLAYER_PRESETS.filter((p) => p.solo).every((p) => p.mode === "potato" && !p.spec));
+});
+
+test("D-106: a custom game deals its kinds in the order given, unless shuffled", () => {
+  const kinds = ["capital", "flag", "shape", "person", "flagPick"] as const;
+  const custom = { name: null, kinds: [...kinds], shuffled: false, regions: ["Europe" as const] };
+  const { spec, outside } = specOf({ presetId: "custom", custom });
+  for (let seed = 1; seed <= 10; seed++) {
+    assert.deepEqual(buildCard(spec, new Set(outside), rng(seed)).map((i) => i.kind), [...kinds]);
+  }
+  assert.equal(specOf({ presetId: "custom", custom: { ...custom, shuffled: true } }).spec.order, "shuffled");
+  // A built-in preset deals its own spec, with nothing excluded.
+  assert.deepEqual(specOf({ presetId: "capitais", custom: null }), { spec: presetById("capitais").spec, outside: [] });
+  rejects(() => specOf({ presetId: "mundo" }), "invalid-argument");
+});
+
+test("D-106, D-70: the continents bound every subject, and a board where there are enough of them", () => {
+  assert.deepEqual(outsideRegions(["Africa", "Americas", "Asia", "Europe", "Oceania"]), [], "every continent excludes nothing");
+  // Europe has dozens of flags: fifteen boards in a row stay inside it.
+  const big = specOf({ presetId: "custom", custom: { name: null, kinds: Array(15).fill("flagPick"), shuffled: false, regions: ["Europe"] } });
+  for (let seed = 1; seed <= 20; seed++) {
+    for (const item of dealCard(big.spec, [], big.outside, rng(seed))) {
+      for (const code of item.options!) assert.equal(countryByCode(code)?.region, "Europe", `seed ${seed}: ${code}`);
+    }
+  }
+});
+
+test("D-106, FR-8.7, D-91: a board never shows another challenge's answer or a coming daily, however small the continent", () => {
+  // The architect's case: Oceania, the day's seven kinds, and a week ahead holding Oceanian answers.
+  const kinds = [...MULTIPLAYER_PRESETS.find((p) => p.id === "dia")!.spec!.items.map((i) => i.kind)];
+  const { spec, outside } = specOf({ presetId: "custom", custom: { name: null, kinds, shuffled: false, regions: ["Oceania"] } });
+  const ahead = ["FJ", "WS", "TO", "BR", "FR"];
+  let widened = 0;
+  for (let seed = 1; seed <= 200; seed++) {
+    let items: CardItem[];
+    try { items = dealCard(spec, ahead, outside, rng(seed)); }
+    catch (e) { assert.deepEqual((e as HttpsError).details, { code: "no-countries-left" }); continue; }
+    const subjects = new Set(items.map((i) => i.subject));
+    for (const item of items) {
+      assert.equal(countryByCode(item.subject)?.region, "Oceania", `seed ${seed}: subject ${item.subject}`);
+      assert.ok(!ahead.includes(item.subject), `seed ${seed}: a coming daily asked`);
+      for (const code of item.options ?? []) {
+        if (code === item.subject) continue;
+        assert.ok(!subjects.has(code), `seed ${seed}: ${item.kind} board shows ${code}, another challenge's answer`);
+        assert.ok(!ahead.includes(code), `seed ${seed}: ${item.kind} board shows ${code}, a coming daily`);
+        if (countryByCode(code)?.region !== "Oceania") widened++;
+      }
+      if (item.options) assert.equal(new Set(item.options).size, 8, "still a board of eight");
+    }
+  }
+  assert.ok(widened > 0, "the case this test exists for was reached");
+});
+
+test("D-106: a game the pool cannot deal is the host's filter talking", () => {
+  const { spec, outside } = specOf({ presetId: "custom", custom: { name: null, kinds: Array(15).fill("capital"), shuffled: false, regions: ["Oceania"] } });
+  rejects(() => dealCard(spec, [], outside, rng(1)), "no-countries-left");
+});
+
+test("FR-12.11: saving by a name already there overwrites it; an eleventh name is refused", () => {
+  const p = (name: string, n = 1): SavedPreset => ({ name, kinds: Array(n).fill("flag"), shuffled: false, regions: ["Europe"] });
+  let list = savedUpsert([], p("Europa"));
+  list = savedUpsert(list, p(" europa ", 3));
+  assert.equal(list.length, 1, "same name, any case or spacing");
+  assert.equal(list[0]!.kinds.length, 3);
+  for (let i = 1; i < SAVED_PRESETS_MAX; i++) list = savedUpsert(list, p(`P${i}`));
+  assert.equal(list.length, SAVED_PRESETS_MAX);
+  rejects(() => savedUpsert(list, p("Mais um")), "invalid-argument");
+  assert.equal(savedUpsert(list, p("P3", 2)).length, SAVED_PRESETS_MAX, "overwriting at the cap is fine");
+  assert.equal(savedRemove(list, "EUROPA").length, SAVED_PRESETS_MAX - 1);
+  assert.deepEqual(savedRemove(list, "nope"), list, "removing a missing name changes nothing");
 });

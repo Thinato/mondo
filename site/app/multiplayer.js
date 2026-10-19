@@ -21,12 +21,16 @@ import { guessRow, isPick, renderAbout, renderFlag, renderHints, renderOptions, 
 import { takeReport } from "./visibility.js";
 import { errorMessage, t } from "./i18n.js";
 import { mountPotato } from "./potato.js";
+import { multiSelect } from "./multiselect.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
   signedOut: $("signed-out"), signIn: $("sign-in"), signOut: $("sign-out"),
   account: $("account"), adminLink: $("admin-link"),
   soon: $("soon"), soonGuest: $("soon-guest"), soonSignIn: $("soon-sign-in"), modes: $("modes"),
+  picker: $("picker"), tabPresets: $("tab-presets"), tabCustom: $("tab-custom"), custom: $("custom"),
+  slots: $("slots"), slotsLabel: $("slots-label"), addSlot: $("add-slot"), shuffle: $("shuffle"),
+  continentsBox: $("continents-box"), saveForm: $("save-form"), presetName: $("preset-name"), savedFull: $("saved-full"),
   cols: $("room-cols"), lobby: $("lobby"), lobbyTitle: $("lobby-title"), lobbyMode: $("lobby-mode"), lobbyWait: $("lobby-wait"),
   link: $("room-link"), copy: $("copy-link"), start: $("start-btn"), leave: $("leave-btn"),
   classic: $("classic"), progress: $("classic-progress"), giveUp: $("classic-giveup"),
@@ -49,6 +53,11 @@ const TROPHY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9H4.5a2.
 
 /** The presets the server knows (lib/multiplayer.ts). Labels only — the server resolves the rest. */
 const PRESETS = ["mundo", "dia", "bandeiras", "formas", "capitais", "misto-10"];
+/** FR-12.10: what a custom game is made of. The server checks all of it again (lib/validate.ts). */
+const KINDS = ["shape", "capital", "flag", "gdp", "flagPick", "shapePick", "person"];
+const REGIONS = ["Africa", "Americas", "Asia", "Europe", "Oceania"];
+const MAX_SLOTS = 15;
+const MAX_SAVED = 10;
 
 const roomId = new URLSearchParams(location.search).get("s")?.toUpperCase() ?? null;
 let gate = null;             // listGroups' reply: `canCreate` decides between opening a room and "Em breve"
@@ -67,6 +76,10 @@ let acLoading = null;
 let potato = null;
 let countryList = null;      // training's end: the public list of names, loaded once
 let unsubscribe = [];
+let saved = [];              // FR-12.11: my own saved custom games, from `join`
+let tab = "presets";         // the picker's tab: "presets" | "custom"
+let draft = { kinds: [...KINDS], shuffled: false, regions: [...REGIONS] }; // the Personalizar tab
+let continents = null;       // the multi-select, built once
 
 const setStatus = (text, cls = "") => { el.status.textContent = text; el.status.className = cls; };
 const serverNow = () => Date.now() + offset;
@@ -131,27 +144,142 @@ async function openRoom() {
 el.soonSignIn.addEventListener("click", () => googleClick(el.soonSignIn, setStatus));
 
 /** FR-12.7: the host picks the next game in the lobby. Everyone sees it change. */
-function buildModes() {
-  if (el.modes.children.length > 0) return;
-  el.modes.replaceChildren(...PRESETS.map((id) => {
+function card(name, about) {
+  const b = document.createElement("button");
+  b.type = "button";
+  const n = document.createElement("span");
+  n.className = "name";
+  n.textContent = name;
+  const a = document.createElement("span");
+  a.className = "fine";
+  a.textContent = about;
+  b.append(n, a);
+  return b;
+}
+
+/** The list: my saved games first (FR-12.11), so the one I play every week is one click, then the built-ins. */
+function drawModes() {
+  const mine = saved.map((p) => {
     const li = document.createElement("li");
-    const b = document.createElement("button");
-    b.type = "button";
+    li.className = "saved";
+    const b = card(p.name, customAbout(p));
+    b.dataset.saved = p.name;
+    b.addEventListener("click", () => act(() => multiplayer("configure", { room: roomId, custom: p })));
+    const edit = iconButton("✎", t("multi.edit", { name: p.name }), () => {
+      draft = { kinds: [...p.kinds], shuffled: p.shuffled, regions: [...p.regions] };
+      el.presetName.value = p.name;
+      showTab("custom");
+    });
+    const drop = iconButton("✕", t("multi.delete", { name: p.name }), () =>
+      act(async () => { saved = (await multiplayer("deletePreset", { name: p.name })).presets; drawModes(); }));
+    li.append(b, edit, drop);
+    return li;
+  });
+  const builtIn = PRESETS.map((id) => {
+    const li = document.createElement("li");
+    const b = card(t(`multi.preset.${id}`), t(`multi.presetAbout.${id}`));
     b.dataset.preset = id;
-    const name = document.createElement("span");
-    name.className = "name";
-    name.textContent = t(`multi.preset.${id}`);
-    const about = document.createElement("span");
-    about.className = "fine";
-    about.textContent = t(`multi.presetAbout.${id}`);
-    b.append(name, about);
     b.addEventListener("click", () => {
       if (room?.presetId !== id) act(() => multiplayer("configure", { room: roomId, presetId: id }));
     });
     li.append(b);
     return li;
-  }));
+  });
+  el.modes.replaceChildren(...mine, ...builtIn);
+  render();
 }
+
+function iconButton(text, label, onClick) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "link icon";
+  b.textContent = text;
+  b.setAttribute("aria-label", label);
+  b.title = label;
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+// ---------------------------------------------------------------------------
+// A custom game (FR-12.10, D-106): kinds in order, a shuffle, continents
+// ---------------------------------------------------------------------------
+
+const capitalised = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const whereOf = (regions) => (regions.length === REGIONS.length ? t("multi.allContinents")
+  : REGIONS.filter((r) => regions.includes(r)).map((r) => t(`continentName.${r}`)).join(", "));
+const customAbout = (g) => t("multi.customAbout", { n: g.kinds.length, where: whereOf(g.regions) });
+const sameGame = (a, b) => JSON.stringify([a.kinds, a.shuffled, a.regions]) === JSON.stringify([b.kinds, b.shuffled, b.regions]);
+/** A draft that is one of my saved games, unchanged, plays under its name; anything else is "personalizado". */
+const asPlayed = () => ({ ...draft, name: saved.find((p) => sameGame(p, draft))?.name ?? null });
+
+function showTab(which) {
+  tab = which;
+  el.tabPresets.setAttribute("aria-selected", String(tab === "presets"));
+  el.tabCustom.setAttribute("aria-selected", String(tab === "custom"));
+  el.modes.hidden = tab !== "presets";
+  el.custom.hidden = tab !== "custom";
+  if (tab === "custom") drawCustom();
+  render();
+}
+el.tabPresets.addEventListener("click", () => showTab("presets"));
+el.tabCustom.addEventListener("click", () => showTab("custom"));
+
+function drawCustom() {
+  if (!continents) {
+    continents = multiSelect({
+      label: t("multi.continents"),
+      options: REGIONS.map((r) => ({ value: r, text: t(`continentName.${r}`) })),
+      summary: (regions) => (regions.length === REGIONS.length ? t("multi.allShort") : whereOf(regions)),
+      onChange: (regions) => { draft.regions = regions; },
+    });
+    el.continentsBox.append(continents.node);
+  }
+  continents.set(draft.regions);
+  el.shuffle.checked = draft.shuffled;
+  el.slotsLabel.textContent = t("multi.slots", { n: draft.kinds.length, max: MAX_SLOTS });
+  el.addSlot.disabled = draft.kinds.length >= MAX_SLOTS;
+  const last = draft.kinds.length - 1;
+  el.slots.replaceChildren(...draft.kinds.map((kind, i) => {
+    const li = document.createElement("li");
+    const pick = document.createElement("select");
+    pick.setAttribute("aria-label", t("multi.slot", { n: i + 1 }));
+    pick.append(...KINDS.map((k) => new Option(capitalised(t(`kindName.${k}`)), k, false, k === kind)));
+    pick.addEventListener("change", () => { draft.kinds[i] = pick.value; });
+    const move = (to) => () => {
+      [draft.kinds[i], draft.kinds[to]] = [draft.kinds[to], draft.kinds[i]];
+      drawCustom();
+      el.slots.children[to]?.querySelector("select")?.focus();
+    };
+    const up = iconButton("↑", t("multi.up", { n: i + 1 }), move(i - 1));
+    up.disabled = i === 0;
+    const down = iconButton("↓", t("multi.down", { n: i + 1 }), move(i + 1));
+    down.disabled = i === last;
+    const drop = iconButton("✕", t("multi.drop", { n: i + 1 }), () => { draft.kinds.splice(i, 1); drawCustom(); });
+    drop.disabled = last === 0;
+    li.append(pick, up, down, drop);
+    return li;
+  }));
+  const isNew = !saved.some((p) => p.name.trim().toLowerCase() === el.presetName.value.trim().toLowerCase());
+  const full = isNew && saved.length >= MAX_SAVED;
+  el.savedFull.hidden = !full;
+  el.saveForm.querySelector("button").disabled = full;
+  el.savedFull.textContent = t("multi.savedFull", { max: MAX_SAVED });
+}
+
+el.addSlot.addEventListener("click", () => { draft.kinds.push(draft.kinds.at(-1) ?? "flag"); drawCustom(); });
+el.shuffle.addEventListener("change", () => { draft.shuffled = el.shuffle.checked; });
+el.presetName.addEventListener("input", () => drawCustom());
+el.saveForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = el.presetName.value.trim();
+  if (!name) return;
+  act(async () => {
+    saved = (await multiplayer("savePreset", { preset: { ...draft, name } })).presets;
+    drawModes();
+    drawCustom();
+    return true;
+  }).then((done) => { if (done) setStatus(t("multi.savedOk", { name })); });
+});
 
 // ---------------------------------------------------------------------------
 // Join and listen
@@ -162,6 +290,8 @@ async function join() {
   try {
     const r = await multiplayer("join", { room: roomId });
     mine = r.mine;
+    saved = r.presets ?? [];
+    drawModes();
     setStatus("");
     await listen();
   } catch (err) {
@@ -269,7 +399,11 @@ el.copy.addEventListener("click", async () => {
   catch { el.link.select(); }
 });
 
-el.start.addEventListener("click", () => act(() => multiplayer("start", { room: roomId })));
+// In Personalizar the one start button is "Jogar": it sets the room to the draft, then starts it (FR-12.10).
+el.start.addEventListener("click", () => act(async () => {
+  if (tab === "custom") await multiplayer("configure", { room: roomId, custom: asPlayed() });
+  await multiplayer("start", { room: roomId });
+}));
 // Not back to /sala: for a host, that opens a room again (D-103).
 el.leave.addEventListener("click", async () => {
   await act(() => multiplayer("leave", { room: roomId }));
@@ -495,23 +629,26 @@ function render() {
   const between = room.state === "lobby" || (room.state === "finished" && !training);
   el.lobby.hidden = !between;
   if (between) {
-    el.lobbyTitle.textContent = t(`multi.preset.${room.presetId}`);
-    el.lobbyMode.textContent = t(`multi.presetAbout.${room.presetId}`);
-    el.lobbyMode.hidden = host; // the host reads it on the picked card
+    const custom = room.presetId === "custom" && room.custom;
+    el.lobbyTitle.textContent = custom ? room.custom.name ?? t("multi.preset.custom") : t(`multi.preset.${room.presetId}`);
+    el.lobbyMode.textContent = custom ? customAbout(room.custom) : t(`multi.presetAbout.${room.presetId}`);
+    el.lobbyMode.hidden = host && !custom; // the host reads it on the picked card; a custom game has none
     el.link.value = location.href.split("#")[0];
     // FR-12.7: the host picks; everyone else reads what was picked, above.
-    el.modes.hidden = !host;
+    el.picker.hidden = !host;
     if (host) {
-      buildModes();
-      for (const b of el.modes.querySelectorAll("button")) {
-        b.setAttribute("aria-pressed", String(b.dataset.preset === room.presetId));
-        b.disabled = busy;
+      // Only what calls the server waits on it; the slot buttons edit a draft and keep their own limits.
+      for (const b of el.picker.querySelectorAll(".tabs button, #modes button")) b.disabled = busy;
+      for (const b of el.modes.querySelectorAll("button[data-preset]")) b.setAttribute("aria-pressed", String(b.dataset.preset === room.presetId));
+      for (const b of el.modes.querySelectorAll("button[data-saved]")) {
+        const p = saved.find((x) => x.name === b.dataset.saved);
+        b.setAttribute("aria-pressed", String(Boolean(custom && p && room.custom.name === p.name && sameGame(room.custom, p))));
       }
     }
     const enough = room.playerUids.length >= 2;
     el.start.hidden = !host;
     el.start.disabled = !enough || busy;
-    el.start.textContent = room.state === "finished" ? t("multi.again") : t("multi.start");
+    el.start.textContent = host && tab === "custom" ? t("multi.play") : room.state === "finished" ? t("multi.again") : t("multi.start");
     el.lobbyWait.textContent = host
       ? (enough ? t("multi.readyHost") : t("multi.needPlayers"))
       : t("multi.waitHost", { name: room.players[room.hostUid]?.name ?? "" });

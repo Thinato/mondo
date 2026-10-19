@@ -97,9 +97,30 @@
         <button id="start-btn" type="button" class="primary" hidden>Começar</button>
         <button id="leave-btn" type="button" class="link">Sair da sala</button>
       </div>
-      <!-- Presets, resolved on the server (D-48's reasoning): the page only names one.
-           Under the start button, so "Jogar de novo" is never below six cards. -->
-      <ul id="modes" class="modes" aria-label="Próximo jogo" hidden></ul>
+      <!-- The host's pick of the next game, under the start button so "Jogar de novo"
+           is never below six cards: a preset the server resolves, or (FR-12.10, D-106)
+           a custom Clássico — kinds in order and continents, never a country. -->
+      <div id="picker" hidden>
+        <div class="tabs" role="tablist" aria-label="Próximo jogo">
+          <button id="tab-presets" type="button" role="tab" aria-selected="true" aria-controls="modes">Jogos prontos</button>
+          <button id="tab-custom" type="button" role="tab" aria-selected="false" aria-controls="custom">Personalizar</button>
+        </div>
+        <ul id="modes" class="modes" role="tabpanel" aria-labelledby="tab-presets"></ul>
+        <div id="custom" class="custom" role="tabpanel" aria-labelledby="tab-custom" hidden>
+          <p id="slots-label" class="label"></p>
+          <ol id="slots" class="slots" aria-labelledby="slots-label"></ol>
+          <div class="row">
+            <button id="add-slot" type="button" class="secondary">+ Desafio</button>
+            <label class="check"><input id="shuffle" type="checkbox"> Embaralhar a ordem</label>
+          </div>
+          <div id="continents-box"></div>
+          <form id="save-form" class="row">
+            <input id="preset-name" type="text" maxlength="24" required placeholder="Nome do preset" aria-label="Nome do preset">
+            <button id="save-preset" type="submit" class="secondary">Salvar preset</button>
+          </form>
+          <p id="saved-full" class="fine" hidden></p>
+        </div>
+      </div>
     </section>
 
     <!-- Clássico (FR-12.2): the same prompt elements as the daily and practice,

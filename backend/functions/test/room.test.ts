@@ -192,3 +192,16 @@ test("D-105: training has nobody to beat", () => {
   const training: Room = { ...newRoom("g", "G", "potato", "treino", T0), state: "playing", potato: { ...newPotato(["g"], T0, false), scores: { g: { points: 9, timeMs: 0, named: 9 } } } };
   assert.equal(finishRoom(training, T0).players.g!.wins, undefined);
 });
+
+test("D-106: a custom game sets the room to Clássico and carries a copy; a built-in preset clears it", () => {
+  const custom = { name: "Europa", kinds: ["flag" as const, "capital" as const], shuffled: false, regions: ["Europe" as const] };
+  const r = configureRoom(pair(), "host", custom, T0);
+  assert.equal(r.presetId, "custom");
+  assert.equal(r.mode, "classic");
+  assert.deepEqual(r.custom, custom);
+  const back = configureRoom(r, "host", BANDEIRAS, T0);
+  assert.equal(back.presetId, "bandeiras");
+  assert.equal(back.custom, null);
+  rejects(() => configureRoom(pair(), "b", custom, T0), "permission-denied");
+  rejects(() => configureRoom({ ...pair(), state: "playing" }, "host", custom, T0), "room-started");
+});

@@ -26,7 +26,6 @@
 import { Timestamp, type Transaction } from "firebase-admin/firestore";
 import { dailyAhead, db, ensureProfile, roomRef, roomSecretsRef, roomSubRef, userRef } from "./db";
 import { requireCanCreateGroup, rankOf } from "./lib/authz";
-import { buildCard } from "./lib/card";
 import { countryByCode } from "./lib/countries";
 import { mondoError } from "./lib/errors";
 import { inviteToken } from "./lib/invite";
@@ -40,9 +39,9 @@ import {
 } from "./lib/room";
 import { callable, signInProvider } from "./lib/callable";
 import { GUESS_MIN_INTERVAL_MS } from "./lib/config";
-import { requireInviteToken, requireObject, requireUid } from "./lib/validate";
+import { requireCustomGame, requireInviteToken, requireObject, requirePresetName, requireUid } from "./lib/validate";
 import {
-  classicGiveUp, classicGuess, classicMine, presetById, startClassic, tickClassic, type ClassicSecrets,
+  classicGiveUp, classicGuess, classicMine, dealCard, presetById, savedRemove, savedUpsert, specOf, startClassic, tickClassic, type ClassicSecrets,
 } from "./lib/multiplayer";
 import { mapBase, mapPiece } from "./lib/world";
 
@@ -92,6 +91,8 @@ const withPotato = (room: Room, potato: PotatoState): Room =>
 
 /** A new room starts on Batata Quente; the host changes it in the lobby (FR-12.7). */
 const DEFAULT_PRESET = "mundo";
+
+const sameGame = (a: Room, b: Room) => a.presetId === b.presetId && JSON.stringify(a.custom ?? null) === JSON.stringify(b.custom ?? null);
 
 function writePrompt(tx: Transaction, id: string, doc: PromptDoc): void {
   tx.set(roomSubRef(id, "prompts", String(doc.index)), plain(doc));
@@ -162,9 +163,10 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
         if (after !== room) tx.set(roomRef(id), after);
         // Coming back to a running Clássico: the player's own guesses on the
         // challenge on screen, which nobody else's listener can give them.
-        return secrets ? classicMine(room, classicOf(secrets), uid) : null;
+        // FR-12.11: and the caller's OWN saved games — never anyone else's.
+        return { mine: secrets ? classicMine(room, classicOf(secrets), uid) : null, presets: profile.presets ?? [] };
       });
-      return reply({ room: id, mine });
+      return reply({ room: id, ...mine });
     }
 
     // ----------------------------------------------------------------- leave
@@ -182,12 +184,50 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
     // ------------------------------------------------------------- configure
     case "configure": {
       const id = requireInviteToken(body.room);
-      const preset = presetById(body.presetId);
+      // A built-in preset by id, or (FR-12.10, D-106) a custom game by value.
+      const game = body.custom !== undefined ? requireCustomGame(body.custom) : presetById(body.presetId);
+      if ("kinds" in game) {
+        // Refuse a game the pool cannot fill now, not when everyone is waiting
+        // on Start. The host's checks first, so nobody else spends the query.
+        const peek = (await roomRef(id).get()).data() as Room | undefined;
+        if (!peek) throw mondoError("not-found", "No such room.");
+        const { spec, outside } = specOf(configureRoom(peek, uid, game, Date.now()));
+        dealCard(spec, await dailyAhead(Timestamp.now()), outside);
+      }
       await db().runTransaction(async (tx) => {
         const { ms } = clock();
-        tx.set(roomRef(id), configureRoom(await readRoom(tx, id), uid, preset, ms));
+        tx.set(roomRef(id), configureRoom(await readRoom(tx, id), uid, game, ms));
       });
       return reply();
+    }
+
+    // ----------------------------------------------------- savePreset / deletePreset
+    case "savePreset": {
+      // FR-12.11: a host's own custom games, on their own profile. Saving is
+      // hosting's rank, like the room it is for; deleting is always yours.
+      const preset = requireCustomGame(body.preset);
+      if (preset.name === null) throw mondoError("invalid-argument", "A saved preset needs a name.");
+      const presets = await db().runTransaction(async (tx) => {
+        const { now } = clock();
+        const profile = await ensureProfile(tx, uid, now);
+        requireCanCreateGroup(rankOf(profile, signInProvider(request), now));
+        const list = savedUpsert(profile.presets ?? [], { ...preset, name: preset.name! });
+        tx.set(userRef(uid), { presets: list }, { merge: true });
+        return list;
+      });
+      return reply({ presets });
+    }
+
+    case "deletePreset": {
+      const name = requirePresetName(body.name);
+      const presets = await db().runTransaction(async (tx) => {
+        const { now } = clock();
+        const profile = await ensureProfile(tx, uid, now);
+        const list = savedRemove(profile.presets ?? [], name);
+        if (list.length !== (profile.presets ?? []).length) tx.set(userRef(uid), { presets: list }, { merge: true });
+        return list;
+      });
+      return reply({ presets });
     }
 
     // ---------------------------------------------------------------- remove
@@ -209,19 +249,20 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
       if (!peek) throw mondoError("not-found", "No such room.");
       // The host's checks before the week-ahead query, so no other player can spend it.
       requireStartable(peek, uid, Date.now());
-      const preset = presetById(peek.presetId);
+      const dealt = peek.mode === "classic" ? specOf(peek) : null;
       // D-91: the week of daily answers ahead is withheld, as in practice (D-60).
       // Read outside the transaction: it is a query over `puzzles`, which no
       // Multijogador write touches, and the card is built once either way.
-      const ahead = preset.spec ? await dailyAhead(Timestamp.now()) : [];
-      const items = preset.spec ? buildCard(preset.spec, new Set(ahead)) : null;
+      const ahead = dealt ? await dailyAhead(Timestamp.now()) : [];
+      // D-106: a custom game's continents ride on the same exclusion (D-70).
+      const items = dealt ? dealCard(dealt.spec, ahead, dealt.outside) : null;
       await db().runTransaction(async (tx) => {
         const { ms } = clock();
         const before = await readRoom(tx, id);
         requireStartable(before, uid, ms);
         // The card above was built for the preset read then; a host who changed
         // it in between gets asked to press again rather than the wrong game.
-        if (before.presetId !== peek.presetId) throw mondoError("invalid-argument", "The game changed. Try again.");
+        if (!sameGame(before, peek)) throw mondoError("invalid-argument", "The game changed. Try again.");
         // D-104: a rematch. The last game's prompts and countries go in the same
         // transaction that starts the next one — a stale reveal at prompts/3
         // would otherwise sit under the new game's third challenge. At most 196

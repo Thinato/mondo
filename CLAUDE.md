@@ -275,7 +275,12 @@ backend.
   and still joins by link. **A rematch deletes the last game's `prompts` and `map` in the start
   transaction** — a stale `prompts/3` would show its reveal under the next game's third challenge —
   skipping only the one document the new game writes over, because a commit takes one write per
-  document. Training rooms (D-93) are never a lobby. A room counts wins (D-105) in `finishRoom`, the one place a
+  document. Training rooms (D-93) are never a lobby. **The host may put a Clássico together** (FR-12.10,
+  FR-12.11, D-106) — kinds in order and continents, saved up to ten on their own `users/{uid}` — and
+  the room keeps a copy; it is still **never a country**: the server deals, D-91's week is withheld,
+  and the continents are D-70's exclusion. A board stays inside them while they hold seven
+  distractors; on a small continent `dealCard` widens it to the world minus the card's subjects and
+  the week ahead — **never** to an answer, because `pickOptions`' own fallback would (FR-8.7). A room counts wins (D-105) in `finishRoom`, the one place a
   game ends: the sole top scorer gets one, **a tie at the top gets nobody one** — the time tiebreak
   orders the board and wins nothing. **The `versus` export in `index.ts` is an alias
   for one release** (D-102): delete it in the next backend PR, not before — a cached `sala.html`

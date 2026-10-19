@@ -13,18 +13,20 @@
  * Speed is worth something only on top of being right: a solve is multiplied
  * by up to 1.5 for the time left, and nothing times zero is zero.
  *
- * Presets, not settings (D-48's reasoning, kept): the host names one, the
- * server resolves it, and the client never supplies a kind or a count.
+ * Presets, or a custom game (D-106): the host names a built-in preset, which
+ * the server resolves, or sends kinds, order and continents for the server to
+ * deal from. Never a country — the subjects are always the server's pick.
  */
 
 import { Timestamp } from "firebase-admin/firestore";
-import { applyCardGuess, giveUpCard, newCardCore, type CardCore, type CardItem, type CardSpec } from "./card";
+import { applyCardGuess, boardOptions, buildCard, giveUpCard, newCardCore, type CardCore, type CardItem, type CardSpec } from "./card";
 import { mondoError } from "./errors";
+import { COUNTRIES, REGIONS, type Region } from "./countries";
 import { KIND_IDS, kindById, type KindId, type Reveal } from "./kinds";
 import type { SelfReport } from "./report";
 import { revealOf } from "./hints";
 import { guessView, type GuessView } from "./round";
-import { finishRoom, type ClassicPublic, type PromptDoc, type Room, type RoomMode } from "./room";
+import { finishRoom, CUSTOM_PRESET, type ClassicPublic, type CustomGame, type PromptDoc, type Room, type RoomMode } from "./room";
 
 export interface MultiplayerPreset {
   id: string;
@@ -60,6 +62,87 @@ export function presetById(id: unknown): MultiplayerPreset {
   if (!p) throw mondoError("invalid-argument", "Unknown game preset.");
   return p;
 }
+
+/**
+ * D-106 — what a room deals from: its card spec, and the countries outside a
+ * custom game's continents (D-70's exclusion; `dealCard` says how far it holds).
+ */
+export function specOf(room: Pick<Room, "presetId" | "custom">): { spec: CardSpec; outside: string[] } {
+  const c = room.presetId === CUSTOM_PRESET ? room.custom : null;
+  if (!c) {
+    const spec = presetById(room.presetId).spec;
+    if (!spec) throw mondoError("invalid-argument", "This preset has no card.");
+    return { spec, outside: [] };
+  }
+  return {
+    spec: { items: c.kinds.map((kind) => ({ kind, count: 1 })), order: c.shuffled ? "shuffled" : "as_listed" },
+    outside: outsideRegions(c.regions),
+  };
+}
+
+const DEAL_TRIES = 5;
+
+/**
+ * Deal a room's card. `hidden` is what no player may be shown at all — D-91's
+ * week of daily answers — and `outside` is the continents the host left out.
+ *
+ * Both go to `buildCard` as one exclusion, which keeps subjects AND boards
+ * inside the continents (D-70). But a board needs seven distractors, and on a
+ * small continent the card's own subjects and the week ahead can leave fewer:
+ * `pickOptions` then falls back to its whole pool, answers included. So any
+ * board that shows another challenge's subject or a coming daily is dealt
+ * again from the WORLD minus exactly those — wider than the continents asked
+ * for, never an answer (FR-8.7). Wider is the price of a fourteen-country
+ * continent; a leak is not a price.
+ *
+ * A subject pool that runs dry is the host's own filter talking, so it is
+ * `no-countries-left`, after a few tries: subjects are drawn by weight, and
+ * whether a tight continent runs out depends on the draw.
+ */
+export function dealCard(spec: CardSpec, hidden: readonly string[], outside: readonly string[], rand: () => number = Math.random): CardItem[] {
+  const exclude = new Set([...hidden, ...outside]);
+  for (let attempt = 1; ; attempt++) {
+    let items: CardItem[];
+    try {
+      items = buildCard(spec, exclude, rand);
+    } catch (err) {
+      if ((err as { details?: { code?: string } }).details?.code !== "not-found") throw err;
+      if (attempt < DEAL_TRIES) continue;
+      throw mondoError("no-countries-left", "Not enough countries in those continents for this game.");
+    }
+    const banned = new Set([...hidden, ...items.map((i) => i.subject)]);
+    const leaks = (item: CardItem) => item.options?.some((c) => c !== item.subject && banned.has(c)) ?? false;
+    return items.map((item) => {
+      if (!leaks(item)) return item;
+      const wider = { ...item, options: boardOptions(kindById(item.kind), item.subject, banned, rand)! };
+      if (leaks(wider)) throw mondoError("no-countries-left", "Not enough countries for this board.");
+      return wider;
+    });
+  }
+}
+
+/** Every country not in the chosen continents. */
+export function outsideRegions(regions: readonly Region[]): string[] {
+  if (REGIONS.every((r) => regions.includes(r))) return [];
+  const wanted = new Set<string>(regions);
+  return [...COUNTRIES.values()].filter((c) => !wanted.has(c.region)).map((c) => c.code);
+}
+
+/** FR-12.11 — a host's saved custom game, on their own `users/{uid}` (owner-only, D-34). */
+export type SavedPreset = CustomGame & { name: string };
+export const SAVED_PRESETS_MAX = 10;
+
+const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase("pt-BR") === b.trim().toLocaleLowerCase("pt-BR");
+
+/** Saving under a name already there overwrites it, in place; an eleventh name is refused. */
+export function savedUpsert(list: readonly SavedPreset[], preset: SavedPreset): SavedPreset[] {
+  const i = list.findIndex((p) => sameName(p.name, preset.name));
+  if (i >= 0) return list.map((p, j) => (j === i ? preset : p));
+  if (list.length >= SAVED_PRESETS_MAX) throw mondoError("invalid-argument", `At most ${SAVED_PRESETS_MAX} saved presets.`);
+  return [...list, preset];
+}
+
+export const savedRemove = (list: readonly SavedPreset[], name: string): SavedPreset[] => list.filter((p) => !sameName(p.name, name));
 
 /** A board of eight is read at a glance; a silhouette is not. */
 export const secondsFor = (kind: KindId): number => (kind === "flagPick" || kind === "shapePick" ? 20 : 45);
