@@ -833,6 +833,36 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
 .modes button:hover, .modes button:focus-visible { border-color: var(--fg); }
 .modes button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .modes .name { font-weight: 600; }
+/* FR-12.11: a saved game is a card with its own edit and delete beside it. */
+.modes li.saved { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .25rem; align-items: center; }
+button.link.icon { padding: .25rem .4rem; color: var(--muted); }
+button.link.icon:hover, button.link.icon:focus-visible { color: var(--fg); }
+button.link.icon:disabled { opacity: .35; cursor: default; }
+
+/* FR-12.10: the custom game. A numbered list of selects; the number is the order. */
+.custom { margin: 1rem 0; }
+.slots { margin: .5rem 0; padding-left: 1.75rem; display: grid; gap: .35rem; }
+.slots li { padding-left: .25rem; }
+.slots li > * { vertical-align: middle; }
+.slots select { min-width: 0; width: min(14rem, 60%); }
+.check { display: inline-flex; gap: .4rem; align-items: center; color: var(--muted); cursor: pointer; }
+#save-form input { flex: 1 1 10rem; min-width: 0; }
+
+/* A select box that takes several answers (multiselect.js): native <details>. */
+.multiselect { position: relative; margin: .75rem 0; }
+.multiselect summary {
+  list-style: none; cursor: pointer; display: inline-block; padding: .35rem .7rem;
+  border: 1px solid var(--line); border-radius: .35rem; background: var(--field);
+}
+.multiselect summary::-webkit-details-marker { display: none; }
+.multiselect summary::after { content: " ▾"; color: var(--muted); }
+.multiselect[open] summary { border-color: var(--fg); }
+.multiselect fieldset {
+  position: absolute; z-index: 5; margin: .25rem 0 0; padding: .5rem .75rem; min-width: 12rem; display: grid; gap: .35rem;
+  border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); box-shadow: 0 .5rem 1.5rem rgb(0 0 0 / .15);
+}
+.multiselect legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.multiselect label { display: flex; gap: .5rem; align-items: center; cursor: pointer; }
 
 /* The countdown. A bar, because a number that changes ten times a second is
    noise; the seconds are printed beside it once a second. */
