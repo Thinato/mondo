@@ -116,13 +116,19 @@ by default). What the client sends is `{ kinds, shuffled, regions, name? }` — 
 
 - **The room holds a copy** (`room.custom`, `presetId: "custom"`). Choosing a preset clears it. A
   saved game edited or deleted later does not touch a room already set to it.
-- **Dealt by `specOf`**: one card entry per kind, `as_listed` unless shuffled — so the order the
-  host chose is the order played. The continents are D-70's mechanism: every country outside them
-  joins the exclusion `buildCard` already takes, beside D-91's week ahead, so the subjects **and**
-  `flagPick`/`shapePick`'s eight options stay inside them.
+- **Dealt by `specOf` and `dealCard`**: one card entry per kind, `as_listed` unless shuffled — so
+  the order the host chose is the order played. The continents are D-70's mechanism: every country
+  outside them joins the exclusion `buildCard` already takes, beside D-91's week ahead, so the
+  subjects and — while the continent leaves seven distractors — `flagPick`/`shapePick`'s eight
+  options stay inside them.
+- **A board never leaks, however small the continent.** `pickOptions` falls back to its WHOLE pool
+  when the exclusion leaves fewer than seven distractors — built for tournaments' ±60-day window,
+  harmless on a world-sized card, and on an Oceania card of the day's seven kinds it put another
+  challenge's answer on 87–99 % of boards. `dealCard` re-deals any such board from the world minus
+  the card's subjects and the week ahead: wider than asked, never an answer (FR-8.7, D-91).
 - **Refused early.** Fifteen capitals of Oceania cannot be dealt; `configure` tries the deal (week
-  ahead included) and says so with `no-countries-left`. `start` maps the same failure to the same
-  code, because the week ahead can move between the two.
+  ahead included) and says so with `no-countries-left`, after up to five draws, because whether a
+  tight continent runs dry depends on the weighted draw. `start` deals the same way.
 - **`start`'s race guard** compares `custom` as well as `presetId`.
 - **Saved games** (FR-12.11) live on the host's own `users/{uid}.presets` — owner-only (D-34), no
   new collection, no rules change. Up to 10, named 1–24 characters; saving under a name already
