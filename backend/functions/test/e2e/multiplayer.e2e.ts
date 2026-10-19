@@ -138,6 +138,11 @@ test("FR-12.3: Batata Quente, three players, to a full map", async () => {
   assert.ok(jp.d || jp.dot);
   const total = Object.values(r.potato.scores as Record<string, { named: number }>).reduce((n, s) => n + s.named, 0);
   assert.equal(total, COUNTRIES.size);
+  // D-105: the one player with the most points takes a trophy; a tie at the top, nobody.
+  const pts = Object.entries(r.potato.scores as Record<string, { points: number }>).map(([uid, s]) => [uid, s.points] as const);
+  const best = Math.max(...pts.map(([, p]) => p));
+  const top = pts.filter(([, p]) => p === best).map(([uid]) => uid);
+  for (const uid of r.playerUids) assert.equal(r.players[uid].wins ?? 0, top.length === 1 && top[0] === uid ? 1 : 0, `wins of ${uid}`);
   // D-104: the game is over and the room is a lobby again, open two more hours.
   assert.equal(r.expiresAt, r.finishedAt + 2 * 3_600_000);
   ok(await late.call({ op: "join", room: id }), "a newcomer joins between games");
@@ -177,6 +182,7 @@ test("D-103, D-104: the host's standing room, set to Clássico, plays again with
   assert.equal(fresh.potato, null);
   assert.equal(fresh.players[host.uid].score, 0);
   assert.ok(fresh.startedAt > before.finishedAt);
+  const hostWins: number = fresh.players[host.uid].wins ?? 0;
   const { items } = (await db.doc(`roomSecrets/${id}`).get()).data() as Any;
   assert.equal(items.length, 5);
 
@@ -213,6 +219,7 @@ test("D-103, D-104: the host's standing room, set to Clássico, plays again with
   assert.equal(r.state, "finished");
   assert.ok(r.players[host.uid].score >= 5 * 6, "five solves, each at least 6");
   assert.equal(r.players[bia.uid].score, 0);
+  assert.equal(r.players[host.uid].wins, hostWins + 1, "D-105: the host won this one outright");
 
   // And once more, the same card size: the last game's five prompts make way for the new one's.
   ok(await host.call({ op: "start", room: id }), "rematch");

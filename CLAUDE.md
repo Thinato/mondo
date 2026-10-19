@@ -275,7 +275,9 @@ backend.
   and still joins by link. **A rematch deletes the last game's `prompts` and `map` in the start
   transaction** — a stale `prompts/3` would show its reveal under the next game's third challenge —
   skipping only the one document the new game writes over, because a commit takes one write per
-  document. Training rooms (D-93) are never a lobby. **The `versus` export in `index.ts` is an alias
+  document. Training rooms (D-93) are never a lobby. A room counts wins (D-105) in `finishRoom`, the one place a
+  game ends: the sole top scorer gets one, **a tie at the top gets nobody one** — the time tiebreak
+  orders the board and wins nothing. **The `versus` export in `index.ts` is an alias
   for one release** (D-102): delete it in the next backend PR, not before — a cached `sala.html`
   still calls it.
 - **Batata Quente reads text, and one letter is the whole rule** (D-90). `lib/match.ts`: pt-BR name

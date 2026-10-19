@@ -479,6 +479,9 @@ to test new challenges."*
   link, everyone still seated, the result still shown, open two more hours. The host MAY remove
   another player's seat between games, and MAY start the next game; starting it MUST leave
   nothing of the last game's challenges or map on any player's screen.
+- **FR-12.9 Trophies (D-105).** When a game ends, the one player with the most points wins it, and
+  the room's board MUST show beside each player how many games they have won in that room. When
+  two or more share the most points it is a draw and nobody wins. Training wins nothing.
 
 ## FR-13 — Profile *(added 2026-10-15, D-97)*
 
