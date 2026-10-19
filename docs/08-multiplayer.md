@@ -44,9 +44,11 @@ sala.html ──callable──▶ multiplayer({ op })     (one function, D-92; `
 | op | who | does |
 |---|---|---|
 | `create { presetId? }` | admin, invited, subscriber (FR-10.3) | the host's standing room (D-103): the one they are seated in if it is playing or not expired, else a new lobby on `mundo`. A named preset is applied between games |
-| `join { room }` | anyone signed in | takes a seat (≤ 8, between games only); idempotent; returns `mine` for a running Clássico |
+| `join { room }` | anyone signed in | takes a seat (≤ 8, between games only); idempotent; returns `mine` for a running Clássico, and the caller's own saved `presets` |
 | `leave { room }` | a player, between games | frees the seat; the host's seat passes on |
-| `configure { room, presetId }` | the host, between games | the next game (FR-12.7); never `treino`; keeps the room open two more hours |
+| `configure { room, presetId }` or `{ room, custom }` | the host, between games | the next game (FR-12.7): a preset, never `treino`, or a custom Clássico (FR-12.10, §3.1), refused here with `no-countries-left` if the pool cannot fill it; keeps the room open two more hours |
+| `savePreset { preset }` | admin, invited, subscriber | saves a custom game under its name on `users/{uid}.presets` (FR-12.11): same name overwrites, ≤ 10; returns the list |
+| `deletePreset { name }` | anyone signed in | removes one of their own saved games; returns the list |
 | `remove { room, uid }` | the host, between games | takes another player's seat (FR-12.8); not a ban |
 | `start { room }` | the host, ≥ 2 players, between games | builds the card (Clássico) or the turn order and the land (Batata Quente); after a game, first deletes its prompts and map (§2.3) |
 | `tick { room }` | a player | moves the room on if — and only if — its deadline has passed |
@@ -90,8 +92,8 @@ link, and every player had to come back through it. Now:
 
 ## 3. Clássico (FR-12.2)
 
-- **Presets, not settings** (D-48's reasoning): `mundo` (Batata Quente), `dia` (the 7 kinds),
-  `bandeiras`, `formas`, `capitais`, `misto-10`. The client sends the id.
+- **Presets, or a custom game** (D-106): `mundo` (Batata Quente), `dia` (the 7 kinds),
+  `bandeiras`, `formas`, `capitais`, `misto-10`, by id — or a custom Clássico by value (§3.1).
 - Every player holds a `CardCore` of the room's card in `roomSecrets` and plays it through
   `lib/card.ts` **unchanged** — `applyCardGuess`, `giveUpCard`, `scoreItem`, the guess budget and
   SEC-5's floor. The room only decides when an item opens and closes: a guess is refused unless
@@ -104,6 +106,33 @@ link, and every player had to come back through it. Now:
   player, `{ guesses, done, solved, points }` — a count, never a graded guess, because a rival's
   distance and arrow are hints. Your own guesses come back in your reply. D-91 withholds the
   daily's next week of subjects from the card.
+
+### 3.1 A custom game (FR-12.10, FR-12.11, D-106)
+
+The host can put a Clássico together in the lobby's **Personalizar** tab: 1–15 kinds in order (a
+slot list, with a shuffle switch) and the continents to draw from (a multi-select, every continent
+by default). What the client sends is `{ kinds, shuffled, regions, name? }` — **never a country**;
+`requireCustomGame` keeps that closed shape and nothing else.
+
+- **The room holds a copy** (`room.custom`, `presetId: "custom"`). Choosing a preset clears it. A
+  saved game edited or deleted later does not touch a room already set to it.
+- **Dealt by `specOf`**: one card entry per kind, `as_listed` unless shuffled — so the order the
+  host chose is the order played. The continents are D-70's mechanism: every country outside them
+  joins the exclusion `buildCard` already takes, beside D-91's week ahead, so the subjects **and**
+  `flagPick`/`shapePick`'s eight options stay inside them.
+- **Refused early.** Fifteen capitals of Oceania cannot be dealt; `configure` tries the deal (week
+  ahead included) and says so with `no-countries-left`. `start` maps the same failure to the same
+  code, because the week ahead can move between the two.
+- **`start`'s race guard** compares `custom` as well as `presetId`.
+- **Saved games** (FR-12.11) live on the host's own `users/{uid}.presets` — owner-only (D-34), no
+  new collection, no rules change. Up to 10, named 1–24 characters; saving under a name already
+  there (case and spacing ignored) overwrites it. `join` hands the caller their own list, and the
+  page lists them above the presets with ✎ (into the tab, prefilled) and ✕. Saving takes hosting's
+  rank, as the room it is for does; deleting takes none, so a lapsed subscriber can still tidy up.
+- **Jogar.** On the Personalizar tab the lobby's one primary button reads "Jogar": it configures
+  the room with the draft and starts it. The draft plays under a saved game's name only if it is
+  that game unchanged; otherwise it is "Clássico · personalizado".
+- A card holds 15 (`MAX_CARD_ITEMS`), up from 10: about 12.5 minutes at 45 s a challenge.
 
 ## 4. Batata Quente (FR-12.3)
 
@@ -186,7 +215,7 @@ such games a day fit in the free tier. One callable, no `minInstances`.
 
 ## 8. Not in v1
 
-A Multijogador history or ranking; banning a player (remove is not a ban); custom settings
-beyond the presets; spectators; Batata Quente by continent; deleting the tournament backend (D-88's
+A Multijogador history or ranking; banning a player (remove is not a ban); per-challenge clocks
+in a custom game; sharing a saved game with another player; spectators; Batata Quente by continent; deleting the tournament backend (D-88's
 follow-up, once nothing is running); TTL cleanup of old rooms; dropping the `versus` alias (D-102's
 follow-up, the next backend PR).
