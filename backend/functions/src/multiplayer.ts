@@ -206,12 +206,12 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
       // FR-12.11: a host's own custom games, on their own profile. Saving is
       // hosting's rank, like the room it is for; deleting is always yours.
       const preset = requireCustomGame(body.preset);
-      const name = requirePresetName((body.preset as { name?: unknown }).name);
+      if (preset.name === null) throw mondoError("invalid-argument", "A saved preset needs a name.");
       const presets = await db().runTransaction(async (tx) => {
         const { now } = clock();
         const profile = await ensureProfile(tx, uid, now);
         requireCanCreateGroup(rankOf(profile, signInProvider(request), now));
-        const list = savedUpsert(profile.presets ?? [], { ...preset, name });
+        const list = savedUpsert(profile.presets ?? [], { ...preset, name: preset.name! });
         tx.set(userRef(uid), { presets: list }, { merge: true });
         return list;
       });

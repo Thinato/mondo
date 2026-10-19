@@ -64,10 +64,8 @@ export function presetById(id: unknown): MultiplayerPreset {
 }
 
 /**
- * D-106 — what a room deals from: its card spec, and the countries no part of
- * that card may show. A custom game's continents are D-70's exclusion, the same
- * mechanism as practice's filter, so subjects AND the pick kinds' distractors
- * stay inside them.
+ * D-106 — what a room deals from: its card spec, and the countries outside a
+ * custom game's continents (D-70's exclusion; `dealCard` says how far it holds).
  */
 export function specOf(room: Pick<Room, "presetId" | "custom">): { spec: CardSpec; outside: string[] } {
   const c = room.presetId === CUSTOM_PRESET ? room.custom : null;
@@ -81,6 +79,8 @@ export function specOf(room: Pick<Room, "presetId" | "custom">): { spec: CardSpe
     outside: outsideRegions(c.regions),
   };
 }
+
+const DEAL_TRIES = 5;
 
 /**
  * Deal a room's card. `hidden` is what no player may be shown at all — D-91's
@@ -120,7 +120,6 @@ export function dealCard(spec: CardSpec, hidden: readonly string[], outside: rea
     });
   }
 }
-const DEAL_TRIES = 5;
 
 /** Every country not in the chosen continents. */
 export function outsideRegions(regions: readonly Region[]): string[] {
