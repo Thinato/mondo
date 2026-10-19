@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
 import { REGIONS } from "../src/lib/countries";
 import {
-  requireCountryCode, requireDisplayName, requireGroupId, requireGroupName, requireInviteMode, requireLocale, requireObject, requirePuzzleId, requireRegions, requireRole, requireUid,
+  requireCountryCode, requireCustomGame, requireDisplayName, requireGroupId, requireGroupName, requireInviteMode, requireLocale, requireObject, requirePresetName, requirePuzzleId, requireRegions, requireRole, requireUid,
 } from "../src/lib/validate";
 
 const invalidArgument = (fn: () => unknown) =>
@@ -88,4 +88,24 @@ test("FR-4.12: requireInviteMode defaults to single and refuses anything else", 
   // accepting it by accident would mint the wide link when someone typed the
   // wrong word, which is the one mistake here that cannot be taken back.
   for (const bad of ["public", "Multi", "", "SINGLE", 1, true, {}, ["multi"]]) invalidArgument(() => requireInviteMode(bad));
+});
+
+test("FR-12.10: a custom game is kinds in order, a shuffle flag and continents — nothing else is kept", () => {
+  const ok = requireCustomGame({ kinds: ["flag", "capital"], shuffled: false, regions: ["Europe"], subject: "BR" });
+  assert.deepEqual(ok, { name: null, kinds: ["flag", "capital"], shuffled: false, regions: ["Europe"] });
+  assert.deepEqual(requireCustomGame({ kinds: ["gdp"], shuffled: true }).regions, [...REGIONS], "no continents means all of them");
+  assert.equal(requireCustomGame({ kinds: ["gdp"], shuffled: true, name: "  Rápido " }).name, "Rápido");
+  assert.equal(requireCustomGame({ kinds: Array(15).fill("flag"), shuffled: false }).kinds.length, 15);
+  for (const bad of [
+    null, [], { kinds: [], shuffled: false }, { kinds: Array(16).fill("flag"), shuffled: false }, { kinds: ["flags"], shuffled: false },
+    { kinds: "flag", shuffled: false }, { kinds: ["flag"] }, { kinds: ["flag"], shuffled: "no" },
+    { kinds: ["flag"], shuffled: false, regions: [] }, { kinds: ["flag"], shuffled: false, regions: ["Antarctica"] },
+    { kinds: ["flag"], shuffled: false, name: "" },
+  ]) invalidArgument(() => requireCustomGame(bad));
+});
+
+test("FR-12.11: a preset name is 1–24 characters once trimmed", () => {
+  assert.equal(requirePresetName("  Europa 3 "), "Europa 3");
+  assert.equal(requirePresetName("x".repeat(24)).length, 24);
+  for (const bad of [undefined, 3, "", "   ", "x".repeat(25), "a\u0000b"]) invalidArgument(() => requirePresetName(bad));
 });

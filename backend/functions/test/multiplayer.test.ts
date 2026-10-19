@@ -10,12 +10,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
 import { buildCard, type CardItem } from "../src/lib/card";
-import { gdpFor } from "../src/lib/countries";
+import { countryByCode, gdpFor } from "../src/lib/countries";
 import { kindById } from "../src/lib/kinds";
 import { joinRoom, newRoom, type Room } from "../src/lib/room";
 import {
-  classicGiveUp, classicGuess, classicMine, classicRanking, presetById, secondsFor, speedPoints, startClassic, tickClassic,
-  REVEAL_MS, MULTIPLAYER_PRESETS, type ClassicSecrets,
+  classicGiveUp, classicGuess, classicMine, classicRanking, outsideRegions, presetById, savedRemove, savedUpsert, secondsFor, specOf,
+  speedPoints, startClassic, tickClassic, REVEAL_MS, MULTIPLAYER_PRESETS, SAVED_PRESETS_MAX, type ClassicSecrets, type SavedPreset,
 } from "../src/lib/multiplayer";
 
 const T0 = 1_800_000_000_000;
@@ -167,4 +167,46 @@ test("the right and wrong guesses this file uses are right and wrong for every k
 test("training is a Batata Quente for one (D-93)", () => {
   assert.deepEqual(presetById("treino"), { id: "treino", mode: "potato", solo: true });
   assert.ok(MULTIPLAYER_PRESETS.filter((p) => p.solo).every((p) => p.mode === "potato" && !p.spec));
+});
+
+test("D-106: a custom game deals its kinds in the order given, unless shuffled", () => {
+  const kinds = ["capital", "flag", "shape", "person", "flagPick"] as const;
+  const custom = { name: null, kinds: [...kinds], shuffled: false, regions: ["Europe" as const] };
+  const { spec, outside } = specOf({ presetId: "custom", custom });
+  for (let seed = 1; seed <= 10; seed++) {
+    assert.deepEqual(buildCard(spec, new Set(outside), rng(seed)).map((i) => i.kind), [...kinds]);
+  }
+  assert.equal(specOf({ presetId: "custom", custom: { ...custom, shuffled: true } }).spec.order, "shuffled");
+  // A built-in preset deals its own spec, with nothing excluded.
+  assert.deepEqual(specOf({ presetId: "capitais", custom: null }), { spec: presetById("capitais").spec, outside: [] });
+  rejects(() => specOf({ presetId: "mundo" }), "invalid-argument");
+});
+
+test("D-106, D-70: the continents bound every subject AND every option on a board", () => {
+  assert.deepEqual(outsideRegions(["Africa", "Americas", "Asia", "Europe", "Oceania"]), [], "every continent excludes nothing");
+  for (const region of ["Europe", "Oceania", "Africa"] as const) {
+    const custom = { name: null, kinds: ["flag", "flagPick", "shapePick", "capital"] as ("flag" | "flagPick" | "shapePick" | "capital")[], shuffled: false, regions: [region] };
+    const { spec, outside } = specOf({ presetId: "custom", custom });
+    for (let seed = 1; seed <= 20; seed++) {
+      for (const item of buildCard(spec, new Set(outside), rng(seed))) {
+        for (const code of [item.subject, ...(item.options ?? [])]) {
+          assert.equal(countryByCode(code)?.region, region, `${region} seed ${seed}: ${item.kind} shows ${code}`);
+        }
+      }
+    }
+  }
+});
+
+test("FR-12.11: saving by a name already there overwrites it; an eleventh name is refused", () => {
+  const p = (name: string, n = 1): SavedPreset => ({ name, kinds: Array(n).fill("flag"), shuffled: false, regions: ["Europe"] });
+  let list = savedUpsert([], p("Europa"));
+  list = savedUpsert(list, p(" europa ", 3));
+  assert.equal(list.length, 1, "same name, any case or spacing");
+  assert.equal(list[0]!.kinds.length, 3);
+  for (let i = 1; i < SAVED_PRESETS_MAX; i++) list = savedUpsert(list, p(`P${i}`));
+  assert.equal(list.length, SAVED_PRESETS_MAX);
+  rejects(() => savedUpsert(list, p("Mais um")), "invalid-argument");
+  assert.equal(savedUpsert(list, p("P3", 2)).length, SAVED_PRESETS_MAX, "overwriting at the cap is fine");
+  assert.equal(savedRemove(list, "EUROPA").length, SAVED_PRESETS_MAX - 1);
+  assert.deepEqual(savedRemove(list, "nope"), list, "removing a missing name changes nothing");
 });

@@ -90,9 +90,10 @@ test("a card that cannot be filled fails loudly rather than repeating a subject"
   rejects(() => buildCard(FIVE_SHAPES, exclude, Math.random), "not-found");
 });
 
-test("a spec must ask for at least one challenge and at most ten", () => {
+test("a spec must ask for at least one challenge and at most fifteen (D-106)", () => {
   rejects(() => buildCard({ items: [], order: "as_listed" }, NONE), "invalid-argument");
-  rejects(() => buildCard({ items: [{ kind: "shape", count: 11 }], order: "as_listed" }, NONE), "invalid-argument");
+  rejects(() => buildCard({ items: [{ kind: "shape", count: 16 }], order: "as_listed" }, NONE), "invalid-argument");
+  assert.equal(buildCard({ items: [{ kind: "shape", count: 15 }], order: "as_listed" }, NONE).length, 15);
   rejects(() => buildCard({ items: [{ kind: "shape", count: 0 }], order: "as_listed" }, NONE), "invalid-argument");
   rejects(() => buildCard({ items: [{ kind: "shape", count: 1.5 }], order: "as_listed" }, NONE), "invalid-argument");
   rejects(() => buildCard({ items: [{ kind: "population" as "shape", count: 1 }], order: "as_listed" }, NONE), "invalid-argument");

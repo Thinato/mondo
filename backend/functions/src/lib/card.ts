@@ -22,7 +22,7 @@ import type { SelfReport } from "./report";
 import { guessView, type GuessView, type StoredGuess } from "./round";
 import { openSubjects, revealOf } from "./hints";
 
-export const MAX_CARD_ITEMS = 10;
+export const MAX_CARD_ITEMS = 15;
 
 // ---------------------------------------------------------------------------
 // Specification and generation
