@@ -825,44 +825,204 @@ h2.title { font-family: var(--serif); font-size: 1.5rem; font-weight: 500; lette
    Multijogador — FR-12 (sala.html). The room is the play column and a scoreboard;
    the scoreboard stacks under the game on a phone, like practice's run list.
    --------------------------------------------------------------------------- */
-.modes { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: .5rem; }
-.modes button {
-  width: 100%; text-align: left; font: inherit; padding: .75rem 1rem; cursor: pointer; display: grid; gap: .2rem;
-  border: 1px solid var(--line); border-radius: .75rem; background: transparent; color: var(--fg);
+/* The room fills the window between games and through a Clássico; only its
+   panels scroll (the redesign). Phone first: the result on top, two tabs (the
+   room, the next game), and the host's start in a bar where the tab bar was. */
+body.room-lobby, body.room-classic { height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+body.room-lobby > header, body.room-classic > header { flex: none; }
+body.room-lobby > footer, body.room-lobby > .tabbar, body.room-classic > footer, body.room-classic > .tabbar { display: none; }
+body.room-lobby > main, body.room-classic > main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+body.room-lobby #room-cols, body.room-classic #room-cols { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .75rem; }
+body.room-lobby .play-col, body.room-classic .play-col { display: contents; }
+body.room-lobby #finished { order: 1; }
+body.room-lobby #room-tabs { order: 2; }
+body.room-lobby #lobby, body.room-lobby #room-side, body.room-lobby #potato { order: 3; flex: 1; min-height: 0; overflow-y: auto; }
+body.room-lobby #go { order: 4; }
+@media (max-width: 59.99rem) {
+  body.room-lobby:not(.tab-room) #room-side, body.room-lobby.tab-room #lobby, body.room-lobby.tab-room #potato { display: none; }
+  body.map-open #lobby, body.map-open #go, body.map-open #room-tabs { display: none; }
 }
-.modes button:hover, .modes button:focus-visible { border-color: var(--fg); }
-.modes button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.modes .name { font-weight: 600; }
-/* FR-12.11: a saved game is a card with its own edit and delete beside it. */
-.modes li.saved { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .25rem; align-items: center; }
-button.link.icon { padding: .25rem .4rem; color: var(--muted); }
-button.link.icon:hover, button.link.icon:focus-visible { color: var(--fg); }
-button.link.icon:disabled { opacity: .35; cursor: default; }
 
-/* FR-12.10: the custom game. A numbered list of selects; the number is the order. */
-.custom { margin: 1rem 0; }
-.slots { margin: .5rem 0; padding-left: 1.75rem; display: grid; gap: .35rem; }
-.slots li { padding-left: .25rem; }
-.slots li > * { vertical-align: middle; }
-.slots select { min-width: 0; width: min(14rem, 60%); }
-.check { display: inline-flex; gap: .4rem; align-items: center; color: var(--muted); cursor: pointer; }
-#save-form input { flex: 1 1 10rem; min-width: 0; }
+.panel { min-height: 0; padding: 1rem 1.1rem; background: var(--card); border: 1px solid var(--line); border-radius: 1rem; }
+body.potato-room #room-side.panel { background: none; border: 0; border-radius: 0; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 .75rem; }
+.panel-head h2:not(.label) { margin: 0; font-size: 1.15rem; white-space: nowrap; }
+.panel > .label, .panel h3.label { margin: 0 0 .5rem; }
 
-/* A select box that takes several answers (multiselect.js): native <details>. */
-.multiselect { position: relative; margin: .75rem 0; }
+.seg { display: inline-flex; padding: .25rem; gap: .25rem; background: var(--bg); border: 1px solid var(--line); border-radius: .75rem; }
+.seg button { min-height: 2.25rem; padding: 0 .9rem; white-space: nowrap; border: 0; border-radius: .5rem; background: none; color: var(--muted); font: inherit; font-size: .9rem; cursor: pointer; }
+.seg button[aria-selected="true"] { background: var(--line); color: var(--fg); font-weight: 600; }
+.room-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.room-tabs button { min-height: 2.75rem; }
+
+/* Icon-only buttons are round, and say so when the pointer or the focus lands. */
+.icon-btn { flex: none; display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; transition: background-color .15s; }
+.icon-btn:hover:not(:disabled), .icon-btn:focus-visible { background: var(--line); color: var(--fg); }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+.icon-btn svg, .copy svg, .grip svg, .glyph svg, .add-slot svg, .crown svg, .tick svg {
+  width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* The room: its name, the link, and who is in. */
+.room-head { margin: 0 0 1rem; }
+.room-name { margin: .15rem 0 .75rem; font-size: 1.2rem; font-weight: 600; }
+.room-head .fine { margin: .5rem 0 0; }
+.copy { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; transition: background-color .15s, border-color .15s, color .15s; }
+.copy .i-check, .copy.copied .i-copy { display: none; }
+.copy.copied .i-check { display: inline; }
+.copy.copied { border-color: var(--ok); color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.room-head:not([hidden]) ~ .board-head { padding-top: .9rem; border-top: 1px solid var(--line); }
+.board-head .fine { font-family: var(--mono); font-size: .75rem; }
+.side-foot { padding-top: .75rem; }
+.side-foot:has(> [hidden]:only-child) { display: none; }
+
+/* The last game, in a sentence; its map a click away. */
+.result-text { margin: 0; font-family: var(--serif); font-size: 1.4rem; font-weight: 500; letter-spacing: -.01em; line-height: 1.2; }
+#finished-sub { margin: .4rem 0 0; }
+#finished .panel-head { margin-bottom: .4rem; }
+
+/* The game cards: a name, what it deals, how long it takes. Saved ones first. */
+.modes { list-style: none; margin: .5rem 0 1.25rem; padding: 0; display: grid; gap: .6rem; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+.mode {
+  width: 100%; height: 100%; text-align: left; font: inherit; padding: .8rem 1rem; display: flex; flex-direction: column; gap: .45rem;
+  border: 1px solid var(--line); border-radius: .75rem; background: var(--field); color: var(--fg); cursor: pointer;
+}
+.mode:hover:not(:disabled), .mode:focus-visible { border-color: var(--fg); }
+.mode[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.mode .name { font-weight: 600; }
+.mode .fine { margin: 0; }
+.modes li.saved { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: .75rem; background: var(--field); }
+.modes li.saved:has(.mode[aria-pressed="true"]) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.saved .mode { flex: 1; min-width: 0; border: 0; box-shadow: none; background: none; }
+.saved .tools { display: flex; flex-direction: column; justify-content: center; gap: .1rem; padding-right: .3rem; }
+.chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0; }
+.chip { font-size: .72rem; line-height: 1.5; padding: .1rem .45rem; border-radius: .35rem; background: color-mix(in srgb, var(--fg) 9%, transparent); }
+
+/* FR-12.10: the custom game. The order is the list: drag a row by its grip. */
+.custom { display: flex; flex-direction: column; min-height: 0; }
+.slots-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 .5rem; }
+.slots-head .label { margin: 0; }
+.slots-head .fine { font-family: var(--mono); font-size: .75rem; }
+.slots { list-style: none; margin: 0 0 .75rem; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
+.slot-row {
+  display: grid; grid-template-columns: 2rem 1.1rem 2rem minmax(0, 1fr) 2.25rem; gap: .4rem; align-items: center;
+  padding: .3rem .3rem .3rem .15rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--field);
+}
+.slot-row.dragging { opacity: .45; }
+.slot-row.over { border-color: var(--accent); }
+.slot-row .n { font-family: var(--mono); font-size: .8rem; color: var(--muted); }
+.slot-row select { width: 100%; min-height: 2.5rem; }
+.grip { display: grid; place-items: center; width: 2rem; height: 2.5rem; padding: 0; border: 0; background: none; color: var(--muted); cursor: grab; transition: color .15s; }
+.grip:hover, .grip:focus-visible { color: var(--fg); }
+.glyph { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .5rem; background: color-mix(in srgb, var(--fg) 9%, transparent); }
+.glyph svg { width: 1.15rem; height: 1.15rem; stroke-width: 1.6; }
+.add-slot { width: 100%; min-height: 2.75rem; display: flex; align-items: center; justify-content: center; gap: .5rem; border: 1px dashed var(--line); border-radius: .75rem; background: none; color: var(--muted); font: inherit; font-size: .9rem; cursor: pointer; }
+.add-slot:hover:not(:disabled) { color: var(--fg); border-color: var(--fg); }
+.add-slot:disabled { opacity: .4; cursor: default; }
+.custom-foot { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem; padding-top: .75rem; border-top: 1px solid var(--line); }
+.check { display: inline-flex; gap: .5rem; align-items: center; min-height: 2.75rem; color: var(--muted); cursor: pointer; }
+
+/* A select box that takes several answers (multiselect.js): native <details>,
+   each answer a check or nothing. Under the list it opens upward. */
+.multiselect { position: relative; }
 .multiselect summary {
-  list-style: none; cursor: pointer; display: inline-block; padding: .35rem .7rem;
-  border: 1px solid var(--line); border-radius: .35rem; background: var(--field);
+  list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: .4rem; min-height: 2.75rem; padding: 0 .9rem;
+  border: 1px solid var(--line); border-radius: .6rem; background: var(--field);
 }
 .multiselect summary::-webkit-details-marker { display: none; }
-.multiselect summary::after { content: " ▾"; color: var(--muted); }
+.multiselect summary::after { content: "▾"; color: var(--muted); }
 .multiselect[open] summary { border-color: var(--fg); }
 .multiselect fieldset {
-  position: absolute; z-index: 5; margin: .25rem 0 0; padding: .5rem .75rem; min-width: 12rem; display: grid; gap: .35rem;
-  border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); box-shadow: 0 .5rem 1.5rem rgb(0 0 0 / .15);
+  position: absolute; z-index: 5; left: 0; top: calc(100% + .4rem); margin: 0; padding: .4rem; min-width: 14rem; display: grid; gap: .1rem;
+  border: 1px solid var(--line); border-radius: .75rem; background: var(--bg); box-shadow: 0 1rem 2.5rem rgb(0 0 0 / .25);
 }
+.custom-foot .multiselect fieldset { top: auto; bottom: calc(100% + .4rem); }
 .multiselect legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.multiselect label { display: flex; gap: .5rem; align-items: center; cursor: pointer; }
+.multiselect label { position: relative; display: flex; gap: .6rem; align-items: center; min-height: 2.5rem; padding: 0 .6rem; border-radius: .5rem; cursor: pointer; }
+.multiselect label:hover { background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.multiselect label:has(input:checked) { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.multiselect label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+.multiselect input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.tick { display: inline-grid; place-items: center; width: 1.1rem; color: var(--accent); visibility: hidden; }
+.tick svg { width: 1.1rem; height: 1.1rem; stroke-width: 2.5; }
+.multiselect input:checked + .tick { visibility: visible; }
+
+/* What starts next, and the one button that starts it (D-68: one accent). */
+.go { display: flex; flex-direction: column; gap: .7rem; }
+.go-title { margin: 0; font-family: var(--serif); font-size: 1.9rem; font-weight: 500; letter-spacing: -.015em; line-height: 1.1; }
+.go-about { margin: 0; color: var(--muted); }
+.save-row { display: flex; gap: .5rem; }
+.save-row input { flex: 1; min-width: 0; }
+#saved-full { margin: 0; }
+.go-foot { margin-top: auto; display: flex; flex-direction: column; gap: .6rem; }
+.go-foot .fine { margin: 0; }
+.go-foot .primary { width: 100%; min-height: 3.25rem; font-size: 1.05rem; }
+
+/* Everyone but the host: the next game, large, and who it is waiting on. */
+.lobby-view { display: flex; flex-direction: column; gap: 1.1rem; }
+.lobby-view > * { margin: 0; }
+.wait-line { display: inline-flex; align-items: center; gap: .6rem; color: var(--muted); }
+.wait-line .dot { box-shadow: 0 0 0 .3rem color-mix(in srgb, currentColor 0%, transparent); animation: wait-pulse 1.6s ease-in-out infinite; }
+@keyframes wait-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .wait-line .dot { animation: none; } }
+#lobby-title { margin: .2rem 0; font-family: var(--serif); font-size: 2.2rem; font-weight: 500; letter-spacing: -.02em; line-height: 1.05; }
+#lobby-mode { margin: 0; }
+.order-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .5rem; }
+.order-cards li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); grid-template-rows: auto auto; column-gap: .6rem; align-items: center; padding: .6rem .7rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--field); }
+.order-cards .glyph { grid-row: 1 / 3; }
+.order-cards .n { font-family: var(--mono); font-size: .75rem; color: var(--muted); }
+.order-cards .name { font-weight: 600; font-size: .9rem; }
+
+/* Clássico: the card's challenges down the side, by kind; mine scored once closed. */
+.classic-rail .wordmark { display: block; margin: 0 0 1rem; color: var(--muted); }
+#rail-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
+#rail-steps li { display: grid; grid-template-columns: 1.1rem 2rem minmax(0, 1fr) auto; gap: .5rem; align-items: center; min-height: 3rem; padding: 0 .75rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--card); }
+#rail-steps .n { font-family: var(--mono); font-size: .8rem; color: var(--muted); }
+#rail-steps .now { border-color: var(--accent); font-weight: 600; background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+#rail-steps .next { color: var(--muted); }
+#rail-steps .pts { font-family: var(--mono); font-size: .85rem; color: var(--ok); }
+
+/* Messages float over the room rather than push it. */
+body.room-lobby #status, body.room-classic #status {
+  position: fixed; left: 50%; bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); z-index: 30; transform: translateX(-50%);
+  width: max-content; max-width: calc(100% - 2rem); margin: 0; padding: .5rem 1rem; border: 1px solid var(--line); border-radius: .6rem;
+  background: var(--card); box-shadow: 0 .5rem 1.5rem rgb(0 0 0 / .2);
+}
+body.room-lobby #status:empty, body.room-classic #status:empty { display: none; }
+
+/* Phone, between games: the result is a line, and "A seguir" is the bar at the bottom. */
+@media (max-width: 59.99rem) {
+  body.room-lobby #finished { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .5rem; padding: .6rem .9rem; }
+  body.room-lobby #finished .panel-head { display: contents; }
+  body.room-lobby #finished .label, body.room-lobby #finished-sub { display: none; }
+  body.room-lobby #show-map { grid-column: 2; grid-row: 1; }
+  body.room-lobby .result-text { grid-column: 1; grid-row: 1; font-size: 1.1rem; }
+  body.room-lobby #go { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .2rem .75rem; align-items: center; margin: 0 -1rem; padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom, 0px)); border-width: 1px 0 0; border-radius: 0; }
+  body.room-lobby #go[hidden] { display: none; }
+  body.room-lobby .go-title { grid-column: 1; font-family: inherit; font-size: 1rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.room-lobby #go .label { grid-column: 1; font-size: .62rem; }
+  body.room-lobby #go-kinds, body.room-lobby .go-about, body.room-lobby #lobby-hint { display: none; }
+  body.room-lobby .save-row, body.room-lobby #saved-full { grid-column: 1 / -1; }
+  body.room-lobby .go-foot { display: contents; }
+  body.room-lobby .go-foot .primary { grid-column: 2; grid-row: 1 / 3; width: auto; min-height: 3rem; padding: 0 1.25rem; }
+  body.room-lobby #lobby .panel-head { flex-wrap: wrap; }
+  .modes { grid-template-columns: minmax(0, 1fr); }
+
+  /* Phone, Clássico: the board is a strip of scores above the challenge. */
+  body.room-classic #room-side { order: -1; flex: none; padding: 0; border: 0; background: none; }
+  body.room-classic .board-head, body.room-classic .classic-rail { display: none; }
+  body.room-classic #board { display: flex; gap: .4rem; margin: 0; overflow-x: auto; }
+  body.room-classic #board .board-row { flex: none; grid-template-columns: auto; display: flex; gap: .4rem; padding: .3rem .7rem; border: 1px solid var(--line); border-radius: 2rem; }
+  body.room-classic #board .board-row.me { border-color: var(--accent); }
+  body.room-classic #board .who .sub { display: none; }
+  body.room-classic #classic { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .5rem; overflow-y: auto; }
+  body.room-classic #classic > * { margin: 0; }
+  body.room-classic #classic .guesses, body.room-classic #classic .reveal { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+  body.room-classic #classic .silhouette { height: min(28dvh, 14rem); aspect-ratio: auto; }
+  body.room-classic #classic .flag { width: min(100%, 26dvh * 1.5); margin-inline: auto; }
+  body.room-classic #classic .portrait img { max-height: 22dvh; }
+}
 
 /* The countdown. A bar, because a number that changes ten times a second is
    noise; the seconds are printed beside it once a second. */
@@ -882,8 +1042,11 @@ button.link.icon:disabled { opacity: .35; cursor: default; }
 .board-row { grid-template-columns: .8rem minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; }
 .board-row .wins { display: inline-flex; align-items: center; gap: .2rem; margin-right: .35rem; font-family: var(--mono); font-size: .8rem; color: var(--muted); }
 .board-row .wins svg { width: .95rem; height: .95rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.board-row .remove { padding: 0 .25rem; color: var(--muted); }
-.board-row .remove:hover, .board-row .remove:focus-visible { color: var(--fg); }
+.board-row .who { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; column-gap: .35rem; }
+.board-row .who .sub { flex-basis: 100%; font-size: .8rem; color: var(--muted); }
+.board-row .who .sub.ok { color: var(--ok); }
+.crown { display: inline-grid; color: var(--warn); }
+.crown svg { width: .95rem; height: .95rem; }
 .dot { width: .8rem; height: .8rem; border-radius: 50%; display: inline-block; }
 .card-item .dot { align-self: center; }
 
@@ -949,7 +1112,6 @@ button.link.icon:disabled { opacity: .35; cursor: default; }
 #feed-title { margin: 1.25rem 0 0; }
 .feed { margin-top: .4rem; max-height: 16rem; overflow-y: auto; align-content: start; }
 .feed small { color: var(--muted); }
-#room-link { flex: 1; min-width: 8rem; font: inherit; font-family: var(--mono); font-size: .85rem; padding: .6rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--field); color: inherit; }
 
 @media (min-width: 60rem) {
   body:has(#room-cols) header,
@@ -957,6 +1119,48 @@ button.link.icon:disabled { opacity: .35; cursor: default; }
   body:has(#room-cols) footer { max-width: 69rem; }
   #room-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 19rem); gap: 2.5rem; align-items: start; }
   #room-side { position: sticky; top: 1rem; }
+  #room-tabs { display: none; }
+
+  /* Between games: the room | the next game | the last result and the start. */
+  body.room-lobby, body.room-classic { padding: 0 2rem 1.5rem; }
+  body.room-lobby:has(#room-cols) > header, body.room-lobby:has(#room-cols) > main, body.room-classic:has(#room-cols) > main { max-width: 92rem; }
+  body.room-lobby #room-cols, body.room-classic #room-cols { display: grid; gap: 1.25rem; align-items: stretch; }
+  body.room-lobby #room-cols { grid-template-columns: 21rem minmax(0, 1fr) 23rem; grid-template-rows: auto minmax(0, 1fr); }
+  body.room-lobby #room-side { grid-column: 1; grid-row: 1 / -1; position: static; display: flex; flex-direction: column; overflow: hidden; }
+  body.room-lobby #room-side #board { flex: 1; min-height: 0; overflow-y: auto; align-content: start; }
+  body.room-lobby #lobby, body.room-lobby #potato { grid-column: 2; grid-row: 1 / -1; display: flex; flex-direction: column; overflow: hidden; }
+  body.room-lobby #finished { grid-column: 3; grid-row: 1; }
+  body.room-lobby #go { grid-column: 3; grid-row: 2; }
+  body.room-lobby:has(#finished[hidden]) #go { grid-row: 1 / -1; }
+  /* A player has no "A seguir": the next game takes the room the start would have. */
+  body.room-lobby:not(.room-host):has(#finished[hidden]) #lobby { grid-column: 2 / -1; }
+  body.room-lobby #room-side, body.room-lobby #lobby { display: flex; }
+  body.room-lobby.map-open #lobby { display: none; }
+  body.room-lobby #picker { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  body.room-lobby .modes-scroll { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -1.1rem; padding: 0 1.1rem; }
+  body.room-lobby #custom:not([hidden]) { flex: 1; min-height: 0; }
+  body.room-lobby #slots { flex: 1; min-height: 0; overflow-y: auto; }
+  body.room-lobby .lobby-view { flex: 1; justify-content: center; width: 100%; max-width: 48rem; padding: 1.5rem 2.5rem; }
+  body.room-lobby #lobby-title { font-size: 3rem; }
+  body.room-lobby .rail-foot { display: block; margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); }
+  body.room-lobby .rail-foot p { margin: 0 0 .3rem; }
+  body.room-lobby .rail-foot a { color: var(--muted); }
+  body.room-lobby .rail-foot .recaptcha { display: block; font-size: .7rem; line-height: 1.4; }
+  body.room-lobby #status, body.room-classic #status { bottom: 1.5rem; }
+
+  /* A Clássico: the card | the challenge | the board. The site's nav steps aside. */
+  body.room-classic { padding-top: 1.5rem; }
+  body.room-classic > header { display: none; }
+  body.room-classic #room-cols { grid-template-columns: 15rem minmax(0, 1fr) 21rem; grid-template-rows: minmax(0, 1fr); }
+  body.room-classic .classic-rail { grid-column: 1; grid-row: 1; min-height: 0; overflow-y: auto; }
+  body.room-classic #classic { grid-column: 2; grid-row: 1; width: 100%; max-width: 46rem; justify-self: center; min-height: 0; display: flex; flex-direction: column; gap: .75rem; overflow-y: auto; }
+  body.room-classic #classic > * { margin: 0; }
+  body.room-classic #classic .guesses, body.room-classic #classic .reveal { flex: 1 1 0; min-height: 4rem; overflow-y: auto; }
+  body.room-classic #classic .silhouette { height: min(34dvh, 20rem); aspect-ratio: auto; }
+  body.room-classic #classic .flag { width: min(100%, 34dvh * 1.5); margin-inline: auto; }
+  body.room-classic #classic .portrait img { max-height: 28dvh; }
+  body.room-classic #room-side { grid-column: 3; grid-row: 1; position: static; display: flex; flex-direction: column; overflow: hidden; }
+  body.room-classic #room-side #board { flex: 1; min-height: 0; overflow-y: auto; align-content: start; }
 
   /* D-95 — a Batata Quente game is the whole window: the side on the left, the
      map everywhere else, and the turn, the clock, the zoom and the field

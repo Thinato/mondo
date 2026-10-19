@@ -22,6 +22,7 @@ import { takeReport } from "./visibility.js";
 import { errorMessage, t } from "./i18n.js";
 import { mountPotato } from "./potato.js";
 import { multiSelect } from "./multiselect.js";
+import { ICONS } from "./kind-icons.js";
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -29,10 +30,16 @@ const el = {
   account: $("account"), adminLink: $("admin-link"),
   soon: $("soon"), soonGuest: $("soon-guest"), soonSignIn: $("soon-sign-in"), modes: $("modes"),
   picker: $("picker"), tabPresets: $("tab-presets"), tabCustom: $("tab-custom"), custom: $("custom"),
-  slots: $("slots"), slotsLabel: $("slots-label"), addSlot: $("add-slot"), shuffle: $("shuffle"),
+  slots: $("slots"), slotsCount: $("slots-count"), shuffle: $("shuffle"),
   continentsBox: $("continents-box"), saveForm: $("save-form"), presetName: $("preset-name"), savedFull: $("saved-full"),
   cols: $("room-cols"), lobby: $("lobby"), lobbyTitle: $("lobby-title"), lobbyMode: $("lobby-mode"), lobbyWait: $("lobby-wait"),
-  link: $("room-link"), copy: $("copy-link"), start: $("start-btn"), leave: $("leave-btn"),
+  lobbyView: $("lobby-view"), lobbyOrder: $("lobby-order"), lobbyWaitDot: $("lobby-wait-dot"),
+  roomTabs: $("room-tabs"), rtabRoom: $("rtab-room"), rtabNext: $("rtab-next"),
+  roomHead: $("room-head"), roomName: $("room-name"), copyLabel: $("copy-label"), boardCount: $("board-count"),
+  go: $("go"), goTitle: $("go-title"), goKinds: $("go-kinds"), goAbout: $("go-about"), lobbyHint: $("lobby-hint"),
+  finishedSub: $("finished-sub"), showMap: $("show-map"), hideMap: $("hide-map"), railSteps: $("rail-steps"), rail: $("classic-rail"),
+  savedTitle: $("saved-title"), savedList: $("saved-list"), presetList: $("preset-list"),
+  copy: $("copy-link"), start: $("start-btn"), leave: $("leave-btn"),
   classic: $("classic"), progress: $("classic-progress"), giveUp: $("classic-giveup"),
   timerBar: $("classic-timer-bar"), clock: $("classic-clock"),
   shapeWrap: $("shape-wrap"), shape: $("shape"), flagWrap: $("flag-wrap"), flag: $("flag"), capital: $("capital"),
@@ -48,7 +55,14 @@ const el = {
   confirm: $("confirm-dialog"), confirmText: $("confirm-text"),
 };
 
-/** Lucide's "trophy" (ISC; credited in creditos.html), inline like every other icon here. */
+/** Lucide's icons (ISC; credited in creditos.html), inline like every other icon here. */
+const svg = (paths) => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
+const CROWN = svg('<path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/>');
+const X = '<path d="M18 6 6 18M6 6l12 12"/>';
+const PENCIL = '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>';
+const TRASH = '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>';
+const GRIP = '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>';
+const PLUS = '<path d="M12 5v14M5 12h14"/>';
 const TROPHY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>';
 
 /** The presets the server knows (lib/multiplayer.ts). Labels only — the server resolves the rest. */
@@ -57,6 +71,14 @@ const PRESETS = ["mundo", "dia", "bandeiras", "formas", "capitais", "misto-10"];
 const KINDS = ["shape", "capital", "flag", "gdp", "flagPick", "shapePick", "person"];
 const REGIONS = ["Africa", "Americas", "Asia", "Europe", "Oceania"];
 const MAX_SLOTS = 15;
+/** What each Clássico preset deals, for its chips and its length on the card. Labels only: the server deals. */
+const PRESET_KINDS = {
+  dia: KINDS,
+  bandeiras: ["flag", "flag", "flag", "flagPick", "flagPick", "flagPick"],
+  formas: ["shape", "shape", "shape", "shapePick", "shapePick", "shapePick"],
+  capitais: ["capital", "capital", "capital", "capital", "capital"],
+  "misto-10": ["shape", "shape", "flag", "flag", "capital", "capital", "flagPick", "shapePick", "gdp", "person"],
+};
 const MAX_SAVED = 10;
 
 const roomId = new URLSearchParams(location.search).get("s")?.toUpperCase() ?? null;
@@ -80,6 +102,10 @@ let saved = [];              // FR-12.11: my own saved custom games, from `join`
 let tab = "presets";         // the picker's tab: "presets" | "custom"
 let draft = { kinds: [...KINDS], shuffled: false, regions: [...REGIONS] }; // the Personalizar tab
 let continents = null;       // the multi-select, built once
+let phoneTab = "next";       // a phone's lobby tab: "next" | "room"
+let mapOpen = false;         // between games: the last Batata Quente's map, opened from its result
+const railPoints = new Map(); // Clássico: my points on each challenge already closed, for the rail
+let dragFrom = null;         // the custom slot being dragged
 
 const setStatus = (text, cls = "") => { el.status.textContent = text; el.status.className = cls; };
 const serverNow = () => Date.now() + offset;
@@ -144,61 +170,86 @@ async function openRoom() {
 el.soonSignIn.addEventListener("click", () => googleClick(el.soonSignIn, setStatus));
 
 /** FR-12.7: the host picks the next game in the lobby. Everyone sees it change. */
-function card(name, about) {
+function card(name, chips, meta) {
   const b = document.createElement("button");
   b.type = "button";
+  b.className = "mode";
   const n = document.createElement("span");
   n.className = "name";
   n.textContent = name;
-  const a = document.createElement("span");
-  a.className = "fine";
-  a.textContent = about;
-  b.append(n, a);
+  const m = document.createElement("span");
+  m.className = "fine";
+  m.textContent = meta;
+  b.append(n, chipRow(chips), m);
   return b;
+}
+
+function chipRow(chips) {
+  const row = document.createElement("span");
+  row.className = "chips";
+  row.append(...chips.map((c) => Object.assign(document.createElement("span"), { className: "chip", textContent: c })));
+  return row;
 }
 
 /** The list: my saved games first (FR-12.11), so the one I play every week is one click, then the built-ins. */
 function drawModes() {
-  const mine = saved.map((p) => {
+  el.savedTitle.hidden = el.savedList.hidden = saved.length === 0;
+  el.savedList.replaceChildren(...saved.map((p) => {
     const li = document.createElement("li");
     li.className = "saved";
-    const b = card(p.name, customAbout(p));
+    const b = card(p.name, chipsOf(p.kinds), metaOf(p.kinds, p.regions));
     b.dataset.saved = p.name;
     b.addEventListener("click", () => act(() => multiplayer("configure", { room: roomId, custom: p })));
-    const edit = iconButton("✎", t("multi.edit", { name: p.name }), () => {
+    const edit = iconButton(PENCIL, t("multi.edit", { name: p.name }), () => {
       draft = { kinds: [...p.kinds], shuffled: p.shuffled, regions: [...p.regions] };
       el.presetName.value = p.name;
       showTab("custom");
     });
-    const drop = iconButton("✕", t("multi.delete", { name: p.name }), () =>
+    const drop = iconButton(TRASH, t("multi.delete", { name: p.name }), () =>
       act(async () => { saved = (await multiplayer("deletePreset", { name: p.name })).presets; drawModes(); }));
-    li.append(b, edit, drop);
+    const tools = document.createElement("span");
+    tools.className = "tools";
+    tools.append(edit, drop);
+    li.append(b, tools);
     return li;
-  });
-  const builtIn = PRESETS.map((id) => {
+  }));
+  el.presetList.replaceChildren(...PRESETS.map((id) => {
     const li = document.createElement("li");
-    const b = card(t(`multi.preset.${id}`), t(`multi.presetAbout.${id}`));
+    const kinds = PRESET_KINDS[id];
+    const b = card(t(`multi.preset.${id}`), kinds ? chipsOf(kinds) : [t("multi.potatoChip")], kinds ? metaOf(kinds) : t("multi.potatoMeta"));
     b.dataset.preset = id;
     b.addEventListener("click", () => {
       if (room?.presetId !== id) act(() => multiplayer("configure", { room: roomId, presetId: id }));
     });
     li.append(b);
     return li;
-  });
-  el.modes.replaceChildren(...mine, ...builtIn);
+  }));
   render();
 }
 
-function iconButton(text, label, onClick) {
+function iconButton(paths, label, onClick) {
   const b = document.createElement("button");
   b.type = "button";
-  b.className = "link icon";
-  b.textContent = text;
+  b.className = "icon-btn";
+  b.innerHTML = svg(paths); // static markup from the constants above, never data
   b.setAttribute("aria-label", label);
   b.title = label;
   b.addEventListener("click", onClick);
   return b;
 }
+
+/** "Bandeira ×3", one chip per kind in the order dealt; a card of every kind says so instead. */
+function chipsOf(kinds) {
+  const counts = new Map();
+  for (const k of kinds) counts.set(k, (counts.get(k) ?? 0) + 1);
+  if (counts.size >= 5) return [t("multi.allKinds")];
+  return [...counts].map(([k, n]) => capitalised(t(`kindName.${k}`)) + (n > 1 ? ` ×${n}` : ""));
+}
+
+/** How long a card takes: each challenge's clock (lib/multiplayer.ts `secondsFor`) plus its 5 s reveal. */
+const minutesOf = (kinds) => Math.max(1, Math.round(kinds.reduce((sum, k) => sum + (k === "flagPick" || k === "shapePick" ? 20 : 45) + 5, 0) / 60));
+const metaOf = (kinds, regions = REGIONS) => t("multi.meta", { n: kinds.length, min: minutesOf(kinds) })
+  + (regions.length < REGIONS.length ? ` · ${whereOf(regions)}` : "");
 
 // ---------------------------------------------------------------------------
 // A custom game (FR-12.10, D-106): kinds in order, a shuffle, continents
@@ -230,35 +281,66 @@ function drawCustom() {
       label: t("multi.continents"),
       options: REGIONS.map((r) => ({ value: r, text: t(`continentName.${r}`) })),
       summary: (regions) => (regions.length === REGIONS.length ? t("multi.allShort") : whereOf(regions)),
-      onChange: (regions) => { draft.regions = regions; },
+      onChange: (regions) => { draft.regions = regions; render(); },
     });
     el.continentsBox.append(continents.node);
   }
   continents.set(draft.regions);
   el.shuffle.checked = draft.shuffled;
-  el.slotsLabel.textContent = t("multi.slots", { n: draft.kinds.length, max: MAX_SLOTS });
-  el.addSlot.disabled = draft.kinds.length >= MAX_SLOTS;
+  el.slotsCount.textContent = t("multi.slots", { n: draft.kinds.length, max: MAX_SLOTS });
   const last = draft.kinds.length - 1;
-  el.slots.replaceChildren(...draft.kinds.map((kind, i) => {
+  // Reorder by dragging a row by its grip, or with the arrow keys on the grip.
+  const moveTo = (from, to) => {
+    if (to < 0 || to > last || from === to) return;
+    const [k] = draft.kinds.splice(from, 1);
+    draft.kinds.splice(to, 0, k);
+    drawCustom();
+    render();
+  };
+  const rows = draft.kinds.map((kind, i) => {
     const li = document.createElement("li");
+    li.className = "slot-row";
+    li.draggable = true;
+    li.addEventListener("dragstart", (e) => { dragFrom = i; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); li.classList.add("dragging"); });
+    li.addEventListener("dragend", () => { dragFrom = null; li.classList.remove("dragging"); });
+    li.addEventListener("dragover", (e) => { if (dragFrom === null) return; e.preventDefault(); li.classList.toggle("over", dragFrom !== i); });
+    li.addEventListener("dragleave", () => li.classList.remove("over"));
+    li.addEventListener("drop", (e) => { e.preventDefault(); if (dragFrom !== null) moveTo(dragFrom, i); });
+    const grip = document.createElement("button");
+    grip.type = "button";
+    grip.className = "grip";
+    grip.innerHTML = svg(GRIP);
+    grip.setAttribute("aria-label", t("multi.move", { n: i + 1 }));
+    grip.addEventListener("keydown", (e) => {
+      const to = e.key === "ArrowUp" ? i - 1 : e.key === "ArrowDown" ? i + 1 : null;
+      if (to === null) return;
+      e.preventDefault();
+      moveTo(i, to);
+      el.slots.children[to]?.querySelector(".grip")?.focus();
+    });
+    const n = Object.assign(document.createElement("span"), { className: "n", textContent: String(i + 1) });
+    const glyph = document.createElement("span");
+    glyph.className = "glyph";
+    glyph.innerHTML = svg(ICONS[kind] ?? ICONS.default);
     const pick = document.createElement("select");
     pick.setAttribute("aria-label", t("multi.slot", { n: i + 1 }));
     pick.append(...KINDS.map((k) => new Option(capitalised(t(`kindName.${k}`)), k, false, k === kind)));
-    pick.addEventListener("change", () => { draft.kinds[i] = pick.value; });
-    const move = (to) => () => {
-      [draft.kinds[i], draft.kinds[to]] = [draft.kinds[to], draft.kinds[i]];
-      drawCustom();
-      el.slots.children[to]?.querySelector("select")?.focus();
-    };
-    const up = iconButton("↑", t("multi.up", { n: i + 1 }), move(i - 1));
-    up.disabled = i === 0;
-    const down = iconButton("↓", t("multi.down", { n: i + 1 }), move(i + 1));
-    down.disabled = i === last;
-    const drop = iconButton("✕", t("multi.drop", { n: i + 1 }), () => { draft.kinds.splice(i, 1); drawCustom(); });
+    pick.addEventListener("change", () => { draft.kinds[i] = pick.value; glyph.innerHTML = svg(ICONS[pick.value] ?? ICONS.default); render(); });
+    const drop = iconButton(X, t("multi.drop", { n: i + 1 }), () => { draft.kinds.splice(i, 1); drawCustom(); render(); });
     drop.disabled = last === 0;
-    li.append(pick, up, down, drop);
+    li.append(grip, n, glyph, pick, drop);
     return li;
-  }));
+  });
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "add-slot";
+  add.innerHTML = svg(PLUS);
+  add.append(t("multi.addSlot"));
+  add.disabled = draft.kinds.length >= MAX_SLOTS;
+  add.addEventListener("click", () => { draft.kinds.push(draft.kinds.at(-1) ?? "flag"); drawCustom(); render(); });
+  const addRow = document.createElement("li");
+  addRow.append(add);
+  el.slots.replaceChildren(...rows, addRow);
   const isNew = !saved.some((p) => p.name.trim().toLowerCase() === el.presetName.value.trim().toLowerCase());
   const full = isNew && saved.length >= MAX_SAVED;
   el.savedFull.hidden = !full;
@@ -266,8 +348,7 @@ function drawCustom() {
   el.savedFull.textContent = t("multi.savedFull", { max: MAX_SAVED });
 }
 
-el.addSlot.addEventListener("click", () => { draft.kinds.push(draft.kinds.at(-1) ?? "flag"); drawCustom(); });
-el.shuffle.addEventListener("change", () => { draft.shuffled = el.shuffle.checked; });
+el.shuffle.addEventListener("change", () => { draft.shuffled = el.shuffle.checked; render(); });
 el.presetName.addEventListener("input", () => drawCustom());
 el.saveForm.addEventListener("submit", (e) => {
   e.preventDefault();
@@ -342,7 +423,7 @@ function onRoom() {
   // commit always rewrites prompts/0, so clearing here never blanks the new one.
   const game = room?.startedAt ?? null;
   if (game !== gameKey) {
-    if (gameKey !== null && game !== null) { prompts.clear(); mine = null; potato?.reset(); }
+    if (gameKey !== null && game !== null) { prompts.clear(); mine = null; potato?.reset(); railPoints.clear(); mapOpen = false; }
     gameKey = game;
   }
   const key = room?.classic ? `${room.startedAt}:${room.classic.index}` : null;
@@ -394,10 +475,24 @@ function drawClock() {
 // Lobby
 // ---------------------------------------------------------------------------
 
+/** The link is the room (D-87): copying it is how a room fills, so the button says it worked. */
+let copiedTimer = null;
 el.copy.addEventListener("click", async () => {
-  try { await navigator.clipboard.writeText(el.link.value); setStatus(t("multi.copied"), "ok"); }
-  catch { el.link.select(); }
+  try { await navigator.clipboard.writeText(location.href.split("#")[0]); }
+  catch { return setStatus(location.href.split("#")[0]); }
+  el.copy.classList.add("copied");
+  el.copyLabel.textContent = t("multi.copiedBtn");
+  clearTimeout(copiedTimer);
+  copiedTimer = setTimeout(() => { el.copy.classList.remove("copied"); el.copyLabel.textContent = t("multi.copy"); }, 2000);
 });
+
+// A phone's lobby is two tabs (the room, the next game); a desktop shows both.
+el.rtabRoom.addEventListener("click", () => { phoneTab = "room"; render(); });
+el.rtabNext.addEventListener("click", () => { phoneTab = "next"; render(); });
+
+// Between games the last Batata Quente's map is a click away, not under everything.
+el.showMap.addEventListener("click", () => { mapOpen = true; render(); });
+el.hideMap.addEventListener("click", () => { mapOpen = false; render(); });
 
 // In Personalizar the one start button is "Jogar": it sets the room to the draft, then starts it (FR-12.10).
 el.start.addEventListener("click", () => act(async () => {
@@ -476,6 +571,8 @@ function renderClassic() {
   const open = c.phase === "question";
   const done = Boolean(mine?.done);
   el.progress.textContent = t("multi.challengeOf", { n: c.index + 1, total: c.kinds.length, kind: t(`kindName.${c.kinds[c.index]}`) });
+  if (!open) railPoints.set(c.index, c.progress[auth.currentUser?.uid]?.points ?? 0);
+  renderRail(c);
   el.giveUp.hidden = !open || done;
 
   const prompt = p?.prompt ?? null;
@@ -518,6 +615,24 @@ function renderClassic() {
   }
 }
 
+/** The card down the side: each challenge by kind (never by answer), mine scored once it closed. */
+function renderRail(c) {
+  el.railSteps.replaceChildren(...c.kinds.map((kind, i) => {
+    const li = document.createElement("li");
+    li.className = i < c.index ? "done" : i === c.index ? "now" : "next";
+    if (i === c.index) li.setAttribute("aria-current", "step");
+    const n = Object.assign(document.createElement("span"), { className: "n", textContent: String(i + 1) });
+    const glyph = document.createElement("span");
+    glyph.className = "glyph";
+    glyph.innerHTML = svg(ICONS[kind] ?? ICONS.default);
+    const name = Object.assign(document.createElement("span"), { className: "name", textContent: capitalised(t(`kindName.${kind}`)) });
+    const pts = railPoints.get(i);
+    const score = Object.assign(document.createElement("span"), { className: "pts", textContent: pts === undefined ? "" : pts > 0 ? `+${pts}` : "0" });
+    li.append(n, glyph, name, score);
+    return li;
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // The board
 // ---------------------------------------------------------------------------
@@ -536,7 +651,8 @@ function standings() {
 
 function renderBoard() {
   const playing = room.state !== "lobby";
-  el.boardTitle.textContent = playing ? t("multi.board") : t("multi.players", { n: room.playerUids.length });
+  el.boardTitle.textContent = room.state === "lobby" ? t("multi.playersTitle") : t("multi.board");
+  el.boardCount.textContent = room.state === "playing" ? "" : t("multi.seats", { n: room.playerUids.length });
   el.board.replaceChildren(...(playing ? standings() : room.playerUids.map((uid) => ({ uid, ...room.players[uid] }))).map((p) => {
     const li = document.createElement("li");
     li.className = "board-row";
@@ -552,15 +668,33 @@ function renderBoard() {
     const name = document.createElement(linked ? "a" : "span");
     if (linked) Object.assign(name, { href: `./perfil?u=${encodeURIComponent(p.uid)}`, target: "_blank", rel: "noopener" });
     name.className = "name";
-    name.textContent = p.name + (p.uid === room.hostUid && !playing ? ` · ${t("multi.host")}` : "");
+    name.textContent = p.name;
+    const who = document.createElement("span");
+    who.className = "who";
+    who.append(name);
+    // The host wears a crown rather than a word: it reads at a glance on a full board.
+    if (p.uid === room.hostUid && !playing) {
+      const crown = document.createElement("span");
+      crown.className = "crown";
+      crown.setAttribute("role", "img");
+      crown.setAttribute("aria-label", t("multi.host"));
+      crown.title = t("multi.host");
+      crown.innerHTML = CROWN;
+      who.append(crown);
+    }
+    // Clássico, mid-game: where each player is on the challenge — counts only, never a guess.
+    const prog = room.mode === "classic" && room.state === "playing" ? room.classic.progress[p.uid] : null;
+    if (prog) {
+      const sub = document.createElement("span");
+      sub.className = `sub${prog.done && prog.solved ? " ok" : ""}`;
+      sub.textContent = prog.done ? t(prog.solved ? "multi.statusSolved" : "multi.statusMissed")
+        : prog.guesses ? t("multi.tries", { n: prog.guesses }) : t("multi.statusIdle");
+      who.append(sub);
+    }
     const right = document.createElement("span");
     right.className = "score";
-    if (playing) {
-      const prog = room.mode === "classic" && room.state === "playing" ? room.classic.progress[p.uid] : null;
-      const mark = !prog ? "" : prog.done ? (prog.solved ? "✓ " : "✗ ") : prog.guesses ? `${t("multi.tries", { n: prog.guesses })} · ` : "";
-      right.textContent = `${mark}${p.points}`;
-    }
-    li.append(dot, name);
+    if (playing) right.textContent = String(p.points);
+    li.append(dot, who);
     // D-105: games won outright in this room. Ties at the top win nothing.
     const wins = room.players[p.uid]?.wins ?? 0;
     if (wins > 0) {
@@ -577,13 +711,7 @@ function renderBoard() {
     // FR-12.8: between games the host can take a seat nobody is using — the
     // next game would otherwise wait out their clock. Not a ban: the link works.
     if (linked && room.hostUid === auth.currentUser?.uid && p.uid !== room.hostUid && room.potato?.limitMs !== null) {
-      const x = document.createElement("button");
-      x.type = "button";
-      x.className = "link remove";
-      x.textContent = "✕";
-      x.setAttribute("aria-label", t("multi.remove", { name: p.name }));
-      x.addEventListener("click", () => act(() => multiplayer("remove", { room: roomId, uid: p.uid })));
-      li.append(x);
+      li.append(iconButton(X, t("multi.remove", { name: p.name }), () => act(() => multiplayer("remove", { room: roomId, uid: p.uid }))));
     }
     return li;
   }));
@@ -621,56 +749,95 @@ function render() {
   // D-95: a Batata Quente game, once it starts, is the whole window on a desktop.
   // Between games the room is a page again: the result, then the lobby, then the map.
   document.body.classList.toggle("potato-room", Boolean(user && room?.potato && (room.state === "playing" || training)));
-  if (!room) return;
+  if (!room) { document.body.classList.remove("room-lobby", "room-classic", "map-open"); return; }
   const uid = user?.uid;
   const inRoom = room.playerUids.includes(uid);
   const host = room.hostUid === uid;
 
   const between = room.state === "lobby" || (room.state === "finished" && !training);
+  const classic = room.state === "playing" && room.mode === "classic";
+  // The room fills the window between games and through a Clássico; only its panels scroll.
+  document.body.classList.toggle("room-lobby", Boolean(user && between));
+  document.body.classList.toggle("room-classic", Boolean(user && classic));
+  document.body.classList.toggle("room-host", host);
+  document.body.classList.toggle("map-open", between && mapOpen && Boolean(room.potato));
+  document.body.classList.toggle("tab-room", phoneTab === "room");
+  el.roomTabs.hidden = !between;
+  el.rtabRoom.textContent = t("multi.playersTab", { n: room.playerUids.length });
+  el.rtabRoom.setAttribute("aria-selected", String(phoneTab === "room"));
+  el.rtabNext.setAttribute("aria-selected", String(phoneTab === "next"));
+
+  el.roomHead.hidden = el.leave.hidden = !between;
+  el.roomName.textContent = t("multi.roomOf", { name: room.players[room.hostUid]?.name ?? "" });
   el.lobby.hidden = !between;
+  el.go.hidden = !(between && host);
   if (between) {
     const custom = room.presetId === "custom" && room.custom;
-    el.lobbyTitle.textContent = custom ? room.custom.name ?? t("multi.preset.custom") : t(`multi.preset.${room.presetId}`);
-    el.lobbyMode.textContent = custom ? customAbout(room.custom) : t(`multi.presetAbout.${room.presetId}`);
-    el.lobbyMode.hidden = host && !custom; // the host reads it on the picked card; a custom game has none
-    el.link.value = location.href.split("#")[0];
-    // FR-12.7: the host picks; everyone else reads what was picked, above.
+    const title = custom ? room.custom.name ?? t("multi.preset.custom") : t(`multi.preset.${room.presetId}`);
+    const kinds = custom ? room.custom.kinds : PRESET_KINDS[room.presetId] ?? null;
+    // FR-12.7: the host picks; everyone else reads what was picked, large.
     el.picker.hidden = !host;
+    el.lobbyView.hidden = host;
+    el.lobbyTitle.textContent = title;
+    el.lobbyMode.textContent = custom ? `${t("multi.classic")} · ${metaOf(room.custom.kinds, room.custom.regions)}`
+      : kinds ? `${t(`multi.presetAbout.${room.presetId}`)} ${metaOf(kinds)}` : t(`multi.presetAbout.${room.presetId}`);
+    el.lobbyWait.textContent = t("multi.waitHost", { name: room.players[room.hostUid]?.name ?? "" });
+    el.lobbyWaitDot.style.background = room.players[room.hostUid]?.color ?? "";
+    el.lobbyOrder.hidden = !kinds;
+    el.lobbyOrder.replaceChildren(...(kinds ?? []).map((kind, i) => {
+      const li = document.createElement("li");
+      const glyph = document.createElement("span");
+      glyph.className = "glyph";
+      glyph.innerHTML = svg(ICONS[kind] ?? ICONS.default);
+      li.append(glyph, Object.assign(document.createElement("span"), { className: "n", textContent: String(i + 1) }),
+        Object.assign(document.createElement("span"), { className: "name", textContent: capitalised(t(`kindName.${kind}`)) }));
+      return li;
+    }));
     if (host) {
       // Only what calls the server waits on it; the slot buttons edit a draft and keep their own limits.
-      for (const b of el.picker.querySelectorAll(".tabs button, #modes button")) b.disabled = busy;
+      for (const b of el.picker.querySelectorAll(".seg button, #modes button")) b.disabled = busy;
       for (const b of el.modes.querySelectorAll("button[data-preset]")) b.setAttribute("aria-pressed", String(b.dataset.preset === room.presetId));
       for (const b of el.modes.querySelectorAll("button[data-saved]")) {
         const p = saved.find((x) => x.name === b.dataset.saved);
         b.setAttribute("aria-pressed", String(Boolean(custom && p && room.custom.name === p.name && sameGame(room.custom, p))));
       }
+      // "A seguir": the room's pick, or the draft being built.
+      const drafting = tab === "custom";
+      const dName = asPlayed().name;
+      el.goTitle.textContent = drafting ? dName ?? t("multi.preset.custom") : title;
+      el.goKinds.replaceChildren(...chipRow(drafting ? chipsOf(draft.kinds) : kinds ? chipsOf(kinds) : [t("multi.potatoChip")]).children);
+      el.goAbout.textContent = drafting ? metaOf(draft.kinds, draft.regions) + (draft.shuffled ? ` · ${t("multi.shuffled")}` : "")
+        : custom ? metaOf(room.custom.kinds, room.custom.regions) : t(`multi.presetAbout.${room.presetId}`);
+      el.saveForm.hidden = !drafting;
+      if (!drafting) el.savedFull.hidden = true;
+      const enough = room.playerUids.length >= 2;
+      el.start.disabled = !enough || busy;
+      el.start.textContent = drafting ? t("multi.play") : room.state === "finished" ? t("multi.again") : t("multi.start");
+      el.lobbyHint.textContent = !enough ? t("multi.needPlayers") : drafting ? t("multi.secretDeal") : t("multi.readyHost");
     }
-    const enough = room.playerUids.length >= 2;
-    el.start.hidden = !host;
-    el.start.disabled = !enough || busy;
-    el.start.textContent = host && tab === "custom" ? t("multi.play") : room.state === "finished" ? t("multi.again") : t("multi.start");
-    el.lobbyWait.textContent = host
-      ? (enough ? t("multi.readyHost") : t("multi.needPlayers"))
-      : t("multi.waitHost", { name: room.players[room.hostUid]?.name ?? "" });
   }
 
-  el.classic.hidden = !(room.state === "playing" && room.mode === "classic");
-  // The finished map stays up under the result: it is what the game was for.
-  // By the game PLAYED, not the mode picked for the next one.
-  el.potato.hidden = !(room.state !== "lobby" && room.potato);
-  $("potato-head").hidden = !room.potato;
-  if (room.state === "playing" && room.mode === "classic") { countries(); renderClassic(); }
+  el.rail.hidden = !classic;
+  el.classic.hidden = !classic;
+  // The map: the game itself while it runs; between games, only once asked for.
+  el.potato.hidden = !(room.potato && (room.state === "playing" || training || (between && mapOpen)));
+  el.hideMap.hidden = !(between && mapOpen);
+  $("potato-head").hidden = !room.potato || between;
+  if (classic) { countries(); renderClassic(); }
   if (room.potato) potatoView().render(room);
 
   el.finished.hidden = room.state !== "finished";
-  el.againRow.hidden = !training; // a room's way on is its lobby, just below (D-104)
+  el.againRow.hidden = !training; // a room's way on is its lobby (D-104)
+  el.showMap.hidden = !(between && room.state === "finished" && room.potato) || mapOpen;
   if (room.state === "finished") {
     const [top, second] = standings();
     // D-105: a tie at the top is a draw, as the trophies count it — the clock orders the board, it does not win.
     el.finishedText.textContent = !inRoom || !top ? t("multi.over")
       : second && second.points === top.points ? t("multi.draw", { points: top.points })
       : top.uid === uid ? t("multi.youWon", { points: top.points }) : t("multi.won", { name: top.name, points: top.points });
-    if (room.potato) el.finishedText.textContent += ` ${t(`multi.end.${room.potato.endReason}`)}`;
+    el.finishedSub.textContent = room.potato
+      ? `${t("multi.preset.mundo")} · ${t(`multi.end.${room.potato.endReason}`)}`
+      : room.classic ? `${t("multi.classic")} · ${t("multi.meta", { n: room.classic.kinds.length, min: minutesOf(room.classic.kinds) })}` : "";
     if (training) renderSoloEnd();
   }
 
