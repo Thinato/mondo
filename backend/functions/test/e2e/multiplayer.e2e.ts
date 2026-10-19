@@ -233,6 +233,45 @@ test("D-102: the old callable name answers for one release", async () => {
   assert.equal(ok(await host.old({ op: "create" }), "old name").room, ok(await host.call({ op: "create" }), "new name").room);
 });
 
+test("FR-12.10, FR-12.11, D-106: a custom game, dealt in order from its continents; a host's own saved games", async () => {
+  const cust = await newAccount("vs-cust");
+  await db.doc(`users/${cust.uid}`).set({ ...newProfile(Timestamp.now(), "Custom"), role: "invited" });
+  const { room: id } = ok(await cust.call({ op: "create" }), "create");
+  ok(await bia.call({ op: "join", room: id }), "bia joins");
+
+  const custom = { name: "Europa 3", kinds: ["capital", "flag", "shape"], shuffled: false, regions: ["Europe"] };
+  assert.equal(code(await bia.call({ op: "configure", room: id, custom })), "permission-denied", "only the host");
+  assert.equal(code(await cust.call({ op: "configure", room: id, custom: { ...custom, kinds: ["flags"] } })), "invalid-argument");
+  assert.equal(code(await cust.call({ op: "configure", room: id, custom: { ...custom, kinds: Array(15).fill("capital"), regions: ["Oceania"] } })),
+    "no-countries-left", "refused at configure, not at start");
+  ok(await cust.call({ op: "configure", room: id, custom }), "configure custom");
+  const set = await room(id);
+  assert.equal(set.presetId, "custom");
+  assert.deepEqual(set.custom, custom);
+
+  ok(await cust.call({ op: "start", room: id }), "start");
+  const { items } = (await db.doc(`roomSecrets/${id}`).get()).data() as Any;
+  assert.deepEqual(items.map((i: Any) => i.kind), custom.kinds, "in the order given");
+  assert.deepEqual((await room(id)).classic.kinds, custom.kinds);
+  for (const i of items) assert.equal(COUNTRIES.get(i.subject)!.region, "Europe", `${i.kind}: ${i.subject}`);
+
+  // Saved games: hosting's rank to save, and each player sees only their own.
+  const p = (name: string) => ({ ...custom, name });
+  assert.equal(code(await bia.call({ op: "savePreset", preset: p("Minha") })), "permission-denied");
+  assert.equal(code(await cust.call({ op: "savePreset", preset: { ...custom, name: "" } })), "invalid-argument");
+  let list: Any[] = [];
+  for (let i = 0; i < 10; i++) list = ok(await cust.call({ op: "savePreset", preset: p(`P${i}`) }), `save ${i}`).presets;
+  assert.equal(list.length, 10);
+  assert.equal(code(await cust.call({ op: "savePreset", preset: p("Onze") })), "invalid-argument", "ten at most");
+  list = ok(await cust.call({ op: "savePreset", preset: { ...p(" p3 "), kinds: ["gdp"] } }), "overwrite").presets;
+  assert.equal(list.length, 10, "same name overwrites");
+  assert.deepEqual(list[3].kinds, ["gdp"]);
+  assert.deepEqual(ok(await cust.call({ op: "join", room: id }), "host rejoins").presets, list);
+  assert.deepEqual(ok(await bia.call({ op: "join", room: id }), "bia rejoins").presets, [], "never another player's");
+  assert.equal(ok(await cust.call({ op: "deletePreset", name: "P0" }), "delete").presets.length, 9);
+  assert.equal(ok(await cust.call({ op: "deletePreset", name: "P0" }), "delete again").presets.length, 9);
+});
+
 test("D-93: a guest trains alone — started on create, no clock, nobody else gets in", async () => {
   const { room: id } = ok(await guest.call({ op: "create", presetId: "treino" }), "guest creates a training room");
   let r = await room(id);

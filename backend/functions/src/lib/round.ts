@@ -17,6 +17,7 @@
  * that card.ts already had under test.
  */
 
+import type { SavedPreset } from "./multiplayer";
 import type { Timestamp } from "firebase-admin/firestore";
 import { applyCardGuess, giveUpCard, newCardCore, cardIntervalsMs, cardSelfReports, totalGuesses, type CardCore, type CardItem } from "./card";
 import { countryByCode, type Country } from "./countries";
@@ -180,6 +181,8 @@ export interface Profile {
   trainingRoom?: string;
   /** D-103: the host's standing Multijogador room, which opening the page goes back to. */
   hostRoom?: string;
+  /** FR-12.11: the host's saved custom games, ≤ 10. Read only by their owner, through `join`. */
+  presets?: SavedPreset[];
 }
 
 export type RoundStatus = "in_progress" | "solved" | "failed";
