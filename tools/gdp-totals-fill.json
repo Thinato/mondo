@@ -1,0 +1,10 @@
+{
+  "//": "Total GDP, PPP, for pool countries the World Bank has no NY.GDP.MKTP.PP.CD figure for in 2013–2023 (D-108). Read by build-gdp.mjs --only-total; a country the World Bank covers never comes from here. Only the per-continent quintile is used, so a different base year moves nothing that matters.",
+  "CU": { "value": 81985000000, "year": 2023, "source": "CIA World Factbook, Real GDP (purchasing power parity), 2023 est.", "reason": "No World Bank PPP series for Cuba. Factbook figure is in 2015 dollars, not current international $." },
+  "ER": { "value": 6369000000, "year": 2019, "source": "IMF World Economic Outlook (DataMapper PPPGDP), 2019", "reason": "No World Bank figure in 2013–2023; IMF's last year for Eritrea is 2019." },
+  "KP": { "value": 15416000000, "year": 2023, "source": "CIA World Factbook, Real GDP (purchasing power parity), 2023 est.", "reason": "No World Bank or IMF series for North Korea. Factbook figure is in 2015 dollars." },
+  "LI": { "value": 7560000000, "year": 2023, "source": "IMF World Economic Outlook (DataMapper PPPGDP), 2023", "reason": "No World Bank PPP series for Liechtenstein." },
+  "MC": { "value": 8749000000, "year": 2023, "source": "CIA World Factbook, Real GDP (purchasing power parity), 2023 est.", "reason": "No World Bank or IMF PPP series for Monaco. Factbook figure is in 2015 dollars." },
+  "TW": { "value": 1745035000000, "year": 2023, "source": "IMF World Economic Outlook (DataMapper PPPGDP), 2023", "reason": "The World Bank does not report Taiwan." },
+  "VE": { "value": 208206000000, "year": 2023, "source": "IMF World Economic Outlook (DataMapper PPPGDP), 2023", "reason": "No World Bank figure for Venezuela in 2013–2023." }
+}

@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 // The Batata Quente world map (FR-12.3, D-89) → backend/functions/src/data/world.json.
 //
+// Also the Fronteiras boards (FR-15.2, D-109) → backend/functions/src/data/borders.json:
+// which territories of a continent touch, the generated links that make every
+// continent one board, each continent's viewBox and where each name sits.
+//
 // Natural Earth 1:50m via world-atlas, projected with Equal Earth. Server-only:
 // `multiplayer.ts` hands a room one country's path at a time, as it is named. Run
 // after build-geo.mjs, which decides the pool and the centroids this reads.
@@ -13,10 +17,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { merge } from "topojson-client";
+import { merge, neighbors } from "topojson-client";
 import { presimplify, quantile, simplify, sphericalTriangleArea } from "topojson-simplify";
 import wc from "world-countries";
-import { buildWorld } from "./lib/world.mjs";
+import { buildWorld, labelOf, linkRegion, viewBoxOf, worldProjection } from "./lib/world.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => JSON.parse(readFileSync(join(ROOT, p), "utf8"));
@@ -35,6 +39,25 @@ const BY_NAME = { XK: "Kosovo" };
 // can then never fill. Map only: the pool, the centroid and every hint are
 // untouched, and "Groenlândia" is still not an answer.
 const PAINTED_WITH = { DK: ["Greenland"] };
+/**
+ * The Fronteiras boards, [west, south, east, north] in degrees — reviewed by
+ * hand, not fitted, so a far-flung ring cannot stretch a board. Europe stops at
+ * the Urals and takes Iceland, Cyprus and Malta; the Azores, the Canaries,
+ * Svalbard, Alaska's Aleutians, Hawaii and Rodrigues fall outside and are
+ * clipped. Oceania is out of v1.
+ */
+const BOARDS = {
+  Europe: [-25, 34, 60, 72],
+  Asia: [25, -11, 150, 56],
+  Americas: [-142, -56, -30, 74],
+  Africa: [-26, -36, 60, 38],
+};
+/**
+ * Label points, [lon, lat], set by hand where the clipped outline puts the name
+ * somewhere wrong. DK: the sliver of Greenland inside Europe's box is a bigger
+ * ring than Jutland.
+ */
+const LABELS = { DK: [9.2, 56.1] };
 
 const countries = read("backend/functions/src/data/countries.json").countries;
 const raw = presimplify(read("tools/node_modules/world-atlas/countries-50m.json"), sphericalTriangleArea);
@@ -50,12 +73,13 @@ for (const g of topo.objects.countries.geometries) {
 
 // Same-id features (a sovereign and its dependency sharing an ISO id) merge into one shape.
 const features = new Map();
+const geomsOf = new Map();
 for (const c of countries) {
   const geoms = [
     ...(BY_NAME[c.code] ? byName.get(BY_NAME[c.code]) : byId.get(ccn3.get(c.code)) ?? []),
     ...(PAINTED_WITH[c.code] ?? []).flatMap((name) => byName.get(name) ?? []),
   ];
-  if (geoms.length) features.set(c.code, merge(topo, geoms));
+  if (geoms.length) features.set(c.code, merge(topo, geoms)), geomsOf.set(c.code, geoms);
 }
 
 const world = buildWorld({
@@ -76,3 +100,48 @@ if (bytes > MAX_BYTES) {
 }
 writeFileSync(join(ROOT, "backend/functions/src/data/world.json"), out);
 console.log(`✓ world.json: ${Object.keys(world.paths).length} shapes + ${Object.keys(world.dots).length} dots, ${(bytes / 1024).toFixed(0)} KB, viewBox ${world.viewBox}`);
+
+// ── borders.json ────────────────────────────────────────────────────────────
+// Land adjacency is shared arcs of the SAME topology, so two territories touch
+// on the board exactly where their drawn borders are one line. Only within a
+// continent: France's Guiana touches Brazil, and that is not a Europe edge.
+const { projection } = worldProjection(merge(topo, topo.objects.countries.geometries));
+const codes = [...geomsOf.keys()];
+const touching = neighbors(codes.map((c) => ({ type: "GeometryCollection", geometries: geomsOf.get(c) })));
+const regionOf = new Map(countries.map((c) => [c.code, c.region]));
+const centroids = new Map(countries.map((c) => [c.code, c.centroid]));
+
+const land = {};
+const links = [];
+const viewBox = {};
+const labels = {};
+for (const [region, box] of Object.entries(BOARDS)) {
+  const members = countries.filter((c) => c.region === region).map((c) => c.code).sort();
+  const adj = new Map(members.map((c) => [c, new Set()]));
+  codes.forEach((a, i) => {
+    for (const j of touching[i]) if (regionOf.get(a) === region && regionOf.get(codes[j]) === region) adj.get(a).add(codes[j]);
+  });
+  for (const c of members) land[c] = [...adj.get(c)].sort();
+  console.log(`${region}: ${members.length} territories`);
+  for (const l of linkRegion(members, adj, centroids)) {
+    links.push([l.a, l.b]);
+    console.log(`  link ${l.a}–${l.b}  ${String(l.km).padStart(5)} km  (${l.why})`);
+  }
+  viewBox[region] = viewBoxOf(projection, box);
+  for (const c of members) {
+    const fixed = LABELS[c] && projection(LABELS[c]).map((n) => Math.round(n * 10) / 10);
+    labels[c] = fixed ?? world.dots[c] ?? labelOf(projection, features.get(c), viewBox[region]);
+    if (!labels[c]) throw new Error(`${c} has nothing inside the ${region} viewBox`);
+  }
+  console.log(`  viewBox ${viewBox[region]}`);
+}
+
+const borders = JSON.stringify({
+  "//": "GENERATED by tools/build-world.mjs — do not edit. Server-only (D-109): the Fronteiras boards on world.json's map. `land` is shared borders of the same Natural Earth 1:50m topology, within one continent; `links` join islands and pieces by nearest centroid; `viewBox` is a reviewed lon/lat box per continent, Equal Earth; `labels` is the bbox centre of each territory's largest ring inside it, or its dot.",
+  land,
+  links,
+  viewBox,
+  labels,
+}) + "\n";
+writeFileSync(join(ROOT, "backend/functions/src/data/borders.json"), borders);
+console.log(`✓ borders.json: ${Object.keys(labels).length} territories, ${links.length} links, ${(Buffer.byteLength(borders) / 1024).toFixed(1)} KB`);
