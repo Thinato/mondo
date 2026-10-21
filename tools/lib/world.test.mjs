@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildWorld, insideViewBox, linkRegion, MIN_AREA_PX, WIDTH } from "./world.mjs";
+import { buildWorld, insideViewBox, MIN_AREA_PX, piecesOf, WIDTH } from "./world.mjs";
 
 const read = (p) => JSON.parse(readFileSync(new URL(`../../${p}`, import.meta.url), "utf8"));
 
@@ -41,11 +41,9 @@ test("D-89: Greenland is painted with Denmark, so the map can fill", () => {
   assert.ok(Math.max(...xs) > 500, "and Denmark itself is still there");
 });
 
-test("D-109: an island links to its two nearest, and leftover pieces join by their closest pair", () => {
-  const centroids = new Map([["A", [0, 0]], ["B", [1, 0]], ["C", [10, 0]], ["D", [11, 0]], ["I", [0, 2]]]);
-  const land = new Map([["A", new Set(["B"])], ["B", new Set(["A"])], ["C", new Set(["D"])], ["D", new Set(["C"])]]);
-  const links = linkRegion(["A", "B", "C", "D", "I"], land, centroids);
-  assert.deepEqual(links.map((l) => `${l.a}${l.b}:${l.why}`), ["AI:island", "BI:island", "BC:join"]);
+test("D-109: piecesOf finds a board's connected pieces, an island on its own", () => {
+  const edges = new Map([["A", new Set(["B"])], ["B", new Set(["A"])], ["C", new Set(["D"])], ["D", new Set(["C"])], ["I", new Set()]]);
+  assert.deepEqual(piecesOf(["A", "B", "C", "D", "I"], edges), [["A", "B"], ["C", "D"], ["I"]]);
 });
 
 const BOARDS = ["Europe", "Asia", "Americas", "Africa"];
@@ -73,6 +71,10 @@ test("D-109: every board is one symmetric, connected piece, and only land is a l
     assert.equal(seen.size, members.length, `${region} is in pieces: ${members.filter((c) => !seen.has(c))}`);
   }
   assert.ok(b.land.ES.includes("PT"));
+  assert.ok(b.land.DJ.includes("SO"), "DJ–SO, a real border the topology misses");
+  const routes = new Set(b.links.map((l) => l.join("–")));
+  for (const r of ["FR–GB", "DK–SE", "IT–MT", "JP–KR", "CU–US", "KM–MZ"]) assert.ok(routes.has(r), `sea route ${r}`);
+  for (const r of ["BG–CY", "KM–MW", "AL–MT"]) assert.ok(!routes.has(r), `no route ${r}`);
   for (const n of ["BR", "NL"]) assert.ok(!edges.get("FR").has(n), `FR–${n}`);
   assert.ok(!Object.keys(b.land).some((c) => regionOf.get(c) === "Oceania"), "Oceania is out of v1");
 });

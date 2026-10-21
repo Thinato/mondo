@@ -90,7 +90,7 @@ export function mountFronteiras({ multiplayer, me, confirm, roomId, serverNow, s
   const $ = (id) => document.getElementById(id);
   const el = {
     section: $("fronteiras"), seats: $("fr-seats"), banner: $("fr-banner"), chipsTitle: $("fr-chips-title"), chips: $("fr-chips"),
-    giveUp: $("fr-giveup"), wrap: $("fr-wrap"), world: $("fr-map"), terr: $("fr-terr"), labels: $("fr-labels"), zoomHint: $("fr-zoom-hint"),
+    giveUp: $("fr-giveup"), wrap: $("fr-wrap"), world: $("fr-map"), terr: $("fr-terr"), links: $("fr-links"), labels: $("fr-labels"), zoomHint: $("fr-zoom-hint"),
     bar: $("fr-bar"), selName: $("fr-sel-name"), selMeta: $("fr-sel-meta"), act: $("fr-act"), pass: $("fr-pass"),
     result: $("fr-result"), resultText: $("fr-result-text"), resultSub: $("fr-result-sub"), resultRatings: $("fr-result-ratings"),
     wait: $("fr-wait"), waitTitle: $("fr-wait-title"), waitTime: $("fr-wait-time"), waitLink: $("fr-wait-link"), waitBot: $("fr-wait-bot"),
@@ -140,6 +140,11 @@ export function mountFronteiras({ multiplayer, me, confirm, roomId, serverNow, s
     }
     // Microstates last, so a dot is never under a neighbour's outline.
     for (const s of el.terr.querySelectorAll(".dot")) el.terr.append(s);
+    // Sea routes (D-109): a move across water is a dashed line between the two names.
+    el.links.replaceChildren(...(b.links ?? []).map((l) => l.split("-")).flatMap(([x, y]) => {
+      const p = b.labels[x] ?? b.paths[x]?.dot, q = b.labels[y] ?? b.paths[y]?.dot;
+      return p && q ? [svgNode("line", { class: "route", x1: p[0], y1: p[1], x2: q[0], y2: q[1] })] : [];
+    }));
     zoom.base(b.viewBox);
     rescale();
     if (room) render(room);

@@ -112,6 +112,7 @@ function start(tx: Transaction, id: string, room: Room, users: Record<string, Pr
     viewBox: board.viewBox,
     paths: Object.fromEntries(board.codes.map((c) => [c, mapPiece(c)])),
     adj: board.adj,
+    links: board.links,
     labels: board.labels,
     // The client draws chips and costs from these; the server still judges every move.
     rules: { turns: TURNS_EACH, fortify: FORTIFY_COST, capitalDefence: CAPITAL_DEFENCE, trucePlies: TRUCE_PLIES, capitalMin: CAPITAL_MIN_NEIGHBOURS },

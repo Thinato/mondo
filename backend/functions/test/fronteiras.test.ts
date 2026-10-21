@@ -274,8 +274,16 @@ test("FR-15.2: each board is its continent, connected, symmetric, laid out", () 
     while (todo.length) for (const n of b.adj[todo.pop()!]!) if (!seen.has(n)) (seen.add(n), todo.push(n));
     assert.equal(seen.size, b.codes.length, `${c} is not connected`);
     assert.match(b.viewBox, /^-?\d+ -?\d+ \d+ \d+$/);
+    // Sea routes travel in map/_board, and Firestore refuses an array of arrays.
+    for (const l of b.links) {
+      assert.match(l, /^[A-Z]{2}-[A-Z]{2}$/);
+      const [x, y] = l.split("-");
+      assert.ok(b.adj[x!]!.includes(y!), `route ${l} is not an edge`);
+    }
   }
   assert.ok(boardOf("Europe").adj.ES!.includes("PT"));
+  assert.ok(boardOf("Europe").links.includes("FR-GB"), "the Channel");
+  assert.ok(boardOf("Africa").adj.DJ!.includes("SO"), "DJ–SO");
 });
 
 const totals = (gdpJson as unknown as { totals: { values: Record<string, number> } }).totals;

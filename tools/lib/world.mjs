@@ -6,7 +6,7 @@
 // It is server-only (backend/functions/src/data/world.json) and a room receives
 // a country's path only once someone in it has named that country.
 
-import { geoDistance, geoEqualEarth, geoPath } from "d3-geo";
+import { geoEqualEarth, geoPath } from "d3-geo";
 import { toPathData } from "./shape.mjs";
 
 export const WIDTH = 1000;
@@ -75,47 +75,18 @@ export function buildWorld({ land, features, centroids }) {
 // board adds to world.json is which territories touch, where its window is, and
 // where each name sits — borders.json, built by build-world.mjs from these.
 
-/**
- * The extra edges a continent needs to be one board: a territory with no land
- * neighbour (an island) links to its `near` nearest members, then whatever is
- * still in pieces is joined by the closest pair across pieces, one pair at a
- * time, until it is one piece. Great-circle on the NE centroids, build-time only.
- *
- * @param members   codes of one continent
- * @param land      Map code → Set of land neighbours (within the continent)
- * @param centroids Map code → [lon, lat]
- * @returns [{ a, b, km, why }], a < b, in the order they were added
- */
-export function linkRegion(members, land, centroids, near = 2) {
-  const km = (a, b) => Math.round(geoDistance(centroids.get(a), centroids.get(b)) * 6371);
-  const adj = new Map(members.map((c) => [c, new Set(land.get(c) ?? [])]));
-  const links = [];
-  const add = (a, b, why) => {
-    if (adj.get(a).has(b)) return;
-    adj.get(a).add(b);
-    adj.get(b).add(a);
-    links.push({ ...(a < b ? { a, b } : { a: b, b: a }), km: km(a, b), why });
-  };
-  for (const c of members.filter((m) => !land.get(m)?.size)) {
-    const nearest = members.filter((m) => m !== c).sort((x, y) => km(c, x) - km(c, y) || x.localeCompare(y));
-    for (const m of nearest.slice(0, near)) add(c, m, "island");
+/** The connected pieces of a board, each a list of its members. */
+export function piecesOf(members, edges) {
+  const seen = new Set();
+  const pieces = [];
+  for (const start of members) {
+    if (seen.has(start)) continue;
+    const piece = [start];
+    seen.add(start);
+    for (let i = 0; i < piece.length; i++) for (const n of edges.get(piece[i]) ?? []) if (!seen.has(n)) seen.add(n), piece.push(n);
+    pieces.push(piece);
   }
-  // ponytail: O(n²) per join over ≤ 54 members; fine at build time.
-  for (;;) {
-    const piece = new Map();
-    for (const start of members) {
-      if (piece.has(start)) continue;
-      const stack = [start];
-      piece.set(start, start);
-      while (stack.length) for (const n of adj.get(stack.pop())) if (!piece.has(n)) piece.set(n, start), stack.push(n);
-    }
-    let best = null;
-    for (const a of members) for (const b of members) {
-      if (a < b && piece.get(a) !== piece.get(b) && (!best || km(a, b) < best.d)) best = { a, b, d: km(a, b) };
-    }
-    if (!best) return links;
-    add(best.a, best.b, "join");
-  }
+  return pieces;
 }
 
 /** A lon/lat box [west, south, east, north] as the integer viewBox that contains its projection. */

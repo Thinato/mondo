@@ -2,7 +2,7 @@
 // The Batata Quente world map (FR-12.3, D-89) → backend/functions/src/data/world.json.
 //
 // Also the Fronteiras boards (FR-15.2, D-109) → backend/functions/src/data/borders.json:
-// which territories of a continent touch, the generated links that make every
+// which territories of a continent touch, the reviewed sea routes that make every
 // continent one board, each continent's viewBox and where each name sits.
 //
 // Natural Earth 1:50m via world-atlas, projected with Equal Earth. Server-only:
@@ -20,7 +20,7 @@ import { dirname, join } from "node:path";
 import { merge, neighbors } from "topojson-client";
 import { presimplify, quantile, simplify, sphericalTriangleArea } from "topojson-simplify";
 import wc from "world-countries";
-import { buildWorld, labelOf, linkRegion, viewBoxOf, worldProjection } from "./lib/world.mjs";
+import { buildWorld, labelOf, piecesOf, viewBoxOf, worldProjection } from "./lib/world.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => JSON.parse(readFileSync(join(ROOT, p), "utf8"));
@@ -58,6 +58,28 @@ const BOARDS = {
  * ring than Jutland.
  */
 const LABELS = { DK: [9.2, 56.1] };
+/**
+ * Sea routes, reviewed by hand: real straits, causeways and ferry crossings, so a
+ * move across water is one a player could name. A nearest-centroid rule linked
+ * Cyprus to Bulgaria and the Comoros to landlocked Malawi while leaving the
+ * Channel and the Øresund out. The build refuses a board that is not one piece.
+ */
+const SEA_ROUTES = {
+  // The Channel, the Øresund, the Gulf of Finland, the Faroes route, the Norse route, Crete–Cyprus, Sicily–Malta.
+  Europe: [["GB", "FR"], ["DK", "SE"], ["EE", "FI"], ["GB", "IS"], ["IS", "NO"], ["CY", "GR"], ["IT", "MT"]],
+  // Tsushima, the Ryukyus, the Taiwan and Luzon straits, the Sulu Sea, the Palk Strait,
+  // the Maldives' two neighbours, the King Fahd Causeway, Bahrain–Qatar, the Johor Causeway, Singapore–Batam.
+  Asia: [["JP", "KR"], ["JP", "TW"], ["CN", "TW"], ["PH", "TW"], ["MY", "PH"], ["IN", "LK"], ["IN", "MV"], ["LK", "MV"],
+    ["BH", "SA"], ["BH", "QA"], ["MY", "SG"], ["ID", "SG"]],
+  // The Florida Straits, the Yucatán Channel, the Windward Passage, the Antilles island by island, Trinidad–Venezuela.
+  Americas: [["CU", "US"], ["BS", "US"], ["CU", "MX"], ["BS", "CU"], ["CU", "JM"], ["CU", "HT"], ["DO", "KN"], ["AG", "KN"],
+    ["AG", "DM"], ["DM", "LC"], ["LC", "VC"], ["GD", "VC"], ["GD", "TT"], ["TT", "VE"], ["BB", "LC"], ["BB", "VC"]],
+  // Dakar and Nouakchott, the Gulf of Guinea, the Mozambique Channel, the Mascarenes, the Seychelles' two neighbours.
+  Africa: [["CV", "SN"], ["CV", "MR"], ["GA", "ST"], ["GQ", "ST"], ["KM", "MZ"], ["KM", "TZ"], ["KM", "MG"], ["MG", "MZ"],
+    ["MG", "MU"], ["MG", "SC"], ["KE", "SC"]],
+};
+/** Real land borders the 1:50m topology does not draw as one shared line. */
+const LAND_FIXES = { Africa: [["DJ", "SO"]] };
 
 const countries = read("backend/functions/src/data/countries.json").countries;
 const raw = presimplify(read("tools/node_modules/world-atlas/countries-50m.json"), sphericalTriangleArea);
@@ -112,7 +134,6 @@ const { projection } = worldProjection(merge(topo, topo.objects.countries.geomet
 const codes = [...geomsOf.keys()];
 const touching = neighbors(codes.map((c) => ({ type: "GeometryCollection", geometries: geomsOf.get(c) })));
 const regionOf = new Map(countries.map((c) => [c.code, c.region]));
-const centroids = new Map(countries.map((c) => [c.code, c.centroid]));
 
 const land = {};
 const links = [];
@@ -124,12 +145,19 @@ for (const [region, box] of Object.entries(BOARDS)) {
   codes.forEach((a, i) => {
     for (const j of touching[i]) if (regionOf.get(a) === region && regionOf.get(codes[j]) === region) adj.get(a).add(codes[j]);
   });
+  for (const [a, b] of LAND_FIXES[region] ?? []) adj.get(a).add(b), adj.get(b).add(a);
   for (const c of members) land[c] = [...adj.get(c)].sort();
-  console.log(`${region}: ${members.length} territories`);
-  for (const l of linkRegion(members, adj, centroids)) {
-    links.push([l.a, l.b]);
-    console.log(`  link ${l.a}–${l.b}  ${String(l.km).padStart(5)} km  (${l.why})`);
+  const edges = new Map(members.map((c) => [c, new Set(adj.get(c))]));
+  for (const [a, b] of SEA_ROUTES[region]) {
+    if (!edges.has(a) || !edges.has(b)) throw new Error(`route ${a}–${b} is not on the ${region} board`);
+    if (adj.get(a).has(b)) throw new Error(`route ${a}–${b} is already a land border`);
+    edges.get(a).add(b);
+    edges.get(b).add(a);
+    links.push([a, b].sort());
   }
+  const pieces = piecesOf(members, edges);
+  if (pieces.length > 1) throw new Error(`${region} is in pieces: ${pieces.map((p) => p.join(" ")).join(" | ")}`);
+  console.log(`${region}: ${members.length} territories, ${SEA_ROUTES[region].length} sea routes`);
   viewBox[region] = viewBoxOf(projection, box);
   for (const c of members) {
     const fixed = LABELS[c] && projection(LABELS[c]).map((n) => Math.round(n * 10) / 10);
@@ -140,7 +168,7 @@ for (const [region, box] of Object.entries(BOARDS)) {
 }
 
 const borders = JSON.stringify({
-  "//": "GENERATED by tools/build-world.mjs — do not edit. Server-only (D-109): the Fronteiras boards on world.json's map. `land` is shared borders of the same Natural Earth 1:50m topology, within one continent; `links` join islands and pieces by nearest centroid; `viewBox` is a reviewed lon/lat box per continent, Equal Earth; `labels` is the bbox centre of each territory's largest ring inside it, or its dot.",
+  "//": "GENERATED by tools/build-world.mjs — do not edit. Server-only (D-109): the Fronteiras boards on world.json's map. `land` is shared borders of the same Natural Earth 1:50m topology, within one continent; `links` are reviewed sea routes (straits, causeways, ferries); `viewBox` is a reviewed lon/lat box per continent, Equal Earth; `labels` is the bbox centre of each territory's largest ring inside it, or its dot.",
   land,
   links,
   viewBox,

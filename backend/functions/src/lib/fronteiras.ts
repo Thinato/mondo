@@ -84,6 +84,8 @@ export type Adjacency = Record<string, string[]>;
 export interface Board {
   codes: string[];
   adj: Adjacency;
+  /** The board's sea routes as "A-B", drawn as dashed lines (Firestore takes no nested arrays). */
+  links: string[];
   viewBox: string;
   labels: Record<string, [number, number]>;
 }
@@ -110,6 +112,7 @@ export function boardOf(continent: Continent): Board {
   return {
     codes,
     adj: Object.fromEntries(codes.map((c) => [c, [...sets.get(c)!].sort()])),
+    links: borders.links.filter(([a, b]) => on.has(a) && on.has(b)).map(([a, b]) => `${a}-${b}`),
     viewBox: borders.viewBox[continent],
     labels: Object.fromEntries(codes.filter((c) => borders.labels[c]).map((c) => [c, borders.labels[c]!])),
   };

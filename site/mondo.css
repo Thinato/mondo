@@ -1490,6 +1490,7 @@ a.name:hover { text-decoration: underline; }
 .fr-board .t.can:not(.owned) { fill: color-mix(in srgb, var(--band-0) 82%, var(--fg)); }
 .fr-board .t.sel { stroke: var(--fg); stroke-width: 2.5px; stroke-dasharray: none; }
 .fr-board .mark { pointer-events: none; }
+.fr-board .route { stroke: var(--fg); stroke-width: 1px; stroke-dasharray: 3 3; opacity: .45; vector-effect: non-scaling-stroke; pointer-events: none; }
 .fr-board .num { font: 600 9px var(--mono); text-anchor: middle; fill: var(--fg); paint-order: stroke; stroke: var(--card); stroke-width: 2.5px; stroke-linejoin: round; }
 .fr-board .cap { fill: var(--card); stroke-width: 2px; }
 .fr-board .pip { fill: var(--fg); stroke: var(--card); stroke-width: .8px; }
