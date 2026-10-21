@@ -16,7 +16,7 @@
  * Practice is FR-9: one kind, one challenge at a time, scored for nobody but
  * the player; see practice.ts.
  * Multijogador is FR-12: live rooms, Clássico and Batata Quente, one callable (D-92);
- * see multiplayer.ts.
+ * see multiplayer.ts. Fronteiras (FR-15) rides on the same callable; see fronteiras.ts.
  */
 
 import { initializeApp } from "firebase-admin/app";
@@ -39,10 +39,6 @@ export {
 } from "./tournaments";
 export { startPractice, nextPractice, submitPracticeGuess, giveUpPractice, endPractice } from "./practice";
 export { multiplayer } from "./multiplayer";
-// D-102: the old name, for one release. The site and the functions deploy in
-// parallel, and a cached sala.html keeps calling `versus` until it reloads.
-// Remove in the next backend PR; `deploy --force` then deletes the service.
-export { multiplayer as versus } from "./multiplayer";
 export { rebuildStandings } from "./standings";
 export { scheduleHealthCheck } from "./health";
 
