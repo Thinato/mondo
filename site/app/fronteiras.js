@@ -161,12 +161,13 @@ export function mountFronteiras({ multiplayer, me, confirm, roomId, serverNow, s
   new ResizeObserver(rescale).observe(el.wrap);
 
   // A click selects; a drag that panned the map does not.
-  let downAt = null;
-  el.wrap.addEventListener("pointerdown", (e) => { downAt = [e.clientX, e.clientY]; });
+  // The territory is taken at pointerdown: on desktop the zoom then captures the
+  // pointer, so the click itself lands on the wrapper, not on the territory.
+  let down = null;
+  el.wrap.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, code: e.target.closest?.(".t")?.dataset.code }; });
   el.wrap.addEventListener("click", (e) => {
-    if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
-    const code = e.target.closest?.(".t")?.dataset.code;
-    if (code) select(code);
+    if (!down?.code || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+    select(down.code);
   });
 
   function select(code) {
