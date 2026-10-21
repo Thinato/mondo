@@ -22,6 +22,8 @@ const el = {
   chart: $("chart"), chartFrom: $("chart-from"), chartTo: $("chart-to"),
   kinds: $("kinds"), days: $("days"), noGames: $("no-games"),
   ownerFoot: $("owner-foot"), deleteBtn: $("delete-btn"),
+  frProfile: $("fr-profile"), frRating: $("fr-rating"), frGames: $("fr-games"), frChartWrap: $("fr-chart-wrap"),
+  frChart: $("fr-chart"), frChartFrom: $("fr-chart-from"), frChartTo: $("fr-chart-to"), frHistory: $("fr-history"),
   deleteDialog: $("delete-dialog"), deleteForm: $("delete-form"), deleteError: $("delete-error"),
 };
 
@@ -79,6 +81,7 @@ function render() {
   renderChart();
   renderKinds();
   renderDays();
+  renderFronteiras();
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +214,50 @@ function pickRow(g, answer) {
   li.append(node("span", "name", answer?.names?.[g.pick] ?? `#${g.pick + 1}`), node("span", "dist", right ? "🎉" : "✗"));
   return li;
 }
+
+// ---------------------------------------------------------------------------
+// Fronteiras (FR-15.11): the rating, "?" until it settles (D-110), the last
+// games, and the rating after each one, drawn like the day chart.
+
+function renderFronteiras() {
+  const f = view.fronteiras;
+  el.frProfile.hidden = !f || f.games === 0;
+  if (el.frProfile.hidden) return;
+  el.frRating.textContent = `${Math.round(f.rating)}${f.settled ? "" : "?"}`;
+  el.frGames.textContent = t("fronteiras.games", { n: f.games }) + (f.settled ? "" : ` · ${t("fronteiras.perfil.provisional")}`);
+  const games = [...f.history].sort((a, b) => a.at - b.at);
+  el.frChartWrap.hidden = games.length < 2;
+  if (games.length >= 2) {
+    const rs = games.map((g) => g.rating);
+    const lo = Math.min(...rs) - 10, hi = Math.max(...rs) + 10;
+    const x = (i) => (i * 300) / (games.length - 1);
+    const y = (r) => 100 - ((r - lo) * 100) / (hi - lo);
+    const d = rs.map((r, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(r).toFixed(1)}`).join("");
+    el.frChart.replaceChildren(
+      ...[0, 50, 100].map((p) => svg("line", { x1: 0, x2: 300, y1: p, y2: p, class: "grid" })),
+      svg("path", { d, class: "line" }),
+      ...rs.map((r, i) => svg("circle", { cx: x(i).toFixed(1), cy: y(r).toFixed(1), r: 2.6, class: "pt" })),
+    );
+    el.frChart.setAttribute("aria-label", t("fronteiras.perfil.line", { from: Math.round(rs[0]), to: Math.round(rs.at(-1)) }));
+    el.frChartFrom.textContent = String(Math.round(rs[0]));
+    el.frChartTo.textContent = String(Math.round(rs.at(-1)));
+  }
+  el.frHistory.replaceChildren(...[...games].reverse().map((g) => {
+    const li = node("li", `fr-game ${g.result}`);
+    const row = node("div", "day-row");
+    row.append(
+      node("span", "when", formatAt(g.at)),
+      node("span", "res", t(`fronteiras.perfil.result.${g.result}`)),
+      node("span", "opp", t("fronteiras.perfil.vs", { name: g.opp })),
+      node("span", "score", String(Math.round(g.rating))),
+    );
+    li.append(row);
+    return li;
+  }));
+}
+
+const atFmt = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const formatAt = (ms) => atFmt.format(new Date(ms));
 
 // ---------------------------------------------------------------------------
 // The owner's account (FR-1.3, FR-1.5).

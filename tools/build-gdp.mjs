@@ -4,6 +4,7 @@
 //
 //   node build-gdp.mjs [--year 2023]
 //   node build-gdp.mjs --only-growth [--from 2013]
+//   node build-gdp.mjs --only-total [--indicator NY.GDP.MKTP.PP.CD] [--dry]
 //
 // Output: backend/functions/src/data/gdp.json — server-only, committed.
 //
@@ -21,6 +22,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
+import { quintiles, refuseChanges, spearman } from "./lib/gdp.mjs";
 
 const TOOLS = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(TOOLS, "..");
@@ -31,7 +33,14 @@ const write = (p, data) => {
 };
 
 const { values: args } = parseArgs({
-  options: { year: { type: "string", default: "2023" }, "only-growth": { type: "boolean", default: false }, from: { type: "string", default: "2013" } },
+  options: {
+    year: { type: "string", default: "2023" },
+    "only-growth": { type: "boolean", default: false },
+    from: { type: "string", default: "2013" },
+    "only-total": { type: "boolean", default: false },
+    indicator: { type: "string", default: "NY.GDP.MKTP.PP.CD" },
+    dry: { type: "boolean", default: false },
+  },
 });
 const YEAR = Number(args.year);
 
@@ -93,6 +102,66 @@ if (args["only-growth"]) {
   process.exit(0);
 }
 
+// FR-15.2 / D-108: what a Fronteiras territory is worth. Total GDP, PPP, by
+// default — a figure no kind asks for — binned into quintiles per continent at
+// match start. It is correlated with per-capita, so this also PRINTS how much:
+// Spearman's ρ between the two quintiles and how often they agree exactly
+// (20 % is chance), per continent. `--indicator SP.POP.TOTL --dry` prints the
+// same table for population, the fallback, without writing it.
+//
+// Each country takes its most recent figure from 2013 to 2023; the few the
+// World Bank never covers come from tools/gdp-totals-fill.json, with a source
+// each. Like `--only-growth` it adds a section and never touches `values`.
+if (args["only-total"]) {
+  const TOTAL = "NY.GDP.MKTP.PP.CD";
+  const BOARDS = ["Europe", "Asia", "Americas", "Africa"];
+  const path = "backend/functions/src/data/gdp.json";
+  const before = read(path);
+  const indicator = args.indicator;
+  const from = 2013, to = before.year;
+  const best = {};
+  for (const row of await fetchRows(indicator, `${from}:${to}`)) {
+    const country = byIso3.get(row.countryiso3code);
+    if (!country || row.value === null || best[country.code]?.year > Number(row.date)) continue;
+    best[country.code] = { value: row.value, year: Number(row.date) };
+  }
+  const filled = {};
+  for (const [code, year] of Object.entries(best)) if (year.year !== to) filled[code] = { year: year.year, source: "World Bank" };
+  const fill = indicator === TOTAL ? read("tools/gdp-totals-fill.json") : {};
+  for (const [code, f] of Object.entries(fill)) {
+    if (code === "//") continue;
+    if (best[code]) throw new Error(`${code} is in gdp-totals-fill.json but the World Bank has it — drop the fill`);
+    best[code] = f;
+    filled[code] = { year: f.year, source: f.source };
+  }
+  const values = Object.fromEntries(Object.keys(best).sort().map((c) => [c, Math.round(best[c].value)]));
+  const lacking = countries.filter((c) => BOARDS.includes(c.region) && values[c.code] === undefined).map((c) => c.code);
+
+  console.log(`${indicator}: ${Object.keys(values).length} of ${countries.length}, most recent ${from}–${to}, ${Object.keys(filled).length} not from the World Bank in ${to}`);
+  for (const [c, f] of Object.entries(filled)) console.log(`  ${c}: ${f.year}, ${f.source}`);
+  console.log(`\n  R-1 (D-108): ${indicator} quintile vs per-capita quintile, per continent`);
+  console.log("  continent   n   Spearman ρ   exact tier (chance 20 %)");
+  for (const region of BOARDS) {
+    const members = countries.filter((c) => c.region === region).map((c) => c.code);
+    const pick = (src) => Object.fromEntries(members.filter((c) => src[c] !== undefined).map((c) => [c, src[c]]));
+    const a = quintiles(pick(values)), b = quintiles(pick(before.values));
+    const both = members.filter((c) => a[c] && b[c]);
+    const rho = spearman(both.map((c) => a[c]), both.map((c) => b[c]));
+    const same = both.filter((c) => a[c] === b[c]).length / both.length;
+    console.log(`  ${region.padEnd(9)} ${String(both.length).padStart(3)}   ${rho.toFixed(2).padStart(10)}   ${(same * 100).toFixed(0).padStart(5)} %`);
+  }
+
+  if (lacking.length) {
+    console.error(`\n✗ no ${indicator} for ${lacking.join(", ")} — add them to tools/gdp-totals-fill.json with a source`);
+    if (!args.dry) process.exit(1);
+  }
+  if (args.dry) process.exit(0);
+  const after = refuseChanges(before, { ...before, totals: { indicator, year: to, values, filled } });
+  write(path, JSON.stringify(after, null, 0) + "\n");
+  console.log(`\n  written: ${path}`);
+  process.exit(0);
+}
+
 const rows = await fetchRows(INDICATOR, YEAR);
 
 const values = {};
@@ -119,6 +188,11 @@ const out = {
   year: YEAR,
   values: Object.fromEntries(kept.map((c) => [c, values[c]])),
 };
+// The other sections came from their own flags; a full rebuild keeps them
+// rather than dropping them (re-run those flags to refresh them).
+let previous = {};
+try { previous = read("backend/functions/src/data/gdp.json"); } catch { /* first build */ }
+for (const k of ["growth", "totals"]) if (previous[k]) out[k] = previous[k];
 
 console.log(`gdp: ${kept.length} of ${countries.length} countries, ${YEAR}, ${INDICATOR}`);
 const sorted = kept.map((c) => [c, values[c]]).sort((a, b) => a[1] - b[1]);

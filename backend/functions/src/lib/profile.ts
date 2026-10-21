@@ -13,6 +13,7 @@
 import { mondoError } from "./errors";
 import { compass8 } from "./geo";
 import { resultOf } from "./groups";
+import type { LadderRecord } from "./ladder";
 import { KIND_IDS, kindById, type KindId, type Reveal } from "./kinds";
 import {
   guessView, isChoiceGuess, isNumberGuess, maxPointsFor, puzzleItems, upgradeAttempt,
@@ -96,6 +97,8 @@ export interface ProfileView {
   kinds: KindStat[];
   /** One slot per window day, oldest first: % of that day's max, or null (not played, hidden, voided). */
   chart: (number | null)[];
+  /** FR-15.11: the Fronteiras rating, off the user document already read. Never `recent` (opponents' uids). */
+  fronteiras: Omit<LadderRecord, "recent"> | null;
 }
 
 export interface ProfileInput extends Viewing {
@@ -109,7 +112,7 @@ export interface ProfileInput extends Viewing {
 export function profileView(input: ProfileInput): ProfileView {
   const { uid, profile, isOwner, today, closedDay } = input;
   const window = windowDays(today, PROFILE_DAYS);
-  if (!profile) return { found: false, isOwner, today, profile: null, days: [], kinds: [], chart: window.map(() => null) };
+  if (!profile) return { found: false, isOwner, today, profile: null, days: [], kinds: [], chart: window.map(() => null), fronteiras: null };
 
   const inWindow = new Set(window);
   const seen = input.attempts
@@ -149,7 +152,14 @@ export function profileView(input: ProfileInput): ProfileView {
       })),
     kinds: KIND_IDS.map((kind) => kindStat(kind, counted, latest)),
     chart: window.map((d) => byDay.get(d) ?? null),
+    fronteiras: ladderView(profile.fronteiras),
   };
+}
+
+function ladderView(rec: LadderRecord | undefined): ProfileView["fronteiras"] {
+  if (!rec) return null;
+  const { recent: _recent, ...rest } = rec;
+  return rest;
 }
 
 function kindStat(kind: KindId, attempts: readonly Attempt[], latest: ReadonlySet<string>): KindStat {

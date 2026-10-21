@@ -15,9 +15,12 @@
 import type { Region } from "./countries";
 import type { KindId, Prompt, Reveal } from "./kinds";
 import type { PotatoState } from "./potato";
+import type { FronteirasState } from "./fronteiras";
 import { mondoError } from "./errors";
 
 export const ROOM_MAX_PLAYERS = 8;
+/** Fronteiras is two players (FR-15.1). */
+const FRONTEIRAS_SEATS = 2;
 const ROOM_MIN_PLAYERS = 2;
 /** A lobby nobody started is gone after this long. */
 export const LOBBY_TTL_MS = 2 * 3_600_000;
@@ -25,7 +28,7 @@ export const LOBBY_TTL_MS = 2 * 3_600_000;
 /** One colour per seat, distinct in both themes; the map is painted in them. */
 export const PLAYER_COLORS = ["#e4572e", "#17a398", "#d4a017", "#5b8c2a", "#a05195", "#2e86ab", "#e07a9f", "#8d6e63"] as const;
 
-export type RoomMode = "classic" | "potato";
+export type RoomMode = "classic" | "potato" | "fronteiras";
 export type RoomState = "lobby" | "playing" | "finished";
 
 export interface RoomPlayer {
@@ -38,6 +41,13 @@ export interface RoomPlayer {
   timeMs: number;
   /** Games won outright in this room (D-105). Absent on seats taken before it. */
   wins?: number;
+  /**
+   * Fronteiras (FR-15.7): written on the caller's OWN seat from their own token
+   * and user doc — a Google account, their rating, and whether it is provisional.
+   */
+  google?: boolean;
+  rating?: number;
+  provisional?: boolean;
 }
 
 /** What every player of a Clássico room sees of the challenge on screen. Never the subject. */
@@ -83,7 +93,8 @@ export interface Room {
   presetId: string;
   /** Set exactly when `presetId` is `CUSTOM_PRESET`. Absent on rooms from before D-106. */
   custom?: CustomGame | null;
-  hostUid: string;
+  /** Null in a Fronteiras room (D-107): nobody hosts it, so every host-only action refuses. */
+  hostUid: string | null;
   state: RoomState;
   players: Record<string, RoomPlayer>;
   /** Join order, and the field firestore.rules reads to let a player in. */
@@ -94,6 +105,9 @@ export interface Room {
   finishedAt: number | null;
   classic: ClassicPublic | null;
   potato: PotatoState | null;
+  /** Fronteiras (D-111): a one-seat room waiting in the queue is the queue slot. */
+  queue?: { open: true; rating: number; since: number; seenAt: number } | null;
+  fronteiras?: FronteirasState | null;
 }
 
 export function newRoom(hostUid: string, hostName: string, mode: RoomMode, presetId: string, now: number): Room {
@@ -138,7 +152,7 @@ const requireHost = (room: Room, uid: string, what: string): void => {
 export function joinRoom(room: Room, uid: string, name: string, now: number): Room {
   if (room.playerUids.includes(uid)) return room;
   requireBetweenGames(room, now);
-  if (room.playerUids.length >= ROOM_MAX_PLAYERS) throw mondoError("room-full", "This room is full.");
+  if (room.playerUids.length >= (room.mode === "fronteiras" ? FRONTEIRAS_SEATS : ROOM_MAX_PLAYERS)) throw mondoError("room-full", "This room is full.");
   const taken = new Set(Object.values(room.players).map((p) => p.color));
   const i = PLAYER_COLORS.findIndex((c) => !taken.has(c));
   return {
@@ -159,6 +173,8 @@ export function leaveRoom(room: Room, uid: string, now: number): Room {
   const playerUids = room.playerUids.filter((u) => u !== uid);
   const players = { ...room.players };
   delete players[uid];
+  // A queue slot is its one player waiting; once they leave, nobody is.
+  if (room.queue) room = { ...room, queue: null };
   // The last one out closes it for good: a finished room takes joins now (D-104),
   // and one with nobody in it would seat a stranger under a host who has gone.
   if (playerUids.length === 0) return { ...room, players, playerUids, state: "finished", finishedAt: now, expiresAt: now };
@@ -217,9 +233,11 @@ export const reusableHostRoom = (room: Room, uid: string, now: number): boolean 
  * more hours. D-105: whoever alone has the most points takes a trophy. A tie at
  * the top is a draw and nobody does — the time tiebreak orders the board, it
  * does not win a game. Training (D-93) has nobody to beat.
+ *
+ * A Fronteiras room is one game (D-107): it closes as it finishes.
  */
 export function finishRoom(room: Room, now: number): Room {
-  const done: Room = { ...room, state: "finished", finishedAt: now, expiresAt: now + LOBBY_TTL_MS };
+  const done: Room = { ...room, state: "finished", finishedAt: now, expiresAt: now + (room.mode === "fronteiras" ? 0 : LOBBY_TTL_MS) };
   const winner = isTraining(room) ? null : soleWinner(room);
   if (!winner) return done;
   const p = room.players[winner]!;
@@ -228,6 +246,8 @@ export function finishRoom(room: Room, now: number): Room {
 
 /** The one player with the most points in the game just played, or null on a tie. */
 function soleWinner(room: Room): string | null {
+  // Fronteiras names its winner; a draw or an abort is nobody's.
+  if (room.mode === "fronteiras") return room.fronteiras?.result?.winner ?? null;
   // By the game PLAYED: Batata Quente keeps its own points, Clássico's are on the seat.
   const points = (uid: string) => (room.potato ? room.potato.scores[uid]?.points : room.players[uid]?.score) ?? 0;
   const best = Math.max(...room.playerUids.map(points));

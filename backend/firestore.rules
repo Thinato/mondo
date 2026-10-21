@@ -57,8 +57,11 @@ service cloud.firestore {
     // `where('groups','array-contains', gid)` and read out a group's entire
     // membership with display names, plus everyone's role. That is exactly what
     // FR-4.10 forbids. Other players' names reach the client only through
-    // getLeaderboard, which checks membership first; the client never loads the
-    // Firestore SDK at all (site/app/firebase.js takes Auth and Functions only).
+    // callables: getLeaderboard, which checks membership first; getProfile
+    // (D-97), one uid at a time; and Fronteiras' `ratings` (D-110), which gives
+    // anyone signed in the uid, display name and rating of up to 100 settled
+    // players — never a role, a group or an email. `fronteiras` and
+    // `fronteirasRoom` are functions-only like every other key hasOnly() omits.
     match /users/{uid} {
       allow read: if isSelf(uid);
       allow update: if isSelf(uid)

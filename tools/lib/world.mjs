@@ -37,18 +37,23 @@ function projectedRings(path, geometry) {
   return rings;
 }
 
+/** The map's projection: Equal Earth, WIDTH wide, its top at y = 0. borders.json is drawn in the same space. */
+export function worldProjection(land) {
+  const base = withoutAntarctica(land);
+  const projection = geoEqualEarth().fitWidth(WIDTH, base);
+  const [[, y0], [, y1]] = geoPath(projection).bounds(base);
+  projection.translate([projection.translate()[0], projection.translate()[1] - y0]);
+  return { base, projection, height: Math.ceil(y1 - y0) };
+}
+
 /**
  * @param land      GeoJSON geometry of all land (the grey base)
  * @param features  Map code → GeoJSON geometry, for the countries that have one
  * @param centroids Map code → [lon, lat], for every country in the pool
  */
 export function buildWorld({ land, features, centroids }) {
-  const base = withoutAntarctica(land);
-  const projection = geoEqualEarth().fitWidth(WIDTH, base);
+  const { base, projection, height } = worldProjection(land);
   const path = geoPath(projection);
-  const [[, y0], [, y1]] = path.bounds(base);
-  projection.translate([projection.translate()[0], projection.translate()[1] - y0]);
-  const height = Math.ceil(y1 - y0);
 
   // No simplification here: the caller simplified the TOPOLOGY, so a border
   // shared by two countries (and by the land under them) is the same line in
@@ -64,4 +69,73 @@ export function buildWorld({ land, features, centroids }) {
     else dots[code] = projection(lonlat).map((n) => Math.round(n * 10) / 10);
   }
   return { viewBox: `0 0 ${WIDTH} ${height}`, land: draw(base), paths, dots };
+}
+
+// Fronteiras (FR-15.2, D-109): one continent of the same map is a board. What a
+// board adds to world.json is which territories touch, where its window is, and
+// where each name sits — borders.json, built by build-world.mjs from these.
+
+/** The connected pieces of a board, each a list of its members. */
+export function piecesOf(members, edges) {
+  const seen = new Set();
+  const pieces = [];
+  for (const start of members) {
+    if (seen.has(start)) continue;
+    const piece = [start];
+    seen.add(start);
+    for (let i = 0; i < piece.length; i++) for (const n of edges.get(piece[i]) ?? []) if (!seen.has(n)) seen.add(n), piece.push(n);
+    pieces.push(piece);
+  }
+  return pieces;
+}
+
+/** A lon/lat box [west, south, east, north] as the integer viewBox that contains its projection. */
+export function viewBoxOf(projection, [w, s, e, n]) {
+  const pts = [];
+  for (let lon = w; lon <= e; lon += 0.5) pts.push([lon, s], [lon, n]);
+  for (let lat = s; lat <= n; lat += 0.5) pts.push([w, lat], [e, lat]);
+  const xy = pts.map((p) => projection(p));
+  const x0 = Math.floor(Math.min(...xy.map((p) => p[0]))), y0 = Math.floor(Math.min(...xy.map((p) => p[1])));
+  const x1 = Math.ceil(Math.max(...xy.map((p) => p[0]))), y1 = Math.ceil(Math.max(...xy.map((p) => p[1])));
+  return `${x0} ${y0} ${x1 - x0} ${y1 - y0}`;
+}
+
+/** Whether [x, y] lies inside a "x y w h" viewBox. */
+export function insideViewBox(viewBox, [x, y]) {
+  const [x0, y0, w, h] = viewBox.split(" ").map(Number);
+  return x >= x0 && x <= x0 + w && y >= y0 && y <= y0 + h;
+}
+
+/**
+ * Where a territory's name goes: the bbox centre of its largest ring once the
+ * outline is clipped to the board's viewBox — so Russia is labelled in Europe,
+ * not in Siberia, and Denmark in Jutland rather than Greenland. Null when
+ * nothing of it is inside.
+ */
+export function labelOf(projection, geometry, viewBox) {
+  const [x0, y0, w, h] = viewBox.split(" ").map(Number);
+  projection.clipExtent([[x0, y0], [x0 + w, y0 + h]]);
+  const rings = projectedRings(geoPath(projection), geometry);
+  projection.clipExtent(null);
+  const area = (r) => Math.abs(r.reduce((s, p, i) => s + (i ? r[i - 1].x * p.y - p.x * r[i - 1].y : 0), 0)) / 2;
+  const ring = rings.filter((r) => r.length >= 4).sort((a, b) => area(b) - area(a))[0];
+  if (!ring) return null;
+  const xs = ring.map((p) => p.x), ys = ring.map((p) => p.y);
+  const r1 = (n) => Math.round(n * 10) / 10;
+  const x = (Math.min(...xs) + Math.max(...xs)) / 2, y = (Math.min(...ys) + Math.max(...ys)) / 2;
+  // A bent country's bbox centre is often its neighbour's (Norway's is in
+  // Sweden, Vietnam's in Laos): then take the middle of the widest stretch of
+  // the ring on that same horizontal line, which is inside it by construction.
+  const cuts = [];
+  for (let i = 1; i < ring.length; i++) {
+    const a = ring[i - 1], b = ring[i];
+    if ((a.y > y) !== (b.y > y)) cuts.push(a.x + ((y - a.y) * (b.x - a.x)) / (b.y - a.y));
+  }
+  cuts.sort((p, q) => p - q);
+  let best = null;
+  for (let i = 0; i + 1 < cuts.length; i += 2) {
+    if (cuts[i] <= x && x <= cuts[i + 1]) return [r1(x), r1(y)];
+    if (!best || cuts[i + 1] - cuts[i] > best[1] - best[0]) best = [cuts[i], cuts[i + 1]];
+  }
+  return [r1(best ? (best[0] + best[1]) / 2 : x), r1(y)];
 }

@@ -226,3 +226,11 @@ test("a re-seeded day keeps its guesses and loses only the answers", () => {
   assert.deepEqual(r.items.map((it) => it.answer), [null, null]);
   assert.equal(r.items[0]!.guesses.length, 2);
 });
+
+test("FR-15.11: the profile carries the Fronteiras rating, never `recent` (opponents' uids)", () => {
+  const rec = { rating: 1612, rd: 90, vol: 0.06, settled: true, games: 12, lastPlayedAt: 5, history: [], recent: [{ opp: "secretUid", at: 5 }] };
+  const v = profileView(base({ profile: { ...PROFILE, fronteiras: rec } }));
+  assert.deepEqual(v.fronteiras, { rating: 1612, rd: 90, vol: 0.06, settled: true, games: 12, lastPlayedAt: 5, history: [] });
+  assert.ok(!JSON.stringify(v).includes("secretUid"));
+  assert.equal(profileView(base()).fronteiras, null);
+});

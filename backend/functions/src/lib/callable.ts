@@ -4,7 +4,7 @@ import { onSchedule, type ScheduledEvent } from "firebase-functions/v2/scheduler
 import { ALLOWED_ORIGINS, APP_CHECK_ENFORCED, PUZZLE_TIMEZONE, REGION, RUNTIME_SERVICE_ACCOUNT } from "./config";
 
 /** The emulator mints no App Check tokens, and the e2e suite posts raw HTTP. */
-const EMULATED = process.env.FUNCTIONS_EMULATOR === "true";
+export const EMULATED = process.env.FUNCTIONS_EMULATOR === "true";
 
 /**
  * Wraps `onCall` so that region and CORS are set identically everywhere (SEC-9),

@@ -321,3 +321,40 @@ selection with and without `minShare`, winding normalisation, fit-to-box, byte-c
 
 Add a `tools/preview.html` that renders all ~196 silhouettes in a grid. Look at it. Human eyes
 catch a broken simplification in five seconds and no assertion will.
+
+## 9. Fronteiras boards: `borders.json` (FR-15.2, D-109)
+
+`tools/build-world.mjs` writes `backend/functions/src/data/borders.json` beside `world.json`
+(`docs/08-multiplayer.md` §4, D-89, D-96), from the **same** presimplified Natural Earth 1:50m
+topology, and leaves `world.json`'s bytes unchanged. Server-only, like every geometry here: a room
+gets one continent's slice at start (`map/_board`).
+
+- **`land`**: per pool country, the countries it shares a border with, from `topojson-client`'s
+  `neighbors` on that topology — so two territories touch on the board exactly where their drawn
+  border is one line — and **only within one `region`** of `countries.json`. French Guiana touches
+  Brazil; that is not a Europe edge.
+- **`links`**: **reviewed by hand** (D-115), `SEA_ROUTES` in the script — real straits, causeways and
+  ferry crossings, each named in a comment: the Channel, the Øresund, Tsushima, the Florida Straits,
+  the Antilles island by island, the Mozambique Channel… **46** today (Europe 7, Asia 12, Americas
+  16, Africa 11). The build refuses a route that is not on its board or is already a land border, and
+  **refuses a board that is not one piece** (`piecesOf` in `tools/lib/world.mjs`), naming the pieces.
+  They replaced a nearest-centroid rule that linked Cyprus to Bulgaria and the Comoros to landlocked
+  Malawi while leaving the Channel and the Øresund out — Denmark's only neighbour was Germany.
+  `LAND_FIXES` adds real land borders the 1:50m topology does not draw as one line: Djibouti–Somalia.
+- **`viewBox`**: four fixed lon/lat boxes, `BOARDS` in the script, reviewed by hand rather than
+  fitted, so a far-flung ring cannot stretch a board — Europe stops at the Urals and keeps Iceland,
+  Cyprus and Malta; the Azores, the Canaries, Svalbard, the Aleutians, Hawaii and Rodrigues fall
+  outside and are clipped. Projected with `world.json`'s Equal Earth to an integer viewBox. Oceania
+  has none: it is out of v1.
+- **`labels`**: where a territory's name and value sit. A microstate's is its `world.json` dot;
+  otherwise the bbox centre of its largest ring **after clipping to its continent's viewBox** (Russia's
+  largest ring is all of northern Asia, and France, Spain, Portugal and the US carry far rings). When
+  that centre falls outside the ring — Norway's bbox centre is in Sweden, Vietnam's in Laos — the
+  middle of the widest stretch of the ring on that horizontal line is taken instead, inside by
+  construction. One override, `LABELS` in the script: **Denmark**, painted with Greenland (D-89),
+  whose sliver inside Europe's box is a bigger ring than Jutland. A label is a layout point inside an
+  outline the board already sends, not a new datum (D-109).
+
+`tools/lib/world.test.mjs` checks each continent is one connected graph with no isolated node, the
+adjacency is symmetric, `ES–PT` is there and `FR–BR`/`FR–NL` are not, and every label and every
+member dot lies inside its continent's viewBox. Rebuild after `build-geo`, as for `world.json`.

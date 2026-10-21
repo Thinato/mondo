@@ -44,6 +44,7 @@ import {
   classicGiveUp, classicGuess, classicMine, dealCard, presetById, savedRemove, savedUpsert, specOf, startClassic, tickClassic, type ClassicSecrets,
 } from "./lib/multiplayer";
 import { mapBase, mapPiece } from "./lib/world";
+import { fronteirasOp, giveUpFronteiras, isGoogle, joinFronteiras, tickFronteiras } from "./fronteiras";
 
 /** At most this many names in one `answer`: training's backlog (FR-12.5). */
 const MAX_QUEUE = 10;
@@ -149,9 +150,23 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
       return reply({ room: id });
     }
 
+    // ------------------------------------------------------- Fronteiras (FR-15)
+    case "queue":
+    case "challenge":
+    case "bot":
+    case "move":
+    case "ratings":
+      return reply(await fronteirasOp(body.op, uid, body, request));
+
     // ------------------------------------------------------------------ join
     case "join": {
       const id = requireInviteToken(body.room);
+      // A room's mode never changes once it is Fronteiras (nobody hosts it to
+      // configure it), so a peek decides which transaction runs: Fronteiras
+      // reads the joiner's user doc FIRST (D-112), the others the room.
+      if (((await roomRef(id).get()).data() as Room | undefined)?.mode === "fronteiras") {
+        return reply(await joinFronteiras(uid, id, isGoogle(request)));
+      }
       const mine = await db().runTransaction(async (tx) => {
         const { now, ms } = clock();
         const room = await readRoom(tx, id);
@@ -299,6 +314,7 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
         const room = await readRoom(tx, id);
         requirePlayer(room, uid);
         if (room.state !== "playing") return false;
+        if (room.mode === "fronteiras") return tickFronteiras(tx, id, room, ms);
         if (room.mode === "potato") {
           const p = room.potato!;
           if (p.deadline === null || ms < p.deadline) return false;
@@ -407,6 +423,11 @@ export const multiplayer = callable<unknown, Record<string, unknown>>(async (uid
         const { ms } = clock();
         const room = await readRoom(tx, id);
         requirePlayer(room, uid);
+        if (room.mode === "fronteiras") {
+          requirePlaying(room, "fronteiras");
+          await giveUpFronteiras(tx, id, room, uid, ms);
+          return null;
+        }
         if (room.mode === "potato") {
           requirePlaying(room, "potato");
           tx.set(roomRef(id), withPotato(room, giveUpPotato(room.potato!, uid, ms)));

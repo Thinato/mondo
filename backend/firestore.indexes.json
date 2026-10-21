@@ -1,4 +1,22 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fronteiras.settled", "order": "ASCENDING" },
+        { "fieldPath": "fronteiras.rating", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "groups", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "fronteiras.settled", "order": "ASCENDING" },
+        { "fieldPath": "fronteiras.rating", "order": "DESCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

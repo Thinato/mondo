@@ -21,6 +21,7 @@ import { guessRow, isPick, renderAbout, renderFlag, renderHints, renderOptions, 
 import { takeReport } from "./visibility.js";
 import { errorMessage, t } from "./i18n.js";
 import { mountPotato } from "./potato.js";
+import { BOT_UID, mountFronteiras, mountFronteirasEntry } from "./fronteiras.js";
 import { multiSelect } from "./multiselect.js";
 import { ICONS } from "./kind-icons.js";
 
@@ -82,6 +83,8 @@ const PRESET_KINDS = {
 const MAX_SAVED = 10;
 
 const roomId = new URLSearchParams(location.search).get("s")?.toUpperCase() ?? null;
+/** FR-15.1: `sala?jogo=fronteiras` is Fronteiras' front door, open to every rank; plain `sala` is unchanged. */
+const frEntry = !roomId && new URLSearchParams(location.search).get("jogo") === "fronteiras";
 let gate = null;             // listGroups' reply: `canCreate` decides between opening a room and "Em breve"
 let room = null;             // the live room document
 const prompts = new Map();   // Clássico: index → { prompt, reveal }
@@ -96,6 +99,8 @@ let picked = null;
 let ac = null;
 let acLoading = null;
 let potato = null;
+let fronteiras = null;
+let frEntryView = null;
 let countryList = null;      // training's end: the public list of names, loaded once
 let unsubscribe = [];
 let saved = [];              // FR-12.11: my own saved custom games, from `join`
@@ -130,6 +135,7 @@ watchAuth({
     stop();
     if (!user) return render();
     if (roomId) join();
+    else if (frEntry) frEntryView ??= mountFronteirasEntry({ multiplayer, me: () => auth.currentUser?.uid });
     else api.listGroups({}).then((r) => { gate = r; if (r.canCreate) openRoom(); else render(); })
       .catch((err) => setStatus(errorMessage(err, "multi"), "err"));
     render();
@@ -376,6 +382,8 @@ async function join() {
     setStatus("");
     await listen();
   } catch (err) {
+    // A challenge link opened while already in a Fronteiras game: go to that game.
+    if (err?.details?.room && err.details.room !== roomId) return location.replace(`./sala?s=${err.details.room}`);
     setStatus(errorMessage(err, "multi"), "err");
   }
 }
@@ -407,9 +415,20 @@ async function listen() {
   // a rematch takes them all away again.
   unsubscribe.push(fs.onSnapshot(fs.collection(db, "rooms", roomId, "map"), (snap) => {
     const changes = snap.docChanges();
+    // Fronteiras: the whole board, once, as `_board` (D-109). Never a Batata Quente piece.
+    if (snap.docs.some((d) => d.id === "_board")) {
+      const board = changes.find((c) => c.doc.id === "_board");
+      if (board) frView().onBoard(board.doc.data());
+      return;
+    }
     potatoView().onMapRemoved(changes.filter((c) => c.type === "removed").map((c) => c.doc.id));
     potatoView().onMap(changes.filter((c) => c.type === "added").map((c) => c.doc.data()));
   }, () => {}));
+}
+
+function frView() {
+  fronteiras ??= mountFronteiras({ multiplayer, me: () => auth.currentUser?.uid, confirm: confirmGiveUp, roomId, serverNow, setStatus });
+  return fronteiras;
 }
 
 function potatoView() {
@@ -441,7 +460,15 @@ function onRoom() {
 // The clock
 // ---------------------------------------------------------------------------
 
-const deadline = () => (room?.state !== "playing" ? null : room.mode === "potato" ? room.potato?.deadline : room.classic?.deadline);
+const deadline = () => {
+  if (room?.state !== "playing") return null;
+  if (room.mode === "fronteiras") {
+    const f = room.fronteiras;
+    // The bot's deadline is never reached (D-113), and a timer that long would fire at once.
+    return !f || f.result || f.turnUid === BOT_UID ? null : f.deadline;
+  }
+  return room.mode === "potato" ? room.potato?.deadline : room.classic?.deadline;
+};
 
 /** When the server's deadline passes, ask it to move on. Every player does; the first one through wins. */
 function scheduleTick() {
@@ -461,6 +488,11 @@ function drawClock() {
   cancelAnimationFrame(frame);
   const d = deadline();
   if (d == null) return;
+  if (room.mode === "fronteiras") {
+    frView().drawClock();
+    frame = requestAnimationFrame(drawClock);
+    return;
+  }
   const total = room.mode === "potato" ? room.potato.limitMs : room.classic.phase === "question" ? room.classic.durationMs : 5000;
   const left = Math.max(0, d - serverNow());
   const bar = room.mode === "potato" ? $("potato-timer-bar") : el.timerBar;
@@ -739,6 +771,20 @@ function renderSoloEnd() {
 
 function render() {
   const user = auth.currentUser;
+  // Fronteiras (FR-15) is hostless: none of the lobby below, which assumes a host, is drawn for it.
+  const fr = frEntry || room?.mode === "fronteiras";
+  $("fr-entry").hidden = !(frEntry && user);
+  $("room-side").hidden = fr;
+  document.body.classList.toggle("fr-room", Boolean(user && room?.mode === "fronteiras" && room.state !== "lobby" && room.fronteiras));
+  if (fr) {
+    el.soon.hidden = true;
+    el.cols.hidden = !user || !room;
+    for (const x of [el.roomTabs, el.lobby, el.go, el.rail, el.classic, el.potato, el.finished]) x.hidden = true;
+    document.body.classList.remove("room-lobby", "room-classic", "potato-room", "map-open", "room-host");
+    if (user && room) frView().render(room);
+    drawClock();
+    return;
+  }
   // Only a page with no room says "Em breve", and only once the server has said this is not a host.
   el.soon.hidden = !user || Boolean(roomId) || !gate || gate.canCreate;
   el.soonGuest.hidden = !user?.isAnonymous;

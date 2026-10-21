@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { HttpsError } from "firebase-functions/v2/https";
 import { REGIONS } from "../src/lib/countries";
 import {
-  requireCountryCode, requireCustomGame, requireDisplayName, requireGroupId, requireGroupName, requireInviteMode, requireLocale, requireObject, requirePresetName, requirePuzzleId, requireRegions, requireRole, requireUid,
+  requireCountryCode, requireCustomGame, requireFronteirasAction, requireRatingsScope, requireDisplayName, requireGroupId, requireGroupName, requireInviteMode, requireLocale, requireObject, requirePresetName, requirePuzzleId, requireRegions, requireRole, requireUid,
 } from "../src/lib/validate";
 
 const invalidArgument = (fn: () => unknown) =>
@@ -108,4 +108,17 @@ test("FR-12.11: a preset name is 1–24 characters once trimmed", () => {
   assert.equal(requirePresetName("  Europa 3 "), "Europa 3");
   assert.equal(requirePresetName("x".repeat(24)).length, 24);
   for (const bad of [undefined, 3, "", "   ", "x".repeat(25), "a\u0000b"]) invalidArgument(() => requirePresetName(bad));
+});
+
+test("FR-15.4: a Fronteiras action is a closed shape — { t: pass } or { t, code } with a pool code", () => {
+  assert.deepEqual(requireFronteirasAction({ t: "pass" }), { t: "pass" });
+  assert.deepEqual(requireFronteirasAction({ t: "attack", code: "PT" }), { t: "attack", code: "PT" });
+  for (const bad of [null, "pass", { t: "nuke", code: "PT" }, { t: "pass", code: "PT" }, { t: "take" }, { t: "take", code: "ZZ" },
+    { t: "take", code: "PT", gold: 99 }, { t: "pick", where: "PT" }]) invalidArgument(() => requireFronteirasAction(bad));
+});
+
+test("FR-15.12: the ratings scope is all or groups", () => {
+  assert.equal(requireRatingsScope("all"), "all");
+  assert.equal(requireRatingsScope("groups"), "groups");
+  for (const bad of [undefined, "", "group", ["all"]]) invalidArgument(() => requireRatingsScope(bad));
 });

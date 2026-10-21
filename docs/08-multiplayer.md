@@ -1,9 +1,10 @@
 # 08 — Multijogador
 
-Live rooms, played by everyone in them at once. Requirements are FR-12; decisions are D-87 to D-95
-and D-102 to D-104 in `00-brief.md` §6. Added 2026-10-12 as **Versus**; renamed Multijogador, and
-the room made to outlive its game, on 2026-10-18 (D-102–D-104). Where this file says Versus it
-means the same thing.
+Live rooms, played by everyone in them at once. Requirements are FR-12 and, for Fronteiras, FR-15;
+decisions are D-87 to D-95, D-102 to D-106 and, for Fronteiras, D-107 to D-114 in `00-brief.md` §6.
+Added 2026-10-12 as **Versus**; renamed Multijogador, and the room made to outlive its game, on
+2026-10-18 (D-102–D-104); Fronteiras added 2026-10-21 (§5). Where this file says Versus it means the
+same thing.
 
 ## 1. Why
 
@@ -15,15 +16,19 @@ someone in your group, and a round takes a day. Versus is the replacement (D-88)
 - **Clássico** — the challenge kinds of the daily, every player on the same challenge at once.
 - **Batata Quente** — take turns naming a country nobody has named; the world map fills in.
 
+And since 2026-10-21 a third, of another shape (§5): **Fronteiras**, two players on one continent's
+map, a territory game with a rating — a room with no host, found by a queue, a link or the bot.
+
 ## 2. Shape
 
 ```
-sala.html ──callable──▶ multiplayer({ op })     (one function, D-92; `versus` too, for one release, D-102)
+sala.html ──callable──▶ multiplayer({ op })     (one function, D-92)
     ▲                       │ transaction
     │ onSnapshot (D-87)     ▼
     └──────────── rooms/{id}              room: state, players, scores, the clock
                   rooms/{id}/prompts/{i}  Clássico: one prompt per challenge; reveal once closed
                   rooms/{id}/map/{code}   Batata Quente: one doc per named country; map/_base = land
+                  rooms/{id}/map/_board   Fronteiras: the continent's board, written once at start
                   roomSecrets/{id}        Clássico card + plays; Batata Quente throttle. No client.
 ```
 
@@ -44,24 +49,30 @@ sala.html ──callable──▶ multiplayer({ op })     (one function, D-92; `
 | op | who | does |
 |---|---|---|
 | `create { presetId? }` | admin, invited, subscriber (FR-10.3) | the host's standing room (D-103): the one they are seated in if it is playing or not expired, else a new lobby on `mundo`. A named preset is applied between games |
-| `join { room }` | anyone signed in | takes a seat (≤ 8, between games only); idempotent; returns `mine` for a running Clássico, and the caller's own saved `presets` |
+| `join { room }` | anyone signed in | takes a seat (≤ 8, between games only); idempotent; returns `mine` for a running Clássico, and the caller's own saved `presets`. A Fronteiras room (peeked first): the second seat starts the game; its creator reopening the link is a no-op |
 | `leave { room }` | a player, between games | frees the seat; the host's seat passes on |
 | `configure { room, presetId }` or `{ room, custom }` | the host, between games | the next game (FR-12.7): a preset, never `treino`, or a custom Clássico (FR-12.10, §3.1), refused here with `no-countries-left` if the pool cannot fill it; keeps the room open two more hours |
 | `savePreset { preset }` | admin, invited, subscriber | saves a custom game under its name on `users/{uid}.presets` (FR-12.11): same name overwrites, ≤ 10; returns the list |
 | `deletePreset { name }` | anyone signed in | removes one of their own saved games; returns the list |
 | `remove { room, uid }` | the host, between games | takes another player's seat (FR-12.8); not a ban |
 | `start { room }` | the host, ≥ 2 players, between games | builds the card (Clássico) or the turn order and the land (Batata Quente); after a game, first deletes its prompts and map (§2.3) |
-| `tick { room }` | a player | moves the room on if — and only if — its deadline has passed |
+| `tick { room }` | a player | moves the room on if — and only if — its deadline has passed. Fronteiras: a draft pick's timeout aborts, a play turn's flags the mover |
 | `guess { room, guess, selfReport? }` | Clássico player | one guess on the challenge on screen |
 | `answer { room, names[] }` | Batata Quente player on turn | the first acceptable of ≤ 2 names (≤ 10 in training, and every acceptable one); `accepted` is a list |
-| `giveUp { room }` | a player | Clássico: this challenge at 0. Batata Quente: out of the turn order |
+| `giveUp { room }` | a player | Clássico: this challenge at 0. Batata Quente: out of the turn order. Fronteiras: an abort in the draft, a resignation in play, a timeout once the deadline has passed (§5.3) |
+| `queue {}` | anyone signed in | Fronteiras (FR-15.9): seats the caller in the nearest waiting slot and starts the game, or opens/refreshes the caller's own slot; `{ room, matched }`. Called again every 10 s while waiting |
+| `challenge {}` | anyone signed in | Fronteiras: the caller's waiting room with its queue closed, or a new one — the link; `{ room }` |
+| `bot {}` | anyone signed in | Fronteiras (FR-15.10): seats `~bot` in the caller's waiting room or a new one and starts an unrated game |
+| `move { room, action }` | the Fronteiras player on turn | `action` is `{ t, code }` with `t` one of `pick`, `take`, `attack`, `fortify`, or `{ t: "pass" }`; then the bot, if it is its turn, until it is not |
+| `ratings { scope }` | anyone signed in | `"all"` or `"groups"`: the top 100 settled ratings (FR-15.12); read-only |
 
 ### 2.2 What is pure
 
 All the rules are in `backend/functions/src/lib/` and unit-tested without Firestore:
 `room.ts` (lobby, configure, remove, finish), `multiplayer.ts` (presets, Clássico, speed points),
-`potato.ts` (turns, timer, points, end), `match.ts` (typed names), `world.ts` (the map pieces).
-`multiplayer.ts` at the top level is I/O only.
+`potato.ts` (turns, timer, points, end), `match.ts` (typed names), `world.ts` (the map pieces),
+`fronteiras.ts` (the board, values, actions, ends), `bot.ts`, `glicko.ts` and `ladder.ts` (rating,
+pair cap, queue window). `multiplayer.ts` and `fronteiras.ts` at the top level are I/O only.
 
 ### 2.3 A room outlives its game (D-103, D-104)
 
@@ -193,35 +204,184 @@ The other differences:
 
 Cost: a full map is about 197 writes and one listener's worth of reads.
 
-## 5. Security notes
+## 5. Fronteiras (FR-15)
+
+Two players, one continent of the real map, no dice and nothing hidden: every number is on the
+board, as on a chessboard. Rated games move a Glicko-2 rating. Decisions D-107 to D-114. Rules are
+`lib/fronteiras.ts`, the bot `lib/bot.ts`, the rating `lib/glicko.ts` and `lib/ladder.ts`; the I/O is
+`src/fronteiras.ts`, reached from the one switch in `multiplayer.ts` (D-92).
+
+### 5.1 The rules
+
+- **The board** (D-109): the server picks Europa (45), Ásia (48), Américas (35) or África (54) and
+  writes `map/_board` once — `{ viewBox, paths, adj, links, labels, rules }`, each member's `world.json` outline or
+  dot, 35–63 KB. Adjacency is `data/borders.json` (`03-geo-data-pipeline.md` §9): shared land
+  borders within the continent plus reviewed sea routes (D-115), drawn on the map as dashed lines and
+sent as `links: ["FR-GB", …]` (Firestore takes no array of arrays), so every board is connected.
+- **Values** (D-108): 1–5, the territory's quintile of total GDP (PPP) within its continent,
+  computed at start and stored in `fronteiras.values` — per-match, so Impérios can change them by
+  era.
+- **Draft**: order by coin; snake A B B A A B, three territories each, 30 s a pick. The first pick
+  is the capital. A pick may not border a territory the opponent holds, and a capital must border at
+  least two territories (D-114). Fallback, in order: the non-bordering picks, narrowed for a capital
+  to those with two neighbours; if none has two, any non-bordering pick; if every free territory
+  borders the opponent, any free one.
+- **A turn is one action**, paid for in gold. At the start of each of your turns you get 1 gold per
+  territory held (`incomeOf`, D-114). Then: **take** an adjacent neutral (its value); **attack** an
+  adjacent enemy (its value + its fortification, + `CAPITAL_DEFENCE` 12 on the capital; it changes
+  hands and its fortification goes); **fortify** your own (+1, cost 2); or **pass**. No attacks in
+  the first `TRUCE_PLIES` (4) plies of play — each player's first two turns.
+- **The end**: taking the enemy capital wins; a flagged clock loses; after 30 turns each the higher
+  value held wins, equal is a draw. `giveUp` resigns in play and aborts in the draft.
+- **The clock**: 5 min + 3 s a move each (`CLOCK_MS`, `INCREMENT_MS`), debited from
+  `turnStartedAt` on the server; `deadline` is what the page counts down to and what `tick` checks. A
+  `move` at or after it throws `deadline-passed` and writes nothing; the client then ticks, as Batata
+  Quente does.
+
+### 5.2 Meeting: queue, challenge, bot
+
+- **The queue slot is the waiting player's own room** (D-111): `room.queue = { open, rating, since,
+  seenAt }`, one seat, `hostUid: null`. `queue` scans `rooms where queue.seenAt ≥ now − 25 s` (50 at
+  most) outside the transaction, picks the nearest rating within the wider of the two windows (±150,
+  +50 per 10 s waited), then re-checks the pick inside it: still a one-seat lobby with its queue open,
+  its owner's `fronteirasRoom` still pointing at it, still fresh and in window. A match starts the game
+  in the candidate's room and closes the caller's own waiting room (`queue: null`, `finished`). No
+  match refreshes `seenAt`. The waiting page calls `queue` every 10 s and is told of a match by the
+  room listener it already has. After 30 s it offers the bot.
+- **A challenge** is the caller's waiting room with `queue: null` (or a new one); its id is the link.
+  `join` by a second player starts it; the creator reopening it is a no-op.
+- **The bot** (D-113) is `~bot`: no clock entry, no user doc, never rated. It is seated in the
+  caller's room and moves inside the transaction that hands it the turn — at start, draft included,
+  and after every human `move` — until the turn is the human's.
+
+### 5.3 Transactions
+
+One rule makes "one live game per account" hold: **every Fronteiras transaction that can seat the
+caller (`queue`, `challenge`, `bot`, `join`, settle) reads the caller's user document first**, with a
+plain `tx.get`, and takes `fronteirasRoom` from that snapshot; **every read comes before any write**.
+So a `queue` in one tab and a `join` in another conflict on the user document and the retry finds a
+game `playing` → `already-playing`, with its id. `ensureProfile` is not called (it writes as it
+reads); a missing profile is created in the write phase. Each op stamps `google`, `rating` and
+`provisional` on **the caller's own seat**, from the caller's own token and user doc; `start` reads
+both seats and never infers another player's provider.
+
+- **Settle first.** `queue`, `challenge` and `bot` first run a transaction that reads the caller's
+  room and, if it is `playing` and past its deadline, applies the timeout and ends it; the reply is
+  `{ room, settled: true }` and the client calls again. That, or the opponent's `tick`, is how an
+  abandoned game ends (D-112).
+- **`join`** peeks the room's mode outside a transaction to choose which one runs — Fronteiras reads
+  the joiner's user first, the other modes the room — at one read per join in every mode.
+- **`move`** reads the room, applies the action and runs the bot (pure); only if that ended a rated
+  game does it read the two users, still before any write.
+- **`tick`** settles a passed deadline: in the draft an abort, in play a flag. **`giveUp`** after the
+  deadline settles as that same timeout, not as a resignation.
+- **`endGame`** runs only in the transaction that flips `playing → finished`: when `rated`, it rates
+  both players and writes both `users/{uid}.fronteiras`, records the before/after on
+  `fronteiras.result.ratings`, and calls `finishRoom` (D-105), which names the winner's trophy and
+  closes the room (`expiresAt = finishedAt`, D-107). Every later `tick`, `move`, `giveUp` or settle
+  reads `finished` and does nothing, so a rating moves exactly once. An unrated or aborted game writes
+  nothing to `users` at the end.
+
+### 5.4 Rating (FR-15.7, D-110)
+
+Glicko-2, τ 0.5, start 1500 / 350 / 0.06, one rating period a day: a record is first grown by the
+whole days since its last game (`preRate`, RD capped at 350), then rated on that one game with no
+second inflation. Provisional while RD > 110 (`settled: false`): shown as "1500?" and off the
+leaderboard. `users/{uid}.fronteiras` holds `rating`, `rd`, `vol`, `settled`, `games`,
+`lastPlayedAt`, the last 30 games (`history`, the opponent by display name) and `recent` (the last
+24 h's rated opponents by uid, for the pair cap). `getProfile` shows all of it but `recent`, at no
+extra read. `ratings` is an Admin query, `fronteiras.settled == true` ordered by rating, limit 100,
+over two composite indexes (one with `groups` for "Meus grupos"); it gives anyone signed in uid,
+display name, rating, games and last game — never a role, a group or an email.
+
+### 5.5 Integrity (FR-15.8, D-112)
+
+Rated = both seats `google` (`sign_in_provider === "google.com"`; the emulator also takes
+`password`), no bot, and neither player's `recent` holding the other 3 times in 24 h — decided at
+start, recorded at finish. A guest gets no record. An abort (draft `giveUp` or a pick's 30 s) has no
+result, no rating, no `recent`. Leaving is not a rule: the clock flags it.
+
+### 5.6 Balance (D-114)
+
+The spec's rules — income the sum of values, no draft constraints — were measured by
+`test/fronteiras-sim.test.ts`: the greedy bot against itself, 10 % of moves random. CI asserts only
+that every simulated game is legal and terminates; `SIM_GAMES=N npm test` prints the table, which is
+recorded here, never asserted. As specified, at 2,000 games a continent, the Americas' median game
+was 1 ply with 92 % of capitals taken before ply 8, and the first player won 81 % in Europe and 86 %
+in the Americas; no `CAPITAL_DEFENCE` from 5 to 20 and no komi helped, because 12–15 gold a turn
+outran every cost. With D-114's four rules and D-115's reviewed sea routes, 2,000 games a continent:
+
+| | first player wins | draws | median plies | p10 | capital | 30-turn count | capital before ply 8 |
+|---|---|---|---|---|---|---|---|
+| Europa | 52.0 % | 0.9 % | 29 | 14 | 73.5 % | 26.4 % | 0 % |
+| Ásia | 50.6 % | 1.8 % | 50 | 14 | 55.1 % | 44.9 % | 0 % |
+| Américas | **59.3 %** | 0.9 % | 58 | 17 | 51.5 % | 48.5 % | 0 % |
+| África | 46.5 % | 0.8 % | 32 | 14 | 68.1 % | 31.9 % | 0 % |
+
+**Targets**: first player 45–55 %, draws ≤ 15 %, median 25–55 plies, no capital before ply 8. All
+are met except the Americas' first player and its median, where half the games reach the 30-turn
+count — partly the bot, which does not march down a long board. The Americas' 59 % is the bot's
+draft, not the board: it takes the highest value with the fewest neighbours, and once the Florida
+Straits gave the US four, its first pick became Chile in 90 % of games, a southern fortress that wins
+60 %. Cutting one real route (US–Bahamas) reads 50 %; tuning geography to one bot's heuristic was
+rejected (D-115). It is a bot, not people.
+**Every one of the four rules is load-bearing** (each taken out alone breaks a continent; D-114 has
+the numbers), so do not remove one without re-running `SIM_GAMES`. The knobs, in order:
+`CAPITAL_DEFENCE`, `FORTIFY_COST`, then the rules.
+
+## 6. Security notes
 
 - Room doc: prompts and counts only (§3). Prompts: reveal only after close. Map: only named
   countries. `roomSecrets`: closed to everyone.
 - **The residual** (D-89): a finished Batata Quente hands its players the outlines it named —
   what an atlas shows. The gate is being in a room; anyone with a link is. Since D-93 anyone
   signed in can open a training room alone, so the gate is now just being signed in.
-- A Versus result never reaches `attempts`, so it cannot reach a board (D-40's mechanism).
+- A Multijogador result never reaches `attempts`, so it cannot reach a board (D-40's mechanism).
+- **Fronteiras holds nothing hidden** (SEC-19): no `roomSecrets`, no `dailyAhead` read. Its values
+  are quintiles of total GDP, never of the per-capita `gdp` answer (D-108). **Its residual** (D-109):
+  `map/_board` hands anyone signed in a continent's outlines and projected Natural Earth centroids —
+  D-93's capability, a few clicks away instead of fifty names. `users/{uid}.fronteiras` and
+  `fronteirasRoom` are functions-only; `ratings` exposes uid, name and rating of up to 100 players
+  (D-110), and `recent` is never sent.
 - `selfReport` (D-77) rides along with a Clássico guess exactly as on the daily: stored, never
   scored.
 
-## 6. Cost
+## 7. Cost
 
 See `05-cost.md` §3.6: ~3,600 reads for an eight-player Batata Quente that fills the map; a dozen
-such games a day fit in the free tier. One callable, no `minInstances`.
+such games a day fit in the free tier. Fronteiras is §3.7: ≈ 190 reads a game between people, ~90
+against the bot, up to 100 per opened leaderboard. One callable, no `minInstances`.
 
-## 7. Testing
+## 8. Testing
 
-- Unit: `test/match.test.ts`, `potato.test.ts`, `room.test.ts`, `multiplayer.test.ts`.
+- Unit: `test/match.test.ts`, `potato.test.ts`, `room.test.ts`, `multiplayer.test.ts`;
+  Fronteiras `fronteiras.test.ts`, `bot.test.ts`, `glicko.test.ts` (Glickman's worked example),
+  `ladder.test.ts`, and `fronteiras-sim.test.ts` (§5.6).
 - Rules: `test/rules/firestore.rules.test.ts` — players read, outsiders, removed players and
-  listing refused, `roomSecrets` closed, every client write denied.
+  listing refused, `roomSecrets` closed, every client write denied; a Fronteiras player reads
+  `map/_board`, and no client writes `users/{self}.fronteiras` or `fronteirasRoom`.
 - E2E: `test/e2e/multiplayer.e2e.ts` — three accounts (invited host, plain account, guest) play a
   whole Batata Quente to a full map, then in the SAME room a whole Clássico and a rematch; the
-  standing room, configure, remove and the `versus` alias.
+  standing room, configure and remove. `test/e2e/fronteiras.e2e.ts` — queue match, challenge link,
+  illegal moves, a capital capture rating both players once, the pair cap, a guest's unrated game, a
+  draft abort, a flag, the bot first and second, the leaderboard, and a queue slot that can no longer
+  be matched once its player joined a challenge. Both suites take their emulator hosts from the
+  environment and refuse to start without them, so they cannot clear a running dev Firestore.
 - By hand: `02-architecture.md` §8, "Multijogador with several players on one machine".
 
-## 8. Not in v1
+## 9. Not in v1
 
 A Multijogador history or ranking; banning a player (remove is not a ban); per-challenge clocks
 in a custom game; sharing a saved game with another player; spectators; Batata Quente by continent; deleting the tournament backend (D-88's
-follow-up, once nothing is running); TTL cleanup of old rooms; dropping the `versus` alias (D-102's
-follow-up, the next backend PR).
+follow-up, once nothing is running); TTL cleanup of old rooms. Fronteiras: Impérios (values by
+era, events); a rematch on the same link; Oceania; more than one time control; a cached top-100;
+rating Clássico or Batata Quente.
+
+**A whole-world Fronteiras board** was measured and deferred (Paulo, 2026-10-21). On one board of
+all 196 (377 edges, diameter 26 hops) the four rules of §5.1 play fair only with one action a turn
+and 60 turns each (bots, 1 000 games: first player 49.6 %, captures 55 %, ~8 min); at 30 turns it is
+the continent game on a bigger picture, and two or three actions a turn hand the first player
+54–57 % and flag a third of games. Either way a game touches about 15 % of the map. What stops it is
+not balance but D-89: the board would be the whole labelled world map, outlines and microstate dots,
+in a document anyone with a room link reads — the map D-89 keeps server-side because with the
+distance hints it solves the daily. Revisit once that has an answer.

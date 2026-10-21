@@ -10,7 +10,8 @@ group. A day is **seven** challenges — silhouette, flag, capital, GDP per capi
 these eight flags", "which of these eight silhouettes" and "where was this person born" — played
 in order, one at a time, worth 0–42 (D-52, D-53, D-66, D-75, D-79). There is also a practice mode: one kind, as many challenges as you like, scored
 for nobody (FR-9, D-60), and **Multijogador** (once Versus, D-102): live rooms anyone with the link can join, playing Clássico
-or Batata Quente (FR-12, D-87–D-92, D-102–D-104, `docs/08-multiplayer.md`), which replaced tournaments (D-88). Vanilla frontend published from `site/` by GitHub Pages, Firebase
+or Batata Quente (FR-12, D-87–D-92, D-102–D-104, `docs/08-multiplayer.md`), which replaced tournaments (D-88), and
+**Fronteiras**: a two-player territory game on one continent's map, with a Glicko-2 rating, played in the same rooms (FR-15, D-107–D-115). Vanilla frontend published from `site/` by GitHub Pages, Firebase
 backend.
 
 ## Invariants — never violate these
@@ -282,9 +283,7 @@ backend.
   distractors; on a small continent `dealCard` widens it to the world minus the card's subjects and
   the week ahead — **never** to an answer, because `pickOptions`' own fallback would (FR-8.7). A room counts wins (D-105) in `finishRoom`, the one place a
   game ends: the sole top scorer gets one, **a tie at the top gets nobody one** — the time tiebreak
-  orders the board and wins nothing. **The `versus` export in `index.ts` is an alias
-  for one release** (D-102): delete it in the next backend PR, not before — a cached `sala.html`
-  still calls it.
+  orders the board and wins nothing.
 - **Batata Quente reads text, and one letter is the whole rule** (D-90). `lib/match.ts`: pt-BR name
   or alias, accents ignored, ONE edit for terms of 4+ characters, a one-edit guess that fits two
   countries refused, two-letter terms not names. There is no autocomplete on that screen on
@@ -300,6 +299,24 @@ backend.
   for `tick`, 1 point a country, every name in a queue taken, and no 400 ms floor. Open to anyone
   signed in, like practice. That widens D-89's residual to "anyone signed in" — read D-93 before
   showing a missed country's OUTLINE at the end. The end shows names only, and that is deliberate.
+- **Fronteiras hides nothing, so the board is the thing to guard** (FR-15, SEC-19, D-107–D-115). It is a
+  Multijogador room of two seats and no host (`hostUid: null`), one game long, on the same callable and
+  listener. Perfect information means **nothing goes to `roomSecrets`** — and so every number on the
+  board is public, which is why **a territory's value is the per-continent quintile of TOTAL GDP and
+  NEVER of per-capita**: `gdp.json.values` is the daily's `gdp` answer, binned it would be a
+  continent of hints, and `valuesOf` reading only `totals` is pinned by a test (D-108). The board's
+  outlines and dots are projected Natural Earth centroids — **D-109's residual, stated and accepted**:
+  D-93's training already gives anyone signed in the same geometry, Fronteiras just makes it a few
+  clicks; do not add anything new to `map/_board`, and never a capital, a flag or a per-capita
+  figure. **A rating moves once, in the transaction that flips the room to finished** (`endGame` →
+  `finishRoom`); every Fronteiras transaction reads the caller's user doc first and reads everything
+  before it writes, and that is what makes one live game per account hold. **The four balance rules
+  are measured, not taste** (D-114): draft spacing, a capital with two neighbours, 1 gold per
+  territory, no attacks in the first two turns each. The spec's game was decided in the draft —
+  median 1 ply in the Americas — and each rule taken out alone breaks a continent again, so do not
+  remove or retune one without re-running `SIM_GAMES=2000 npm test` and recording the table in
+  `docs/08-multiplayer.md` §5.6. **The bot is `~bot`**: no Firebase uid holds a `~`, it has no user
+  doc, no clock and no profile, and it is never rated (D-113).
 - **A profile is public, and its recap is lazy on purpose** (FR-13, D-97). `getProfile` reads 30
   attempts by id on view and stores nothing — no aggregate on `users/{uid}`, no backfill. It is safe
   because **an attempt carries no answer**: rows, stats, chart and squares are built from attempts

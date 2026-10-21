@@ -89,6 +89,17 @@
       </section>
     </div>
 
+    <!-- FR-15.11: the Fronteiras rating, "?" while provisional (D-110), and the last games. -->
+    <section id="fr-profile" class="fr-profile" aria-labelledby="h-fr" hidden>
+      <h2 id="h-fr" class="title">Fronteiras</h2>
+      <p class="fr-rating"><b id="fr-rating"></b> <span id="fr-games" class="fine"></span></p>
+      <figure class="perfil-chart" id="fr-chart-wrap">
+        <svg id="fr-chart" viewBox="0 -6 300 112" role="img"></svg>
+        <figcaption><span id="fr-chart-from"></span><span>rating depois de cada partida</span><span id="fr-chart-to"></span></figcaption>
+      </figure>
+      <ul id="fr-history" class="perfil-days fr-history"></ul>
+      <p class="fine"><a href="./sala?jogo=fronteiras">Jogar Fronteiras</a> · <a href="./sala?jogo=fronteiras#ranking">Ranking</a></p>
+    </section>
     <p id="owner-foot" class="fine" hidden><button id="delete-btn" type="button" class="link">Excluir conta</button></p>
   </section>
 </main>
