@@ -11,7 +11,7 @@ these eight flags", "which of these eight silhouettes" and "where was this perso
 in order, one at a time, worth 0–42 (D-52, D-53, D-66, D-75, D-79). There is also a practice mode: one kind, as many challenges as you like, scored
 for nobody (FR-9, D-60), and **Multijogador** (once Versus, D-102): live rooms anyone with the link can join, playing Clássico
 or Batata Quente (FR-12, D-87–D-92, D-102–D-104, `docs/08-multiplayer.md`), which replaced tournaments (D-88), and
-**Fronteiras**: a two-player territory game on one continent's map, with a Glicko-2 rating, played in the same rooms (FR-15, D-107–D-114). Vanilla frontend published from `site/` by GitHub Pages, Firebase
+**Fronteiras**: a two-player territory game on one continent's map, with a Glicko-2 rating, played in the same rooms (FR-15, D-107–D-115). Vanilla frontend published from `site/` by GitHub Pages, Firebase
 backend.
 
 ## Invariants — never violate these
@@ -299,7 +299,7 @@ backend.
   for `tick`, 1 point a country, every name in a queue taken, and no 400 ms floor. Open to anyone
   signed in, like practice. That widens D-89's residual to "anyone signed in" — read D-93 before
   showing a missed country's OUTLINE at the end. The end shows names only, and that is deliberate.
-- **Fronteiras hides nothing, so the board is the thing to guard** (FR-15, SEC-19, D-107–D-114). It is a
+- **Fronteiras hides nothing, so the board is the thing to guard** (FR-15, SEC-19, D-107–D-115). It is a
   Multijogador room of two seats and no host (`hostUid: null`), one game long, on the same callable and
   listener. Perfect information means **nothing goes to `roomSecrets`** — and so every number on the
   board is public, which is why **a territory's value is the per-continent quintile of TOTAL GDP and

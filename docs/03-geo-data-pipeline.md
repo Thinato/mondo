@@ -333,12 +333,14 @@ gets one continent's slice at start (`map/_board`).
   `neighbors` on that topology — so two territories touch on the board exactly where their drawn
   border is one line — and **only within one `region`** of `countries.json`. French Guiana touches
   Brazil; that is not a Europe edge.
-- **`links`**: generated, never hand-kept (`linkRegion` in `tools/lib/world.mjs`). A territory with
-  no land neighbour is linked to its **2 nearest** on its continent by great-circle distance between
-  `countries.json` centroids (build time only); then, while a continent is in more than one piece,
-  the nearest pair across two pieces is linked. **44 links** today. The build **prints every one**,
-  with its distance and why (`island` or `join`), for a human to eyeball; a correction would go in a
-  reviewed table, and none has been needed.
+- **`links`**: **reviewed by hand** (D-115), `SEA_ROUTES` in the script — real straits, causeways and
+  ferry crossings, each named in a comment: the Channel, the Øresund, Tsushima, the Florida Straits,
+  the Antilles island by island, the Mozambique Channel… **46** today (Europe 7, Asia 12, Americas
+  16, Africa 11). The build refuses a route that is not on its board or is already a land border, and
+  **refuses a board that is not one piece** (`piecesOf` in `tools/lib/world.mjs`), naming the pieces.
+  They replaced a nearest-centroid rule that linked Cyprus to Bulgaria and the Comoros to landlocked
+  Malawi while leaving the Channel and the Øresund out — Denmark's only neighbour was Germany.
+  `LAND_FIXES` adds real land borders the 1:50m topology does not draw as one line: Djibouti–Somalia.
 - **`viewBox`**: four fixed lon/lat boxes, `BOARDS` in the script, reviewed by hand rather than
   fitted, so a far-flung ring cannot stretch a board — Europe stops at the Urals and keeps Iceland,
   Cyprus and Malta; the Azores, the Canaries, Svalbard, the Aleutians, Hawaii and Rodrigues fall

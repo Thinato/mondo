@@ -548,8 +548,8 @@ to test new challenges."*
 - **FR-15.2 The board.** The server picks one continent per game — Europa (45), Ásia (48), Américas
   (35) or África (54); Oceania is out — and sends its outlines, dots, adjacency and label points once,
   at start (D-109). Two territories are adjacent when they share a land border on that continent; an
-  island, and any piece left apart, is linked to its nearest (`borders.json`), so every board is one
-  connected graph. Each territory is worth 1–5, its quintile within the continent of total GDP (PPP)
+  island is reached by a reviewed sea route — a real strait, causeway or ferry crossing, drawn on the
+  map (D-115, `borders.json`) — so every board is one connected graph. Each territory is worth 1–5, its quintile within the continent of total GDP (PPP)
   (D-108), computed on the server and stored on the room for that game.
 - **FR-15.3 The draft.** The order is drawn at random. A snake draft, A B B A A B, deals three
   territories each from the whole board, 30 s a pick. A player's first pick is their capital. A pick MUST NOT

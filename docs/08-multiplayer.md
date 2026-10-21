@@ -214,9 +214,10 @@ board, as on a chessboard. Rated games move a Glicko-2 rating. Decisions D-107 t
 ### 5.1 The rules
 
 - **The board** (D-109): the server picks Europa (45), Ásia (48), Américas (35) or África (54) and
-  writes `map/_board` once — `{ viewBox, paths, adj, labels }`, each member's `world.json` outline or
+  writes `map/_board` once — `{ viewBox, paths, adj, links, labels, rules }`, each member's `world.json` outline or
   dot, 35–63 KB. Adjacency is `data/borders.json` (`03-geo-data-pipeline.md` §9): shared land
-  borders within the continent plus generated sea links, so every board is connected.
+  borders within the continent plus reviewed sea routes (D-115), drawn on the map as dashed lines and
+sent as `links: ["FR-GB", …]` (Firestore takes no array of arrays), so every board is connected.
 - **Values** (D-108): 1–5, the territory's quintile of total GDP (PPP) within its continent,
   computed at start and stored in `fronteiras.values` — per-match, so Impérios can change them by
   era.
@@ -308,18 +309,22 @@ that every simulated game is legal and terminates; `SIM_GAMES=N npm test` prints
 recorded here, never asserted. As specified, at 2,000 games a continent, the Americas' median game
 was 1 ply with 92 % of capitals taken before ply 8, and the first player won 81 % in Europe and 86 %
 in the Americas; no `CAPITAL_DEFENCE` from 5 to 20 and no komi helped, because 12–15 gold a turn
-outran every cost. With D-114's four rules, as built, 2,000 games a continent:
+outran every cost. With D-114's four rules and D-115's reviewed sea routes, 2,000 games a continent:
 
 | | first player wins | draws | median plies | p10 | capital | 30-turn count | capital before ply 8 |
 |---|---|---|---|---|---|---|---|
-| Europa | 53.0 % | 1.1 % | 29 | 14 | 73.2 % | 26.8 % | 0 % |
-| Ásia | 51.6 % | 1.8 % | 60 | 13 | 50.4 % | 49.6 % | 0 % |
-| Américas | 47.4 % | 1.2 % | 60 | 19 | 38.4 % | 61.6 % | 0 % |
-| África | 45.9 % | 1.4 % | 34 | 14 | 67.3 % | 32.6 % | 0 % |
+| Europa | 52.0 % | 0.9 % | 29 | 14 | 73.5 % | 26.4 % | 0 % |
+| Ásia | 50.6 % | 1.8 % | 50 | 14 | 55.1 % | 44.9 % | 0 % |
+| Américas | **59.3 %** | 0.9 % | 58 | 17 | 51.5 % | 48.5 % | 0 % |
+| África | 46.5 % | 0.8 % | 32 | 14 | 68.1 % | 31.9 % | 0 % |
 
 **Targets**: first player 45–55 %, draws ≤ 15 %, median 25–55 plies, no capital before ply 8. All
-are met except the median in Asia and the Americas, where half or more of the games reach the
-30-turn count — partly the bot, which does not march down a long board. It is a bot, not people.
+are met except the Americas' first player and its median, where half the games reach the 30-turn
+count — partly the bot, which does not march down a long board. The Americas' 59 % is the bot's
+draft, not the board: it takes the highest value with the fewest neighbours, and once the Florida
+Straits gave the US four, its first pick became Chile in 90 % of games, a southern fortress that wins
+60 %. Cutting one real route (US–Bahamas) reads 50 %; tuning geography to one bot's heuristic was
+rejected (D-115). It is a bot, not people.
 **Every one of the four rules is load-bearing** (each taken out alone breaks a continent; D-114 has
 the numbers), so do not remove one without re-running `SIM_GAMES`. The knobs, in order:
 `CAPITAL_DEFENCE`, `FORTIFY_COST`, then the rules.
