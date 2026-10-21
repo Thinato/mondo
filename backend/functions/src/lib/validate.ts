@@ -9,6 +9,7 @@ import { mondoError } from "./errors";
 import type { InviteMode } from "./invite";
 import { KIND_IDS, type KindId } from "./kinds";
 import type { CustomGame } from "./room";
+import type { Action } from "./fronteiras";
 
 const PUZZLE_ID = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -189,4 +190,33 @@ export function requireCustomGame(v: unknown): CustomGame {
     shuffled: o.shuffled,
     regions: requireRegions(o.regions),
   };
+}
+
+// ---------------------------------------------------------------------------
+// FR-15 — Fronteiras
+// ---------------------------------------------------------------------------
+
+const ACTION_TYPES = ["pick", "take", "attack", "fortify", "pass"] as const;
+
+/**
+ * FR-15.4 — one Fronteiras action. Closed shape: `{ t: "pass" }`, or a kind and
+ * a pool country code; any other key is refused. Whether the code is on the
+ * board, adjacent and affordable is the game's to judge (lib/fronteiras.ts).
+ */
+export function requireFronteirasAction(v: unknown): Action {
+  const o = requireObject(v);
+  if (!(ACTION_TYPES as readonly unknown[]).includes(o.t)) throw mondoError("invalid-argument", "Unknown action.");
+  const keys = Object.keys(o);
+  if (o.t === "pass") {
+    if (keys.length !== 1) throw mondoError("invalid-argument", "A pass carries nothing else.");
+    return { t: "pass" };
+  }
+  if (keys.length !== 2 || !keys.includes("code")) throw mondoError("invalid-argument", "An action is { t, code }.");
+  return { t: o.t as Exclude<Action["t"], "pass">, code: requireCountryCode(o.code) };
+}
+
+/** FR-15.12 — the leaderboard: everyone, or the caller's groups. */
+export function requireRatingsScope(v: unknown): "all" | "groups" {
+  if (v !== "all" && v !== "groups") throw mondoError("invalid-argument", "scope must be all or groups.");
+  return v;
 }

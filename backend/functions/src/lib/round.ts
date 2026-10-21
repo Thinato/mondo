@@ -17,6 +17,7 @@
  * that card.ts already had under test.
  */
 
+import type { LadderRecord } from "./ladder";
 import type { SavedPreset } from "./multiplayer";
 import type { Timestamp } from "firebase-admin/firestore";
 import { applyCardGuess, giveUpCard, newCardCore, cardIntervalsMs, cardSelfReports, totalGuesses, type CardCore, type CardItem } from "./card";
@@ -183,6 +184,10 @@ export interface Profile {
   hostRoom?: string;
   /** FR-12.11: the host's saved custom games, ≤ 10. Read only by their owner, through `join`. */
   presets?: SavedPreset[];
+  /** FR-15, D-107: the player's one live Fronteiras room — waiting, challenging or playing. */
+  fronteirasRoom?: string;
+  /** FR-15.7, D-110: the ladder record. Written only when a rated game ends. */
+  fronteiras?: LadderRecord;
 }
 
 export type RoundStatus = "in_progress" | "solved" | "failed";
