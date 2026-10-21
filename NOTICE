@@ -118,6 +118,31 @@ rounded to an integer, shown only after a challenge as a hint (FR-14, D-101).
 
 
 -------------------------------------------------------------------------------
+World Bank, World Development Indicators  —  GDP (Fronteiras)
+-------------------------------------------------------------------------------
+Indicator: NY.GDP.MKTP.PP.CD — GDP, PPP (current international $)
+Source:    https://data.worldbank.org/indicator/NY.GDP.MKTP.PP.CD
+License:   Creative Commons Attribution 4.0 International (CC BY 4.0)
+           https://creativecommons.org/licenses/by/4.0/
+
+    Contains figures from the World Bank's World Development Indicators,
+    used under CC BY 4.0. The World Bank does not endorse this work.
+
+gdp.json's `totals` holds one figure per country for 2023 — or, where 2023 is
+missing, the latest year back to 2013 (South Sudan 2015, Syria 2022, Yemen 2013) —
+rounded to the nearest integer; nothing else was altered. The game shows none of them: a Fronteiras territory's value is the
+country's per-continent quintile, 1-5 (D-108).
+
+Where the World Bank has no figure, tools/gdp-totals-fill.json fills it, each
+with its source and reason:
+  TW VE LI ER  IMF World Economic Outlook (DataMapper, PPPGDP)
+               https://www.imf.org/external/datamapper/PPPGDP@WEO
+               Used with attribution under the IMF's copyright and usage terms.
+  CU KP MC     CIA World Factbook, Real GDP (purchasing power parity)
+               https://www.cia.gov/the-world-factbook/  —  public domain.
+
+
+-------------------------------------------------------------------------------
 Build-time development dependencies (not redistributed)
 -------------------------------------------------------------------------------
 mapshaper   —  Mozilla Public License 2.0  —  https://github.com/mbloch/mapshaper

@@ -64,6 +64,39 @@
       <p class="fine">Você é convidado ou assinante? Entre com sua conta Google.</p>
       <button id="soon-sign-in" type="button" class="secondary">Entrar com Google</button>
     </div>
+    <!-- FR-15.1: Fronteiras is open to every rank, so it is here, ready, beside "em breve". -->
+    <div class="fr-promo">
+      <h2 class="label">Já disponível</h2>
+      <p><strong>Fronteiras</strong> — um contra um, num continente: escolha sua capital e avance de fronteira em fronteira.</p>
+      <a class="primary" href="./sala?jogo=fronteiras">Jogar Fronteiras</a>
+    </div>
+  </section>
+
+  <!-- FR-15.1, D-107 — sala?jogo=fronteiras: the way into a Fronteiras game for
+       anyone signed in, and the ranking, fetched only when its tab is opened. -->
+  <section id="fr-entry" class="fr-entry" hidden>
+    <h1>Fronteiras</h1>
+    <p class="sub">Um contra um, num continente, sem dados. Escolha sua capital, avance de fronteira em fronteira e tome a capital do outro.</p>
+    <div class="seg fr-tabs" role="tablist" aria-label="Fronteiras">
+      <button id="fr-tab-play" type="button" role="tab" aria-selected="true" aria-controls="fr-play">Jogar</button>
+      <button id="fr-tab-rank" type="button" role="tab" aria-selected="false" aria-controls="fr-rank">Ranking</button>
+    </div>
+    <div id="fr-play" class="fr-play" role="tabpanel" aria-labelledby="fr-tab-play">
+      <button id="fr-queue" type="button" class="primary">Procurar adversário</button>
+      <button id="fr-challenge" type="button" class="secondary">Desafiar com link</button>
+      <button id="fr-bot" type="button" class="secondary">Contra o bot</button>
+      <p id="fr-msg" class="fine" aria-live="polite"></p>
+      <p class="fine">Partidas entre contas Google valem rating; contra o bot, não. <a href="./regras#fronteiras">Regras</a></p>
+    </div>
+    <div id="fr-rank" class="fr-rank" role="tabpanel" aria-labelledby="fr-tab-rank" hidden>
+      <div class="seg" role="group" aria-label="Quem">
+        <button id="fr-scope-all" type="button" aria-selected="true">Todos</button>
+        <button id="fr-scope-groups" type="button" aria-selected="false">Meus grupos</button>
+      </div>
+      <ol id="fr-rank-list" class="fr-rank-list"></ol>
+      <p id="fr-rank-empty" class="fine" hidden></p>
+      <p class="fine">Só aparece quem já tem rating firme (o “?” sumiu do perfil).</p>
+    </div>
   </section>
 
   <div id="room-cols" hidden>
@@ -253,6 +286,63 @@
       </div>
     </section>
 
+    <!-- Fronteiras, waiting (FR-15.9): the queue slot, polled every 10 s (D-111), or a challenge link. -->
+    <section id="fr-wait" class="panel fr-wait" hidden>
+      <h2 class="label">Fronteiras</h2>
+      <p id="fr-wait-title" class="result-text"></p>
+      <p class="wait-line"><span class="dot" aria-hidden="true"></span><span id="fr-wait-time" class="fr-wait-time"></span></p>
+      <div id="fr-wait-link" hidden>
+        <button id="fr-copy" type="button" class="secondary copy">
+          <svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg class="i-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <span id="fr-copy-label" aria-live="polite">Copiar link</span>
+        </button>
+        <p class="fine">Quem abrir o link joga com você, visitante também.</p>
+      </div>
+      <div class="row">
+        <button id="fr-wait-bot" type="button" class="secondary" hidden>Jogar contra o bot</button>
+        <a class="link-btn" href="./sala?jogo=fronteiras">Cancelar</a>
+      </div>
+    </section>
+
+    <!-- Fronteiras (FR-15): the board, the two seats and their clocks, every
+         legal move as a chip, and one bar with the one action (D-68). -->
+    <section id="fronteiras" class="fr" hidden>
+      <div class="fr-side">
+        <a class="wordmark rail-only" href="./">Mondo</a>
+        <ol id="fr-seats" class="fr-seats" aria-label="Jogadores"></ol>
+        <div class="fr-banner-row">
+          <p id="fr-banner" class="fr-banner" aria-live="polite"></p>
+          <button id="fr-giveup" type="button" class="link">Desistir</button>
+        </div>
+        <h2 id="fr-chips-title" class="label fr-chips-title"></h2>
+        <ul id="fr-chips" class="fr-chips" aria-labelledby="fr-chips-title"></ul>
+      </div>
+      <figure class="fr-board" id="fr-wrap">
+        <div class="zoom" role="group" aria-label="Zoom do mapa">
+          <button id="fr-zoom-in" type="button" aria-label="Aproximar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button id="fr-zoom-out" type="button" aria-label="Afastar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+          <button id="fr-zoom-fit" type="button" aria-label="Ver o continente todo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
+        <svg id="fr-map" role="img" aria-label="Mapa do continente"><g id="fr-terr"></g><g id="fr-labels"></g></svg>
+        <p class="zoom-hint" id="fr-zoom-hint">Pinça para aproximar · dois dedos para mover</p>
+      </figure>
+      <div id="fr-bar" class="fr-bar">
+        <p class="fr-sel"><b id="fr-sel-name"></b><span id="fr-sel-meta"></span></p>
+        <button id="fr-pass" type="button" class="secondary">Passar</button>
+        <button id="fr-act" type="button" class="primary"></button>
+      </div>
+      <section id="fr-result" class="panel fr-result" hidden aria-live="polite">
+        <p id="fr-result-text" class="result-text"></p>
+        <p id="fr-result-sub" class="fine"></p>
+        <ul id="fr-result-ratings" class="fr-ratings"></ul>
+        <div class="row">
+          <a class="primary" href="./sala?jogo=fronteiras">Jogar de novo</a>
+          <a class="link-btn" href="./sala?jogo=fronteiras#ranking">Ranking</a>
+        </div>
+      </section>
+    </section>
+
     <p id="status" aria-live="polite"></p>
     </div>
 
@@ -271,6 +361,7 @@
           <span id="copy-label" aria-live="polite">Copiar link</span>
         </button>
         <p class="fine">Quem tiver o link entra, visitante também.</p>
+        <p class="fine"><a href="./sala?jogo=fronteiras">Fronteiras: um contra um</a></p>
       </div>
       <!-- Batata Quente: how far the map has come. -->
       <div id="potato-head" class="potato-head" hidden>

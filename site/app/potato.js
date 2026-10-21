@@ -344,11 +344,13 @@ export function mountPotato({ multiplayer, me, confirm }) {
  * event with ctrlKey set (Chrome, Firefox) or as Safari's gesture events; its
  * two-finger scroll is a plain wheel, and pans. A mouse wheel zooms instead,
  * because a mouse has no other way to. Below 60rem the page scrolls as a page
- * and none of this intercepts anything.
+ * and none of this intercepts anything. Fronteiras (FR-15) reuses it with its
+ * own board, buttons and body class: `el.active`, `el.zoomIn/Out/Fit`.
  */
-function mountZoom(el) {
+export function mountZoom(el) {
   const wide = matchMedia("(min-width: 60rem)");
   const MAX = 8;
+  const active = el.active ?? (() => document.body.classList.contains("potato-room"));
   let vb = null;          // the map's own box: [x, y, w, h]
   let k = 1;
   let cx = 0, cy = 0;     // the map point at the centre of the view
@@ -367,7 +369,7 @@ function mountZoom(el) {
   function draw() {
     if (!vb) return;
     const W = el.wrap.clientWidth, H = el.wrap.clientHeight;
-    if (!wide.matches || !document.body.classList.contains("potato-room") || W === 0 || H === 0) {
+    if (!wide.matches || !active() || W === 0 || H === 0) {
       el.world.setAttribute("viewBox", vb.join(" "));
       geo = null;
       return;
@@ -455,10 +457,11 @@ function mountZoom(el) {
   });
 
   const centre = (f) => zoomAt(el.wrap.clientWidth / 2, el.wrap.clientHeight / 2, f);
-  document.getElementById("zoom-in").addEventListener("click", () => centre(1.6));
-  document.getElementById("zoom-out").addEventListener("click", () => centre(1 / 1.6));
+  const btn = (b, id) => b ?? document.getElementById(id);
+  btn(el.zoomIn, "zoom-in").addEventListener("click", () => centre(1.6));
+  btn(el.zoomOut, "zoom-out").addEventListener("click", () => centre(1 / 1.6));
   const fit = () => { if (vb) base(vb.join(" ")); };
-  document.getElementById("zoom-fit").addEventListener("click", fit);
+  btn(el.zoomFit, "zoom-fit").addEventListener("click", fit);
 
   // The wrapper's size, and the window's, which is what crosses 60rem.
   new ResizeObserver(draw).observe(el.wrap);
