@@ -10,14 +10,14 @@
 
 import { glicko2, preRate, PROVISIONAL_RD, START, TAU, type Rating } from "./glicko";
 
+const DAY_MS = 86_400_000;
 /** Rated games against the same opponent allowed in `PAIR_WINDOW_MS`. */
-export const PAIR_CAP = 3;
-export const PAIR_WINDOW_MS = 86_400_000;
+const PAIR_CAP = 3;
+const PAIR_WINDOW_MS = DAY_MS;
 /** A queue slot not polled for this long is someone who left (D-111). */
 export const QUEUE_STALE_MS = 25_000;
 /** How many games `history` keeps, newest first. */
 export const HISTORY_MAX = 30;
-const DAY_MS = 86_400_000;
 
 /** `users/{uid}.fronteiras`. `recent` is never public; `history.opp` is a display name. */
 export interface LadderRecord extends Rating {

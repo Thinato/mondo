@@ -79,7 +79,10 @@ for (const c of countries) {
     ...(BY_NAME[c.code] ? byName.get(BY_NAME[c.code]) : byId.get(ccn3.get(c.code)) ?? []),
     ...(PAINTED_WITH[c.code] ?? []).flatMap((name) => byName.get(name) ?? []),
   ];
-  if (geoms.length) features.set(c.code, merge(topo, geoms)), geomsOf.set(c.code, geoms);
+  if (geoms.length) {
+    features.set(c.code, merge(topo, geoms));
+    geomsOf.set(c.code, geoms);
+  }
 }
 
 const world = buildWorld({

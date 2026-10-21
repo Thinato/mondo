@@ -42,8 +42,8 @@ export function spearman(xs, ys) {
  * `values` is the answer of every seeded `gdp` day and `growth` is its hint
  * (D-101): a build that only ADDS a section must leave both byte-identical.
  */
-export function refuseChanges(before, after, keys = ["values", "growth"]) {
-  for (const k of keys) {
+export function refuseChanges(before, after) {
+  for (const k of ["values", "growth"]) {
     if (JSON.stringify(after[k]) !== JSON.stringify(before[k])) throw new Error(`${k} changed — refusing`);
   }
   return after;

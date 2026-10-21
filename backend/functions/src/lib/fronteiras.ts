@@ -167,7 +167,7 @@ function deadlineFor(s: FronteirasState, uid: string, now: number): number {
 const seatOf = (s: FronteirasState, uid: string): 0 | 1 | -1 => (s.order[0] === uid ? 0 : s.order[1] === uid ? 1 : -1);
 
 /** Total value a seat holds: the 30-turn count. */
-export function heldValue(s: FronteirasState, seat: 0 | 1): number {
+function heldValue(s: FronteirasState, seat: 0 | 1): number {
   let n = 0;
   for (const [code, o] of Object.entries(s.owner)) if (o === seat) n += s.values[code] ?? 0;
   return n;

@@ -63,7 +63,7 @@ function draftable(s, adj, seat) {
   return new Set(ok.length ? ok : free);
 }
 
-/** The one action `code` offers `seat` now: `{ t, cost }` (cost null when it is not a move) . */
+/** The one action `code` offers `seat` now: `{ t, cost }` (cost null when it is not a move). */
 function offerOf(s, adj, seat, code, pickable) {
   const owner = s.owner[code];
   const value = s.values[code];
