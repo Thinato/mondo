@@ -19,20 +19,22 @@ import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { COUNTRIES } from "../../src/lib/countries";
 import { newProfile } from "../../src/lib/round";
 
-process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
+// From the environment `emulators:exec` sets, never a default: a default of
+// :8080 would point the Admin SDK at whatever dev stack is running there.
+if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error("FIRESTORE_EMULATOR_HOST is not set; run under emulators:exec.");
 if (getApps().length === 0) initializeApp({ projectId: "demo-mondo" });
 const db = getFirestore();
 
-const FUNCTIONS = "http://127.0.0.1:5001/demo-mondo/southamerica-east1";
-const AUTH = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1";
+const FUNCTIONS = `${process.env.MONDO_FUNCTIONS_ORIGIN ?? "http://127.0.0.1:5001"}/demo-mondo/southamerica-east1`;
+const AUTH = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "127.0.0.1:9099"}/identitytoolkit.googleapis.com/v1`;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any;
 interface Res { status: number; result?: Any; error?: Any }
-interface Account { uid: string; call: (data: unknown) => Promise<Res>; old: (data: unknown) => Promise<Res> }
+interface Account { uid: string; call: (data: unknown) => Promise<Res> }
 
-async function post(data: unknown, token: string, fn = "multiplayer"): Promise<Res> {
-  const r = await fetch(`${FUNCTIONS}/${fn}`, {
+async function post(data: unknown, token: string): Promise<Res> {
+  const r = await fetch(`${FUNCTIONS}/multiplayer`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({ data }),
@@ -51,7 +53,7 @@ async function newAccount(label?: string): Promise<Account> {
       ? { email: `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`, password: "secret123", returnSecureToken: true }
       : { returnSecureToken: true }),
   }).then((x) => x.json() as Promise<Any>);
-  return { uid: r.localId, call: (data) => post(data, r.idToken), old: (data) => post(data, r.idToken, "versus") };
+  return { uid: r.localId, call: (data) => post(data, r.idToken) };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -226,11 +228,6 @@ test("D-103, D-104: the host's standing room, set to Clássico, plays again with
   const prompts = await db.collection(`rooms/${id}/prompts`).get();
   assert.deepEqual(prompts.docs.map((d) => d.id), ["0"]);
   assert.equal(prompts.docs[0]!.data().reveal, null, "the new first challenge, not the old one's answer");
-});
-
-test("D-102: the old callable name answers for one release", async () => {
-  assert.equal(code(await bia.old({ op: "create", presetId: "mundo" })), "permission-denied");
-  assert.equal(ok(await host.old({ op: "create" }), "old name").room, ok(await host.call({ op: "create" }), "new name").room);
 });
 
 test("FR-12.10, FR-12.11, D-106: a custom game, dealt in order from its continents; a host's own saved games", async () => {

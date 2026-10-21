@@ -24,12 +24,17 @@ const ROOM = "ROOMABCDEFGHJKLM"; // alice hosts, bob is in it, carol is not
 
 let env: RulesTestEnvironment;
 before(async () => {
+  // `clearFirestore()` below wipes whatever it points at, so the host comes from
+  // the emulator this run started (`emulators:exec` sets it) and never a default.
+  const hostPort = process.env.FIRESTORE_EMULATOR_HOST;
+  if (!hostPort) throw new Error("FIRESTORE_EMULATOR_HOST is not set; run under emulators:exec.");
+  const at = hostPort.lastIndexOf(":");
   env = await initializeTestEnvironment({
     projectId: "demo-mondo",
     firestore: {
       rules: readFileSync(join(__dirname, "../../../../firestore.rules"), "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
+      host: hostPort.slice(0, at),
+      port: Number(hostPort.slice(at + 1)),
     },
   });
   await env.clearFirestore();
@@ -347,6 +352,36 @@ test("SEC-6: no client writes anything in a room, its host included", async () =
   await assertFails(bob().doc(`rooms/${ROOM}/prompts/0`).update({ reveal: { code: "PE" } }));
   await assertFails(alice().doc(`roomSecrets/${ROOM}`).set({ items: [] }));
   await assertFails(alice().doc(`rooms/${ROOM}`).delete());
+});
+
+// --- FR-15: Fronteiras --------------------------------------------------------
+
+const FRONT = "FRONTABCDEFGHJKL"; // alice and bob are playing; carol is not in it
+
+test("FR-15, D-87: Fronteiras players read their room and its board; outsiders, lists and writes are refused", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await db.doc(`rooms/${FRONT}`).set({ mode: "fronteiras", hostUid: null, state: "playing", playerUids: [ALICE, BOB], players: {}, queue: null, fronteiras: { continent: "Europe", values: { PT: 3, ES: 5 } } });
+    await db.doc(`rooms/${FRONT}/map/_board`).set({ viewBox: "0 0 1 1", paths: { PT: { d: "M0 0Z" } }, adj: { PT: ["ES"], ES: ["PT"] }, labels: {} });
+  });
+  await assertSucceeds(alice().doc(`rooms/${FRONT}`).get());
+  await assertSucceeds(bob().doc(`rooms/${FRONT}/map/_board`).get());
+  await assertSucceeds(bob().collection(`rooms/${FRONT}/map`).get());
+  await assertFails(carol().doc(`rooms/${FRONT}`).get());
+  await assertFails(carol().doc(`rooms/${FRONT}/map/_board`).get());
+  await assertFails(anon().doc(`rooms/${FRONT}/map/_board`).get());
+  await assertFails(alice().collection("rooms").where("queue.open", "==", true).get());
+  await assertFails(alice().doc(`rooms/${FRONT}`).update({ "fronteiras.values.PT": 5 }));
+  await assertFails(alice().doc(`rooms/${FRONT}/map/_board`).set({ adj: {} }));
+  await assertFails(carol().doc("rooms/FRONTNEWROOM2345").set({ mode: "fronteiras", playerUids: [CAROL], queue: { open: true } }));
+});
+
+test("FR-15.7, D-110: a player cannot write their own rating or Fronteiras room", async () => {
+  await assertFails(alice().doc(`users/${ALICE}`).update({ fronteiras: { rating: 3000, rd: 30, vol: 0.06, settled: true } }));
+  await assertFails(alice().doc(`users/${ALICE}`).update({ "fronteiras.rating": 3000 }));
+  await assertFails(alice().doc(`users/${ALICE}`).update({ fronteirasRoom: FRONT }));
+  await assertFails(alice().doc(`users/${ALICE}`).update({ displayName: "alice-um", fronteirasRoom: FRONT }));
+  await assertFails(bob().doc(`users/${ALICE}`).update({ fronteiras: null }));
 });
 
 // --- default deny -----------------------------------------------------------
