@@ -537,6 +537,61 @@ to test new challenges."*
   continent's median, and real growth over ten years from the World Bank's constant-price series;
   the served figure is unchanged (D-53).
 
+## FR-15 — Fronteiras *(added 2026-10-21, D-107–D-114; design in `docs/08-multiplayer.md` §5)*
+
+- **FR-15.1 Rooms and entry.** Fronteiras is a Multijogador room of exactly two seats and no host
+  (D-107), entered at `sala?jogo=fronteiras` by anyone signed in, a guest included, three ways:
+  Procurar adversário (the queue), Desafiar com link (a challenge) or Contra o bot. The game starts
+  when the second seat fills. An account MUST have at most one live Fronteiras game; asking for
+  another while one is playing MUST be refused and name it (`already-playing`). A room holds one game
+  and closes as it ends. A result MUST NOT reach `attempts` or any board.
+- **FR-15.2 The board.** The server picks one continent per game — Europa (45), Ásia (48), Américas
+  (35) or África (54); Oceania is out — and sends its outlines, dots, adjacency and label points once,
+  at start (D-109). Two territories are adjacent when they share a land border on that continent; an
+  island, and any piece left apart, is linked to its nearest (`borders.json`), so every board is one
+  connected graph. Each territory is worth 1–5, its quintile within the continent of total GDP (PPP)
+  (D-108), computed on the server and stored on the room for that game.
+- **FR-15.3 The draft.** The order is drawn at random. A snake draft, A B B A A B, deals three
+  territories each from the whole board, 30 s a pick. A player's first pick is their capital. A pick MUST NOT
+  border a territory the opponent holds unless every free territory does, and a capital MUST border at
+  least two territories unless no pick the first rule allows does (D-114).
+- **FR-15.4 A turn is one action.** At the start of each of their turns a player gains 1 gold per
+  territory held (D-114). Then exactly one of: **take** a neutral territory adjacent to one they hold
+  (its value); **attack** an enemy territory adjacent to one they hold (its value plus its
+  fortification, plus 12 for the capital; it changes hands and loses its fortification); **fortify**
+  one of their own (+1, cost 2); or **pass**. Nobody attacks in either player's first two turns.
+  Combat is deterministic: no dice, nothing hidden. Every action MUST be validated on the server, and
+  an illegal one — not adjacent, unaffordable, not your turn, after the end, after the deadline — MUST
+  be refused and change nothing.
+- **FR-15.5 The end.** Taking the enemy capital wins. A player whose clock runs out loses. After 30
+  turns each, the player holding more value wins, and equal value is a draw. A player MAY resign in
+  play; in the draft giving up is an abort (FR-15.8).
+- **FR-15.6 The clock.** 5 minutes each plus 3 s per move, kept on the server's clock (invariant 3)
+  and enforced lazily by `tick`, as in FR-12. Leaving is not a rule: the clock runs out. An action at
+  or after the deadline MUST be refused. The bot has no clock.
+- **FR-15.7 Rating.** Glicko-2 (D-110), starting at 1500, shown as one number, provisional ("1500?")
+  while RD > 110. A game is rated only when both players signed in with Google, neither is the bot,
+  and the pair is under its cap (FR-15.8), decided when it starts. A rated result MUST move both
+  ratings exactly once, in the transaction that ends the game. A guest plays unrated and MUST NOT get
+  a rating record.
+- **FR-15.8 Pair cap and abort.** The same two players MUST NOT move ratings in more than 3 games in
+  any 24 h; later games between them are played unrated. Aborting in the draft — by giving up, or by a
+  pick's 30 s running out — MUST produce no result, no rating change and no pair-cap entry.
+- **FR-15.9 Queue and challenge.** The queue pairs the nearest rating within ±150, widened by 50 for
+  every 10 s either player has waited; a waiting page asks again every 10 s, and a slot not asked for
+  in 25 s MUST NOT be matched (D-111). A challenge is the same room reached by its link and rated by
+  FR-15.7's rule; its creator reopening the link MUST NOT start anything.
+- **FR-15.10 The bot.** After 30 s alone in the queue the page MUST offer the bot, and a button plays
+  it at once. The bot plays a legal greedy move every turn and defends a capital the opponent could
+  take next turn; its games are never rated, and it is never on the leaderboard and has no profile
+  (D-113).
+- **FR-15.11 On the profile.** The profile (FR-13) MUST show the Fronteiras rating with its
+  provisional marker, the games played, the last games (opponent's name, result) and a line of the
+  rating over them. It MUST NOT show the 24 h list of opponents behind the pair cap.
+- **FR-15.12 Leaderboard.** A Ranking tab MUST list the top 100 settled ratings — display name,
+  rating, games, last played — for everyone, or for the caller's groups ("Meus grupos"), and read them
+  only when it is opened. Provisional ratings are not listed. Display names only (invariant 6).
+
 ## SEC — Security and anti-cheat
 
 - **SEC-1** *(critical)* The answer for an unfinished round MUST NOT be present in any payload
@@ -612,6 +667,14 @@ to test new challenges."*
   **monitor mode** — a missing token is logged as `APP_CHECK_MISSING`, not refused — and is enforced
   by flipping `APP_CHECK_ENFORCED` once production shows the real page always carries one. The
   emulator is exempt: it mints no tokens.
+- **SEC-19** *(added 2026-10-21, D-108, D-109)* A Fronteiras room MUST carry no figure a challenge
+  kind asks for. A territory's value is a quintile of total GDP and MUST NOT be derived from
+  `gdp.json.values` — the per-capita figure is the `gdp` answer, and a board would show a
+  continent's worth of it binned; a test pins that `valuesOf` never reads it. No capital city, flag
+  or per-capita figure is sent. With nothing hidden there is nothing for `roomSecrets`, and the room
+  is safe because of what it holds (D-87). **Accepted residual (D-109):** the board hands anyone
+  signed in a continent's outlines and projected Natural Earth centroids — what Batata Quente
+  training (D-93) already hands whoever names them, now a few clicks away.
 
 ---
 

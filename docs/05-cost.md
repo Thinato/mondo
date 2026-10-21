@@ -222,13 +222,30 @@ room of eight guessing ~6 times each is ~8 × 6 × 5 × 8 ≈ **2,000 reads**. A
 that is a dozen full games a day before anything is billed — and a game that ends
 by silence or giving up is far smaller. Writes are ~2 per answer, well inside 20,000/day. Nothing
 here adds an instance: Multijogador is one callable (D-92), cold starts are free, and there is no
-`minInstances` (§3.1). For one release the `versus` alias (D-102) is a second service, idle once
-cached pages have reloaded; an idle service costs nothing.
+`minInstances` (§3.1).
 
 A rematch (D-104) deletes the last game's documents before the next starts: at most 196 map
 documents and a card's prompts, ~210 writes against 20,000 a day, and each listener sees one
 removal read per document. Keeping the room is cheaper than what it replaced, a new room whose
 land (36 KB) is written and read again by everyone.
+
+### 3.7 Fronteiras (FR-15, D-107–D-114)
+
+Same callable, same listener, no new service, no scheduler, no `minInstances`.
+
+- **A game between two people**, 60 plies: per ply one transaction read, one write and two listener
+  reads — ~180 reads and ~62 writes; the start adds ~6 reads and one board write (`map/_board`,
+  35–63 KB, read once by each listener); a rated end adds 2 reads and 2 writes. **≈ 190 reads a
+  game**, so about 250 games a day fit in 50,000 free reads before anything else is counted.
+- **Against the bot**: its moves ride the human's transaction, so the per-ply cost halves — **~90
+  reads**.
+- **The queue**: each 10 s poll is one query (billed at least one read, plus one per fresh open slot,
+  50 at most), ~4 transaction reads and one write. A minute waiting is ~6 polls.
+- **The leaderboard** is the largest line: **up to 100 reads per opened Ranking tab** (it is read only
+  when opened, never on page load). The fallback, if this line moves, is a top-100 document written
+  at each rated finish. The profile's rating is read off the user document `getProfile` already
+  reads: +0.
+- `join` now peeks the room before its transaction: **+1 read per join, in every mode**.
 
 ## 4. A budget alert is a smoke detector, not a spending cap
 
