@@ -1493,6 +1493,8 @@ a.name:hover { text-decoration: underline; }
 .fr-board .route { stroke: var(--fg); stroke-width: 1px; stroke-dasharray: 3 3; opacity: .45; vector-effect: non-scaling-stroke; pointer-events: none; }
 .fr-board .num { font: 600 9px var(--mono); text-anchor: middle; fill: var(--fg); paint-order: stroke; stroke: var(--card); stroke-width: 2.5px; stroke-linejoin: round; }
 .fr-board .cap { fill: var(--card); stroke-width: 2px; }
+.fr-board .crown path { stroke: var(--fg); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fr-board .crown path:nth-child(-n+2) { stroke: var(--card); stroke-width: 6; }
 .fr-board .pip { fill: var(--fg); stroke: var(--card); stroke-width: .8px; }
 .fr-board .zoom, .fr-board .zoom-hint { display: none; }
 @media (prefers-reduced-motion: reduce) { .fr-board .t { transition: none; } }

@@ -17,6 +17,8 @@ import { errorMessage, t } from "./i18n.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 export const BOT_UID = "~bot";
+/** Lucide's crown (lucide-static v0.460.0, ISC; NOTICE). Path data unmodified. */
+const CROWN = '<path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/>';
 /** For drawing only, replaced by the board's own `rules` (written by the server at start); the server decides. */
 const RULES = { turns: 30, fortify: 2, capitalDefence: 12, trucePlies: 4, capitalMin: 2, picks: 3 };
 /** D-111: the queue slot goes stale after 25 s without a poll. */
@@ -331,7 +333,12 @@ export function mountFronteiras({ multiplayer, me, confirm, roomId, serverNow, s
       const pips = Math.min(st.fort[code] ?? 0, 6);
       const kids = [];
       if (cap !== -1 && st.owner[code] === cap) {
-        kids.push(svgNode("circle", { r: 8.5, class: "cap", style: `stroke:${room.players[st.order[cap]]?.color ?? "currentColor"}` }));
+        const color = room.players[st.order[cap]]?.color ?? "currentColor";
+        kids.push(svgNode("circle", { r: 8.5, class: "cap", style: `stroke:${color}` }));
+        // A crown over the ring, so a capital is found at a glance. The first copy is its halo.
+        const crown = svgNode("g", { class: "crown", transform: "translate(-9.6 -27.5) scale(.8)", style: `fill:${color}` });
+        crown.innerHTML = CROWN + CROWN;
+        kids.push(crown);
       }
       const num = svgNode("text", { class: "num", y: 3.5 });
       num.textContent = String(st.values[code] ?? "");
