@@ -382,6 +382,8 @@ async function join() {
     setStatus("");
     await listen();
   } catch (err) {
+    // A challenge link opened while already in a Fronteiras game: go to that game.
+    if (err?.details?.room && err.details.room !== roomId) return location.replace(`./sala?s=${err.details.room}`);
     setStatus(errorMessage(err, "multi"), "err");
   }
 }

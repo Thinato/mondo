@@ -17,7 +17,7 @@ import { errorMessage, t } from "./i18n.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 export const BOT_UID = "~bot";
-/** lib/fronteiras.ts, for drawing. The server's own constants decide. */
+/** For drawing only, replaced by the board's own `rules` (written by the server at start); the server decides. */
 const RULES = { turns: 30, fortify: 2, capitalDefence: 12, trucePlies: 4, capitalMin: 2, picks: 3 };
 /** D-111: the queue slot goes stale after 25 s without a poll. */
 const POLL_MS = 10_000;
@@ -118,6 +118,7 @@ export function mountFronteiras({ multiplayer, me, confirm, roomId, serverNow, s
   /** `map/_board`, once (D-109). Drawn in neutral grey; `paint` colours it from the room. */
   function onBoard(b) {
     board = b;
+    Object.assign(RULES, b.rules);
     el.terr.replaceChildren();
     el.labels.replaceChildren();
     shapes.clear();
@@ -246,7 +247,9 @@ export function mountFronteiras({ multiplayer, me, confirm, roomId, serverNow, s
       const r = await op();
       if (r.room !== roomId) location.replace(`./sala?s=${r.room}`);
     } catch (err) {
-      if (err?.details?.room && err.details.room !== roomId) return location.replace(`./sala?s=${err.details.room}`);
+      // A poll in flight when this very slot was matched: the game is already here.
+      if (err?.details?.room === roomId) return;
+      if (err?.details?.room) return location.replace(`./sala?s=${err.details.room}`);
       setStatus(errorMessage(err, "fronteiras"), "err");
     } finally { busy = false; }
   }

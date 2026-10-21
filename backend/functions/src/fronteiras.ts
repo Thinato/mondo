@@ -28,6 +28,7 @@ import { EMULATED, signInProvider } from "./lib/callable";
 import { mondoError } from "./lib/errors";
 import {
   abort, applyAction, applyTimeout, boardOf, newFronteiras, resign, valuesOf, BOT_UID, CONTINENTS,
+  CAPITAL_DEFENCE, CAPITAL_MIN_NEIGHBOURS, FORTIFY_COST, TRUCE_PLIES, TURNS_EACH,
   type Action, type FronteirasState,
 } from "./lib/fronteiras";
 import { botAction } from "./lib/bot";
@@ -43,7 +44,7 @@ const totals = (gdpJson as unknown as { totals: { values: Record<string, number>
 const BOT_NAME = "Robô";
 /** The leaderboard's length (FR-15.12). */
 const RATINGS_MAX = 100;
-/** Queue slots read per poll. Freshest only: a stale slot never fills it (D-111). */
+/** Queue slots read per poll, freshest first: a stale slot never fills it (D-111). */
 const QUEUE_SCAN = 50;
 
 /** FR-15.7: rated only between Google accounts. The emulator's e2e accounts are email/password. */
@@ -112,6 +113,8 @@ function start(tx: Transaction, id: string, room: Room, users: Record<string, Pr
     paths: Object.fromEntries(board.codes.map((c) => [c, mapPiece(c)])),
     adj: board.adj,
     labels: board.labels,
+    // The client draws chips and costs from these; the server still judges every move.
+    rules: { turns: TURNS_EACH, fortify: FORTIFY_COST, capitalDefence: CAPITAL_DEFENCE, trucePlies: TRUCE_PLIES, capitalMin: CAPITAL_MIN_NEIGHBOURS },
   });
 }
 
@@ -182,7 +185,7 @@ async function queue(uid: string, google: boolean): Promise<Record<string, unkno
   const [meSnap, open] = await Promise.all([
     userRef(uid).get(),
     db().collection("rooms").where("queue.seenAt", ">=", peekNow - QUEUE_STALE_MS)
-      .select("queue", "playerUids").limit(QUEUE_SCAN).get(),
+      .orderBy("queue.seenAt", "desc").select("queue", "playerUids").limit(QUEUE_SCAN).get(),
   ]);
   const slots = open.docs.flatMap((d) => {
     const r = d.data() as Pick<Room, "queue" | "playerUids">;
