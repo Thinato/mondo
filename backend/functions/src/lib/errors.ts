@@ -30,7 +30,11 @@ export type MondoErrorCode =
   | "room-started"
   | "not-your-turn"
   | "already-named"
-  | "time-up";
+  | "time-up"
+  // FR-15 — Fronteiras
+  | "deadline-passed"
+  | "illegal-move"
+  | "already-playing";
 
 const HTTPS_CODE: Record<MondoErrorCode, FunctionsErrorCode> = {
   unauthenticated: "unauthenticated",
@@ -58,8 +62,15 @@ const HTTPS_CODE: Record<MondoErrorCode, FunctionsErrorCode> = {
   // The server's clock passed the deadline first (invariant 3); the turn or
   // challenge is gone whatever the client's countdown said.
   "time-up": "failed-precondition",
+  // A Fronteiras move at or after its deadline: nothing is written, and the
+  // caller settles the turn with `tick` (FR-15.6).
+  "deadline-passed": "failed-precondition",
+  // Not adjacent, not affordable, or not a move in this phase (FR-15.4).
+  "illegal-move": "failed-precondition",
+  // One live Fronteiras game per account (D-112); `details.room` names it.
+  "already-playing": "failed-precondition",
 };
 
-export function mondoError(code: MondoErrorCode, message: string): HttpsError {
-  return new HttpsError(HTTPS_CODE[code], message, { code });
+export function mondoError(code: MondoErrorCode, message: string, extra: Record<string, unknown> = {}): HttpsError {
+  return new HttpsError(HTTPS_CODE[code], message, { code, ...extra });
 }

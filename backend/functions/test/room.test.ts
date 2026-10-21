@@ -11,6 +11,7 @@ import {
   LOBBY_TTL_MS, PLAYER_COLORS, ROOM_MAX_PLAYERS, type Room,
 } from "../src/lib/room";
 import { newPotato } from "../src/lib/potato";
+import { newFronteiras } from "../src/lib/fronteiras";
 
 const T0 = 1_800_000_000_000;
 
@@ -204,4 +205,36 @@ test("D-106: a custom game sets the room to Clássico and carries a copy; a buil
   assert.equal(back.custom, null);
   rejects(() => configureRoom(pair(), "b", custom, T0), "permission-denied");
   rejects(() => configureRoom({ ...pair(), state: "playing" }, "host", custom, T0), "room-started");
+});
+
+// --- D-107: Fronteiras --------------------------------------------------------
+
+const fronteirasRoom = (): Room => ({ ...newRoom("a", "Ana", "fronteiras", "fronteiras", T0), hostUid: null });
+
+test("D-107: a Fronteiras room seats two and nobody hosts it", () => {
+  const r = joinRoom(fronteirasRoom(), "b", "Bia", T0);
+  rejects(() => joinRoom(r, "c", "Caio", T0), "room-full");
+  rejects(() => requireStartable(r, "a", T0), "permission-denied");
+  rejects(() => configureRoom(r, "a", BANDEIRAS, T0), "permission-denied");
+  rejects(() => removePlayer(r, "a", "b"), "permission-denied");
+  assert.equal(reusableHostRoom(r, "a", T0), false);
+  assert.equal(leaveRoom(r, "a", T0).hostUid, null, "leaving hands nothing on");
+});
+
+test("D-111: leaving a queue slot closes the slot", () => {
+  const waiting: Room = { ...fronteirasRoom(), queue: { open: true, rating: 1500, since: T0, seenAt: T0 } };
+  assert.equal(leaveRoom(waiting, "a", T0).queue, null);
+  assert.equal("queue" in leaveRoom(pair(), "b", T0), false, "other rooms are not touched");
+});
+
+test("D-105, D-107: Fronteiras's winner takes the trophy, a draw gives nobody one, and the room closes", () => {
+  const base: Room = { ...joinRoom(fronteirasRoom(), "b", "Bia", T0), state: "playing" };
+  const ended = (winner: string | null): Room => ({
+    ...base, fronteiras: { ...newFronteiras({ order: ["a", "b"], continent: "Europe", values: {}, rated: false, now: T0 }), result: { winner, reason: "turns" } },
+  });
+  const won = finishRoom(ended("b"), T0 + 9);
+  assert.deepEqual(Object.values(won.players).map((p) => p.wins ?? 0), [0, 1]);
+  assert.equal(won.expiresAt, T0 + 9, "one game per room");
+  rejects(() => joinRoom(won, "c", "Caio", T0 + 9), "not-found");
+  assert.ok(Object.values(finishRoom(ended(null), T0).players).every((p) => !p.wins));
 });
